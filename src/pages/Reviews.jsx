@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Send, MessageSquare, Mail, Eye, MousePointer, X, Loader2 } from "lucide-react";
 import { Business, Client, ReviewRequest, User } from "@/api/entities";
-import sendRequest from "@/api/functions"; // Use default import
+import { sendRequest } from "@/api/functions"; // Use default import
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";

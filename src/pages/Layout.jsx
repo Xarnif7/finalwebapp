@@ -1,15 +1,15 @@
-
+﻿
 
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { User, Business } from "@/api/entities";
 import { motion, AnimatePresence } from "framer-motion";
-import ModernSidebar from "./components/dashboard/ModernSidebar";
-import ModernTopNav from "./components/dashboard/ModernTopNav";
-import { ThemeProvider } from "./components/providers/ThemeProvider";
-import { DashboardProvider } from "./components/providers/DashboardProvider";
-import ErrorBoundary from "./components/ui/error-boundary";
+import ModernSidebar from "../components/dashboard/ModernSidebar";
+import ModernTopNav from "../components/dashboard/ModernTopNav";
+import { ThemeProvider } from "../components/providers/ThemeProvider";
+import { DashboardProvider } from "../components/providers/DashboardProvider";
+import ErrorBoundary from "../components/ui/error-boundary";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -126,7 +126,7 @@ const LandingHeader = () => {
 const LandingFooter = () => (
     <footer className="py-12 px-6 bg-gradient-to-r from-blue-600 to-purple-600">
         <div className="max-w-7xl mx-auto text-center flex items-center justify-between">
-            <p className="text-white">© 2024 Blipp. All rights reserved.</p>
+            <p className="text-white">Â© 2024 Blipp. All rights reserved.</p>
             <Button 
                 onClick={() => User.me().then(() => window.location.href = createPageUrl("Dashboard")).catch(() => User.login())}
                 className="bg-white text-blue-600 hover:bg-gray-50 font-semibold px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
