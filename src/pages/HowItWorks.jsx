@@ -35,7 +35,7 @@ export default function HowItWorks() {
       const user = await User.me();
       navigate(createPageUrl("Dashboard"));
     } catch (error) {
-      User.login();
+      /* User.login();  // disabled auto-redirect */
     }
   };
 

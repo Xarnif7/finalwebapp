@@ -78,7 +78,7 @@ export default function Landing() {
     if (user) {
       navigate(createPageUrl("Dashboard"));
     } else {
-      User.login();
+      /* User.login();  // disabled auto-redirect */
     }
   };
 
