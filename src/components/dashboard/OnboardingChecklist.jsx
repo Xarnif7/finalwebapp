@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { CheckCircle, Circle, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';

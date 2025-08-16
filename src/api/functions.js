@@ -1,4 +1,4 @@
-import { base44 } from './base44Client';
+﻿import { base44 } from './base44Client';
 
 
 export const hello = base44.functions.hello;

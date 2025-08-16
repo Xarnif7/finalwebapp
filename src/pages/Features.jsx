@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { motion } from 'framer-motion';
 import { MessageCircle, BarChart3, Repeat, Compass, Zap, Brain } from 'lucide-react';
 

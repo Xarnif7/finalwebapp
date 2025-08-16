@@ -1,4 +1,4 @@
-import { base44 } from './base44Client';
+﻿import { base44 } from './base44Client';
 
 
 export const Business = base44.entities.Business;

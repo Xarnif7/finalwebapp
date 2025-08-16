@@ -1,4 +1,4 @@
-// Simple utility functions without external dependencies
+﻿// Simple utility functions without external dependencies
 
 export function cn(...inputs) {
   return inputs
