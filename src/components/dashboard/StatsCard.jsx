@@ -62,3 +62,4 @@ export default function StatsCard({ title, value, icon: Icon, gradient, trend, l
   return cardContent;
 }
 
+

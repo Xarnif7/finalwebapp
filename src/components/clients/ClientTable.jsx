@@ -67,3 +67,4 @@ const ClientTable = ({ clients, onSendMessage, onDeleteClient }) => {
 
 export default ClientTable;
 
+

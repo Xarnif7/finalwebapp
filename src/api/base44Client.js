@@ -7,3 +7,4 @@ export const base44 = createClient({
   requiresAuth: true // Ensure authentication is required for all operations
 });
 
+
