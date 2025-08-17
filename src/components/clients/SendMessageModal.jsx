@@ -89,3 +89,4 @@ const SendMessageModal = ({ isOpen, onClose, client, businessId, mode }) => {
 };
 
 export default SendMessageModal;
+

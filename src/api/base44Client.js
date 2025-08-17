@@ -6,3 +6,4 @@ export const base44 = createClient({
   appId: "6894e7489cd78593608da10a", 
   requiresAuth: true // Ensure authentication is required for all operations
 });
+

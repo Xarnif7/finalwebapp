@@ -194,3 +194,4 @@ export default function ClientsPage() {
     </motion.div>
   );
 }
+

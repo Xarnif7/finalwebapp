@@ -146,3 +146,4 @@ const CompetitorsPage = () => {
 };
 
 export default CompetitorsPage;
+

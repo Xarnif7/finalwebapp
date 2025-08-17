@@ -189,3 +189,4 @@ export default function OnboardingPage() { // Renamed from Onboarding
     </div>
   );
 }
+

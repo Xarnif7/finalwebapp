@@ -67,3 +67,4 @@ export function cva(base, config = {}) {
     return classes.replace(/\s+/g, ' ').trim()
   }
 }
+
