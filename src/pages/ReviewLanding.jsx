@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -96,7 +96,7 @@ export default function ReviewLanding() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="p-8 text-center">
-            <div className="text-red-500 text-xl mb-4">⚠️</div>
+            <div className="text-red-500 text-xl mb-4">âš ï¸</div>
             <p className="text-gray-700">{error}</p>
           </CardContent>
         </Card>
@@ -237,3 +237,5 @@ export default function ReviewLanding() {
     </div>
   );
 }
+
+

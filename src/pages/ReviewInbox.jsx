@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,7 +59,7 @@ const mockReviews = [
 const mockAiReplies = {
   positive: {
     professional: "Thank you for your positive feedback. We are pleased to hear you had a great experience and look forward to serving you again.",
-    friendly: "Wow, thanks so much for the amazing review! We're so happy you had a great time and can't wait to see you again soon! 😊",
+    friendly: "Wow, thanks so much for the amazing review! We're so happy you had a great time and can't wait to see you again soon! ðŸ˜Š",
     grateful: "We are incredibly grateful for your kind words. Reviews like yours make our day and motivate us to continue delivering the best service.",
   },
   negative: {
@@ -235,3 +235,5 @@ export default function ReviewInboxPage() {
     </div>
   );
 }
+
+

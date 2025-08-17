@@ -51,7 +51,7 @@ const LandingHeader = () => {
         if (user) {
             navigate(createPageUrl("Dashboard"));
         } else {
-            User.login();
+/* User.login();  // disabled auto-redirect */
         }
     };
 
@@ -232,4 +232,5 @@ export default function Layout({ children, currentPageName }) {
     </ThemeProvider>
   );
 }
+
 

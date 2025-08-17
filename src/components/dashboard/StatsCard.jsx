@@ -1,4 +1,4 @@
-
+﻿
 import React from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -61,3 +61,5 @@ export default function StatsCard({ title, value, icon: Icon, gradient, trend, l
   
   return cardContent;
 }
+
+

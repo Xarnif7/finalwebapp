@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -291,3 +291,5 @@ export default function ClientForm({ isOpen, onClose, onSubmit, client, business
     </>
   );
 }
+
+

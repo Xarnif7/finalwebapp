@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Button } from '@/components/ui/button';
@@ -103,3 +103,5 @@ export default function ModernTopNav({ onLogout }) {
     </header>
   );
 }
+
+

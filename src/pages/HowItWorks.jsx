@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+﻿import React, { useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ export default function HowItWorks() {
       const user = await User.me();
       navigate(createPageUrl("Dashboard"));
     } catch (error) {
-      User.login();
+      /* User.login();  // disabled auto-redirect */
     }
   };
 
@@ -197,3 +197,5 @@ export default function HowItWorks() {
     </div>
   );
 }
+
+

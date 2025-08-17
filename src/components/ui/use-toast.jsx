@@ -1,4 +1,4 @@
-// Inspired by react-hot-toast library
+﻿// Inspired by react-hot-toast library
 import { useState, useEffect, createContext, useContext } from "react";
 
 const TOAST_LIMIT = 20;
@@ -162,3 +162,5 @@ function useToast() {
 }
 
 export { useToast, toast }; 
+
+

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Card,
@@ -106,3 +106,5 @@ const SettingsPage = () => {
 };
 
 export default SettingsPage;
+
+

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -66,3 +66,5 @@ const ClientTable = ({ clients, onSendMessage, onDeleteClient }) => {
 };
 
 export default ClientTable;
+
+

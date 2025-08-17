@@ -1,4 +1,4 @@
-import { base44 } from './base44Client';
+﻿import { base44 } from './base44Client';
 
 
 export const Business = base44.entities.Business;
@@ -25,3 +25,13 @@ export const AuditLog = base44.entities.AuditLog;
 
 // auth sdk:
 export const User = base44.auth;
+
+
+// --- Auto-login guard: block redirects unless explicitly enabled ---
+if (typeof window !== "undefined" && typeof User !== "undefined" && typeof User.login === "function") {
+  const __origLogin = User.login;
+  User.login = (...args) => {
+    if (window.__allowLogin === true) return __origLogin(...args);
+    try { console.debug("Auto-login blocked"); } catch {}
+  };
+}

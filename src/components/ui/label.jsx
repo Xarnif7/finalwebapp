@@ -1,4 +1,4 @@
-import * as React from "react"
+﻿import * as React from "react"
 import { cn } from "@/components/lib/utils"
 
 const Label = React.forwardRef(({ className, ...props }, ref) => (
@@ -14,3 +14,5 @@ const Label = React.forwardRef(({ className, ...props }, ref) => (
 Label.displayName = "Label"
 
 export { Label }
+
+

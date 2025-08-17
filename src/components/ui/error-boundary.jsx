@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -45,3 +45,5 @@ class ErrorBoundary extends React.Component {
 }
 
 export default ErrorBoundary;
+
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -89,3 +89,5 @@ const SendMessageModal = ({ isOpen, onClose, client, businessId, mode }) => {
 };
 
 export default SendMessageModal;
+
+

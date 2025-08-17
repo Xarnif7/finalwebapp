@@ -1,4 +1,4 @@
-
+﻿
 import React from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -207,7 +207,7 @@ export default function Dashboard() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium text-sm text-slate-900">{review.customer}</span>
-                      <span className="text-xs text-slate-400">•</span>
+                      <span className="text-xs text-slate-400">â€¢</span>
                       <Badge variant="outline" className={platformColors[review.platform]}>
                         {review.platform}
                       </Badge>
@@ -244,3 +244,5 @@ export default function Dashboard() {
     </motion.div>
   );
 }
+
+

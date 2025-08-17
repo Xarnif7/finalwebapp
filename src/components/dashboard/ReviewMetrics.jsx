@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, Target, Zap } from "lucide-react";
@@ -56,7 +56,7 @@ export default function ReviewMetrics({ stats }) {
             />
             <p className="text-xs text-gray-500">
               {metric.value >= metric.target ? 
-                "✅ Exceeding industry average" : 
+                "âœ… Exceeding industry average" : 
                 `${metric.target - metric.value}% to reach target`
               }
             </p>
@@ -72,3 +72,5 @@ export default function ReviewMetrics({ stats }) {
     </Card>
   );
 }
+
+

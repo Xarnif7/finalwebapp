@@ -1,4 +1,4 @@
-
+﻿
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -78,7 +78,7 @@ export default function Landing() {
     if (user) {
       navigate(createPageUrl("Dashboard"));
     } else {
-      User.login();
+      /* User.login();  // disabled auto-redirect */
     }
   };
 
@@ -429,3 +429,5 @@ export default function Landing() {
     </div>
   );
 }
+
+
