@@ -1,0 +1,31 @@
+﻿<!doctype html>
+import AuthWiring from "../auth/AuthWiring.jsx";
+import AuthCallback from "./AuthCallback.jsx";
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blipp</title>
+  <meta name="theme-color" content="#111111" />
+  <meta name="theme-color" content="#111111" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=18" />
+  <link rel="shortcut icon" type="image/png" href="/favicon-32.png?v=18" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=18" />
+  <meta name="theme-color" content="#111111" />
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+
+
+
+
+
+
+
+
+
+

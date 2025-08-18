@@ -1,4 +1,6 @@
 ﻿
+
+
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -138,7 +140,7 @@ export default function Landing() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1, delay: 0.4, ease: [0.6, 0.01, 0.05, 0.95] }}
               >
-                <Button
+                <Button data-auth="true"
                   size="lg"
                   onClick={handleGetStarted}
                   className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-lg px-10 py-6 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105"
@@ -245,7 +247,7 @@ export default function Landing() {
               </div>
                <div className="text-center pt-8">
                  <Link to={createPageUrl('Features')}>
-                    <Button size="lg" variant="outline" className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">
+                    <Button data-auth="true" size="lg" variant="outline" className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">
                       Explore All Features <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   </Link>
@@ -282,7 +284,7 @@ export default function Landing() {
               ))}
             </div>
             <Link to={createPageUrl('HowItWorks')}>
-              <Button variant="outline" className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">
+              <Button data-auth="true" variant="outline" className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">
                 Learn More <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
@@ -317,7 +319,7 @@ export default function Landing() {
                   ))}
                 </div>
                 <Link to={createPageUrl('SimpleSetup')}>
-                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+                  <Button data-auth="true" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
                     See Setup Guide <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
@@ -403,7 +405,7 @@ export default function Landing() {
               ))}
             </div>
             <Link to={createPageUrl('Testimonials')}>
-              <Button variant="outline" className="border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white">
+              <Button data-auth="true" variant="outline" className="border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white">
                 Read All Stories <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
@@ -415,7 +417,7 @@ export default function Landing() {
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-4xl font-bold text-gray-900 mb-6">Ready to Transform Your Reputation?</h2>
             <p className="text-xl text-gray-600 mb-8">Join thousands of businesses already growing with Blipp</p>
-            <Button
+            <Button data-auth="true"
               size="lg"
               onClick={handleGetStarted}
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-xl px-12 py-8 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-2 hover:scale-110"
@@ -429,5 +431,7 @@ export default function Landing() {
     </div>
   );
 }
+
+
 
 

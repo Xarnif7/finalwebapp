@@ -1,4 +1,5 @@
 ﻿import { User } from "@/api/entities";
+import AuthWiring from "./auth/AuthWiring.jsx";
 /** Block automatic redirects to Base44. Allow only when we explicitly enable it. */
 const __origLogin = User.login;
 User.login = (...args) => {
@@ -13,6 +14,13 @@ import '@/index.css'
 ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
 ) 
+
+
+
+
+
+
+
 
 
 

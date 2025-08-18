@@ -1,7 +1,9 @@
-﻿
+﻿import { useLocation, useNavigate, Link } from "react-router-dom";
+
+
+
 
 import React, { useState, useEffect } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { User, Business } from "@/api/entities";
 import { motion, AnimatePresence } from "framer-motion";
@@ -82,14 +84,14 @@ const LandingHeader = () => {
                         <>
                             {user ? (
                                 <>
-                                    <Button onClick={handleAuthAction} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+                                    <Button data-auth="true" onClick={handleAuthAction} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
                                         View Dashboard
                                     </Button>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                             <button className="group" aria-label="User menu">
+                                             <Button data-auth="true" className="group" aria-label="User menu">
                                                 <UserAvatar user={user} size="40px" />
-                                            </button>
+                                            </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-56 z-50">
                                             <DropdownMenuItem onClick={() => navigate(createPageUrl('Settings'))} className="cursor-pointer">
@@ -107,10 +109,12 @@ const LandingHeader = () => {
                                 </>
                             ) : (
                                 <>
-                                    <Button variant="ghost" onClick={() => User.login()} className="text-gray-700 hover:text-blue-600">
+  <Link to="/auth">
+                                    <Button data-auth="true" variant="ghost" onClick={() => User.login()} className="text-gray-700 hover:text-blue-600">
                                         Sign In
                                     </Button>
-                                    <Button onClick={handleAuthAction} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+  </Link>
+                                    <Button data-auth="true" onClick={handleAuthAction} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
                                         Get Started
                                     </Button>
                                 </>
@@ -127,7 +131,7 @@ const LandingFooter = () => (
     <footer className="py-12 px-6 bg-gradient-to-r from-blue-600 to-purple-600">
         <div className="max-w-7xl mx-auto text-center flex items-center justify-between">
             <p className="text-white">Â© 2024 Blipp. All rights reserved.</p>
-            <Button 
+            <Button data-auth="true" 
                 onClick={() => User.me().then(() => window.location.href = createPageUrl("Dashboard")).catch(() => User.login())}
                 className="bg-white text-blue-600 hover:bg-gray-50 font-semibold px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
             >
@@ -232,5 +236,7 @@ export default function Layout({ children, currentPageName }) {
     </ThemeProvider>
   );
 }
+
+
 
 
