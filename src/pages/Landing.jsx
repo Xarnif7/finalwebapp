@@ -3,10 +3,12 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+
 import { Button } from "@/components/ui/button";
-import { motion, useInView, useScroll, useTransform } from "framer-motion";
-import { User } from "@/api/entities";
+import { motion, useScroll, useTransform, MotionConfig, useInView } from "framer-motion";
+import { useAuth } from "../auth/AuthProvider";
+import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
+import { useRevealOnce } from "../hooks/useRevealOnce";
 import {
   Star, MessageSquare, TrendingUp, Clock, Shield, Zap, Target, Rocket, Heart, CheckCircle,
   BarChart3, Repeat, Compass, Brain, MessageCircle as ConversationsIcon, ArrowRight,
@@ -16,11 +18,16 @@ import {
 const FloatingCard = ({ children, className = "", delay = 0 }) => {
   return (
     <motion.div
-      className={`bg-white rounded-2xl shadow-xl border border-gray-100 ${className}`}
-      initial={{ opacity: 0, y: 40 }}
+      className={`bg-white rounded-2xl shadow-xl border border-gray-100 transform-gpu will-change-[transform,opacity] ${className}`}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, delay, ease: [0.6, 0.01, 0.05, 0.95] }}
-      whileHover={{ y: -5, scale: 1.03, transition: { duration: 0.2 } }}
+      transition={{ duration: 0.45, ease: "easeOut", delay }}
+      whileHover={{ 
+        y: -2, 
+        scale: 1.02, 
+        boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+        transition: { duration: 0.2 } 
+      }}
     >
       {children}
     </motion.div>
@@ -28,20 +35,79 @@ const FloatingCard = ({ children, className = "", delay = 0 }) => {
 };
 
 const AnimatedSection = ({ children, className = "", id }) => {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, amount: 0.2 });
+  const [ref, isRevealed] = useRevealOnce({ threshold: 0.2 });
 
   return (
     <motion.section
       id={id}
       ref={ref}
-      initial={{ opacity: 0, y: 60 }}
-      animate={{ opacity: isInView ? 1 : 0, y: isInView ? 0 : 60 }}
-      transition={{ duration: 0.8, ease: [0.6, 0.01, 0.05, 0.95] }}
-      className={className}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: isRevealed ? 1 : 0, y: isRevealed ? 0 : 12 }}
+      transition={{ duration: 0.45, ease: "easeOut" }}
+      className={`transform-gpu will-change-[transform,opacity] ${className}`}
     >
       {children}
     </motion.section>
+  );
+};
+
+// Subcomponents to respect Rules of Hooks (no hooks inside array.map inline)
+const HowItWorksStep = ({ Icon, title, description, delay = 0 }) => {
+  const [ref, isRevealed] = useRevealOnce({ threshold: 0.2 });
+  return (
+    <motion.div
+      ref={ref}
+      className="text-center transform-gpu will-change-[transform,opacity] hover:translate-y-[-2px] transition-all duration-300"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: isRevealed ? 1 : 0, y: isRevealed ? 0 : 12 }}
+      transition={{ duration: 0.45, ease: "easeOut", delay }}
+    >
+      <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <Icon className="w-8 h-8 text-white" />
+      </div>
+      <h3 className="text-xl font-semibold mb-2">{title}</h3>
+      <p className="text-gray-600">{description}</p>
+    </motion.div>
+  );
+};
+
+const SetupListItem = ({ text, delay = 0 }) => {
+  const [ref, isRevealed] = useRevealOnce({ threshold: 0.2 });
+  return (
+    <motion.div
+      ref={ref}
+      className="flex items-center gap-3 transform-gpu will-change-[transform,opacity]"
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: isRevealed ? 1 : 0, x: isRevealed ? 0 : -20 }}
+      transition={{ duration: 0.45, delay, ease: "easeOut" }}
+    >
+      <CheckCircle className="w-5 h-5 text-green-500" />
+      <span>{text}</span>
+    </motion.div>
+  );
+};
+
+const TestimonialCard = ({ testimonial, delay = 0 }) => {
+  const [ref, isRevealed] = useRevealOnce({ threshold: 0.2 });
+  return (
+    <motion.div
+      ref={ref}
+      className="bg-white rounded-2xl p-6 shadow-lg transform-gpu will-change-[transform,opacity]"
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: isRevealed ? 1 : 0, y: isRevealed ? 0 : 30 }}
+      transition={{ duration: 0.45, delay, ease: "easeOut" }}
+    >
+      <div className="flex items-center mb-4">
+        {[...Array(testimonial.rating)].map((_, j) => (
+          <Star key={j} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+        ))}
+      </div>
+      <p className="text-gray-700 mb-4">"{testimonial.quote}"</p>
+      <div>
+        <div className="font-semibold">{testimonial.name}</div>
+        <div className="text-sm text-gray-500">{testimonial.role}</div>
+      </div>
+    </motion.div>
   );
 };
 
@@ -68,24 +134,51 @@ const CountUpNumber = ({ end, duration = 2000 }) => {
 
 export default function Landing() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const { user, handleAuth } = useAuth();
+  const subscriptionStatus = useSubscriptionStatus();
+  const { active: hasSubscription, onboarding_completed } = subscriptionStatus;
   const { scrollYProgress } = useScroll();
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
-  useEffect(() => {
-    User.me().then(setUser).catch(() => setUser(null));
-  }, []);
-
   const handleGetStarted = () => {
     if (user) {
-      navigate(createPageUrl("Dashboard"));
+      if (hasSubscription) {
+        if (onboarding_completed) {
+          navigate("/dashboard");
+        } else {
+          navigate("/onboarding"); // Need to complete onboarding first
+        }
+      } else {
+        navigate("/paywall"); // Redirect to paywall if no subscription
+      }
     } else {
-      /* User.login();  // disabled auto-redirect */
+      handleAuth();
     }
   };
 
+  // Determine button text based on user status
+  const getButtonText = () => {
+    console.log('[LANDING] Button text calculation:', { 
+      user: !!user, 
+      hasSubscription, 
+      onboarding_completed, 
+      subscriptionStatus 
+    });
+    
+    if (!user) return 'Start Growing Your Reputation';
+    if (hasSubscription && onboarding_completed) return 'View Dashboard';
+    if (hasSubscription && !onboarding_completed) return 'Complete Onboarding';
+    return 'Choose Your Plan';
+  };
+
   return (
-    <div className="bg-white text-gray-900 font-sans overflow-hidden">
+    <MotionConfig
+      transition={{
+        duration: 0.45,
+        ease: "easeOut"
+      }}
+    >
+      <div className="bg-white text-gray-900 font-sans overflow-hidden">
       <motion.div
         className="fixed inset-0 z-0"
         style={{ y: backgroundY }}
@@ -143,9 +236,9 @@ export default function Landing() {
                 <Button data-auth="true"
                   size="lg"
                   onClick={handleGetStarted}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-lg px-10 py-6 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-lg px-10 py-6 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
                 >
-                  {user ? 'Visit Your Dashboard' : 'Start Growing Your Reputation'}
+                  {getButtonText()}
                 </Button>
               </motion.div>
             </div>
@@ -195,41 +288,81 @@ export default function Landing() {
         </section>
 
         {/* Features Section for Main Landing Page */}
-        <AnimatedSection id="features" className="py-24 px-6 bg-white">
+        <AnimatedSection id="features" className="py-24 lg:py-28 px-6 bg-white">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">A Smarter Way to Manage Your Reputation</h2>
-              <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">Blipp is more than a review tool. It's a full-stack reputation marketing platform designed to help you grow.</p>
+              <h2 className="text-4xl font-bold text-gray-900 mb-6">Powerful Features That Drive Results</h2>
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto">Everything you need to automate your reputation management and grow your business</p>
             </div>
             <div className="space-y-24">
-              {/* Feature 1: Unified Inbox */}
+              {/* Feature 1: Review Management */}
               <div className="grid md:grid-cols-2 gap-12 items-center">
+                <motion.div 
+                  whileHover={{ scale: 1.02 }} 
+                  className="transform-gpu will-change-[transform,opacity]"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{ duration: 0.45, ease: 'easeOut' }}
+                >
+                                     <div className="aspect-[16/10] rounded-2xl shadow-xl overflow-hidden">
+                     <img 
+                       src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=1600&auto=format&fit=crop" 
+                       alt="Review Management Dashboard" 
+                       className="w-full h-full object-cover"
+                       width="560"
+                       height="350"
+                       sizes="(min-width: 1024px) 560px, 100vw"
+                       loading="lazy"
+                       decoding="async"
+                       onError={(e) => { 
+                         e.currentTarget.onerror = null; 
+                         e.currentTarget.src = 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1600&auto=format&fit=crop'; 
+                       }}
+                     />
+                   </div>
+                </motion.div>
                 <div>
                   <div className="inline-flex items-center gap-3 bg-blue-100 text-blue-700 px-4 py-1 rounded-full mb-4 font-semibold">
-                    <ConversationsIcon className="w-5 h-5" />
-                    <span>Conversations Inbox</span>
+                    <Star className="w-5 h-5" />
+                    <span>Review Management</span>
                   </div>
-                  <h3 className="text-3xl font-bold text-gray-900 mb-4">All Your Messages in One Place</h3>
-                  <p className="text-gray-600 text-lg mb-6">Engage with customers across SMS and other platforms from a single, unified inbox. Respond faster, build relationships, and never miss a conversation.</p>
+                  <h3 className="text-3xl font-bold text-gray-900 mb-4">Centralized Review Control</h3>
+                  <p className="text-gray-600 text-lg mb-6">Monitor and respond to reviews across Google, Yelp, and Facebook from one unified dashboard. Never miss a customer interaction again.</p>
                   <ul className="space-y-3">
-                    <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-green-500" /><span>Two-way SMS supported</span></li>
-                    <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-green-500" /><span>AI-powered smart replies</span></li>
-                    <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-green-500" /><span>Internal notes for team collaboration</span></li>
+                    <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-green-500" /><span>Real-time review notifications</span></li>
+                    <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-green-500" /><span>Automated sentiment analysis</span></li>
+                    <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-green-500" /><span>Custom response templates</span></li>
                   </ul>
                 </div>
-                <motion.div whileHover={{ scale: 1.05 }} transition={{ type: 'spring', stiffness: 300 }}>
-                  <img 
-                    src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/3afb66987_image.png" 
-                    alt="Conversations Inbox Interface" 
-                    className="rounded-2xl shadow-xl aspect-[4/3] object-cover w-full"
-                  />
-                </motion.div>
               </div>
 
               {/* Feature 2: Automated Sequences */}
               <div className="grid md:grid-cols-2 gap-12 items-center">
-                <motion.div whileHover={{ scale: 1.05 }} transition={{ type: 'spring', stiffness: 300 }} className="md:order-last">
-                    <img src="https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=600" alt="Automation Sequences" className="rounded-2xl shadow-xl aspect-[4/3] object-cover"/>
+                <motion.div 
+                  whileHover={{ scale: 1.02 }} 
+                  className="md:order-last transform-gpu will-change-[transform,opacity]"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{ duration: 0.45, ease: 'easeOut' }}
+                >
+                                     <div className="aspect-[16/10] rounded-2xl shadow-xl overflow-hidden">
+                     <img 
+                       src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1600&auto=format&fit=crop" 
+                       alt="Automated Follow-up Sequences" 
+                       className="w-full h-full object-cover"
+                       width="560"
+                       height="350"
+                       sizes="(min-width: 1024px) 560px, 100vw"
+                       loading="lazy"
+                       decoding="async"
+                       onError={(e) => { 
+                         e.currentTarget.onerror = null; 
+                         e.currentTarget.src = 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?q=80&w=1600&auto=format&fit=crop'; 
+                       }}
+                     />
+                   </div>
                 </motion.div>
                 <div className="md:order-first">
                   <div className="inline-flex items-center gap-3 bg-purple-100 text-purple-700 px-4 py-1 rounded-full mb-4 font-semibold">
@@ -246,8 +379,8 @@ export default function Landing() {
                 </div>
               </div>
                <div className="text-center pt-8">
-                 <Link to={createPageUrl('Features')}>
-                    <Button data-auth="true" size="lg" variant="outline" className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">
+                                   <Link to="/features">
+                    <Button data-auth="true" size="lg" variant="outline" className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
                       Explore All Features <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   </Link>
@@ -257,34 +390,17 @@ export default function Landing() {
         </AnimatedSection>
 
         {/* How It Works Preview */}
-        <AnimatedSection className="py-20 px-6 bg-gray-50">
+        <AnimatedSection className="py-24 lg:py-28 px-6 bg-gray-50">
           <div className="max-w-6xl mx-auto text-center">
             <h2 className="text-4xl font-bold text-gray-900 mb-6">How It Works</h2>
             <p className="text-lg text-gray-600 mb-12 max-w-2xl mx-auto">Get started in minutes with our simple 3-step process</p>
-            <div className="grid md:grid-cols-3 gap-8 mb-12">
-              {[
-                { icon: Settings, title: "Setup", description: "Connect your business profiles in minutes" },
-                { icon: Rocket, title: "Automate", description: "Let Blipp handle review requests automatically" },
-                { icon: BarChart3, title: "Grow", description: "Watch your ratings and revenue increase" }
-              ].map((step, i) => (
-                <motion.div
-                  key={i}
-                  className="text-center"
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: i * 0.2 }}
-                  viewport={{ once: true }}
-                >
-                  <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <step.icon className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
-                  <p className="text-gray-600">{step.description}</p>
-                </motion.div>
-              ))}
+            <div className="grid md:grid-cols-3 gap-6 lg:gap-8 mb-12">
+              <HowItWorksStep Icon={Settings} title="Setup" description="Connect your business profiles in minutes" delay={0} />
+              <HowItWorksStep Icon={Rocket} title="Automate" description="Let Blipp handle review requests automatically" delay={0.1} />
+              <HowItWorksStep Icon={BarChart3} title="Grow" description="Watch your ratings and revenue increase" delay={0.2} />
             </div>
-            <Link to={createPageUrl('HowItWorks')}>
-              <Button data-auth="true" variant="outline" className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">
+            <Link to="/how-it-works">
+              <Button data-auth="true" variant="outline" className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
                 Learn More <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
@@ -292,34 +408,20 @@ export default function Landing() {
         </AnimatedSection>
 
         {/* Simple Setup Preview */}
-        <AnimatedSection className="py-20 px-6">
+        <AnimatedSection className="py-24 lg:py-28 px-6">
           <div className="max-w-6xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div>
                 <h2 className="text-4xl font-bold text-gray-900 mb-6">Simple Setup</h2>
                 <p className="text-lg text-gray-600 mb-8">Get your reputation marketing engine running in under 10 minutes. No technical knowledge required.</p>
                 <div className="space-y-4 mb-8">
-                  {[
-                    "Connect your Google My Business profile",
-                    "Import your customer list (CSV or manual)",
-                    "Customize your review request templates",
-                    "Set automation rules and go live"
-                  ].map((item, i) => (
-                    <motion.div
-                      key={i}
-                      className="flex items-center gap-3"
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.5, delay: i * 0.1 }}
-                      viewport={{ once: true }}
-                    >
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      <span>{item}</span>
-                    </motion.div>
-                  ))}
+                  <SetupListItem text="Connect your Google My Business profile" delay={0} />
+                  <SetupListItem text="Import your customer list (CSV or manual)" delay={0.1} />
+                  <SetupListItem text="Customize your review request templates" delay={0.2} />
+                  <SetupListItem text="Set automation rules and go live" delay={0.3} />
                 </div>
-                <Link to={createPageUrl('SimpleSetup')}>
-                  <Button data-auth="true" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+                <Link to="/simple-setup">
+                  <Button data-auth="true" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
                     See Setup Guide <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
@@ -330,7 +432,7 @@ export default function Landing() {
                   initial={{ opacity: 0, scale: 0.9 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.8 }}
-                  viewport={{ once: true }}
+                  viewport={{ once: true, amount: 0.2 }}
                 >
                   <div className="bg-white rounded-lg p-6 shadow-lg">
                     <h3 className="font-semibold mb-4">Setup Progress</h3>
@@ -378,33 +480,11 @@ export default function Landing() {
             <h2 className="text-4xl font-bold text-gray-900 mb-6">Trusted by Growing Businesses</h2>
             <p className="text-lg text-gray-600 mb-12">See what our customers are saying about their success with Blipp</p>
             <div className="grid md:grid-cols-3 gap-8 mb-12">
-              {[
-                { name: "Sarah Johnson", role: "Dental Practice Owner", quote: "Blipp tripled our Google reviews in just 3 months. Game changer!", rating: 5 },
-                { name: "Mike Rodriguez", role: "Restaurant Manager", quote: "The automation saves us hours every week. Our rating went from 3.8 to 4.6.", rating: 5 },
-                { name: "Emily Chen", role: "Spa Director", quote: "Customer conversations are so much easier now. Revenue is up 40%.", rating: 5 }
-              ].map((testimonial, i) => (
-                <motion.div
-                  key={i}
-                  className="bg-white rounded-2xl p-6 shadow-lg"
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: i * 0.1 }}
-                  viewport={{ once: true }}
-                >
-                  <div className="flex items-center mb-4">
-                    {[...Array(testimonial.rating)].map((_, j) => (
-                      <Star key={j} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                    ))}
-                  </div>
-                  <p className="text-gray-700 mb-4">"{testimonial.quote}"</p>
-                  <div>
-                    <div className="font-semibold">{testimonial.name}</div>
-                    <div className="text-sm text-gray-500">{testimonial.role}</div>
-                  </div>
-                </motion.div>
-              ))}
+              <TestimonialCard testimonial={{ name: "Sarah Johnson", role: "Dental Practice Owner", quote: "Blipp tripled our Google reviews in just 3 months. Game changer!", rating: 5 }} delay={0} />
+              <TestimonialCard testimonial={{ name: "Mike Rodriguez", role: "Restaurant Manager", quote: "The automation saves us hours every week. Our rating went from 3.8 to 4.6.", rating: 5 }} delay={0.1} />
+              <TestimonialCard testimonial={{ name: "Emily Chen", role: "Spa Director", quote: "Customer conversations are so much easier now. Revenue is up 40%.", rating: 5 }} delay={0.2} />
             </div>
-            <Link to={createPageUrl('Testimonials')}>
+                            <Link to="/testimonials">
               <Button data-auth="true" variant="outline" className="border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white">
                 Read All Stories <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -422,15 +502,16 @@ export default function Landing() {
               onClick={handleGetStarted}
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-xl px-12 py-8 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-2 hover:scale-110"
             >
-              {user ? 'Visit Your Dashboard' : 'Start Your Free Trial'}
+              {getButtonText()}
               <ArrowRight className="w-6 h-6 ml-3" />
             </Button>
           </div>
-        </AnimatedSection>
-      </main>
-    </div>
-  );
-}
+                 </AnimatedSection>
+       </main>
+     </div>
+     </MotionConfig>
+   );
+ }
 
 
 

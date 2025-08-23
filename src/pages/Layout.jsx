@@ -1,12 +1,8 @@
 ﻿import { useLocation, useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect, useMemo } from "react";
 
+import { User } from "@/api/entities";
 
-
-
-import React, { useState, useEffect } from "react";
-import { createPageUrl } from "@/utils";
-import { User, Business } from "@/api/entities";
-import { motion, AnimatePresence } from "framer-motion";
 import ModernSidebar from "../components/dashboard/ModernSidebar";
 import ModernTopNav from "../components/dashboard/ModernTopNav";
 import { ThemeProvider } from "../components/providers/ThemeProvider";
@@ -20,7 +16,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User as UserIcon, Repeat } from "lucide-react";
+import { LogOut, User as UserIcon, Repeat, Zap } from "lucide-react";
+import { useAuth } from "../auth/AuthProvider";
+import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
+import { supabase } from "../lib/supabaseClient";
+import { useOnboardingStatus } from "../hooks/useOnboardingStatus";
+
+// Hoist subscription status to avoid multiple calls
+const useSubscriptionStatusMemo = () => {
+  const subscriptionStatus = useSubscriptionStatus();
+  return useMemo(() => subscriptionStatus, [
+    subscriptionStatus.active,
+    subscriptionStatus.status,
+    subscriptionStatus.plan_tier,
+    subscriptionStatus.loading
+  ]);
+};
 
 const UserAvatar = ({ user, size = "40px" }) => {
   const getInitials = () => {
@@ -40,27 +51,57 @@ const UserAvatar = ({ user, size = "40px" }) => {
   );
 };
 
-const LandingHeader = () => {
+const LandingHeader = React.memo(({ handleLogout, subscriptionStatus }) => {
     const navigate = useNavigate();
-    const [user, setUser] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const { user, handleAuth } = useAuth();
+    const { active: hasSubscription, onboarding_completed } = subscriptionStatus;
 
-    useEffect(() => {
-        User.me().then(setUser).catch(() => setUser(null)).finally(() => setIsLoading(false));
-    }, []);
+    console.count('Header renders');
 
-    const handleAuthAction = () => {
-        if (user) {
-            navigate(createPageUrl("Dashboard"));
+    const getButtonText = () => {
+        if (!user) return 'Get Started';
+        if (hasSubscription) {
+            return onboarding_completed ? 'View Dashboard' : 'Resume Onboarding';
+        }
+        return 'Get Started';
+    };
+
+    const handleButtonClick = () => {
+        if (!user) {
+            handleAuth('/');
+        } else if (hasSubscription) {
+            if (onboarding_completed) {
+                navigate("/dashboard");
+            } else {
+                navigate("/onboarding");
+            }
         } else {
-/* User.login();  // disabled auto-redirect */
+            // Both "Get Started" and "Visit Your Dashboard" go to paywall when no subscription
+            navigate("/paywall");
         }
     };
+
+    const handleSwitchAccount = async () => {
+        try {
+            // Ensure a clean local state, then immediately open account picker
+            await supabase.auth.signOut({ scope: 'local' });
+        } catch {}
+        localStorage.setItem('postLoginRedirect', '/'); // land back on /
+        await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: `${window.location.origin}/auth/callback`,
+                queryParams: { prompt: 'select_account', include_granted_scopes: 'true' }
+            }
+        });
+    };
+
+    console.log('[HEADER] Button state:', { user: !!user, hasSubscription, onboarding_completed, buttonText: getButtonText() });
 
     return (
         <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200/50">
             <div className="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
-                <Link to={createPageUrl("Landing")} className="flex-shrink-0">
+                <Link to="/" className="flex-shrink-0">
                     <img
                         src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/0e243f198_NEWBLIPPLOGO.png"
                         alt="Blipp"
@@ -68,142 +109,237 @@ const LandingHeader = () => {
                     />
                 </Link>
                 <nav className="hidden md:flex items-center gap-8">
-                    {['Features', 'HowItWorks', 'SimpleSetup', 'Testimonials'].map(page => (
-                        <Link
-                            key={page}
-                            to={createPageUrl(page)}
-                            className="text-gray-700 hover:text-blue-600 font-medium transition-all duration-300 relative group"
-                        >
-                            {page.replace(/([A-Z])/g, ' $1').trim()}
-                            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300 group-hover:w-full"></span>
-                        </Link>
-                    ))}
+                    <Link
+                        to="/features"
+                        className="text-gray-700 hover:text-blue-600 font-medium transition-all duration-300 relative group"
+                    >
+                        Features
+                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300 group-hover:w-full"></span>
+                    </Link>
+                    <Link
+                        to="/how-it-works"
+                        className="text-gray-700 hover:text-blue-600 font-medium transition-all duration-300 relative group"
+                    >
+                        How It Works
+                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300 group-hover:w-full"></span>
+                    </Link>
+                    <Link
+                        to="/simple-setup"
+                        className="text-gray-700 hover:text-blue-600 font-medium transition-all duration-300 relative group"
+                    >
+                        Simple Setup
+                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300 group-hover:w-full"></span>
+                    </Link>
+                    <Link
+                        to="/testimonials"
+                        className="text-gray-700 hover:text-blue-600 font-medium transition-all duration-300 relative group"
+                    >
+                        Testimonials
+                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300 group-hover:w-full"></span>
+                    </Link>
                 </nav>
                 <div className="flex items-center gap-3">
-                    {isLoading ? <div className="w-40 h-10 rounded-lg bg-gray-200 animate-pulse" /> : (
+                    {user ? (
                         <>
-                            {user ? (
-                                <>
-                                    <Button data-auth="true" onClick={handleAuthAction} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
-                                        View Dashboard
-                                    </Button>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                             <Button data-auth="true" className="group" aria-label="User menu">
-                                                <UserAvatar user={user} size="40px" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-56 z-50">
-                                            <DropdownMenuItem onClick={() => navigate(createPageUrl('Settings'))} className="cursor-pointer">
-                                                <UserIcon className="mr-2 h-4 w-4" />Profile
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => User.logout()} className="cursor-pointer">
-                                                <Repeat className="mr-2 h-4 w-4" />Switch Account
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => User.logout()} className="text-red-600 focus:bg-red-50 focus:text-red-700 cursor-pointer">
-                                                <LogOut className="mr-2 h-4 w-4" />Sign Out
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </>
-                            ) : (
-                                <>
-  <Link to="/auth">
-                                    <Button data-auth="true" variant="ghost" onClick={() => User.login()} className="text-gray-700 hover:text-blue-600">
-                                        Sign In
-                                    </Button>
-  </Link>
-                                    <Button data-auth="true" onClick={handleAuthAction} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
-                                        Get Started
-                                    </Button>
-                                </>
-                            )}
+                            <Button 
+                                data-auth="true" 
+                                onClick={handleButtonClick} 
+                                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                            >
+                                {getButtonText()}
+                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                     <div className="cursor-pointer">
+                                        <UserAvatar user={user} size="40px" />
+                                     </div>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56 z-50">
+                                    <DropdownMenuItem onClick={handleSwitchAccount} className="cursor-pointer">
+                                        <Repeat className="mr-2 h-4 w-4" />Switch Account
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:bg-red-50 focus:text-red-700 cursor-pointer">
+                                        <LogOut className="mr-2 h-4 w-4" />Sign Out
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </>
+                    ) : (
+                        <>
+                            <Button data-auth="true" variant="ghost" onClick={() => handleAuth('/')} className="text-gray-700 hover:text-blue-600">
+                                Sign In
+                            </Button>
+                            <Button data-auth="true" onClick={() => handleAuth('/')} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+                                Get Started
+                            </Button>
                         </>
                     )}
                 </div>
             </div>
         </header>
     );
-};
+});
 
-const LandingFooter = () => (
-    <footer className="py-12 px-6 bg-gradient-to-r from-blue-600 to-purple-600">
-        <div className="max-w-7xl mx-auto text-center flex items-center justify-between">
-            <p className="text-white">Â© 2024 Blipp. All rights reserved.</p>
-            <Button data-auth="true" 
-                onClick={() => User.me().then(() => window.location.href = createPageUrl("Dashboard")).catch(() => User.login())}
-                className="bg-white text-blue-600 hover:bg-gray-50 font-semibold px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-                Visit Your Dashboard
-            </Button>
-        </div>
-    </footer>
-);
+const LandingFooter = React.memo(({ handleLogout, subscriptionStatus }) => {
+    const { user, handleAuth } = useAuth();
+    const { active: hasSubscription, onboarding_completed } = subscriptionStatus;
+    const navigate = useNavigate();
+    
+    console.count('Footer renders');
+    
+    const getFooterButtonText = () => {
+        if (!user) return 'Start Your Free Trial';
+        if (hasSubscription) {
+            return onboarding_completed ? 'Visit Your Dashboard' : 'Resume Onboarding';
+        }
+        return 'Get Started';
+    };
+    
+    const handleFooterAction = () => {
+        if (user) {
+            if (hasSubscription) {
+                if (onboarding_completed) {
+                    navigate("/dashboard");
+                } else {
+                    navigate("/onboarding");
+                }
+            } else {
+                navigate("/paywall");
+            }
+        } else {
+            handleAuth('/');
+        }
+    };
+    
+    console.log('[FOOTER] Button state:', { user: !!user, hasSubscription, onboarding_completed, buttonText: getFooterButtonText() });
+    
+    return (
+        <footer className="py-12 px-6 bg-gradient-to-r from-blue-600 to-purple-600">
+            <div className="max-w-7xl mx-auto text-center flex items-center justify-between">
+                <p className="text-white">© 2024 Blipp. All rights reserved.</p>
+                <Button data-auth="true" 
+                    onClick={handleFooterAction}
+                    className="bg-white text-blue-600 hover:bg-gray-50 font-semibold px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                    {getFooterButtonText()}
+                </Button>
+            </div>
+        </footer>
+    );
+});
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const { user, loading } = useAuth();
   const [business, setBusiness] = useState(null);
   const [authStatus, setAuthStatus] = useState("checking");
+  
+  // Use memoized subscription status to prevent multiple calls
+  const subscriptionStatus = useSubscriptionStatusMemo();
+
+  console.log('[LAYOUT] Rendering with currentPageName:', currentPageName, 'pathname:', location.pathname, 'children type:', typeof children);
 
   const updateBusiness = (newBusinessData) => {
     setBusiness(prev => ({...prev, ...newBusinessData}));
   };
 
-  const isLandingSitePage = ["Landing", "Features", "HowItWorks", "SimpleSetup", "Testimonials"].includes(currentPageName);
+  const isLandingSitePage = ["Landing", "Features", "HowItWorks", "SimpleSetup", "Testimonials", "Paywall", "PostCheckout", "NotFound"].includes(currentPageName);
+  
+  console.log('[LAYOUT] isLandingSitePage:', isLandingSitePage, 'currentPageName:', currentPageName);
 
   useEffect(() => {
-    if (isLandingSitePage || ["CustomLogin", "Onboarding"].includes(currentPageName)) {
+    console.log('[LAYOUT] useEffect triggered:', { currentPageName, isLandingSitePage, user: !!user, loading });
+    
+    // Don't block onboarding page - it should render normally
+    if (location.pathname === '/onboarding') {
+      console.log('[LAYOUT] Onboarding page detected, allowing normal render');
+      setAuthStatus("authorized");
+      return;
+    }
+    
+    // Block redirects from other protected pages
+    const block = ['/post-checkout', '/auth/callback'];
+    if (block.includes(location.pathname)) {
+      console.log('[LAYOUT] Blocking redirect from protected page:', location.pathname);
+      return;
+    }
+    
+    if (isLandingSitePage || ["CustomLogin"].includes(currentPageName)) {
+      console.log('[LAYOUT] Setting auth status to public');
       setAuthStatus("public");
       return;
     }
     
-    const initializeAuth = async () => {
+    if (loading) {
+      console.log('[LAYOUT] Still loading, returning');
+      return;
+    }
+    
+    if (!user) {
+      console.log('[LAYOUT] No user, setting unauthorized and navigating to landing');
+      setAuthStatus("unauthorized");
+      navigate("/");
+      return;
+    }
+    
+    console.log('[LAYOUT] Initializing business for user');
+    const initializeBusiness = async () => {
       setAuthStatus("checking");
       try {
-        const currentUser = await User.me();
-        setUser(currentUser);
-        const businesses = await Business.filter({ created_by: currentUser.email });
-        if (businesses.length > 0) {
+        const { data: businesses, error } = await supabase
+          .from('businesses')
+          .select('*')
+          .limit(1); // RLS will automatically filter by auth.uid()
+        
+        if (!error && businesses && businesses.length > 0) {
           setBusiness(businesses[0]);
         } else if (currentPageName !== 'Onboarding') {
-          navigate(createPageUrl("Onboarding"));
+          navigate("/onboarding");
           return;
         }
         setAuthStatus("authorized");
       } catch (error) {
-        setAuthStatus("unauthorized");
-        navigate(createPageUrl("Landing"));
+        console.error('[LAYOUT] Business initialization error:', error);
+        setAuthStatus("authorized"); // Allow access even if business init fails
       }
     };
     
-    initializeAuth();
-  }, [currentPageName, navigate, isLandingSitePage]);
+    initializeBusiness();
+  }, [currentPageName, navigate, isLandingSitePage, user, loading, location.pathname]);
 
   const handleLogout = async () => {
-    await User.logout();
-    navigate(createPageUrl("Landing"));
+    await supabase.auth.signOut();
+    navigate("/");
   };
   
   if (isLandingSitePage) {
+    console.log('[LAYOUT] Rendering landing site layout for:', currentPageName);
+    console.log('[LAYOUT] Children type:', typeof children);
+    console.log('[LAYOUT] Children:', children);
     return (
-        <div className="bg-white text-gray-900 font-sans">
-            <LandingHeader />
-            <main>{children}</main>
-            <LandingFooter />
+        <div className="bg-white text-gray-900 font-sans min-h-screen">
+            <LandingHeader handleLogout={handleLogout} subscriptionStatus={subscriptionStatus} />
+            <main className="relative z-10">{children}</main>
+            <LandingFooter handleLogout={handleLogout} subscriptionStatus={subscriptionStatus} />
         </div>
     );
   }
 
-  if (authStatus === "checking" || authStatus === "unauthorized") {
-      return <div className="bg-[var(--bg)] h-screen w-screen" />;
+  // Don't show white screen during auth checking - render content immediately
+  if (authStatus === "unauthorized") {
+      console.log('[LAYOUT] Rendering unauthorized state, redirecting to landing');
+      navigate("/");
+      return null;
   }
 
-  if (["CustomLogin", "Onboarding"].includes(currentPageName)) {
+  if (["CustomLogin", "Onboarding", "PostCheckout"].includes(currentPageName)) {
+      console.log('[LAYOUT] Rendering simple layout for:', currentPageName);
       return <div>{children}</div>;
   }
+
+  console.log('[LAYOUT] Rendering dashboard layout for:', currentPageName);
 
   return (
     <ThemeProvider>
@@ -216,18 +352,9 @@ export default function Layout({ children, currentPageName }) {
                 <ModernTopNav onLogout={handleLogout} />
 
                 <main className="flex-1 overflow-y-auto">
-                <AnimatePresence mode="wait">
-                    <motion.div
-                    key={location.pathname}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                    className="h-full"
-                    >
-                    {children}
-                    </motion.div>
-                </AnimatePresence>
+                    <div className="h-full">
+                        {children}
+                    </div>
                 </main>
             </div>
             </div>

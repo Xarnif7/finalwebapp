@@ -1,6 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
 import { cn } from '@/components/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -13,42 +12,42 @@ const navigationGroups = [
   {
     title: 'Overview',
     items: [
-      { title: 'Dashboard', url: 'Dashboard', icon: LayoutDashboard },
+      { title: 'Dashboard', url: 'dashboard', icon: LayoutDashboard },
     ]
   },
   {
     title: 'Workspace',
     items: [
-      { title: 'Customers', url: 'Clients', icon: Users },
+      { title: 'Customers', url: 'clients', icon: Users },
       { 
         title: 'Reviews', 
         icon: Star,
         subItems: [
-          { title: 'Review Inbox', url: 'ReviewInbox' },
-          { title: 'Send Requests', url: 'AutomatedRequests' },
-          { title: 'Performance', url: 'ReviewPerformance' },
+          { title: 'Review Inbox', url: 'review-inbox' },
+          { title: 'Send Requests', url: 'automated-requests' },
+          { title: 'Performance', url: 'review-performance' },
         ]
       },
-      { title: 'Conversations', url: 'Conversations', icon: MessageCircle },
-      { title: 'Social', url: 'SocialPosts', icon: Instagram },
-      { title: 'Automation', url: 'Sequences', icon: Repeat },
-      { title: 'Competitors', url: 'Competitors', icon: Compass },
-      { title: 'Reports', url: 'RevenueImpact', icon: BarChart3 },
+      { title: 'Conversations', url: 'conversations', icon: MessageCircle },
+      { title: 'Social', url: 'social-posts', icon: Instagram },
+      { title: 'Automation', url: 'sequences', icon: Repeat },
+      { title: 'Competitors', url: 'competitors', icon: Compass },
+      { title: 'Reports', url: 'revenue-impact', icon: BarChart3 },
     ]
   },
   {
     title: 'Admin',
     items: [
-      { title: 'Team & Roles', url: 'TeamRoles', icon: Users },
-      { title: 'Audit Log', url: 'AuditLog', icon: FileText },
-      { title: 'Settings', url: 'Settings', icon: Settings },
+      { title: 'Team & Roles', url: 'team-roles', icon: Users },
+      { title: 'Audit Log', url: 'audit-log', icon: FileText },
+      { title: 'Settings', url: 'settings', icon: Settings },
     ]
   }
 ];
 
 const BlippLogo = ({ collapsed }) => (
     <div className="flex items-center justify-center p-6 h-20 border-b border-slate-200">
-        <Link to={createPageUrl('Landing')}>
+        <Link to="/">
             <AnimatePresence>
                 {!collapsed && (
                     <motion.img
@@ -83,8 +82,8 @@ const BlippLogo = ({ collapsed }) => (
 
 const NavItem = ({ item, expandedGroups, toggleGroup, collapsed }) => {
     const location = useLocation();
-    const isParentActive = item.subItems?.some(sub => location.pathname.includes(createPageUrl(sub.url)));
-    const isActive = !item.subItems && location.pathname.includes(createPageUrl(item.url));
+    const isParentActive = item.subItems?.some(sub => location.pathname.includes(sub.url));
+    const isActive = !item.subItems && location.pathname.includes(item.url);
     const isGroupOpen = expandedGroups.includes(item.title);
 
     if (item.subItems) {
@@ -112,16 +111,16 @@ const NavItem = ({ item, expandedGroups, toggleGroup, collapsed }) => {
                 {!collapsed && isGroupOpen && (
                     <div className="pl-6 mt-1 space-y-1">
                         {item.subItems.map(subItem => (
-                            <Link key={subItem.title} to={createPageUrl(subItem.url)}>
+                            <Link key={subItem.title} to={`/${subItem.url}`}>
                                 <div className={cn(
                                     "group px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 relative",
-                                    location.pathname.includes(createPageUrl(subItem.url))
+                                    location.pathname.includes(subItem.url)
                                         ? "bg-blue-100 text-blue-700 font-semibold"
                                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                                 )}>
                                     <span className="relative">
                                         {subItem.title}
-                                        {!location.pathname.includes(createPageUrl(subItem.url)) && (
+                                        {!location.pathname.includes(subItem.url) && (
                                             <div className="absolute -bottom-1 left-0 h-[2px] w-0 group-hover:w-full transition-[width] duration-250 ease-out rounded-full bg-gradient-to-r from-[#1A73E8] to-[#7C3AED]" />
                                         )}
                                     </span>
@@ -135,7 +134,7 @@ const NavItem = ({ item, expandedGroups, toggleGroup, collapsed }) => {
     }
     
     return (
-        <Link to={createPageUrl(item.url)} title={collapsed ? item.title : ''}>
+        <Link to={`/${item.url}`} title={collapsed ? item.title : ''}>
             <motion.div
                 className={cn(
                     "group flex items-center gap-3.5 text-sm font-medium rounded-lg px-4 py-2.5 transition-all duration-200 relative",

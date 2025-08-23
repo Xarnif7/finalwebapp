@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useInView } from 'framer-motion';
 import { Star, Quote } from 'lucide-react';
 
 const testimonials = [
@@ -57,24 +57,24 @@ const StarRating = ({ rating }) => (
 
 const Testimonials = () => {
   return (
-    <div className="py-40 px-6 bg-gray-50">
+    <div className="py-24 lg:py-28 px-6 bg-gray-50">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold mb-6 text-gray-900">What Our Customers Say</h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <h1 className="text-4xl lg:text-5xl font-bold mb-6 text-gray-900">What Our Customers Say</h1>
+          <p className="text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto">
             Join hundreds of businesses that have transformed their online reputation with Blipp.
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {testimonials.map((testimonial, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: index * 0.1 }}
-              viewport={{ once: true }}
-              className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 relative hover:-translate-y-1 hover:shadow-xl transition-all"
+              transition={{ duration: 0.45, ease: "easeOut", delay: index * 0.1 }}
+              viewport={{ once: true, amount: 0.2 }}
+              className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 relative transform-gpu will-change-[transform,opacity] hover:translate-y-[-2px] hover:shadow-xl transition-all duration-300 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
             >
               <Quote className="w-8 h-8 text-blue-600 mb-4 opacity-60" />
               

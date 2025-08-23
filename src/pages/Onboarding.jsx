@@ -1,5 +1,5 @@
 ﻿
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Building2, Loader2 } from "lucide-react"; // Added Loader2, Building2 already there
-import { User, Business } from "@/api/entities";
-import { motion } from "framer-motion"; // Added framer-motion
 
-export default function OnboardingPage() { // Renamed from Onboarding
+import { motion } from "framer-motion"; // Added framer-motion
+import { supabase } from "../lib/supabaseClient";
+import { useAuth } from "../auth/AuthProvider";
+
+export default function Onboarding() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
     address: "",
@@ -22,7 +25,92 @@ export default function OnboardingPage() { // Renamed from Onboarding
     yelp_review_url: "",
     industry: "",
   });
-  const [isSaving, setIsSaving] = useState(false); // Renamed from isSubmitting
+  const [isSaving, setIsSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [justPaid, setJustPaid] = useState(false);
+
+  // First render log and subscription check
+  useEffect(() => {
+    const justPaidFlag = sessionStorage.getItem('justPaid') === '1';
+    setJustPaid(justPaidFlag);
+    console.log('[ONBOARDING] First render:', { 
+      route: '/onboarding', 
+      userId: user?.id,
+      justPaid: justPaidFlag
+    });
+  }, [user]);
+
+  // Fetch existing business data or create default profile
+  useEffect(() => {
+    const fetchBusinessData = async () => {
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        console.log('[ONBOARDING] Fetching business data for user:', user.id);
+        
+        // Check if user has a profile - RLS will automatically filter by auth.uid()
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, onboarding_completed, stripe_customer_id')
+          .single();
+        
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error('[ONBOARDING] Profile error:', profileError);
+        }
+        
+        // Check if user has existing business - RLS will automatically filter by auth.uid()
+        const { data: businesses, error: businessError } = await supabase
+          .from('businesses')
+          .select('*')
+          .limit(1);
+        
+        if (businessError) {
+          console.error('[ONBOARDING] Business fetch error:', businessError);
+          console.error('[ONBOARDING] Business fetch error details:', {
+            message: businessError.message,
+            code: businessError.code,
+            details: businessError.details,
+            hint: businessError.hint
+          });
+        }
+        
+        // If business exists, populate form
+        if (businesses && businesses.length > 0) {
+          const business = businesses[0];
+          setFormData({
+            name: business.name || "",
+            address: business.address || "",
+            phone: business.phone || "",
+            email: business.email || user.email || "",
+            google_review_url: business.google_review_url || "",
+            yelp_review_url: business.yelp_review_url || "",
+            industry: business.industry || "",
+          });
+        } else {
+          // Set default email from user
+          setFormData(prev => ({
+            ...prev,
+            email: user.email || ""
+          }));
+        }
+        
+        console.log('[ONBOARDING] Data loaded:', { 
+          hasProfile: !!profile, 
+          loadingStates: { profile: !profile }
+        });
+        
+      } catch (err) {
+        console.error('[ONBOARDING] Error fetching data:', err);
+        setError('Failed to load business data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBusinessData();
+  }, [user]);
 
   // Removed industries array and defaultTemplates as they are no longer used for UI auto-population
   // The select items are hardcoded in the new UI outline
@@ -32,41 +120,188 @@ export default function OnboardingPage() { // Renamed from Onboarding
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSaving(true); // Using isSaving
+    setIsSaving(true);
 
     try {
-      // User.me() call removed as email is now a required input and not derived from current user
-      // Logo upload logic removed as per UI changes
-      await Business.create({
-        ...formData,
-        // email is now directly from formData, no fallback needed
-        // logo_url and other fields like review_delay_hours, email_template are removed from this initial setup
-      });
+      console.log('[ONBOARDING] Submitting form data:', formData);
+      
+      // Check if business already exists - RLS will automatically filter by auth.uid()
+      const { data: existingBusinesses, error: fetchError } = await supabase
+        .from('businesses')
+        .select('id')
+        .limit(1);
+      
+      if (fetchError) {
+        throw new Error('Failed to check existing business');
+      }
+      
+      let businessId;
+      
+      if (existingBusinesses && existingBusinesses.length > 0) {
+        // Update existing business
+        const { error: updateError } = await supabase
+          .from('businesses')
+          .update({
+            name: formData.name,
+            address: formData.address,
+            phone: formData.phone,
+            email: formData.email,
+            google_review_url: formData.google_review_url,
+            yelp_review_url: formData.yelp_review_url,
+            industry: formData.industry,
+          })
+          .eq('id', existingBusinesses[0].id);
+        
+        if (updateError) throw updateError;
+        businessId = existingBusinesses[0].id;
+        console.log('[ONBOARDING] Updated existing business:', businessId);
+      } else {
+        // Create new business - try with created_by field as fallback
+        const businessData = {
+          ...formData,
+        };
+        
+        // If database trigger doesn't work, add created_by manually
+        if (user.id) {
+          businessData.created_by = user.id; // Use UUID, not email
+        }
+        
+        console.log('[ONBOARDING] Creating business with data:', businessData);
+        
+        const { data: newBusiness, error: createError } = await supabase
+          .from('businesses')
+          .insert(businessData)
+          .select('id')
+          .single();
+        
+        if (createError) throw createError;
+        businessId = newBusiness.id;
+        console.log('[ONBOARDING] Created new business:', businessId);
+      }
 
-      // Redirect to dashboard with a flag indicating onboarding is complete
-      navigate(createPageUrl("Dashboard?onboard=success"));
+      // Update profile onboarding_completed status
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ 
+          onboarding_completed: true 
+        })
+        .eq('id', user.id);
+      
+      if (profileError) {
+        console.error('[ONBOARDING] Error updating profile:', profileError);
+      }
+
+      // Clear the justPaid flag
+      sessionStorage.removeItem('justPaid');
+
+      console.log('[ONBOARDING] Onboarding completed successfully, redirecting to dashboard');
+      
+      // Redirect to dashboard with replace: true
+      navigate("/dashboard", { replace: true });
     } catch (error) {
-      console.error("Error creating business:", error);
-      // Optionally add user-facing error message here
+      console.error('[ONBOARDING] Error saving business:', error);
+      console.error('[ONBOARDING] Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
+      setError(`Failed to save business data: ${error.message}. Please try again.`);
     } finally {
-      setIsSaving(false); // Using isSaving
+      setIsSaving(false);
     }
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your business profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Always render the form even if there's an error - don't return null
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading user information...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state with retry
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl text-center">
+          <div className="text-red-500 mb-4">
+            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Something went wrong</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl"
+        transition={{ duration: 0.5 }}
+        className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-4xl"
       >
+        {/* Success Message for Users Who Just Paid */}
+        {justPaid && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg"
+          >
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-green-800">
+                  Payment Successful!
+                </h3>
+                <p className="text-sm text-green-700 mt-1">
+                  Your subscription is now active. Let's set up your business profile to get started.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         <div className="text-center mb-8">
-          {/* New logo/icon area */}
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Building2 className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to Blipp!</h1>
-          <p className="text-gray-600">Let's set up your business profile to get started</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {justPaid ? 'Welcome to Blipp!' : 'Complete Your Business Setup'}
+          </h1>
+          <p className="text-gray-600">
+            {justPaid 
+              ? 'Let\'s get your business profile set up so you can start managing your online reputation.'
+              : 'Please provide your business information to complete the setup process.'
+            }
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

@@ -1,0 +1,18 @@
+{
+  "name": "blipp-api",
+  "version": "1.0.0",
+  "description": "API functions for Blipp application",
+  "main": "index.js",
+  "dependencies": {
+    "stripe": "^14.0.0",
+    "@supabase/supabase-js": "^2.0.0",
+    "micro": "^10.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

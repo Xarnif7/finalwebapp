@@ -1,13 +1,12 @@
 {
-  "version": 2,
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/((?!api).*)", "destination": "/" }
   ],
-  "headers": [
+  "crons": [
     {
-      "source": "/index.html",
-      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+      "path": "/api/reviews/sync/all",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

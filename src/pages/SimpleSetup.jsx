@@ -28,8 +28,10 @@ const steps = [
 ];
 
 const SimpleSetup = () => {
+  console.log('[SIMPLESETUP] Component rendering with pathname:', window.location.pathname);
+  
   return (
-    <div className="py-40 px-6 bg-gray-50">
+    <div className="pt-24 pb-20 px-6 bg-gray-50">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold mb-6 text-gray-900">Simple Setup</h1>

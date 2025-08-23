@@ -1,12 +1,11 @@
 ﻿
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Star, TrendingUp, MessageSquare, Plus, ArrowRight, Zap, Shield, BarChart3, Send, Clock, Settings, Instagram, Compass } from "lucide-react";
-import { motion } from "framer-motion";
+
 import { useDashboard } from "@/components/providers/DashboardProvider";
 
 const kpiData = [
@@ -18,7 +17,7 @@ const kpiData = [
     bgColor: "bg-yellow-50", 
     borderColor: "border-yellow-200",
     iconColor: "text-yellow-600",
-    href: "ReviewPerformance"
+    href: "review-performance"
   },
   { 
     title: "Average Rating", 
@@ -28,7 +27,7 @@ const kpiData = [
     bgColor: "bg-green-50", 
     borderColor: "border-green-200",
     iconColor: "text-green-600",
-    href: "ReviewPerformance"
+    href: "review-performance"
   },
   { 
     title: "Response Rate", 
@@ -38,7 +37,7 @@ const kpiData = [
     bgColor: "bg-blue-50", 
     borderColor: "border-blue-200",
     iconColor: "text-blue-600",
-    href: "ReviewPerformance"
+    href: "review-performance"
   },
   { 
     title: "Revenue Impact", 
@@ -48,7 +47,7 @@ const kpiData = [
     bgColor: "bg-purple-50", 
     borderColor: "border-purple-200",
     iconColor: "text-purple-600",
-    href: "RevenueImpact"
+    href: "revenue-impact"
   },
 ];
 
@@ -60,14 +59,14 @@ const recentReviews = [
 ];
 
 const quickActions = [
-  { label: 'Add Customer', icon: Plus, url: 'Clients', color: 'text-green-600' },
-  { label: 'Send Request', icon: Send, url: 'AutomatedRequests', color: 'text-blue-600' },
-  { label: 'View Messages', icon: MessageSquare, url: 'Conversations', color: 'text-purple-600' },
-  { label: 'Integrations', icon: Shield, url: 'Integrations', color: 'text-orange-600' },
-  { label: 'Review Inbox', icon: Star, url: 'ReviewInbox', color: 'text-yellow-600' },
-  { label: 'Revenue Impact', icon: BarChart3, url: 'RevenueImpact', color: 'text-indigo-600' },
-  { label: 'Social Posts', icon: Instagram, url: 'SocialPosts', color: 'text-pink-600' },
-  { label: 'Competitors', icon: Compass, url: 'Competitors', color: 'text-teal-600' },
+  { label: 'Add Customer', icon: Plus, url: 'clients', color: 'text-green-600' },
+  { label: 'Send Request', icon: Send, url: 'automated-requests', color: 'text-blue-600' },
+  { label: 'View Messages', icon: MessageSquare, url: 'conversations', color: 'text-purple-600' },
+  { label: 'Integrations', icon: Shield, url: 'integrations', color: 'text-orange-600' },
+  { label: 'Review Inbox', icon: Star, url: 'review-inbox', color: 'text-yellow-600' },
+  { label: 'Revenue Impact', icon: BarChart3, url: 'revenue-impact', color: 'text-indigo-600' },
+  { label: 'Social Posts', icon: Instagram, url: 'social-posts', color: 'text-pink-600' },
+  { label: 'Competitors', icon: Compass, url: 'competitors', color: 'text-teal-600' },
 ];
 
 const platformColors = {
@@ -87,26 +86,37 @@ export default function Dashboard() {
   const { business } = useDashboard();
   const businessName = business?.name || "Your Business";
 
+  // Performance instrumentation for data fetching
+  useEffect(() => {
+    performance.mark('dashboard-component-ready');
+    console.log('[DASHBOARD-PERF] Component ready');
+    
+    // Track data fetching if any
+    if (business) {
+      console.log('[DASHBOARD-PERF] Business data loaded from provider');
+    } else {
+      console.log('[DASHBOARD-PERF] No business data - using fallback');
+    }
+    
+    // Track first content paint
+    setTimeout(() => {
+      performance.mark('dashboard-content-paint');
+      performance.measure('dashboard-paint-time', 'dashboard-component-ready', 'dashboard-content-paint');
+      const paintMeasure = performance.getEntriesByName('dashboard-paint-time')[0];
+      console.log(`[DASHBOARD-PERF] Content paint time: ${paintMeasure.duration.toFixed(2)}ms`);
+    }, 50);
+  }, [business]);
+
   return (
-    <motion.div 
-      className="p-8 space-y-8"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
+    <div className="p-8 space-y-8">
       <div className="mb-8">
         <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">Welcome back, {businessName}!</h1>
         <p className="mt-1 text-slate-500">Here's your business performance overview.</p>
       </div>
 
-      <motion.div 
-        className="grid md:grid-cols-2 lg:grid-cols-4 gap-6"
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }} 
-        transition={{ delay: 0.1, staggerChildren: 0.1 }}
-      >
-        {kpiData.map((kpi, i) => (
-          <Link to={createPageUrl(kpi.href)} key={i}>
+             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                 {kpiData.map((kpi, i) => (
+           <Link to={`/${kpi.href}`} key={i}>
             <Card 
               className={`${kpi.bgColor} ${kpi.borderColor} border rounded-xl transition-all duration-200 hover:shadow-md hover:-translate-y-[1px] cursor-pointer`}
             >
@@ -122,8 +132,8 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </Link>
-        ))}
-      </motion.div>
+                 ))}
+       </div>
 
       {/* Mini Stats Row */}
       <div className="grid md:grid-cols-3 gap-6">
@@ -196,9 +206,9 @@ export default function Dashboard() {
         <Card className="lg:col-span-2 transition-all duration-200 hover:shadow-md hover:-translate-y-[1px]">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Recent Reviews</CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => navigate(createPageUrl('ReviewInbox'))}>
-              View all <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
+                         <Button variant="ghost" size="sm" onClick={() => navigate('/review-inbox')}>
+               View all <ArrowRight className="w-4 h-4 ml-1" />
+             </Button>
           </CardHeader>
           <CardContent className="max-h-80 overflow-y-auto">
             <div className="space-y-3">
@@ -228,12 +238,12 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="grid grid-cols-4 gap-3">
             {quickActions.map(action => (
-              <Button 
-                key={action.label} 
-                variant="outline" 
-                className="w-full h-20 text-xs border-slate-200 hover:shadow-sm flex flex-col items-center justify-center gap-2 p-3" 
-                onClick={() => navigate(createPageUrl(action.url))}
-              >
+                             <Button 
+                 key={action.label} 
+                 variant="outline" 
+                 className="w-full h-20 text-xs border-slate-200 hover:shadow-sm flex flex-col items-center justify-center gap-2 p-3" 
+                 onClick={() => navigate(`/${action.url}`)}
+               >
                 <action.icon className={`w-8 h-8 ${action.color}`} />
                 <span className="text-center leading-tight font-medium">{action.label}</span>
               </Button>
@@ -241,8 +251,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-    </motion.div>
-  );
-}
+         </div>
+   );
+ }
 
 

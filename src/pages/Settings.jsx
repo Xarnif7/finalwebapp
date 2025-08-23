@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import PageHeader from "@/components/ui/PageHeader";
+import IntegrationsTab from "@/components/settings/IntegrationsTab";
 
 const SettingsTab = ({ children, title, isActive, onClick }) => (
   <button
@@ -83,7 +84,7 @@ const BillingSettings = () => (
 const SettingsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "profile";
-  const tabs = ["profile", "business", "billing"];
+  const tabs = ["profile", "business", "billing", "integrations"];
 
   return (
     <div className="p-8 space-y-6">
@@ -100,6 +101,7 @@ const SettingsPage = () => {
         {activeTab === 'profile' && <ProfileSettings />}
         {activeTab === 'business' && <BusinessSettings />}
         {activeTab === 'billing' && <BillingSettings />}
+        {activeTab === 'integrations' && <IntegrationsTab />}
       </div>
     </div>
   );

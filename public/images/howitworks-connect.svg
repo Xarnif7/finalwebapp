@@ -1,0 +1,60 @@
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="connectGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circles -->
+  <circle cx="100" cy="150" r="40" fill="url(#connectGradient)" opacity="0.1"/>
+  <circle cx="300" cy="150" r="40" fill="url(#connectGradient)" opacity="0.1"/>
+  <circle cx="200" cy="80" r="35" fill="url(#connectGradient)" opacity="0.1"/>
+  <circle cx="200" cy="220" r="35" fill="url(#connectGradient)" opacity="0.1"/>
+  
+  <!-- Connection lines -->
+  <path d="M140 150 L260 150" stroke="url(#connectGradient)" stroke-width="3" stroke-dasharray="5,5"/>
+  <path d="M200 115 L200 185" stroke="url(#connectGradient)" stroke-width="3" stroke-dasharray="5,5"/>
+  
+  <!-- Business profile icons -->
+  <g transform="translate(80, 130)">
+    <rect x="0" y="0" width="40" height="40" rx="8" fill="url(#connectGradient)" opacity="0.9"/>
+    <circle cx="20" cy="15" r="3" fill="white"/>
+    <rect x="8" y="22" width="24" height="2" rx="1" fill="white"/>
+    <rect x="8" y="26" width="16" height="2" rx="1" fill="white"/>
+  </g>
+  
+  <g transform="translate(280, 130)">
+    <rect x="0" y="0" width="40" height="40" rx="8" fill="url(#connectGradient)" opacity="0.9"/>
+    <circle cx="20" cy="15" r="3" fill="white"/>
+    <rect x="8" y="22" width="24" height="2" rx="1" fill="white"/>
+    <rect x="8" y="26" width="16" height="2" rx="1" fill="white"/>
+  </g>
+  
+  <g transform="translate(180, 60)">
+    <rect x="0" y="0" width="40" height="40" rx="8" fill="url(#connectGradient)" opacity="0.9"/>
+    <circle cx="20" cy="15" r="3" fill="white"/>
+    <rect x="8" y="22" width="24" height="2" rx="1" fill="white"/>
+    <rect x="8" y="26" width="16" height="2" rx="1" fill="white"/>
+  </g>
+  
+  <g transform="translate(180, 200)">
+    <rect x="0" y="0" width="40" height="40" rx="8" fill="url(#connectGradient)" opacity="0.9"/>
+    <circle cx="20" cy="15" r="3" fill="white"/>
+    <rect x="8" y="22" width="24" height="2" rx="1" fill="white"/>
+    <rect x="8" y="26" width="16" height="2" rx="1" fill="white"/>
+  </g>
+  
+  <!-- Connection nodes -->
+  <circle cx="200" cy="150" r="8" fill="url(#connectGradient)"/>
+  <circle cx="200" cy="150" r="4" fill="white"/>
+  
+  <!-- Animated connection dots -->
+  <circle cx="160" cy="150" r="3" fill="url(#connectGradient)">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="240" cy="150" r="3" fill="url(#connectGradient)">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite" begin="0.5s"/>
+  </circle>
+</svg>
+

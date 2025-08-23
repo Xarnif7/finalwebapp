@@ -1,0 +1,72 @@
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="automateGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10B981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background workflow path -->
+  <path d="M50 150 Q100 100 150 150 T250 150 T350 150" stroke="url(#automateGradient)" stroke-width="4" stroke-dasharray="8,4" opacity="0.3"/>
+  
+  <!-- Workflow steps -->
+  <g transform="translate(50, 120)">
+    <rect x="0" y="0" width="60" height="60" rx="12" fill="url(#automateGradient)" opacity="0.9"/>
+    <circle cx="30" cy="25" r="8" fill="white"/>
+    <rect x="15" y="40" width="30" height="3" rx="1.5" fill="white"/>
+    <rect x="15" y="47" width="20" height="3" rx="1.5" fill="white"/>
+  </g>
+  
+  <g transform="translate(170, 120)">
+    <rect x="0" y="0" width="60" height="60" rx="12" fill="url(#automateGradient)" opacity="0.9"/>
+    <path d="M20 30 L30 40 L40 20" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  
+  <g transform="translate(290, 120)">
+    <rect x="0" y="0" width="60" height="60" rx="12" fill="url(#automateGradient)" opacity="0.9"/>
+    <circle cx="30" cy="30" r="12" fill="white"/>
+    <path d="M25 30 L28 33 L35 25" stroke="url(#automateGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  
+  <!-- Automation arrows -->
+  <g transform="translate(120, 150)">
+    <path d="M0 0 L15 -5 L15 5 Z" fill="url(#automateGradient)">
+      <animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+  </g>
+  
+  <g transform="translate(240, 150)">
+    <path d="M0 0 L15 -5 L15 5 Z" fill="url(#automateGradient)">
+      <animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite" begin="0.5s"/>
+    </path>
+  </g>
+  
+  <!-- Floating automation elements -->
+  <g transform="translate(80, 80)">
+    <circle cx="0" cy="0" r="6" fill="url(#automateGradient)" opacity="0.7">
+      <animate attributeName="cy" values="0;10;0" dur="3s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  
+  <g transform="translate(200, 60)">
+    <circle cx="0" cy="0" r="4" fill="url(#automateGradient)" opacity="0.6">
+      <animate attributeName="cy" values="0;-8;0" dur="2.5s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  
+  <g transform="translate(320, 90)">
+    <circle cx="0" cy="0" r="5" fill="url(#automateGradient)" opacity="0.7">
+      <animate attributeName="cy" values="0;12;0" dur="3.5s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  
+  <!-- Data flow lines -->
+  <path d="M110 150 L130 150" stroke="url(#automateGradient)" stroke-width="2" opacity="0.6">
+    <animate attributeName="stroke-dasharray" values="0,10;10,0;0,10" dur="2s" repeatCount="indefinite"/>
+  </path>
+  
+  <path d="M230 150 L250 150" stroke="url(#automateGradient)" stroke-width="2" opacity="0.6">
+    <animate attributeName="stroke-dasharray" values="0,10;10,0;0,10" dur="2s" repeatCount="indefinite" begin="0.5s"/>
+  </path>
+</svg>
+

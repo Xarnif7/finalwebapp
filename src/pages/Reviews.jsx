@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Send, MessageSquare, Mail, Eye, MousePointer, X, Loader2 } from "lucide-react";
-import { Business, Client, ReviewRequest, User } from "@/api/entities";
+import { Client, ReviewRequest, User } from "@/api/entities";
+import { supabase } from "../lib/supabaseClient";
 import { sendRequest } from "@/api/functions"; // Use default import
 import { motion } from "framer-motion";
 import { format } from "date-fns";
@@ -79,8 +80,12 @@ export default function ReviewsPage() {
     try {
       const user = await User.me();
 
-      const businesses = await Business.filter({ created_by: user.email });
-      if (businesses.length > 0) {
+      const { data: businesses, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .limit(1); // RLS will automatically filter by auth.uid()
+      
+      if (!error && businesses && businesses.length > 0) {
         const currentBusiness = businesses[0];
         setBusiness(currentBusiness);
 

@@ -11,7 +11,8 @@ import {
   Calendar
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { Business, Client, ReviewRequest, ReviewTracking, User } from "@/api/entities";
+import { Client, ReviewRequest, ReviewTracking, User } from "@/api/entities";
+import { supabase } from "../../lib/supabaseClient";
 
 const StatCard = ({ title, value, change, icon: Icon, color, delay = 0 }) => {
   return (
@@ -76,9 +77,12 @@ export default function KpiCards() {
   const loadKpis = async () => {
     try {
       const user = await User.me();
-      const businesses = await Business.filter({ created_by: user.email });
+      const { data: businesses, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .limit(1); // RLS will automatically filter by auth.uid()
       
-      if (businesses.length > 0) {
+      if (!error && businesses && businesses.length > 0) {
         const currentBusiness = businesses[0];
         
         const [clients, requests, reviews] = await Promise.all([

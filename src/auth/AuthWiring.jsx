@@ -40,29 +40,5 @@ export default function AuthWiring() {
     return () => sub?.subscription?.unsubscribe?.();
   }, [location.pathname, navigate]);
 
-  // Global CTA interceptor: if logged out -> Google; if logged in -> /dashboard
-  useEffect(() => {
-    const handler = async (e) => {
-      const el = e.target.closest("[data-auth]");
-      if (!el) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: { redirectTo: `${window.location.origin}/auth/callback` }
-        });
-      } else {
-        navigate("/dashboard");
-      }
-    };
-
-    document.addEventListener("click", handler, true);
-    return () => document.removeEventListener("click", handler, true);
-  }, [navigate]);
-
   return null;
 }
