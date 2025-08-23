@@ -92,43 +92,50 @@ const IntegrationsTab = () => {
 
   const resolveGooglePlaceId = async (url) => {
     try {
-      const response = await fetch('/api/reviews/resolve-google-place', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-      });
-
-      const result = await response.json();
+      // Extract Google Place ID from URL
+      let placeId = null;
       
-      if (result.success) {
-        handleInputChange('google', 'external_id', result.place_id);
-        toast.success('Google Place ID resolved successfully');
+      // Try different URL formats
+      const cidMatch = url.match(/[?&]cid=([^&]+)/);
+      if (cidMatch) {
+        placeId = cidMatch[1];
       } else {
-        toast.error(result.error);
+        const dataMatch = url.match(/[?&]data=([^&]+)/);
+        if (dataMatch) {
+          placeId = dataMatch[1];
+        } else {
+          const placeMatch = url.match(/place\/([^\/\?]+)/);
+          if (placeMatch) {
+            placeId = placeMatch[1];
+          }
+        }
+      }
+      
+      if (placeId) {
+        handleInputChange('google', 'external_id', placeId);
+        toast.success('Google Place ID extracted successfully');
+      } else {
+        toast.error('Could not extract Place ID from URL. Please check the format.');
       }
     } catch (error) {
-      toast.error('Failed to resolve Google Place ID');
+      toast.error('Failed to extract Google Place ID');
     }
   };
 
   const resolveYelpBusinessId = async (url) => {
     try {
-      const response = await fetch('/api/reviews/resolve-yelp-business', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-      });
-
-      const result = await response.json();
+      // Extract Yelp Business ID from URL
+      const businessMatch = url.match(/\/biz\/([^\/\?]+)/);
       
-      if (result.success) {
-        handleInputChange('yelp', 'external_id', result.business_id);
-        toast.success('Yelp Business ID resolved successfully');
+      if (businessMatch) {
+        const businessId = businessMatch[1].split('?')[0].split('#')[0]; // Clean up
+        handleInputChange('yelp', 'external_id', businessId);
+        toast.success('Yelp Business ID extracted successfully');
       } else {
-        toast.error(result.error);
+        toast.error('Could not extract Business ID from URL. Please check the format.');
       }
     } catch (error) {
-      toast.error('Failed to resolve Yelp Business ID');
+      toast.error('Failed to extract Yelp Business ID');
     }
   };
 
@@ -213,16 +220,21 @@ const IntegrationsTab = () => {
         return;
       }
 
-      const response = await fetch(`/api/reviews/sync/${platform}`, {
+      const response = await fetch(`/api/reviews/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business_id: profile.business_id })
+        body: JSON.stringify({ business_id: profile.business_id, platform })
       });
 
       const result = await response.json();
       
       if (response.ok) {
-        toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} connection test successful! Found ${result.total} reviews.`);
+        const platformResult = result.details[platform];
+        if (platformResult && !platformResult.error) {
+          toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} connection test successful! Found ${platformResult.total} reviews.`);
+        } else {
+          toast.error(`Connection test failed: ${platformResult?.error || result.error}`);
+        }
       } else {
         toast.error(`Connection test failed: ${result.error}`);
       }
@@ -251,16 +263,21 @@ const IntegrationsTab = () => {
         return;
       }
 
-      const response = await fetch(`/api/reviews/sync/${platform}`, {
+      const response = await fetch(`/api/reviews/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business_id: profile.business_id })
+        body: JSON.stringify({ business_id: profile.business_id, platform })
       });
 
       const result = await response.json();
       
       if (response.ok) {
-        toast.success(`Synced ${result.inserted} new reviews and updated ${result.updated} existing reviews.`);
+        const platformResult = result.details[platform];
+        if (platformResult && !platformResult.error) {
+          toast.success(`Synced ${platformResult.inserted} new reviews and updated ${platformResult.updated} existing reviews.`);
+        } else {
+          toast.error(`Sync failed: ${platformResult?.error || result.error}`);
+        }
         fetchReviewSources(); // Refresh last_synced_at
       } else {
         toast.error(`Sync failed: ${result.error}`);
@@ -519,10 +536,10 @@ const IntegrationsTab = () => {
                     return;
                   }
 
-                  const response = await fetch('/api/reviews/sync/all', {
+                  const response = await fetch('/api/reviews/sync', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ business_id: profile.business_id })
+                    body: JSON.stringify({ business_id: profile.business_id, platform: 'all' })
                   });
 
                   const result = await response.json();

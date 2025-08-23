@@ -105,10 +105,10 @@ const ReviewInbox = () => {
         return;
       }
 
-      const response = await fetch('/api/reviews/sync/all', {
+      const response = await fetch('/api/reviews/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business_id: profile.business_id })
+        body: JSON.stringify({ business_id: profile.business_id, platform: 'all' })
       });
 
       const result = await response.json();
