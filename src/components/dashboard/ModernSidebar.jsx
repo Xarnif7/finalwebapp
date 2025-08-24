@@ -24,7 +24,7 @@ const navigationGroups = [
         icon: Star,
         subItems: [
           { title: 'Review Inbox', url: 'review-inbox' },
-          { title: 'Send Requests', url: 'automated-requests' },
+          { title: 'Send Requests', url: 'send-requests' },
           { title: 'Performance', url: 'review-performance' },
         ]
       },

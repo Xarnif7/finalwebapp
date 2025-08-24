@@ -12,6 +12,7 @@ import ReviewTracking from "./ReviewTracking";
 import ReviewLanding from "./ReviewLanding";
 import AutomatedRequests from "./AutomatedRequests";
 import ReviewInbox from "./ReviewInbox";
+import SendRequests from "./SendRequests";
 import SocialPosts from "./SocialPosts";
 import Sequences from "./Sequences";
 import Competitors from "./Competitors";
@@ -91,6 +92,7 @@ const PAGES = {
   ReviewLanding: ReviewLanding,
   AutomatedRequests: AutomatedRequests,
   ReviewInbox: ReviewInbox,
+  SendRequests: SendRequests,
   SocialPosts: SocialPosts,
   Sequences: Sequences,
   Competitors: Competitors,
@@ -295,6 +297,7 @@ function PagesContent() {
         
         {/* Dashboard Routes */}
         <Route path="/review-inbox" element={<RequireAuth><TrackedComponent component={ReviewInbox} name="ReviewInbox" /></RequireAuth>} />
+        <Route path="/send-requests" element={<RequireAuth><TrackedComponent component={SendRequests} name="SendRequests" /></RequireAuth>} />
         <Route path="/automated-requests" element={<RequireAuth><TrackedComponent component={AutomatedRequests} name="AutomatedRequests" /></RequireAuth>} />
         <Route path="/conversations" element={<RequireAuth><TrackedComponent component={Conversations} name="Conversations" /></RequireAuth>} />
         <Route path="/social-posts" element={<RequireAuth><TrackedComponent component={SocialPosts} name="SocialPosts" /></RequireAuth>} />
