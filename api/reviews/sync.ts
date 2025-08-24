@@ -68,6 +68,17 @@ interface FacebookResponse {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // Check for INTERNAL_API_KEY protection
+    const internalKey = request.headers.get('x-internal-key') || 
+                       new URL(request.url).searchParams.get('key');
+    
+    if (!internalKey || internalKey !== process.env.INTERNAL_API_KEY) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Invalid or missing internal key' },
+        { status: 401 }
+      );
+    }
+
     const { business_id, platform = 'all' }: SyncRequest = await request.json();
     
     if (!business_id) {
@@ -171,7 +182,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-async function syncGoogleReviews(source: any, business_id: string) {
+export async function syncGoogleReviews(source: any, business_id: string) {
   try {
     const targetPlaceId = source.external_id;
     
@@ -284,7 +295,7 @@ async function syncGoogleReviews(source: any, business_id: string) {
   }
 }
 
-async function syncYelpReviews(source: any, business_id: string) {
+export async function syncYelpReviews(source: any, business_id: string) {
   try {
     const targetBusinessId = source.external_id;
     
@@ -403,7 +414,7 @@ async function syncYelpReviews(source: any, business_id: string) {
   }
 }
 
-async function syncFacebookReviews(source: any, business_id: string) {
+export async function syncFacebookReviews(source: any, business_id: string) {
   try {
     const targetPageId = source.external_id;
     const accessToken = source.access_token;
@@ -527,7 +538,7 @@ async function syncFacebookReviews(source: any, business_id: string) {
   }
 }
 
-function classifySentiment(text: string, rating: number): 'positive' | 'neutral' | 'negative' {
+export function classifySentiment(text: string, rating: number): 'positive' | 'neutral' | 'negative' {
   // Simple sentiment classification based on rating and keywords
   if (rating >= 4) return 'positive';
   if (rating <= 2) return 'negative';

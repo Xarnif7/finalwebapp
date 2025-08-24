@@ -378,7 +378,10 @@ const IntegrationsTab = () => {
 
       const response = await fetch(`/api/reviews/sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-internal-key': import.meta.env.VITE_INTERNAL_API_KEY || 'your-internal-key-here'
+        },
         body: JSON.stringify({ business_id: profile.business_id, platform })
       });
 
@@ -421,7 +424,10 @@ const IntegrationsTab = () => {
 
       const response = await fetch(`/api/reviews/sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-internal-key': import.meta.env.VITE_INTERNAL_API_KEY || 'your-internal-key-here'
+        },
         body: JSON.stringify({ business_id: profile.business_id, platform })
       });
 
@@ -802,7 +808,10 @@ const IntegrationsTab = () => {
 
                   const response = await fetch('/api/reviews/sync/all', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                      'Content-Type': 'application/json',
+                      'x-internal-key': import.meta.env.VITE_INTERNAL_API_KEY || 'your-internal-key-here'
+                    },
                     body: JSON.stringify({ business_id: profile.business_id })
                   });
 

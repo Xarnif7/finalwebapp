@@ -2,5 +2,11 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/((?!api).*)", "destination": "/" }
+  ],
+  "crons": [
+    {
+      "path": "/api/reviews/sync/all?key=INTERNAL_API_KEY_VALUE",
+      "schedule": "0 */6 * * *"
+    }
   ]
 }
