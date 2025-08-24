@@ -232,9 +232,40 @@ const ReviewInbox = () => {
     }
   };
 
+  // Load Google Maps API if not already loaded
+  const loadGoogleMapsAPI = async () => {
+    if (window.google && window.google.maps && window.google.maps.places) {
+      console.log('Google Maps API already loaded');
+      return true;
+    }
+
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+    if (!apiKey) {
+      throw new Error('Google Maps API key not configured');
+    }
+
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        console.log('Google Maps API loaded successfully for Review Inbox');
+        resolve(true);
+      };
+      script.onerror = () => {
+        reject(new Error('Failed to load Google Maps API'));
+      };
+      document.head.appendChild(script);
+    });
+  };
+
   // Fetch real Google Places reviews using the newer API approach
   const fetchGooglePlacesReviews = async (placeId) => {
     try {
+      // Ensure Google Maps API is loaded
+      await loadGoogleMapsAPI();
+
       // Check if Google Maps API is loaded
       if (!window.google || !window.google.maps || !window.google.maps.places) {
         throw new Error('Google Maps API not loaded');
