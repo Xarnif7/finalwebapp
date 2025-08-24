@@ -130,42 +130,70 @@ const ReviewInbox = () => {
       let totalInserted = 0;
       let totalUpdated = 0;
 
-      // For now, let's create some sample reviews to test the UI
-      // In a real implementation, this would call the actual platform APIs
+      // Fetch real reviews from connected platforms
       for (const source of reviewSources) {
         if (source.platform === 'google' && source.external_id) {
-          // Create sample Google review
-          const { data: existingReview } = await supabase
-            .from('reviews')
-            .select('id')
-            .eq('business_id', profile.business_id)
-            .eq('platform', 'google')
-            .eq('external_review_id', `${source.external_id}_sample`)
-            .single();
+          try {
+            // Fetch real Google Places reviews
+            const googleReviews = await fetchGooglePlacesReviews(source.external_id);
+            
+            for (const review of googleReviews) {
+              // Check if review already exists
+              const { data: existingReview } = await supabase
+                .from('reviews')
+                .select('id')
+                .eq('business_id', profile.business_id)
+                .eq('platform', 'google')
+                .eq('external_review_id', review.id)
+                .single();
 
-          if (!existingReview) {
-            const { error: insertError } = await supabase
-              .from('reviews')
-              .insert({
-                business_id: profile.business_id,
-                platform: 'google',
-                external_review_id: `${source.external_id}_sample`,
-                reviewer_name: 'Sample Customer',
-                rating: 4.5,
-                text: 'Great service! This is a sample review to test the Review Inbox functionality.',
-                review_url: source.public_url,
-                review_created_at: new Date().toISOString(),
-                sentiment: 'positive'
-              });
+              if (!existingReview) {
+                // Insert new review
+                const { error: insertError } = await supabase
+                  .from('reviews')
+                  .insert({
+                    business_id: profile.business_id,
+                    platform: 'google',
+                    external_review_id: review.id,
+                    reviewer_name: review.author_name,
+                    rating: review.rating,
+                    text: review.text,
+                    review_url: review.url || source.public_url,
+                    review_created_at: new Date(review.time * 1000).toISOString(),
+                    sentiment: classifySentiment(review.text, review.rating)
+                  });
 
-            if (!insertError) {
-              totalInserted++;
+                if (!insertError) {
+                  totalInserted++;
+                }
+              } else {
+                // Update existing review
+                const { error: updateError } = await supabase
+                  .from('reviews')
+                  .update({
+                    reviewer_name: review.author_name,
+                    rating: review.rating,
+                    text: review.text,
+                    review_url: review.url || source.public_url,
+                    review_created_at: new Date(review.time * 1000).toISOString(),
+                    sentiment: classifySentiment(review.text, review.rating),
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', existingReview.id);
+
+                if (!updateError) {
+                  totalUpdated++;
+                }
+              }
             }
+          } catch (error) {
+            console.error(`Error syncing Google reviews:`, error);
+            toast.error(`Failed to sync Google reviews: ${error.message}`);
           }
         }
       }
 
-      toast.success(`Sync completed! ${totalInserted} new reviews added.`);
+      toast.success(`Sync completed! ${totalInserted} new reviews, ${totalUpdated} updated.`);
       fetchReviews(); // Refresh reviews after sync
       
     } catch (error) {
@@ -174,6 +202,46 @@ const ReviewInbox = () => {
     } finally {
       setSyncing(false);
     }
+  };
+
+  // Fetch real Google Places reviews
+  const fetchGooglePlacesReviews = async (placeId) => {
+    try {
+      // Use Google Places API to get reviews
+      if (!window.google || !window.google.maps || !window.google.maps.places) {
+        throw new Error('Google Maps API not loaded');
+      }
+
+      return new Promise((resolve, reject) => {
+        const service = new window.google.maps.places.PlacesService(document.createElement('div'));
+        
+        service.getDetails(
+          {
+            placeId: placeId,
+            fields: ['reviews', 'place_id', 'url']
+          },
+          (place, status) => {
+            if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
+              const reviews = place.reviews || [];
+              console.log(`Fetched ${reviews.length} Google reviews for place ${placeId}`);
+              resolve(reviews);
+            } else {
+              reject(new Error(`Google Places API error: ${status}`));
+            }
+          }
+        );
+      });
+    } catch (error) {
+      console.error('Error fetching Google Places reviews:', error);
+      throw error;
+    }
+  };
+
+  // Classify sentiment based on review text and rating
+  const classifySentiment = (text, rating) => {
+    if (rating >= 4) return 'positive';
+    if (rating <= 2) return 'negative';
+    return 'neutral';
   };
 
   const handleFilterChange = (filter, value) => {
