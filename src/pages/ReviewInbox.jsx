@@ -146,7 +146,19 @@ const ReviewInbox = () => {
              }
              
              for (const review of googleReviews) {
-               console.log(`Processing review: ${review.author_name} - ${review.rating} stars`);
+               // Debug the review object structure
+               console.log('Review object structure:', review);
+               console.log('Review ID:', review.id, 'Review author_name:', review.author_name);
+               
+               // Google Places API might use different property names
+               const reviewId = review.id || review.review_id || review.place_id || `google_${Date.now()}_${Math.random()}`;
+               const authorName = review.author_name || review.authorName || review.name || 'Anonymous';
+               const reviewText = review.text || review.review_text || review.comment || '';
+               const reviewRating = review.rating || review.stars || 0;
+               const reviewTime = review.time || review.timestamp || Date.now();
+               const reviewUrl = review.url || review.review_url || source.public_url;
+               
+               console.log(`Processing review: ${authorName} - ${reviewRating} stars (ID: ${reviewId})`);
                
                // Check if review already exists
                const { data: existingReview } = await supabase
@@ -154,7 +166,7 @@ const ReviewInbox = () => {
                  .select('id')
                  .eq('business_id', profile.business_id)
                  .eq('platform', 'google')
-                 .eq('external_review_id', review.id)
+                 .eq('external_review_id', reviewId)
                  .single();
 
                if (!existingReview) {
@@ -164,13 +176,13 @@ const ReviewInbox = () => {
                    .insert({
                      business_id: profile.business_id,
                      platform: 'google',
-                     external_review_id: review.id,
-                     reviewer_name: review.author_name,
-                     rating: review.rating,
-                     text: review.text,
-                     review_url: review.url || source.public_url,
-                     review_created_at: new Date(review.time * 1000).toISOString(),
-                     sentiment: classifySentiment(review.text, review.rating)
+                     external_review_id: reviewId,
+                     reviewer_name: authorName,
+                     rating: reviewRating,
+                     text: reviewText,
+                     review_url: reviewUrl,
+                     review_created_at: new Date(reviewTime * 1000).toISOString(),
+                     sentiment: classifySentiment(reviewText, reviewRating)
                    });
 
                  if (!insertError) {
@@ -184,12 +196,12 @@ const ReviewInbox = () => {
                  const { error: updateError } = await supabase
                    .from('reviews')
                    .update({
-                     reviewer_name: review.author_name,
-                     rating: review.rating,
-                     text: review.text,
-                     review_url: review.url || source.public_url,
-                     review_created_at: new Date(review.time * 1000).toISOString(),
-                     sentiment: classifySentiment(review.text, review.rating),
+                     reviewer_name: authorName,
+                     rating: reviewRating,
+                     text: reviewText,
+                     review_url: reviewUrl,
+                     review_created_at: new Date(reviewTime * 1000).toISOString(),
+                     sentiment: classifySentiment(reviewText, reviewRating),
                      updated_at: new Date().toISOString()
                    })
                    .eq('id', existingReview.id);
