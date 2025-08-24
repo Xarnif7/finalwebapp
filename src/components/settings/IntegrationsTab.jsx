@@ -50,14 +50,18 @@ const IntegrationsTab = () => {
     const loadGoogleMapsAPI = () => {
       // Check if already loaded
       if (window.google && window.google.maps && window.google.maps.places) {
+        console.log('Google Maps API already loaded');
         setGoogleApiLoaded(true);
         return;
       }
 
-             // Get API key from environment
-       const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+      // Get API key from environment
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+      console.log('API Key available:', !!apiKey);
+      
       if (!apiKey) {
         console.error('Google Maps API key not found');
+        toast.error('Google Maps API key not configured');
         return;
       }
 
@@ -70,10 +74,12 @@ const IntegrationsTab = () => {
       script.onload = () => {
         console.log('Google Maps API loaded successfully');
         setGoogleApiLoaded(true);
+        toast.success('Google Maps API loaded successfully');
       };
       
       script.onerror = () => {
         console.error('Failed to load Google Maps API');
+        toast.error('Failed to load Google Maps API');
       };
 
       document.head.appendChild(script);
@@ -138,56 +144,78 @@ const IntegrationsTab = () => {
     }));
   };
 
-     // Google Places Autocomplete
-   const searchGooglePlaces = async (query) => {
-     if (!query.trim()) return;
-     
-     if (!googleApiLoaded) {
-       toast.error('Google Maps API is still loading. Please wait a moment and try again.');
-       return;
-     }
-     
-     if (!window.google || !window.google.maps || !window.google.maps.places) {
-       toast.error('Google Maps API not available. Please refresh the page.');
-       return;
-     }
-     
-     try {
-       setSearching(true);
-       setShowGoogleSearch(true);
-       
-       const service = new window.google.maps.places.AutocompleteService();
-       const request = {
-         input: query,
-         types: ['establishment'],
-         componentRestrictions: { country: 'us' }
-       };
-       
-       service.getPlacePredictions(request, (predictions, status) => {
-         setSearching(false);
-         
-         if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-           setGoogleSearchResults(predictions);
-           if (predictions.length === 0) {
-             toast.info('No businesses found with that name. Try a different search term.');
-           }
-         } else {
-           if (status === 'ZERO_RESULTS') {
-             setGoogleSearchResults([]);
-             toast.info('No businesses found with that name. Try a different search term.');
-           } else {
-             setGoogleSearchResults([]);
-             toast.error(`Search failed: ${status}`);
-           }
-         }
-       });
-     } catch (error) {
-       setSearching(false);
-       setGoogleSearchResults([]);
-       console.error('Google Places search error:', error);
-       toast.error('Search failed. Please try again.');
-     }
-   };
+           // Google Places Autocomplete
+    const searchGooglePlaces = async (query) => {
+      if (!query.trim()) return;
+      
+      console.log('=== SEARCH DEBUG ===');
+      console.log('Query:', query);
+      console.log('Google API loaded:', googleApiLoaded);
+      console.log('Window google exists:', !!window.google);
+      console.log('Google maps exists:', !!(window.google && window.google.maps));
+      console.log('Google places exists:', !!(window.google && window.google.maps && window.google.maps.places));
+      
+      if (!googleApiLoaded) {
+        console.log('API not loaded yet');
+        toast.error('Google Maps API is still loading. Please wait a moment and try again.');
+        return;
+      }
+      
+      if (!window.google || !window.google.maps || !window.google.maps.places) {
+        console.log('Google API not available');
+        toast.error('Google Maps API not available. Please refresh the page.');
+        return;
+      }
+      
+      try {
+        setSearching(true);
+        setShowGoogleSearch(true);
+        console.log('Starting search for:', query);
+        
+        const service = new window.google.maps.places.AutocompleteService();
+        const request = {
+          input: query,
+          types: ['establishment'],
+          componentRestrictions: { country: 'us' }
+        };
+        
+        console.log('Making Places API request:', request);
+        
+        service.getPlacePredictions(request, (predictions, status) => {
+          console.log('=== PLACES API RESPONSE ===');
+          console.log('Status:', status);
+          console.log('Status OK constant:', window.google.maps.places.PlacesServiceStatus.OK);
+          console.log('Status comparison:', status === window.google.maps.places.PlacesServiceStatus.OK);
+          console.log('Predictions count:', predictions?.length);
+          console.log('Predictions:', predictions);
+          
+          setSearching(false);
+          
+          if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+            console.log('Success! Setting results...');
+            setGoogleSearchResults(predictions);
+            if (predictions.length === 0) {
+              toast.info('No businesses found with that name. Try a different search term.');
+            } else {
+              toast.success(`Found ${predictions.length} businesses`);
+            }
+          } else {
+            if (status === 'ZERO_RESULTS') {
+              setGoogleSearchResults([]);
+              toast.info('No businesses found with that name. Try a different search term.');
+            } else {
+              setGoogleSearchResults([]);
+              toast.error(`Search failed: ${status}`);
+            }
+          }
+        });
+      } catch (error) {
+        setSearching(false);
+        setGoogleSearchResults([]);
+        console.error('Google Places search error:', error);
+        toast.error('Search failed. Please try again.');
+      }
+    };
 
   const selectGooglePlace = async (placeId, description) => {
     try {
@@ -541,7 +569,10 @@ const IntegrationsTab = () => {
       {['google', 'facebook', 'yelp'].map((platform) => {
         const data = formData[platform] || {};
         const source = reviewSources.find(s => s.platform === platform);
-        const isConnected = source?.connected || false;
+        const isConnected = source?.connected && source?.external_id && source?.public_url && 
+                           !source.external_id.includes('wdadaw') && 
+                           !source.external_id.includes('random') &&
+                           source.external_id.length > 5;
         const lastSynced = source?.last_synced_at;
 
         return (
@@ -571,6 +602,23 @@ const IntegrationsTab = () => {
                       <div className="mb-2 p-2 bg-yellow-50 text-yellow-700 rounded text-sm">
                         <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
                         Loading Google Maps API...
+                      </div>
+                    )}
+                    {googleApiLoaded && (
+                      <div className="mb-2 p-2 bg-green-50 text-green-700 rounded text-sm">
+                        ✅ Google Maps API Loaded
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-2"
+                          onClick={() => {
+                            console.log('=== MANUAL TEST ===');
+                            console.log('Testing search with "applebees"');
+                            searchGooglePlaces('applebees');
+                          }}
+                        >
+                          Test Search
+                        </Button>
                       </div>
                     )}
                     
