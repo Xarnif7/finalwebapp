@@ -36,6 +36,8 @@ const IntegrationsTab = () => {
   const [googleSearchQuery, setGoogleSearchQuery] = useState('');
   const [googleSearchResults, setGoogleSearchResults] = useState([]);
   const [showGoogleSearch, setShowGoogleSearch] = useState(false);
+  const [googleApiLoaded, setGoogleApiLoaded] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   // Check environment variables
   const [envStatus, setEnvStatus] = useState({
@@ -54,6 +56,18 @@ const IntegrationsTab = () => {
       checkEnvironmentVariables();
     }
   }, [user]);
+
+  // Check if Google Maps API is loaded
+  useEffect(() => {
+    const checkGoogleApi = () => {
+      if (window.google && window.google.maps && window.google.maps.places) {
+        setGoogleApiLoaded(true);
+      } else {
+        setTimeout(checkGoogleApi, 1000);
+      }
+    };
+    checkGoogleApi();
+  }, []);
 
   const checkEnvironmentVariables = async () => {
     try {
@@ -130,9 +144,15 @@ const IntegrationsTab = () => {
 
   // Google Places Autocomplete
   const searchGooglePlaces = async (query) => {
-    if (!query.trim() || !window.google) return;
+    if (!query.trim()) return;
+    
+    if (!googleApiLoaded) {
+      toast.error('Google Maps API is still loading. Please wait a moment and try again.');
+      return;
+    }
     
     try {
+      setSearching(true);
       const service = new window.google.maps.places.AutocompleteService();
       const request = {
         input: query,
@@ -141,13 +161,21 @@ const IntegrationsTab = () => {
       };
       
       service.getPlacePredictions(request, (predictions, status) => {
+        setSearching(false);
         if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
           setGoogleSearchResults(predictions);
           setShowGoogleSearch(true);
+        } else {
+          console.log('No predictions found or error:', status);
+          if (status === 'ZERO_RESULTS') {
+            toast.info('No businesses found with that name. Try a different search term.');
+          }
         }
       });
     } catch (error) {
+      setSearching(false);
       console.error('Google Places search error:', error);
+      toast.error('Search failed. Please try again.');
     }
   };
 
@@ -549,28 +577,48 @@ const IntegrationsTab = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Google Places Search */}
-              {platform === 'google' && (
-                <div>
-                  <Label>Search for your business</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      placeholder="Search for your business name..."
-                      value={googleSearchQuery}
-                      onChange={(e) => {
-                        setGoogleSearchQuery(e.target.value);
-                        if (e.target.value.length > 2) {
-                          searchGooglePlaces(e.target.value);
-                        }
-                      }}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowGoogleSearch(!showGoogleSearch)}
-                    >
-                      <Search className="h-4 w-4" />
-                    </Button>
+                             {/* Google Places Search */}
+               {platform === 'google' && (
+                 <div>
+                   <Label>Search for your business</Label>
+                   {!googleApiLoaded && (
+                     <div className="mb-2 p-2 bg-yellow-50 text-yellow-700 rounded text-sm">
+                       <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
+                       Loading Google Maps API...
+                     </div>
+                   )}
+                   <div className="flex gap-2 mt-1">
+                                         <Input
+                       placeholder="Search for your business name..."
+                       value={googleSearchQuery}
+                       onChange={(e) => {
+                         setGoogleSearchQuery(e.target.value);
+                         if (e.target.value.length > 2) {
+                           searchGooglePlaces(e.target.value);
+                         } else {
+                           setShowGoogleSearch(false);
+                           setGoogleSearchResults([]);
+                         }
+                       }}
+                     />
+                                         <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => {
+                         if (googleSearchQuery.trim()) {
+                           searchGooglePlaces(googleSearchQuery);
+                         } else {
+                           setShowGoogleSearch(!showGoogleSearch);
+                         }
+                       }}
+                       disabled={searching || !googleApiLoaded}
+                     >
+                       {searching ? (
+                         <Loader2 className="h-4 w-4 animate-spin" />
+                       ) : (
+                         <Search className="h-4 w-4" />
+                       )}
+                     </Button>
                   </div>
                   {showGoogleSearch && googleSearchResults.length > 0 && (
                     <div className="mt-2 border rounded-lg max-h-40 overflow-y-auto">
