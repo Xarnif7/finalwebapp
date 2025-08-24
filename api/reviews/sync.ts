@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabaseClient';
 
 interface SyncRequest {
   business_id: string;
-  platform?: 'google' | 'facebook' | 'yelp' | 'all';
+  platform?: string;
 }
 
 interface GooglePlaceReview {
@@ -11,43 +11,59 @@ interface GooglePlaceReview {
   rating: number;
   text: string;
   time: number;
+  relative_time_description: string;
 }
 
 interface GooglePlacesResponse {
   status: string;
-  result?: {
+  result: {
     reviews?: GooglePlaceReview[];
+    place_id: string;
   };
 }
 
 interface YelpReview {
   id: string;
-  rating: number;
-  text: string;
-  time_created: string;
   url: string;
+  text: string;
+  rating: number;
+  time_created: string;
   user: {
+    id: string;
+    profile_url: string;
+    image_url: string;
     name: string;
   };
 }
 
 interface YelpResponse {
   reviews: YelpReview[];
+  total: number;
+  possible_languages: string[];
 }
 
 interface FacebookReview {
   id: string;
-  rating: number;
+  recommendation_type: string;
   review_text?: string;
+  rating?: number;
   created_time: string;
   reviewer: {
     name: string;
     id: string;
   };
+  permalink_url?: string;
 }
 
 interface FacebookResponse {
   data: FacebookReview[];
+  paging?: {
+    cursors: {
+      before: string;
+      after: string;
+    };
+    next?: string;
+  };
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -156,258 +172,376 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 async function syncGoogleReviews(source: any, business_id: string) {
-  if (source.connection_type !== 'places') {
-    throw new Error('Only Google Places API is supported for now');
-  }
-
-  if (!source.external_id) {
-    throw new Error('Google Place ID is required');
-  }
-
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-  if (!apiKey) {
-    throw new Error('Google Places API key not configured');
-  }
-
-  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${source.external_id}&fields=reviews&key=${apiKey}`;
-  const response = await fetch(url);
-  
-  if (!response.ok) {
-    throw new Error(`Google API error: ${response.status}`);
-  }
-
-  const data: GooglePlacesResponse = await response.json();
-  
-  if (data.status !== 'OK') {
-    throw new Error(`Google API error: ${data.status}`);
-  }
-
-  if (!data.result?.reviews) {
-    return { inserted: 0, updated: 0, errors: 0, total: 0 };
-  }
-
-  let inserted = 0;
-  let updated = 0;
-  let errors = 0;
-
-  for (const review of data.result.reviews) {
-    try {
-      const reviewData = {
-        business_id,
-        platform: 'google',
-        external_review_id: review.time.toString(),
-        reviewer_name: review.author_name,
-        rating: review.rating,
-        text: review.text,
-        review_created_at: new Date(review.time * 1000).toISOString(),
-        review_url: `https://maps.google.com/?cid=${source.external_id}`,
-        sentiment: classifySentiment(review.text),
-      };
-
-      // Check if review already exists
-      const { data: existing } = await supabase
-        .from('reviews')
-        .select('id')
-        .eq('business_id', business_id)
-        .eq('platform', 'google')
-        .eq('external_review_id', review.time.toString())
-        .single();
-
-      if (existing) {
-        // Update existing review
-        const { error } = await supabase
-          .from('reviews')
-          .update(reviewData)
-          .eq('id', existing.id);
-        
-        if (error) throw error;
-        updated++;
-      } else {
-        // Insert new review
-        const { error } = await supabase
-          .from('reviews')
-          .insert(reviewData);
-        
-        if (error) throw error;
-        inserted++;
-      }
-    } catch (error) {
-      console.error('Error processing Google review:', error);
-      errors++;
+  try {
+    const targetPlaceId = source.external_id;
+    
+    if (!targetPlaceId) {
+      return { error: 'No place_id stored', inserted: 0, updated: 0, errors: 1 };
     }
-  }
 
-  return { inserted, updated, errors, total: inserted + updated };
+    // Call Google Places API
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+      return { error: 'Google Places API key not configured', inserted: 0, updated: 0, errors: 1 };
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${targetPlaceId}&fields=reviews,place_id&key=${apiKey}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Google Places API error: ${response.status}`);
+    }
+
+    const data: GooglePlacesResponse = await response.json();
+    
+    if (data.status !== 'OK') {
+      return { error: `Google Places API error: ${data.status}`, inserted: 0, updated: 0, errors: 1 };
+    }
+
+    if (!data.result.reviews || data.result.reviews.length === 0) {
+      return { message: 'No reviews found for this place', inserted: 0, updated: 0, total: 0 };
+    }
+
+    let inserted = 0;
+    let updated = 0;
+    let errors = 0;
+
+    // Process each review
+    for (const review of data.result.reviews) {
+      try {
+        // Check if review already exists
+        const { data: existingReview } = await supabase
+          .from('reviews')
+          .select('id')
+          .eq('business_id', business_id)
+          .eq('platform', 'google')
+          .eq('external_review_id', `${targetPlaceId}_${review.time}`)
+          .single();
+
+        const reviewData = {
+          business_id,
+          platform: 'google',
+          external_review_id: `${targetPlaceId}_${review.time}`,
+          reviewer_name: review.author_name,
+          rating: review.rating,
+          text: review.text,
+          review_url: `https://maps.google.com/?cid=${targetPlaceId}`,
+          review_created_at: new Date(review.time * 1000).toISOString(),
+          sentiment: classifySentiment(review.text, review.rating)
+        };
+
+        if (existingReview) {
+          // Update existing review
+          const { error: updateError } = await supabase
+            .from('reviews')
+            .update(reviewData)
+            .eq('id', existingReview.id);
+
+          if (updateError) throw updateError;
+          updated++;
+        } else {
+          // Insert new review
+          const { error: insertError } = await supabase
+            .from('reviews')
+            .insert(reviewData);
+
+          if (insertError) throw insertError;
+          inserted++;
+        }
+      } catch (error) {
+        console.error('Error processing Google review:', error);
+        errors++;
+      }
+    }
+
+    // Log to audit
+    await supabase
+      .from('audit_log')
+      .insert({
+        business_id,
+        user_id: source.id,
+        entity: 'reviews',
+        action: 'sync',
+        details: {
+          platform: 'google',
+          place_id: targetPlaceId,
+          inserted,
+          updated,
+          errors,
+          total_reviews: data.result.reviews.length
+        }
+      });
+
+    return {
+      inserted,
+      updated,
+      errors,
+      total: data.result.reviews.length
+    };
+
+  } catch (error) {
+    throw new Error(`Google sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 async function syncYelpReviews(source: any, business_id: string) {
-  if (!source.external_id) {
-    throw new Error('Yelp Business ID is required');
-  }
-
-  const apiKey = process.env.YELP_API_KEY;
-  if (!apiKey) {
-    throw new Error('Yelp API key not configured');
-  }
-
-  const url = `https://api.yelp.com/v3/businesses/${source.external_id}/reviews`;
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
+  try {
+    const targetBusinessId = source.external_id;
+    
+    if (!targetBusinessId) {
+      return { error: 'No Yelp business ID stored', inserted: 0, updated: 0, errors: 1 };
     }
-  });
 
-  if (!response.ok) {
-    throw new Error(`Yelp API error: ${response.status}`);
-  }
+    // Call Yelp Fusion API
+    const apiKey = process.env.YELP_API_KEY;
+    if (!apiKey) {
+      return { error: 'Yelp API key not configured', inserted: 0, updated: 0, errors: 1 };
+    }
 
-  const data: YelpResponse = await response.json();
-  
-  if (!data.reviews || data.reviews.length === 0) {
-    return { inserted: 0, updated: 0, errors: 0, total: 0, note: 'No reviews found' };
-  }
-
-  let inserted = 0;
-  let updated = 0;
-  let errors = 0;
-
-  for (const review of data.reviews) {
-    try {
-      const reviewData = {
-        business_id,
-        platform: 'yelp',
-        external_review_id: review.id,
-        reviewer_name: review.user.name,
-        rating: review.rating,
-        text: review.text,
-        review_created_at: review.time_created,
-        review_url: review.url,
-        sentiment: classifySentiment(review.text),
-      };
-
-      // Check if review already exists
-      const { data: existing } = await supabase
-        .from('reviews')
-        .select('id')
-        .eq('business_id', business_id)
-        .eq('platform', 'yelp')
-        .eq('external_review_id', review.id)
-        .single();
-
-      if (existing) {
-        // Update existing review
-        const { error } = await supabase
-          .from('reviews')
-          .update(reviewData)
-          .eq('id', existing.id);
-        
-        if (error) throw error;
-        updated++;
-      } else {
-        // Insert new review
-        const { error } = await supabase
-          .from('reviews')
-          .insert(reviewData);
-        
-        if (error) throw error;
-        inserted++;
+    const url = `https://api.yelp.com/v3/businesses/${targetBusinessId}/reviews`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
       }
-    } catch (error) {
-      console.error('Error processing Yelp review:', error);
-      errors++;
-    }
-  }
+    });
 
-  return { inserted, updated, errors, total: inserted + updated, note: 'Yelp API returns maximum 3 reviews per call' };
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Yelp API error:', response.status, errorText);
+      return { error: `Yelp API error: ${response.status}`, inserted: 0, updated: 0, errors: 1 };
+    }
+
+    const data: YelpResponse = await response.json();
+    
+    if (!data.reviews || data.reviews.length === 0) {
+      return { message: 'No reviews found for this Yelp business', inserted: 0, updated: 0, total: 0 };
+    }
+
+    let inserted = 0;
+    let updated = 0;
+    let errors = 0;
+
+    // Process each review (Yelp returns max 3 reviews)
+    for (const review of data.reviews) {
+      try {
+        // Check if review already exists
+        const { data: existingReview } = await supabase
+          .from('reviews')
+          .select('id')
+          .eq('business_id', business_id)
+          .eq('platform', 'yelp')
+          .eq('external_review_id', review.id)
+          .single();
+
+        const reviewData = {
+          business_id,
+          platform: 'yelp',
+          external_review_id: review.id,
+          reviewer_name: review.user.name,
+          rating: review.rating,
+          text: review.text,
+          review_url: review.url,
+          review_created_at: new Date(review.time_created).toISOString(),
+          sentiment: classifySentiment(review.text, review.rating)
+        };
+
+        if (existingReview) {
+          // Update existing review
+          const { error: updateError } = await supabase
+            .from('reviews')
+            .update(reviewData)
+            .eq('id', existingReview.id);
+
+          if (updateError) throw updateError;
+          updated++;
+        } else {
+          // Insert new review
+          const { error: insertError } = await supabase
+            .from('reviews')
+            .insert(reviewData);
+
+          if (insertError) throw insertError;
+          inserted++;
+        }
+      } catch (error) {
+        console.error('Error processing Yelp review:', error);
+        errors++;
+      }
+    }
+
+    // Log to audit
+    await supabase
+      .from('audit_log')
+      .insert({
+        business_id,
+        user_id: source.id,
+        entity: 'reviews',
+        action: 'sync',
+        details: {
+          platform: 'yelp',
+          yelp_business_id: targetBusinessId,
+          inserted,
+          updated,
+          errors,
+          total_reviews: data.reviews.length,
+          note: 'Yelp Fusion API returns max 3 reviews per call'
+        }
+      });
+
+    return {
+      inserted,
+      updated,
+      errors,
+      total: data.reviews.length,
+      note: 'Yelp Fusion API returns max 3 reviews per call'
+    };
+
+  } catch (error) {
+    throw new Error(`Yelp sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 async function syncFacebookReviews(source: any, business_id: string) {
-  if (!source.access_token || !source.external_id) {
-    throw new Error('Facebook access token and page ID are required');
-  }
-
-  const url = `https://graph.facebook.com/v18.0/${source.external_id}/ratings?access_token=${source.access_token}&fields=rating,review_text,created_time,reviewer{name,id}`;
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Facebook API error: ${response.status}`);
-  }
-
-  const data: FacebookResponse = await response.json();
-  
-  if (!data.data || data.data.length === 0) {
-    return { inserted: 0, updated: 0, errors: 0, total: 0, note: 'No reviews found' };
-  }
-
-  let inserted = 0;
-  let updated = 0;
-  let errors = 0;
-
-  for (const review of data.data) {
-    try {
-      const reviewData = {
-        business_id,
-        platform: 'facebook',
-        external_review_id: review.id,
-        reviewer_name: review.reviewer.name,
-        rating: review.rating,
-        text: review.review_text || '',
-        review_created_at: review.created_time,
-        review_url: `https://facebook.com/${review.id}`,
-        sentiment: classifySentiment(review.review_text || ''),
-      };
-
-      // Check if review already exists
-      const { data: existing } = await supabase
-        .from('reviews')
-        .select('id')
-        .eq('business_id', business_id)
-        .eq('platform', 'facebook')
-        .eq('external_review_id', review.id)
-        .single();
-
-      if (existing) {
-        // Update existing review
-        const { error } = await supabase
-          .from('reviews')
-          .update(reviewData)
-          .eq('id', existing.id);
-        
-        if (error) throw error;
-        updated++;
-      } else {
-        // Insert new review
-        const { error } = await supabase
-          .from('reviews')
-          .insert(reviewData);
-        
-        if (error) throw error;
-        inserted++;
-      }
-    } catch (error) {
-      console.error('Error processing Facebook review:', error);
-      errors++;
+  try {
+    const targetPageId = source.external_id;
+    const accessToken = source.access_token;
+    
+    if (!targetPageId) {
+      return { error: 'No Facebook page ID stored', inserted: 0, updated: 0, errors: 1 };
     }
-  }
 
-  return { inserted, updated, errors, total: inserted + updated };
+    if (!accessToken) {
+      return { error: 'No Facebook access token found', inserted: 0, updated: 0, errors: 1 };
+    }
+
+    // Call Facebook Graph API for ratings/reviews
+    const url = `https://graph.facebook.com/v18.0/${targetPageId}/ratings?fields=recommendation_type,review_text,rating,created_time,reviewer{name,id},permalink_url&access_token=${accessToken}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Facebook Graph API error:', response.status, errorText);
+      return { error: `Facebook Graph API error: ${response.status}`, inserted: 0, updated: 0, errors: 1 };
+    }
+
+    const data: FacebookResponse = await response.json();
+    
+    if (!data.data || data.data.length === 0) {
+      return { message: 'No ratings/reviews found for this Facebook page', inserted: 0, updated: 0, total: 0 };
+    }
+
+    let inserted = 0;
+    let updated = 0;
+    let errors = 0;
+
+    // Process each rating/review
+    for (const review of data.data) {
+      try {
+        // Skip if no review text (just ratings)
+        if (!review.review_text) continue;
+
+        // Check if review already exists
+        const { data: existingReview } = await supabase
+          .from('reviews')
+          .select('id')
+          .eq('business_id', business_id)
+          .eq('platform', 'facebook')
+          .eq('external_review_id', review.id)
+          .single();
+
+        // Convert Facebook recommendation_type to rating
+        let rating = review.rating || 3; // Default to 3 if no rating
+        if (review.recommendation_type === 'positive') {
+          rating = 5;
+        } else if (review.recommendation_type === 'negative') {
+          rating = 1;
+        }
+
+        const reviewData = {
+          business_id,
+          platform: 'facebook',
+          external_review_id: review.id,
+          reviewer_name: review.reviewer.name,
+          rating,
+          text: review.review_text,
+          review_url: review.permalink_url || `https://facebook.com/${targetPageId}`,
+          review_created_at: new Date(review.created_time).toISOString(),
+          sentiment: classifySentiment(review.review_text, rating)
+        };
+
+        if (existingReview) {
+          // Update existing review
+          const { error: updateError } = await supabase
+            .from('reviews')
+            .update(reviewData)
+            .eq('id', existingReview.id);
+
+          if (updateError) throw updateError;
+          updated++;
+        } else {
+          // Insert new review
+          const { error: insertError } = await supabase
+            .from('reviews')
+            .insert(reviewData);
+
+          if (insertError) throw insertError;
+          inserted++;
+        }
+      } catch (error) {
+        console.error('Error processing Facebook review:', error);
+        errors++;
+      }
+    }
+
+    // Log to audit
+    await supabase
+      .from('audit_log')
+      .insert({
+        business_id,
+        user_id: source.id,
+        entity: 'reviews',
+        action: 'sync',
+        details: {
+          platform: 'facebook',
+          page_id: targetPageId,
+          inserted,
+          updated,
+          errors,
+          total_reviews: data.data.length,
+          note: 'Facebook ratings/reviews sync'
+        }
+      });
+
+    return {
+      inserted,
+      updated,
+      errors,
+      total: data.data.length,
+      note: 'Facebook ratings/reviews sync'
+    };
+
+  } catch (error) {
+    throw new Error(`Facebook sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
-function classifySentiment(text: string): 'positive' | 'neutral' | 'negative' {
-  if (!text) return 'neutral';
+function classifySentiment(text: string, rating: number): 'positive' | 'neutral' | 'negative' {
+  // Simple sentiment classification based on rating and keywords
+  if (rating >= 4) return 'positive';
+  if (rating <= 2) return 'negative';
+  
+  // Check for positive/negative keywords in text
+  const positiveWords = ['great', 'excellent', 'amazing', 'wonderful', 'fantastic', 'love', 'perfect', 'best', 'awesome', 'outstanding', 'superb', 'delicious'];
+  const negativeWords = ['terrible', 'awful', 'horrible', 'worst', 'hate', 'disappointing', 'bad', 'poor', 'disgusting', 'mediocre', 'lousy', 'overpriced'];
   
   const lowerText = text.toLowerCase();
-  
-  // Positive keywords
-  const positiveWords = ['great', 'excellent', 'amazing', 'wonderful', 'fantastic', 'outstanding', 'perfect', 'love', 'awesome', 'best', 'good', 'nice', 'happy', 'satisfied', 'pleased'];
   const positiveCount = positiveWords.filter(word => lowerText.includes(word)).length;
-  
-  // Negative keywords
-  const negativeWords = ['terrible', 'awful', 'horrible', 'worst', 'bad', 'poor', 'disappointing', 'hate', 'terrible', 'awful', 'horrible', 'worst', 'bad', 'poor', 'disappointing'];
   const negativeCount = negativeWords.filter(word => lowerText.includes(word)).length;
   
   if (positiveCount > negativeCount) return 'positive';
   if (negativeCount > positiveCount) return 'negative';
+  
   return 'neutral';
 }

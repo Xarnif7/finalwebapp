@@ -376,16 +376,21 @@ const IntegrationsTab = () => {
         return;
       }
 
-      const response = await fetch(`/api/reviews/sync/${platform}`, {
+      const response = await fetch(`/api/reviews/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business_id: profile.business_id })
+        body: JSON.stringify({ business_id: profile.business_id, platform })
       });
 
       const result = await response.json();
       
       if (response.ok) {
-        toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} connection test successful! Found ${result.total} reviews.`);
+        const platformResult = result.details[platform];
+        if (platformResult && !platformResult.error) {
+          toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} connection test successful! Found ${platformResult.total} reviews.`);
+        } else {
+          toast.error(`Connection test failed: ${platformResult?.error || result.error}`);
+        }
       } else {
         toast.error(`Connection test failed: ${result.error}`);
       }
@@ -414,16 +419,21 @@ const IntegrationsTab = () => {
         return;
       }
 
-      const response = await fetch(`/api/reviews/sync/${platform}`, {
+      const response = await fetch(`/api/reviews/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business_id: profile.business_id })
+        body: JSON.stringify({ business_id: profile.business_id, platform })
       });
 
       const result = await response.json();
       
       if (response.ok) {
-        toast.success(`Synced ${result.inserted} new reviews and updated ${result.updated} existing reviews.`);
+        const platformResult = result.details[platform];
+        if (platformResult && !platformResult.error) {
+          toast.success(`Synced ${platformResult.inserted} new reviews and updated ${platformResult.updated} existing reviews.`);
+        } else {
+          toast.error(`Sync failed: ${platformResult?.error || result.error}`);
+        }
         fetchReviewSources(); // Refresh last_synced_at
       } else {
         toast.error(`Sync failed: ${result.error}`);
