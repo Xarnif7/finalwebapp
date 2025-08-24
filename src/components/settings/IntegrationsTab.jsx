@@ -739,25 +739,25 @@ const IntegrationsTab = () => {
                      : 'Select "Yelp Fusion API" to connect with your Yelp business listing'
                    }
                  </p>
-                 <Select
-                   value={data.connection_type || ''}
-                   onValueChange={(value) => handleInputChange(platform, 'connection_type', value)}
-                 >
-                   <SelectTrigger>
-                     <SelectValue placeholder="Select connection type" />
-                   </SelectTrigger>
-                   <SelectContent>
-                     {platform === 'google' && (
-                       <SelectItem value="places">Google Places API (Read-only)</SelectItem>
-                     )}
-                     {platform === 'facebook' && (
-                       <SelectItem value="page_oauth">Facebook Page OAuth</SelectItem>
-                     )}
-                     {platform === 'yelp' && (
-                       <SelectItem value="api_key">Yelp Fusion API</SelectItem>
-                     )}
-                   </SelectContent>
-                 </Select>
+                                   <Select
+                    value={data.connection_type || ''}
+                    onValueChange={(value) => handleInputChange(platform, 'connection_type', value)}
+                  >
+                    <SelectTrigger className="text-left">
+                      <SelectValue placeholder="Select connection type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {platform === 'google' && (
+                        <SelectItem value="places" className="text-left">Google Places API (Read-only)</SelectItem>
+                      )}
+                      {platform === 'facebook' && (
+                        <SelectItem value="page_oauth" className="text-left">Facebook Page OAuth</SelectItem>
+                      )}
+                      {platform === 'yelp' && (
+                        <SelectItem value="api_key" className="text-left">Yelp Fusion API</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                </div>
 
                {/* External ID */}
