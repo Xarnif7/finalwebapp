@@ -7,20 +7,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { 
-  MapPin, 
-  Facebook, 
-  Star, 
-  ExternalLink, 
-  RefreshCw, 
-  CheckCircle, 
-  XCircle, 
-  AlertCircle,
-  Loader2,
-  Copy,
-  Settings,
-  Search,
-  Globe
-} from 'lucide-react';
+   MapPin, 
+   Facebook, 
+   Star, 
+   ExternalLink, 
+   RefreshCw, 
+   CheckCircle, 
+   AlertCircle,
+   Loader2,
+   Copy,
+   Settings,
+   Search
+ } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/auth/AuthProvider';
 import { toast } from 'react-hot-toast';
@@ -39,23 +37,13 @@ const IntegrationsTab = () => {
   const [googleApiLoaded, setGoogleApiLoaded] = useState(false);
   const [searching, setSearching] = useState(false);
 
-  // Check environment variables
-  const [envStatus, setEnvStatus] = useState({
-    VITE_GOOGLE_MAPS_KEY: false,
-    YELP_API_KEY: false,
-    FB_APP_ID: false,
-    FB_APP_SECRET: false,
-    FB_REDIRECT_URL: false,
-    OPENAI_API_KEY: false,
-    INTERNAL_API_KEY: false
-  });
+  
 
-  useEffect(() => {
-    if (user) {
-      fetchReviewSources();
-      checkEnvironmentVariables();
-    }
-  }, [user]);
+     useEffect(() => {
+     if (user) {
+       fetchReviewSources();
+     }
+   }, [user]);
 
   // Load Google Maps API dynamically
   useEffect(() => {
@@ -94,17 +82,7 @@ const IntegrationsTab = () => {
     loadGoogleMapsAPI();
   }, []);
 
-  const checkEnvironmentVariables = async () => {
-    // Check if client-side environment variables are available
-    const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_KEY;
-    const internalKey = import.meta.env.VITE_INTERNAL_API_KEY;
-    
-    setEnvStatus(prev => ({
-      ...prev,
-      VITE_GOOGLE_MAPS_KEY: !!googleMapsKey,
-      INTERNAL_API_KEY: !!internalKey
-    }));
-  };
+  
 
   const fetchReviewSources = async () => {
     try {
@@ -160,73 +138,56 @@ const IntegrationsTab = () => {
     }));
   };
 
-  // Google Places Autocomplete
-  const searchGooglePlaces = async (query) => {
-    if (!query.trim()) return;
-    
-    console.log('=== SEARCH DEBUG ===');
-    console.log('Query:', query);
-    console.log('Google API loaded:', googleApiLoaded);
-    console.log('Window google exists:', !!window.google);
-    console.log('Google maps exists:', !!(window.google && window.google.maps));
-    console.log('Google places exists:', !!(window.google && window.google.maps && window.google.maps.places));
-    console.log('PlacesServiceStatus:', window.google?.maps?.places?.PlacesServiceStatus);
-    
-    if (!googleApiLoaded) {
-      console.log('API not loaded yet');
-      toast.error('Google Maps API is still loading. Please wait a moment and try again.');
-      return;
-    }
-    
-    if (!window.google || !window.google.maps || !window.google.maps.places) {
-      console.log('Google API not available');
-      toast.error('Google Maps API not available. Please refresh the page.');
-      return;
-    }
-    
-    try {
-      setSearching(true);
-      console.log('Creating AutocompleteService...');
-      
-      const service = new window.google.maps.places.AutocompleteService();
-      const request = {
-        input: query,
-        types: ['establishment'],
-        componentRestrictions: { country: 'us' }
-      };
-      
-      console.log('Making Places API request:', request);
-      
-      service.getPlacePredictions(request, (predictions, status) => {
-        console.log('=== PLACES API RESPONSE ===');
-        console.log('Status:', status);
-        console.log('Status OK constant:', window.google.maps.places.PlacesServiceStatus.OK);
-        console.log('Status comparison:', status === window.google.maps.places.PlacesServiceStatus.OK);
-        console.log('Predictions count:', predictions?.length);
-        console.log('Predictions:', predictions);
-        
-        setSearching(false);
-        
-        if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-          console.log('Success! Setting results...');
-          setGoogleSearchResults(predictions);
-          setShowGoogleSearch(true);
-          toast.success(`Found ${predictions.length} businesses`);
-        } else {
-          console.log('No predictions found or error:', status);
-          if (status === 'ZERO_RESULTS') {
-            toast.info('No businesses found with that name. Try a different search term.');
-          } else {
-            toast.error(`Search failed: ${status}`);
-          }
-        }
-      });
-    } catch (error) {
-      setSearching(false);
-      console.error('Google Places search error:', error);
-      toast.error('Search failed. Please try again.');
-    }
-  };
+     // Google Places Autocomplete
+   const searchGooglePlaces = async (query) => {
+     if (!query.trim()) return;
+     
+     if (!googleApiLoaded) {
+       toast.error('Google Maps API is still loading. Please wait a moment and try again.');
+       return;
+     }
+     
+     if (!window.google || !window.google.maps || !window.google.maps.places) {
+       toast.error('Google Maps API not available. Please refresh the page.');
+       return;
+     }
+     
+     try {
+       setSearching(true);
+       setShowGoogleSearch(true);
+       
+       const service = new window.google.maps.places.AutocompleteService();
+       const request = {
+         input: query,
+         types: ['establishment'],
+         componentRestrictions: { country: 'us' }
+       };
+       
+       service.getPlacePredictions(request, (predictions, status) => {
+         setSearching(false);
+         
+         if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+           setGoogleSearchResults(predictions);
+           if (predictions.length === 0) {
+             toast.info('No businesses found with that name. Try a different search term.');
+           }
+         } else {
+           if (status === 'ZERO_RESULTS') {
+             setGoogleSearchResults([]);
+             toast.info('No businesses found with that name. Try a different search term.');
+           } else {
+             setGoogleSearchResults([]);
+             toast.error(`Search failed: ${status}`);
+           }
+         }
+       });
+     } catch (error) {
+       setSearching(false);
+       setGoogleSearchResults([]);
+       console.error('Google Places search error:', error);
+       toast.error('Search failed. Please try again.');
+     }
+   };
 
   const selectGooglePlace = async (placeId, description) => {
     try {
@@ -567,43 +528,15 @@ const IntegrationsTab = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold mb-2">Review Platform Integrations</h2>
-        <p className="text-sm text-muted-foreground">
-          Connect your business to automatically import reviews from Google, Facebook, and Yelp.
-        </p>
-      </div>
+             <div>
+         <h2 className="text-lg font-semibold mb-2">Review Platform Integrations</h2>
+         <p className="text-sm text-muted-foreground mb-4">
+           Connect your business to automatically import reviews from Google, Facebook, and Yelp. 
+           <strong> For Google:</strong> Use the search box above to find your business, or paste your Google Maps URL and click "Resolve ID".
+         </p>
+       </div>
 
-      {/* Environment Variables Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Globe className="h-5 w-5" />
-            Environment Configuration Status
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Object.entries(envStatus).map(([key, configured]) => (
-              <div key={key} className="flex items-center gap-2">
-                {configured ? (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-red-500" />
-                )}
-                <span className="text-sm font-mono">{key}</span>
-              </div>
-            ))}
-          </div>
-          {Object.values(envStatus).some(status => !status) && (
-            <div className="mt-4 p-3 bg-yellow-50 text-yellow-700 rounded-lg">
-              <p className="text-sm">
-                Some environment variables are missing. Please configure them in your Vercel project settings.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      
 
       {['google', 'facebook', 'yelp'].map((platform) => {
         const data = formData[platform] || {};
@@ -626,165 +559,179 @@ const IntegrationsTab = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-                             {/* Google Places Search */}
-               {platform === 'google' && (
-                 <div>
-                   <Label>Search for your business</Label>
-                                       {!googleApiLoaded && (
+                                                           {/* Google Places Search */}
+                {platform === 'google' && (
+                  <div>
+                    <Label>Search for your business</Label>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Type your business name to find and auto-fill the details below
+                    </p>
+                    
+                    {!googleApiLoaded && (
                       <div className="mb-2 p-2 bg-yellow-50 text-yellow-700 rounded text-sm">
                         <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
                         Loading Google Maps API...
                       </div>
                     )}
-                    {googleApiLoaded && (
-                      <div className="mb-2 p-2 bg-green-50 text-green-700 rounded text-sm">
-                        ✅ Google Maps API Loaded
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="ml-2"
-                          onClick={() => {
-                            console.log('=== MANUAL TEST ===');
-                            console.log('Testing search with "dentist"');
-                            searchGooglePlaces('dentist');
-                          }}
-                        >
-                          Test Search
-                        </Button>
-                      </div>
-                    )}
-                   <div className="flex gap-2 mt-1">
-                                                               <Input
-                        placeholder="Search for your business name..."
+                    
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        placeholder="Start typing your business name..."
                         value={googleSearchQuery}
                         onChange={(e) => {
                           const value = e.target.value;
-                          console.log('Input changed:', value);
                           setGoogleSearchQuery(value);
                           
                           if (value.length > 2) {
-                            console.log('Triggering search for:', value);
                             searchGooglePlaces(value);
                           } else {
-                            console.log('Clearing results, query too short');
                             setShowGoogleSearch(false);
                             setGoogleSearchResults([]);
                           }
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && googleSearchQuery.trim()) {
-                            console.log('Enter pressed, searching for:', googleSearchQuery);
                             searchGooglePlaces(googleSearchQuery);
                           }
                         }}
                       />
-                                         <Button
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (googleSearchQuery.trim()) {
+                            searchGooglePlaces(googleSearchQuery);
+                          }
+                        }}
+                        disabled={searching || !googleApiLoaded}
+                      >
+                        {searching ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Search className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    
+                    {showGoogleSearch && googleSearchResults.length > 0 && (
+                      <div className="mt-2 border rounded-lg max-h-40 overflow-y-auto">
+                        {googleSearchResults.map((prediction) => (
+                          <div
+                            key={prediction.place_id}
+                            className="p-2 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                            onClick={() => selectGooglePlace(prediction.place_id, prediction.description)}
+                          >
+                            <div className="font-medium">{prediction.structured_formatting?.main_text}</div>
+                            <div className="text-sm text-gray-500">{prediction.structured_formatting?.secondary_text}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {showGoogleSearch && googleSearchResults.length === 0 && searching && (
+                      <div className="mt-2 p-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
+                        Searching...
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                             {/* Public URL */}
+               <div>
+                 <Label htmlFor={`${platform}-public-url`}>
+                   Public {getPlatformName(platform)} URL
+                 </Label>
+                 <p className="text-sm text-muted-foreground mb-2">
+                   {platform === 'google' 
+                     ? 'Your business Google Maps page URL (e.g., https://maps.google.com/...)'
+                     : platform === 'facebook' 
+                     ? 'Your Facebook business page URL (e.g., https://facebook.com/yourbusiness)'
+                     : 'Your Yelp business page URL (e.g., https://yelp.com/biz/yourbusiness)'
+                   }
+                 </p>
+                 <div className="flex gap-2 mt-1">
+                   <Input
+                     id={`${platform}-public-url`}
+                     placeholder={`https://${platform === 'google' ? 'maps.google.com' : platform === 'facebook' ? 'facebook.com' : 'yelp.com'}/...`}
+                     value={data.public_url || ''}
+                     onChange={(e) => handleInputChange(platform, 'public_url', e.target.value)}
+                   />
+                   {platform === 'google' && (
+                     <Button
                        variant="outline"
                        size="sm"
-                       onClick={() => {
-                         if (googleSearchQuery.trim()) {
-                           searchGooglePlaces(googleSearchQuery);
-                         } else {
-                           setShowGoogleSearch(!showGoogleSearch);
-                         }
-                       }}
-                       disabled={searching || !googleApiLoaded}
+                       onClick={() => resolveGooglePlaceId(data.public_url)}
+                       disabled={!data.public_url}
                      >
-                       {searching ? (
-                         <Loader2 className="h-4 w-4 animate-spin" />
-                       ) : (
-                         <Search className="h-4 w-4" />
-                       )}
+                       Resolve ID
                      </Button>
-                  </div>
-                  {showGoogleSearch && googleSearchResults.length > 0 && (
-                    <div className="mt-2 border rounded-lg max-h-40 overflow-y-auto">
-                      {googleSearchResults.map((prediction) => (
-                        <div
-                          key={prediction.place_id}
-                          className="p-2 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
-                          onClick={() => selectGooglePlace(prediction.place_id, prediction.description)}
-                        >
-                          <div className="font-medium">{prediction.structured_formatting?.main_text}</div>
-                          <div className="text-sm text-gray-500">{prediction.structured_formatting?.secondary_text}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                   )}
+                   {platform === 'yelp' && (
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => resolveYelpBusinessId(data.public_url)}
+                       disabled={!data.public_url}
+                     >
+                       Resolve ID
+                     </Button>
+                   )}
+                 </div>
+               </div>
 
-              {/* Public URL */}
-              <div>
-                <Label htmlFor={`${platform}-public-url`}>
-                  Public {getPlatformName(platform)} URL
-                </Label>
-                <div className="flex gap-2 mt-1">
-                  <Input
-                    id={`${platform}-public-url`}
-                    placeholder={`https://${platform === 'google' ? 'maps.google.com' : platform === 'facebook' ? 'facebook.com' : 'yelp.com'}/...`}
-                    value={data.public_url || ''}
-                    onChange={(e) => handleInputChange(platform, 'public_url', e.target.value)}
-                  />
-                  {platform === 'google' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => resolveGooglePlaceId(data.public_url)}
-                      disabled={!data.public_url}
-                    >
-                      Resolve ID
-                    </Button>
-                  )}
-                  {platform === 'yelp' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => resolveYelpBusinessId(data.public_url)}
-                      disabled={!data.public_url}
-                    >
-                      Resolve ID
-                    </Button>
-                  )}
-                </div>
-              </div>
+                             {/* Connection Type */}
+               <div>
+                 <Label htmlFor={`${platform}-connection-type`}>Connection Type</Label>
+                 <p className="text-sm text-muted-foreground mb-2">
+                   {platform === 'google' 
+                     ? 'Select "Google Places API" for basic review import (read-only)'
+                     : platform === 'facebook' 
+                     ? 'Select "Facebook Page OAuth" to connect your Facebook business page'
+                     : 'Select "Yelp Fusion API" to connect with your Yelp business listing'
+                   }
+                 </p>
+                 <Select
+                   value={data.connection_type || ''}
+                   onValueChange={(value) => handleInputChange(platform, 'connection_type', value)}
+                 >
+                   <SelectTrigger>
+                     <SelectValue placeholder="Select connection type" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {platform === 'google' && (
+                       <SelectItem value="places">Google Places API (Read-only)</SelectItem>
+                     )}
+                     {platform === 'facebook' && (
+                       <SelectItem value="page_oauth">Facebook Page OAuth</SelectItem>
+                     )}
+                     {platform === 'yelp' && (
+                       <SelectItem value="api_key">Yelp Fusion API</SelectItem>
+                     )}
+                   </SelectContent>
+                 </Select>
+               </div>
 
-              {/* Connection Type */}
-              <div>
-                <Label htmlFor={`${platform}-connection-type`}>Connection Type</Label>
-                <Select
-                  value={data.connection_type || ''}
-                  onValueChange={(value) => handleInputChange(platform, 'connection_type', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select connection type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {platform === 'google' && (
-                      <SelectItem value="places">Google Places API (Read-only)</SelectItem>
-                    )}
-                    {platform === 'facebook' && (
-                      <SelectItem value="page_oauth">Facebook Page OAuth</SelectItem>
-                    )}
-                    {platform === 'yelp' && (
-                      <SelectItem value="api_key">Yelp Fusion API</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* External ID */}
-              <div>
-                <Label htmlFor={`${platform}-external-id`}>
-                  {platform === 'google' ? 'Place ID' : platform === 'facebook' ? 'Page ID' : 'Business ID'}
-                </Label>
-                <Input
-                  id={`${platform}-external-id`}
-                  placeholder={platform === 'google' ? 'ChIJ...' : platform === 'facebook' ? '123456789' : 'business-name'}
-                  value={data.external_id || ''}
-                  onChange={(e) => handleInputChange(platform, 'external_id', e.target.value)}
-                />
-              </div>
+               {/* External ID */}
+               <div>
+                 <Label htmlFor={`${platform}-external-id`}>
+                   {platform === 'google' ? 'Place ID' : platform === 'facebook' ? 'Page ID' : 'Business ID'}
+                 </Label>
+                 <p className="text-sm text-muted-foreground mb-2">
+                   {platform === 'google' 
+                     ? 'This will be auto-filled when you search above, or use "Resolve ID" button with your Google Maps URL'
+                     : platform === 'facebook' 
+                     ? 'This will be auto-filled when you connect your Facebook page'
+                     : 'This will be auto-filled when you use "Resolve ID" button with your Yelp URL'
+                   }
+                 </p>
+                 <Input
+                   id={`${platform}-external-id`}
+                   placeholder={platform === 'google' ? 'ChIJ...' : platform === 'facebook' ? '123456789' : 'business-name'}
+                   value={data.external_id || ''}
+                   onChange={(e) => handleInputChange(platform, 'external_id', e.target.value)}
+                 />
+               </div>
 
               {/* Facebook OAuth Connect Button */}
               {platform === 'facebook' && !isConnected && (
