@@ -41,7 +41,7 @@ const IntegrationsTab = () => {
 
   // Check environment variables
   const [envStatus, setEnvStatus] = useState({
-    GOOGLE_PLACES_API_KEY: false,
+    VITE_GOOGLE_MAPS_KEY: false,
     YELP_API_KEY: false,
     FB_APP_ID: false,
     FB_APP_SECRET: false,
@@ -66,8 +66,8 @@ const IntegrationsTab = () => {
         return;
       }
 
-      // Get API key from environment
-      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+             // Get API key from environment
+       const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY;
       if (!apiKey) {
         console.error('Google Maps API key not found');
         return;
@@ -95,22 +95,15 @@ const IntegrationsTab = () => {
   }, []);
 
   const checkEnvironmentVariables = async () => {
-    try {
-      const response = await fetch('/api/reviews/sync/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business_id: 'test', place_id: 'test' })
-      });
-      
-      // This will fail but we can check the error message to see if it's a config issue
-      const data = await response.json();
-      setEnvStatus(prev => ({
-        ...prev,
-        GOOGLE_PLACES_API_KEY: !data.error?.includes('not configured')
-      }));
-    } catch (error) {
-      // Ignore test errors
-    }
+    // Check if client-side environment variables are available
+    const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+    const internalKey = import.meta.env.VITE_INTERNAL_API_KEY;
+    
+    setEnvStatus(prev => ({
+      ...prev,
+      VITE_GOOGLE_MAPS_KEY: !!googleMapsKey,
+      INTERNAL_API_KEY: !!internalKey
+    }));
   };
 
   const fetchReviewSources = async () => {
