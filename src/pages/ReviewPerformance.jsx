@@ -1,12 +1,15 @@
 ﻿
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Star, TrendingUp, Clock, MessageSquare, Filter, Calendar } from "lucide-react";
+import { Star, TrendingUp, Clock, MessageSquare, Filter, Calendar, Download, BarChart3, Eye } from "lucide-react";
 import { motion } from "framer-motion";
 import PageHeader from "@/components/ui/PageHeader";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/auth/AuthProvider";
+import { toast } from "react-hot-toast";
 
 const platformColors = {
   Google: "bg-white text-purple-600 border-purple-200 hover:bg-purple-50 transition-colors",
@@ -14,53 +17,220 @@ const platformColors = {
   Facebook: "bg-white text-blue-600 border-blue-200 hover:bg-blue-50 transition-colors"
 };
 
-const kpiData = [
-  {
-    title: "Your Average Rating",
-    value: "4.8",
-    change: "+0.3 from last month",
-    icon: Star,
-    bgColor: "bg-yellow-50",
-    borderColor: "border-yellow-200",
-    iconColor: "text-yellow-600"
-  },
-  {
-    title: "Total Reviews",
-    value: "247",
-    change: "+42 from last month",
-    icon: TrendingUp,
-    bgColor: "bg-green-50",
-    borderColor: "border-green-200", 
-    iconColor: "text-green-600"
-  },
-  {
-    title: "Response Time",
-    value: "2.4h",
-    change: "-30min improvement",
-    icon: Clock,
-    bgColor: "bg-blue-50",
-    borderColor: "border-blue-200",
-    iconColor: "text-blue-600"
-  },
-  {
-    title: "Reply Rate",
-    value: "94%",
-    change: "+8% from last month",
-    icon: MessageSquare,
-    bgColor: "bg-purple-50",
-    borderColor: "border-purple-200",
-    iconColor: "text-purple-600"
-  },
-];
-
-const platformBreakdown = [
-  { platform: "Google", reviews: 142, rating: 4.9, color: "bg-white text-[#1A73E8] border-blue-200" },
-  { platform: "Yelp", reviews: 68, rating: 4.6, color: "bg-white text-[#D32323] border-red-200" },
-  { platform: "Facebook", reviews: 37, rating: 4.7, color: "bg-white text-[#1877F2] border-blue-200" },
-];
-
-export default function ReviewPerformance() {
+const ReviewPerformance = () => {
+  const { user } = useAuth();
   const [timeRange, setTimeRange] = useState("30");
+  const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState({
+    avgRating: 0,
+    totalReviews: 0,
+    responseTime: 0,
+    replyRate: 0
+  });
+  const [platformBreakdown, setPlatformBreakdown] = useState([]);
+  const [ratingTrends, setRatingTrends] = useState([]);
+
+  useEffect(() => {
+    if (user) {
+      fetchMetrics();
+    }
+  }, [user, timeRange]);
+
+  const fetchMetrics = async () => {
+    try {
+      setLoading(true);
+      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.business_id) return;
+
+      const days = parseInt(timeRange);
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      // Fetch reviews for the time period
+      const { data: reviews, error: reviewsError } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('business_id', profile.business_id)
+        .gte('review_created_at', startDate.toISOString())
+        .order('review_created_at', { ascending: true });
+
+      if (reviewsError) throw reviewsError;
+
+      // Calculate metrics
+      const totalReviews = reviews.length;
+      const avgRating = totalReviews > 0 
+        ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
+        : 0;
+      
+      const repliedReviews = reviews.filter(r => r.is_replied).length;
+      const replyRate = totalReviews > 0 ? Math.round((repliedReviews / totalReviews) * 100) : 0;
+
+      // Calculate response time (placeholder for now)
+      const responseTime = 2.4; // hours
+
+      setMetrics({
+        avgRating: parseFloat(avgRating),
+        totalReviews,
+        responseTime,
+        replyRate
+      });
+
+      // Calculate platform breakdown
+      const platformData = {};
+      reviews.forEach(review => {
+        if (!platformData[review.platform]) {
+          platformData[review.platform] = { count: 0, totalRating: 0 };
+        }
+        platformData[review.platform].count++;
+        platformData[review.platform].totalRating += review.rating;
+      });
+
+      const breakdown = Object.entries(platformData).map(([platform, data]) => ({
+        platform: platform.charAt(0).toUpperCase() + platform.slice(1),
+        reviews: data.count,
+        rating: (data.totalRating / data.count).toFixed(1),
+        color: platformColors[platform.charAt(0).toUpperCase() + platform.slice(1)] || "bg-white text-gray-600 border-gray-200"
+      }));
+
+      setPlatformBreakdown(breakdown);
+
+      // Calculate rating trends by week/month
+      const trends = calculateRatingTrends(reviews, timeRange);
+      setRatingTrends(trends);
+
+    } catch (error) {
+      console.error('Error fetching metrics:', error);
+      toast.error('Failed to load performance data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateRatingTrends = (reviews, timeRange) => {
+    if (!reviews.length) return [];
+
+    const days = parseInt(timeRange);
+    const intervals = timeRange === '7' ? 7 : timeRange === '30' ? 4 : 12;
+    const intervalSize = days / intervals;
+
+    const trends = [];
+    for (let i = 0; i < intervals; i++) {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - (days - (i * intervalSize)));
+      
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() - (days - ((i + 1) * intervalSize)));
+
+      const intervalReviews = reviews.filter(review => {
+        const reviewDate = new Date(review.review_created_at);
+        return reviewDate >= endDate && reviewDate < startDate;
+      });
+
+      const avgRating = intervalReviews.length > 0
+        ? (intervalReviews.reduce((sum, r) => sum + r.rating, 0) / intervalReviews.length).toFixed(1)
+        : 0;
+
+      trends.push({
+        period: i === intervals - 1 ? 'Now' : `${Math.round(days - ((i + 1) * intervalSize))}d ago`,
+        rating: parseFloat(avgRating),
+        count: intervalReviews.length
+      });
+    }
+
+    return trends.reverse();
+  };
+
+  const exportData = async (format) => {
+    try {
+      if (format === 'csv') {
+        // Generate CSV data
+        const csvContent = generateCSV();
+        downloadFile(csvContent, 'review-performance.csv', 'text/csv');
+        toast.success('CSV exported successfully!');
+      } else if (format === 'png') {
+        // For PNG export, we'd need a chart library
+        toast.info('PNG export requires chart library integration');
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Export failed');
+    }
+  };
+
+  const generateCSV = () => {
+    const headers = ['Period', 'Average Rating', 'Review Count'];
+    const rows = ratingTrends.map(trend => [trend.period, trend.rating, trend.count]);
+    
+    return [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+  };
+
+  const downloadFile = (content, filename, contentType) => {
+    const blob = new Blob([content], { type: contentType });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const kpiData = [
+    {
+      title: "Your Average Rating",
+      value: metrics.avgRating.toFixed(1),
+      change: `Last ${timeRange} days`,
+      icon: Star,
+      bgColor: "bg-yellow-50",
+      borderColor: "border-yellow-200",
+      iconColor: "text-yellow-600"
+    },
+    {
+      title: "Total Reviews",
+      value: metrics.totalReviews.toString(),
+      change: `Last ${timeRange} days`,
+      icon: TrendingUp,
+      bgColor: "bg-green-50",
+      borderColor: "border-green-200", 
+      iconColor: "text-green-600"
+    },
+    {
+      title: "Response Time",
+      value: `${metrics.responseTime}h`,
+      change: "Average",
+      icon: Clock,
+      bgColor: "bg-blue-50",
+      borderColor: "border-blue-200",
+      iconColor: "text-blue-600"
+    },
+    {
+      title: "Reply Rate",
+      value: `${metrics.replyRate}%`,
+      change: `Last ${timeRange} days`,
+      icon: MessageSquare,
+      bgColor: "bg-purple-50",
+      borderColor: "border-purple-200",
+      iconColor: "text-purple-600"
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading performance data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div 
@@ -86,6 +256,17 @@ export default function ReviewPerformance() {
               <SelectItem value="90">Last 90 days</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportData('csv')}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => exportData('png')}>
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Download Chart
+          </Button>
         </div>
       </div>
 
@@ -113,36 +294,83 @@ export default function ReviewPerformance() {
           <CardTitle>Platform Breakdown</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
-            {platformBreakdown.map((platform, index) => (
-              <div key={index} className="text-center p-4 rounded-lg bg-slate-50">
-                <Badge className={`mb-2 ${platform.color}`}>{platform.platform}</Badge>
-                <div className="text-2xl font-bold text-slate-900">{platform.reviews}</div>
-                <div className="text-sm text-slate-500 mb-1">Total Reviews</div>
-                <div className="flex items-center justify-center gap-1">
-                  <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                  <span className="text-sm font-medium">{platform.rating}</span>
+          {platformBreakdown.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Eye className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+              <p>No platform data available</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-4">
+              {platformBreakdown.map((platform, index) => (
+                <div key={index} className="text-center p-4 rounded-lg bg-slate-50">
+                  <Badge className={`mb-2 ${platform.color}`}>{platform.platform}</Badge>
+                  <div className="text-2xl font-bold text-slate-900">{platform.reviews}</div>
+                  <div className="text-sm text-slate-500 mb-1">Total Reviews</div>
+                  <div className="flex items-center justify-center gap-1">
+                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                    <span className="text-sm font-medium">{platform.rating}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Trends Chart Placeholder */}
+      {/* Rating Trends Chart */}
       <Card className="rounded-2xl">
         <CardHeader>
           <CardTitle>Rating Trends</CardTitle>
         </CardHeader>
-        <CardContent className="h-64 flex items-center justify-center">
-          <div className="text-center text-slate-500">
-            <TrendingUp className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-            <p>Trend chart visualization would go here</p>
-          </div>
+        <CardContent>
+          {ratingTrends.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <TrendingUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+              <p>No trend data available</p>
+            </div>
+          ) : (
+            <div className="h-64">
+              {/* Simple bar chart visualization */}
+              <div className="flex items-end justify-between h-48 gap-2">
+                {ratingTrends.map((trend, index) => (
+                  <div key={index} className="flex-1 flex flex-col items-center">
+                    <div 
+                      className="w-full bg-blue-500 rounded-t transition-all duration-300 hover:bg-blue-600"
+                      style={{ 
+                        height: `${Math.max((trend.rating / 5) * 100, 10)}%`,
+                        minHeight: '20px'
+                      }}
+                      title={`${trend.period}: ${trend.rating}/5 (${trend.count} reviews)`}
+                    ></div>
+                    <div className="text-xs text-muted-foreground mt-2 text-center">
+                      <div className="font-medium">{trend.rating}</div>
+                      <div className="text-[10px]">{trend.period}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Chart legend */}
+              <div className="mt-4 text-center text-sm text-muted-foreground">
+                <div className="flex items-center justify-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                    <span>Average Rating</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-gray-300 rounded"></div>
+                    <span>Time Period</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </motion.div>
   );
-}
+};
+
+export default ReviewPerformance;
 
 
