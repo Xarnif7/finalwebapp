@@ -174,6 +174,7 @@ export default function ClientsPage() {
   };
 
   const handleDeleteCustomer = async (customerId) => {
+    // Always show confirmation dialog - no "don't show again" option
     if (window.confirm('Are you sure you want to permanently delete this customer? This action cannot be undone.')) {
       try {
         await deleteCustomer(customerId);

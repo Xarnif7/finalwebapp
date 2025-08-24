@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   Star, 
   MapPin, 
@@ -16,7 +18,10 @@ import {
   Filter,
   Search,
   RefreshCw,
-  Loader2
+  Loader2,
+  ThumbsUp,
+  ThumbsDown,
+  Minus
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/auth/AuthProvider';
@@ -31,11 +36,13 @@ const ReviewInbox = () => {
   const [syncing, setSyncing] = useState(false);
   const [filters, setFilters] = useState({
     platform: 'all',
-    sentiment: 'all'
+    sentiment: 'all',
+    search: ''
   });
   const [aiReply, setAiReply] = useState('');
   const [generatingReply, setGeneratingReply] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -56,31 +63,30 @@ const ReviewInbox = () => {
 
       if (!profile?.business_id) return;
 
-      // Build query with filters
+      // Build query
       let query = supabase
         .from('reviews')
         .select('*')
         .eq('business_id', profile.business_id)
         .order('review_created_at', { ascending: false });
 
+      // Apply filters
       if (filters.platform !== 'all') {
         query = query.eq('platform', filters.platform);
       }
-
+      
       if (filters.sentiment !== 'all') {
         query = query.eq('sentiment', filters.sentiment);
+      }
+
+      if (filters.search) {
+        query = query.or(`reviewer_name.ilike.%${filters.search}%,text.ilike.%${filters.search}%`);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
-
       setReviews(data || []);
-      
-      // Select first review if none selected
-      if (!selectedReview && data && data.length > 0) {
-        setSelectedReview(data[0]);
-      }
       
     } catch (error) {
       console.error('Error fetching reviews:', error);
@@ -105,27 +111,36 @@ const ReviewInbox = () => {
         return;
       }
 
-      const response = await fetch('/api/reviews/sync', {
+      const response = await fetch('/api/reviews/sync/all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business_id: profile.business_id, platform: 'all' })
+        body: JSON.stringify({ business_id: profile.business_id })
       });
 
       const result = await response.json();
       
       if (response.ok) {
         toast.success(`Sync completed! ${result.summary.total_inserted} new, ${result.summary.total_updated} updated`);
-        fetchReviews();
+        fetchReviews(); // Refresh reviews after sync
       } else {
         toast.error(`Sync failed: ${result.error}`);
       }
-      
     } catch (error) {
       console.error('Error syncing reviews:', error);
-      toast.error('Sync failed');
+      toast.error('Failed to sync reviews');
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleFilterChange = (filter, value) => {
+    setFilters(prev => ({ ...prev, [filter]: value }));
+  };
+
+  const handleSelectReview = (review) => {
+    setSelectedReview(review);
+    setReplyText('');
+    setAiReply('');
   };
 
   const generateAiReply = async () => {
@@ -134,6 +149,17 @@ const ReviewInbox = () => {
     try {
       setGeneratingReply(true);
       
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.business_id) {
+        toast.error('Business not found');
+        return;
+      }
+
       const response = await fetch('/api/ai/generate-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -141,7 +167,7 @@ const ReviewInbox = () => {
           review_text: selectedReview.text,
           rating: selectedReview.rating,
           platform: selectedReview.platform,
-          business_context: 'Professional and friendly business response'
+          business_context: `Business ID: ${profile.business_id}`
         })
       });
 
@@ -151,9 +177,8 @@ const ReviewInbox = () => {
         setAiReply(result.reply);
         setReplyText(result.reply);
       } else {
-        toast.error('Failed to generate AI reply');
+        toast.error(`AI reply generation failed: ${result.error}`);
       }
-      
     } catch (error) {
       console.error('Error generating AI reply:', error);
       toast.error('Failed to generate AI reply');
@@ -162,62 +187,97 @@ const ReviewInbox = () => {
     }
   };
 
-  const handleReply = async () => {
+  const handleSendReply = async () => {
     if (!selectedReview || !replyText.trim()) return;
 
     try {
-      // Update review with reply
-      const { error } = await supabase
-        .from('reviews')
-        .update({
-          reply_text: replyText,
-          reply_posted_at: new Date().toISOString(),
-          is_replied: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedReview.id);
-
-      if (error) throw error;
-
-      // Update local state
-      setReviews(prev => prev.map(review => 
-        review.id === selectedReview.id 
-          ? { ...review, reply_text: replyText, reply_posted_at: new Date().toISOString(), is_replied: true }
-          : review
-      ));
-      setSelectedReview(prev => ({ ...prev, reply_text: replyText, reply_posted_at: new Date().toISOString(), is_replied: true }));
-
-      toast.success('Reply saved successfully');
+      setSendingReply(true);
       
-      // Handle platform-specific actions
-      handlePlatformReply(selectedReview.platform, replyText);
-      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.business_id) {
+        toast.error('Business not found');
+        return;
+      }
+
+      // Handle different platforms
+      if (selectedReview.platform === 'facebook') {
+        // Try to post reply via Facebook API
+        const response = await fetch('/api/reviews/reply/facebook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            business_id: profile.business_id,
+            review_id: selectedReview.id,
+            reply_text: replyText
+          })
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+          toast.success('Reply posted successfully!');
+          // Update local state
+          setSelectedReview(prev => ({
+            ...prev,
+            is_replied: true,
+            reply_text: replyText,
+            reply_posted_at: new Date().toISOString()
+          }));
+          fetchReviews(); // Refresh to get updated data
+        } else if (result.code === 'PERMISSION_DENIED') {
+          // Show copy & open options
+          toast.info('Reply not permitted - use Copy & Open Facebook');
+        } else {
+          toast.error(`Reply failed: ${result.error}`);
+        }
+      } else {
+        // For Google and Yelp, just copy to clipboard
+        await navigator.clipboard.writeText(replyText);
+        toast.success('Reply copied to clipboard!');
+      }
     } catch (error) {
-      console.error('Error saving reply:', error);
-      toast.error('Failed to save reply');
+      console.error('Error sending reply:', error);
+      toast.error('Failed to send reply');
+    } finally {
+      setSendingReply(false);
     }
   };
 
-  const handlePlatformReply = (platform, replyText) => {
-    switch (platform) {
+  const copyReply = async () => {
+    if (!replyText.trim()) return;
+    
+    try {
+      await navigator.clipboard.writeText(replyText);
+      toast.success('Reply copied to clipboard!');
+    } catch (error) {
+      toast.error('Failed to copy reply');
+    }
+  };
+
+  const openPlatform = () => {
+    if (!selectedReview) return;
+    
+    let url = '';
+    switch (selectedReview.platform) {
       case 'google':
-        // For Google Places (read-only), show copy and open options
-        toast.success('Reply copied! Open Google Business to post manually.');
-        navigator.clipboard.writeText(replyText);
+        url = selectedReview.review_url || 'https://maps.google.com';
         break;
       case 'facebook':
-        // For Facebook, show copy and open options
-        toast.success('Reply copied! Open Facebook Page to post manually.');
-        navigator.clipboard.writeText(replyText);
+        url = selectedReview.review_url || 'https://facebook.com';
         break;
       case 'yelp':
-        // For Yelp (read-only), show copy and open options
-        toast.success('Reply copied! Open Yelp to post manually.');
-        navigator.clipboard.writeText(replyText);
+        url = selectedReview.review_url || 'https://yelp.com';
         break;
       default:
-        break;
+        return;
     }
+    
+    window.open(url, '_blank');
   };
 
   const getPlatformIcon = (platform) => {
@@ -225,111 +285,137 @@ const ReviewInbox = () => {
       case 'google': return <MapPin className="h-4 w-4" />;
       case 'facebook': return <Facebook className="h-4 w-4" />;
       case 'yelp': return <Star className="h-4 w-4" />;
-      default: return <Star className="h-4 w-4" />;
+      default: return <MessageSquare className="h-4 w-4" />;
     }
   };
 
-  const getPlatformName = (platform) => {
-    switch (platform) {
-      case 'google': return 'Google';
-      case 'facebook': return 'Facebook';
-      case 'yelp': return 'Yelp';
-      default: return platform;
-    }
-  };
-
-  const getSentimentColor = (sentiment) => {
+  const getSentimentBadge = (sentiment) => {
     switch (sentiment) {
-      case 'positive': return 'bg-green-100 text-green-800';
-      case 'negative': return 'bg-red-100 text-red-800';
-      case 'neutral': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'positive':
+        return <Badge variant="default" className="bg-green-100 text-green-800"><ThumbsUp className="h-3 w-3 mr-1" />Positive</Badge>;
+      case 'negative':
+        return <Badge variant="destructive"><ThumbsDown className="h-3 w-3 mr-1" />Negative</Badge>;
+      case 'neutral':
+        return <Badge variant="secondary"><Minus className="h-3 w-3 mr-1" />Neutral</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
     }
   };
 
-  const getSentimentLabel = (sentiment) => {
-    switch (sentiment) {
-      case 'positive': return 'Positive';
-      case 'negative': return 'Negative';
-      case 'neutral': return 'Neutral';
-      default: return 'Unknown';
+  const getRatingStars = (rating) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <Star
+          key={i}
+          className={`h-4 w-4 ${
+            i <= rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
+          }`}
+        />
+      );
+    }
+    return stars;
+  };
+
+  const getReplyButton = () => {
+    if (!selectedReview) return null;
+
+    if (selectedReview.platform === 'facebook') {
+      return (
+        <Button
+          onClick={handleSendReply}
+          disabled={!replyText.trim() || sendingReply}
+          className="w-full"
+        >
+          {sendingReply ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <Send className="h-4 w-4 mr-2" />
+          )}
+          Send Reply
+        </Button>
+      );
+    } else {
+      return (
+        <div className="flex gap-2">
+          <Button
+            onClick={copyReply}
+            disabled={!replyText.trim()}
+            variant="outline"
+            className="flex-1"
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Copy Reply
+          </Button>
+          <Button
+            onClick={openPlatform}
+            variant="outline"
+            className="flex-1"
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open {selectedReview.platform === 'google' ? 'Google' : 'Yelp'}
+          </Button>
+        </div>
+      );
     }
   };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const renderStars = (rating) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star
-        key={i}
-        className={`h-4 w-4 ${
-          i < rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-        }`}
-      />
-    ));
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <div className="p-8 space-y-6">
       <PageHeader
         title="Review Inbox"
-        subtitle="Manage and respond to customer reviews from all platforms."
+        subtitle="Manage and respond to all your customer reviews in one place."
       />
 
       {/* Filters and Sync */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4" />
-            <Select
-              value={filters.platform}
-              onValueChange={(value) => setFilters(prev => ({ ...prev, platform: value }))}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Platforms</SelectItem>
-                <SelectItem value="google">Google</SelectItem>
-                <SelectItem value="facebook">Facebook</SelectItem>
-                <SelectItem value="yelp">Yelp</SelectItem>
-              </SelectContent>
-            </Select>
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+        <div className="flex flex-col sm:flex-row gap-4 flex-1">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search reviews..."
+              value={filters.search}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+              className="pl-10"
+            />
           </div>
 
-          <div className="flex items-center gap-2">
-            <Select
-              value={filters.sentiment}
-              onValueChange={(value) => setFilters(prev => ({ ...prev, sentiment: value }))}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sentiments</SelectItem>
-                <SelectItem value="positive">Positive</SelectItem>
-                <SelectItem value="neutral">Neutral</SelectItem>
-                <SelectItem value="negative">Negative</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select
+            value={filters.platform}
+            onValueChange={(value) => handleFilterChange('platform', value)}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Platform" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Platforms</SelectItem>
+              <SelectItem value="google">Google</SelectItem>
+              <SelectItem value="facebook">Facebook</SelectItem>
+              <SelectItem value="yelp">Yelp</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={filters.sentiment}
+            onValueChange={(value) => handleFilterChange('sentiment', value)}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Sentiment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sentiments</SelectItem>
+              <SelectItem value="positive">Positive</SelectItem>
+              <SelectItem value="neutral">Neutral</SelectItem>
+              <SelectItem value="negative">Negative</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        <Button onClick={syncReviews} disabled={syncing}>
+        <Button
+          onClick={syncReviews}
+          disabled={syncing}
+          variant="outline"
+        >
           {syncing ? (
             <Loader2 className="h-4 w-4 animate-spin mr-2" />
           ) : (
@@ -339,244 +425,176 @@ const ReviewInbox = () => {
         </Button>
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-300px)]">
-        {/* Left Panel - Review List */}
-        <div className="lg:col-span-1 space-y-3 overflow-y-auto">
-          {reviews.length === 0 ? (
-            <Card>
-              <CardContent className="p-6 text-center text-muted-foreground">
-                <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>No reviews found</p>
-                <p className="text-sm">Connect your platforms and sync to see reviews here</p>
-              </CardContent>
-            </Card>
-          ) : (
-            reviews.map((review) => (
-              <Card
-                key={review.id}
-                className={`cursor-pointer transition-all hover:shadow-md ${
-                  selectedReview?.id === review.id ? 'ring-2 ring-blue-500' : ''
-                }`}
-                onClick={() => setSelectedReview(review)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      {getPlatformIcon(review.platform)}
-                      <span className="text-sm font-medium">
-                        {getPlatformName(review.platform)}
-                      </span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Reviews List */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle>Reviews ({reviews.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : reviews.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                  <div className="text-lg font-medium mb-2">No reviews found</div>
+                  <div className="text-sm">Connect your review platforms and sync to get started.</div>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                  {reviews.map((review) => (
+                    <div
+                      key={review.id}
+                      onClick={() => handleSelectReview(review)}
+                      className={`p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${
+                        selectedReview?.id === review.id ? 'bg-muted border-primary' : ''
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {getPlatformIcon(review.platform)}
+                          <span className="font-medium text-sm">{review.reviewer_name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {getRatingStars(review.rating)}
+                        </div>
+                      </div>
+                      
+                      <div className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                        {review.text}
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {getSentimentBadge(review.sentiment)}
+                          {review.is_replied && (
+                            <Badge variant="secondary" className="bg-green-100 text-green-800">
+                              Replied
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(review.review_created_at).toLocaleDateString()}
+                        </div>
+                      </div>
                     </div>
-                    <Badge variant="outline" className={getSentimentColor(review.sentiment)}>
-                      {getSentimentLabel(review.sentiment)}
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex items-center gap-1 mb-2">
-                    {renderStars(review.rating)}
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {review.rating}/5
-                    </span>
-                  </div>
-                  
-                  <p className="text-sm text-gray-900 line-clamp-2 mb-2">
-                    {review.text}
-                  </p>
-                  
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{review.reviewer_name}</span>
-                    <span>{formatDate(review.review_created_at)}</span>
-                  </div>
-                  
-                  {review.is_replied && (
-                    <div className="mt-2 p-2 bg-green-50 rounded text-xs text-green-700">
-                      ✓ Replied
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))
-          )}
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Right Panel - Review Details */}
+        {/* Review Detail */}
         <div className="lg:col-span-2">
-          {selectedReview ? (
-            <Card className="h-full">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {getPlatformIcon(selectedReview.platform)}
+          <Card>
+            <CardHeader>
+              <CardTitle>Review Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {selectedReview ? (
+                <div className="space-y-4">
+                  {/* Review Header */}
+                  <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle className="text-lg">
-                        {getPlatformName(selectedReview.platform)} Review
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        by {selectedReview.reviewer_name} • {formatDate(selectedReview.review_created_at)}
-                      </p>
+                      <div className="flex items-center gap-2 mb-2">
+                        {getPlatformIcon(selectedReview.platform)}
+                        <span className="font-medium">{selectedReview.reviewer_name}</span>
+                        <Badge variant="outline">{selectedReview.platform}</Badge>
+                      </div>
+                      <div className="flex items-center gap-1 mb-2">
+                        {getRatingStars(selectedReview.rating)}
+                        <span className="text-sm text-muted-foreground ml-2">
+                          {new Date(selectedReview.review_created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      {getSentimentBadge(selectedReview.sentiment)}
                     </div>
+                    
+                    {selectedReview.review_url && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(selectedReview.review_url, '_blank')}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        View Original
+                      </Button>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={getSentimentColor(selectedReview.sentiment)}>
-                      {getSentimentLabel(selectedReview.sentiment)}
-                    </Badge>
-                    <div className="flex items-center gap-1">
-                      {renderStars(selectedReview.rating)}
-                      <span className="text-sm font-medium ml-1">
-                        {selectedReview.rating}/5
-                      </span>
+
+                  {/* Review Text */}
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm">{selectedReview.text}</p>
+                  </div>
+
+                  {/* Existing Reply */}
+                  {selectedReview.is_replied && selectedReview.reply_text && (
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="font-medium text-green-800 mb-2">Your Reply:</div>
+                      <p className="text-sm text-green-700">{selectedReview.reply_text}</p>
+                      <div className="text-xs text-green-600 mt-2">
+                        Posted: {new Date(selectedReview.reply_posted_at).toLocaleString()}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-6">
-                {/* Review Text */}
-                <div>
-                  <h4 className="font-medium mb-2">Review</h4>
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-gray-900">{selectedReview.text}</p>
-                  </div>
-                </div>
+                  )}
 
-                {/* Review URL */}
-                {selectedReview.review_url && (
-                  <div>
-                    <h4 className="font-medium mb-2">Review Link</h4>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(selectedReview.review_url, '_blank')}
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      View on {getPlatformName(selectedReview.platform)}
-                    </Button>
-                  </div>
-                )}
+                  {/* AI Reply Generation */}
+                  {!selectedReview.is_replied && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">AI Reply Assistant</h4>
+                        <Button
+                          onClick={generateAiReply}
+                          disabled={generatingReply}
+                          variant="outline"
+                          size="sm"
+                        >
+                          {generatingReply ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                          )}
+                          Generate Reply
+                        </Button>
+                      </div>
 
-                {/* AI Reply Generation */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium">AI Reply Assistant</h4>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={generateAiReply}
-                      disabled={generatingReply}
-                    >
-                      {generatingReply ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <MessageSquare className="h-4 w-4 mr-2" />
+                      {aiReply && (
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="font-medium text-blue-800 mb-2">AI Generated Reply:</div>
+                          <p className="text-sm text-blue-700">{aiReply}</p>
+                        </div>
                       )}
-                      Generate Reply
-                    </Button>
-                  </div>
-                  
-                  {aiReply && (
-                    <div className="p-4 bg-blue-50 rounded-lg mb-3">
-                      <p className="text-sm text-blue-900">{aiReply}</p>
+
+                      {/* Reply Input */}
+                      <div className="space-y-2">
+                        <Label htmlFor="reply-text">Your Reply</Label>
+                        <Textarea
+                          id="reply-text"
+                          placeholder="Write your reply here..."
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          rows={4}
+                        />
+                      </div>
+
+                      {/* Reply Actions */}
+                      {getReplyButton()}
                     </div>
                   )}
                 </div>
-
-                {/* Reply Input */}
-                <div>
-                  <h4 className="font-medium mb-2">Your Reply</h4>
-                  <Textarea
-                    placeholder="Write your response to this review..."
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    rows={4}
-                    className="mb-3"
-                  />
-                  
-                  <div className="flex gap-2">
-                    <Button onClick={handleReply} disabled={!replyText.trim()}>
-                      <Send className="h-4 w-4 mr-2" />
-                      Save Reply
-                    </Button>
-                    
-                    {aiReply && (
-                      <Button
-                        variant="outline"
-                        onClick={() => setReplyText(aiReply)}
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Use AI Reply
-                      </Button>
-                    )}
-                  </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                  <div className="text-lg font-medium mb-2">Select a review</div>
+                  <div className="text-sm">Choose a review from the list to view details and respond.</div>
                 </div>
-
-                {/* Existing Reply */}
-                {selectedReview.is_replied && selectedReview.reply_text && (
-                  <div>
-                    <h4 className="font-medium mb-2">Your Response</h4>
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <p className="text-green-900">{selectedReview.reply_text}</p>
-                      <p className="text-xs text-green-700 mt-2">
-                        Posted on {formatDate(selectedReview.reply_posted_at)}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Platform-specific Actions */}
-                <div className="pt-4 border-t">
-                  <h4 className="font-medium mb-2">Actions</h4>
-                  <div className="flex gap-2">
-                    {selectedReview.platform === 'google' && (
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          navigator.clipboard.writeText(replyText || aiReply);
-                          toast.success('Reply copied! Open Google Business to post manually.');
-                        }}
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy & Open Google Business
-                      </Button>
-                    )}
-                    
-                    {selectedReview.platform === 'facebook' && (
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          navigator.clipboard.writeText(replyText || aiReply);
-                          toast.success('Reply copied! Open Facebook Page to post manually.');
-                        }}
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy & Open Facebook
-                      </Button>
-                    )}
-                    
-                    {selectedReview.platform === 'yelp' && (
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          navigator.clipboard.writeText(replyText || aiReply);
-                          toast.success('Reply copied! Open Yelp to post manually.');
-                        }}
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy & Open Yelp
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="h-full">
-              <CardContent className="p-6 text-center text-muted-foreground">
-                <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>Select a review to view details</p>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

@@ -17,7 +17,9 @@ import {
   AlertCircle,
   Loader2,
   Copy,
-  Settings
+  Settings,
+  Search,
+  Globe
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/auth/AuthProvider';
@@ -29,12 +31,48 @@ const IntegrationsTab = () => {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState({});
   const [formData, setFormData] = useState({});
+  const [facebookPages, setFacebookPages] = useState([]);
+  const [showFacebookPages, setShowFacebookPages] = useState(false);
+  const [googleSearchQuery, setGoogleSearchQuery] = useState('');
+  const [googleSearchResults, setGoogleSearchResults] = useState([]);
+  const [showGoogleSearch, setShowGoogleSearch] = useState(false);
+
+  // Check environment variables
+  const [envStatus, setEnvStatus] = useState({
+    GOOGLE_PLACES_API_KEY: false,
+    YELP_API_KEY: false,
+    FB_APP_ID: false,
+    FB_APP_SECRET: false,
+    FB_REDIRECT_URL: false,
+    OPENAI_API_KEY: false,
+    INTERNAL_API_KEY: false
+  });
 
   useEffect(() => {
     if (user) {
       fetchReviewSources();
+      checkEnvironmentVariables();
     }
   }, [user]);
+
+  const checkEnvironmentVariables = async () => {
+    try {
+      const response = await fetch('/api/reviews/sync/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business_id: 'test', place_id: 'test' })
+      });
+      
+      // This will fail but we can check the error message to see if it's a config issue
+      const data = await response.json();
+      setEnvStatus(prev => ({
+        ...prev,
+        GOOGLE_PLACES_API_KEY: !data.error?.includes('not configured')
+      }));
+    } catch (error) {
+      // Ignore test errors
+    }
+  };
 
   const fetchReviewSources = async () => {
     try {
@@ -90,6 +128,49 @@ const IntegrationsTab = () => {
     }));
   };
 
+  // Google Places Autocomplete
+  const searchGooglePlaces = async (query) => {
+    if (!query.trim() || !window.google) return;
+    
+    try {
+      const service = new window.google.maps.places.AutocompleteService();
+      const request = {
+        input: query,
+        types: ['establishment'],
+        componentRestrictions: { country: 'us' }
+      };
+      
+      service.getPlacePredictions(request, (predictions, status) => {
+        if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+          setGoogleSearchResults(predictions);
+          setShowGoogleSearch(true);
+        }
+      });
+    } catch (error) {
+      console.error('Google Places search error:', error);
+    }
+  };
+
+  const selectGooglePlace = async (placeId, description) => {
+    try {
+      const service = new window.google.maps.places.PlacesService(document.createElement('div'));
+      
+      service.getDetails({ placeId }, (place, status) => {
+        if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
+          handleInputChange('google', 'external_id', place.place_id);
+          handleInputChange('google', 'public_url', place.url || `https://maps.google.com/?cid=${place.place_id}`);
+          setGoogleSearchQuery(place.name || description);
+          setShowGoogleSearch(false);
+          setGoogleSearchResults([]);
+          toast.success('Google Place selected successfully');
+        }
+      });
+    } catch (error) {
+      console.error('Error selecting Google place:', error);
+      toast.error('Failed to select Google place');
+    }
+  };
+
   const resolveGooglePlaceId = async (url) => {
     try {
       // Extract Google Place ID from URL
@@ -136,6 +217,57 @@ const IntegrationsTab = () => {
       }
     } catch (error) {
       toast.error('Failed to extract Yelp Business ID');
+    }
+  };
+
+  // Facebook OAuth
+  const connectFacebook = async () => {
+    try {
+      const response = await fetch('/api/auth/facebook/login');
+      const data = await response.json();
+      
+      if (data.auth_url) {
+        // Store state for verification
+        sessionStorage.setItem('fb_oauth_state', data.state);
+        window.open(data.auth_url, '_blank', 'width=600,height=600');
+        
+        // Poll for callback completion
+        const checkCallback = setInterval(async () => {
+          try {
+            const callbackResponse = await fetch('/api/auth/facebook/callback');
+            if (callbackResponse.ok) {
+              const callbackData = await callbackResponse.json();
+              if (callbackData.success && callbackData.pages) {
+                setFacebookPages(callbackData.pages);
+                setShowFacebookPages(true);
+                clearInterval(checkCallback);
+              }
+            }
+          } catch (error) {
+            // Ignore polling errors
+          }
+        }, 2000);
+        
+        // Clear interval after 5 minutes
+        setTimeout(() => clearInterval(checkCallback), 300000);
+      }
+    } catch (error) {
+      console.error('Facebook OAuth error:', error);
+      toast.error('Failed to start Facebook OAuth');
+    }
+  };
+
+  const selectFacebookPage = async (page) => {
+    try {
+      handleInputChange('facebook', 'external_id', page.id);
+      handleInputChange('facebook', 'access_token', page.access_token);
+      handleInputChange('facebook', 'public_url', `https://facebook.com/${page.id}`);
+      setShowFacebookPages(false);
+      setFacebookPages([]);
+      toast.success(`Facebook Page "${page.name}" selected`);
+    } catch (error) {
+      console.error('Error selecting Facebook page:', error);
+      toast.error('Failed to select Facebook page');
     }
   };
 
@@ -204,6 +336,30 @@ const IntegrationsTab = () => {
     }
   };
 
+  const disconnectIntegration = async (platform) => {
+    try {
+      const existingSource = reviewSources.find(s => s.platform === platform);
+      if (existingSource) {
+        const { error } = await supabase
+          .from('review_sources')
+          .update({
+            connected: false,
+            access_token: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingSource.id);
+
+        if (error) throw error;
+        
+        toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} disconnected successfully`);
+        fetchReviewSources();
+      }
+    } catch (error) {
+      console.error('Error disconnecting integration:', error);
+      toast.error('Failed to disconnect integration');
+    }
+  };
+
   const testConnection = async (platform) => {
     try {
       setSyncing(prev => ({ ...prev, [platform]: true }));
@@ -220,21 +376,16 @@ const IntegrationsTab = () => {
         return;
       }
 
-      const response = await fetch(`/api/reviews/sync`, {
+      const response = await fetch(`/api/reviews/sync/${platform}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business_id: profile.business_id, platform })
+        body: JSON.stringify({ business_id: profile.business_id })
       });
 
       const result = await response.json();
       
       if (response.ok) {
-        const platformResult = result.details[platform];
-        if (platformResult && !platformResult.error) {
-          toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} connection test successful! Found ${platformResult.total} reviews.`);
-        } else {
-          toast.error(`Connection test failed: ${platformResult?.error || result.error}`);
-        }
+        toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} connection test successful! Found ${result.total} reviews.`);
       } else {
         toast.error(`Connection test failed: ${result.error}`);
       }
@@ -263,21 +414,16 @@ const IntegrationsTab = () => {
         return;
       }
 
-      const response = await fetch(`/api/reviews/sync`, {
+      const response = await fetch(`/api/reviews/sync/${platform}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business_id: profile.business_id, platform })
+        body: JSON.stringify({ business_id: profile.business_id })
       });
 
       const result = await response.json();
       
       if (response.ok) {
-        const platformResult = result.details[platform];
-        if (platformResult && !platformResult.error) {
-          toast.success(`Synced ${platformResult.inserted} new reviews and updated ${platformResult.updated} existing reviews.`);
-        } else {
-          toast.error(`Sync failed: ${platformResult?.error || result.error}`);
-        }
+        toast.success(`Synced ${result.inserted} new reviews and updated ${result.updated} existing reviews.`);
         fetchReviewSources(); // Refresh last_synced_at
       } else {
         toast.error(`Sync failed: ${result.error}`);
@@ -312,7 +458,6 @@ const IntegrationsTab = () => {
   const getConnectionTypeLabel = (type) => {
     switch (type) {
       case 'places': return 'Google Places API';
-      case 'gbp_oauth': return 'Google Business Profile';
       case 'page_oauth': return 'Facebook Page OAuth';
       case 'api_key': return 'API Key';
       default: return type;
@@ -336,6 +481,37 @@ const IntegrationsTab = () => {
         </p>
       </div>
 
+      {/* Environment Variables Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Environment Configuration Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(envStatus).map(([key, configured]) => (
+              <div key={key} className="flex items-center gap-2">
+                {configured ? (
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-red-500" />
+                )}
+                <span className="text-sm font-mono">{key}</span>
+              </div>
+            ))}
+          </div>
+          {Object.values(envStatus).some(status => !status) && (
+            <div className="mt-4 p-3 bg-yellow-50 text-yellow-700 rounded-lg">
+              <p className="text-sm">
+                Some environment variables are missing. Please configure them in your Vercel project settings.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {['google', 'facebook', 'yelp'].map((platform) => {
         const data = formData[platform] || {};
         const source = reviewSources.find(s => s.platform === platform);
@@ -357,6 +533,46 @@ const IntegrationsTab = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Google Places Search */}
+              {platform === 'google' && (
+                <div>
+                  <Label>Search for your business</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      placeholder="Search for your business name..."
+                      value={googleSearchQuery}
+                      onChange={(e) => {
+                        setGoogleSearchQuery(e.target.value);
+                        if (e.target.value.length > 2) {
+                          searchGooglePlaces(e.target.value);
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowGoogleSearch(!showGoogleSearch)}
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {showGoogleSearch && googleSearchResults.length > 0 && (
+                    <div className="mt-2 border rounded-lg max-h-40 overflow-y-auto">
+                      {googleSearchResults.map((prediction) => (
+                        <div
+                          key={prediction.place_id}
+                          className="p-2 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                          onClick={() => selectGooglePlace(prediction.place_id, prediction.description)}
+                        >
+                          <div className="font-medium">{prediction.structured_formatting?.main_text}</div>
+                          <div className="text-sm text-gray-500">{prediction.structured_formatting?.secondary_text}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Public URL */}
               <div>
                 <Label htmlFor={`${platform}-public-url`}>
@@ -404,10 +620,7 @@ const IntegrationsTab = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {platform === 'google' && (
-                      <>
-                        <SelectItem value="places">Google Places API (Read-only)</SelectItem>
-                        <SelectItem value="gbp_oauth">Google Business Profile (Full access)</SelectItem>
-                      </>
+                      <SelectItem value="places">Google Places API (Read-only)</SelectItem>
                     )}
                     {platform === 'facebook' && (
                       <SelectItem value="page_oauth">Facebook Page OAuth</SelectItem>
@@ -432,17 +645,36 @@ const IntegrationsTab = () => {
                 />
               </div>
 
-              {/* Access Token (for OAuth connections) */}
-              {(data.connection_type === 'page_oauth' || data.connection_type === 'gbp_oauth') && (
+              {/* Facebook OAuth Connect Button */}
+              {platform === 'facebook' && !isConnected && (
                 <div>
-                  <Label htmlFor={`${platform}-access-token`}>Access Token</Label>
-                  <Input
-                    id={`${platform}-access-token`}
-                    type="password"
-                    placeholder="OAuth access token"
-                    value={data.access_token || ''}
-                    onChange={(e) => handleInputChange(platform, 'access_token', e.target.value)}
-                  />
+                  <Button
+                    onClick={connectFacebook}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Facebook className="h-4 w-4 mr-2" />
+                    Connect Facebook
+                  </Button>
+                </div>
+              )}
+
+              {/* Facebook Pages Selection */}
+              {showFacebookPages && (
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <Label className="text-sm font-medium mb-2 block">Select a Facebook Page:</Label>
+                  <div className="space-y-2">
+                    {facebookPages.map((page) => (
+                      <div
+                        key={page.id}
+                        className="p-2 border rounded cursor-pointer hover:bg-blue-100"
+                        onClick={() => selectFacebookPage(page)}
+                      >
+                        <div className="font-medium">{page.name}</div>
+                        <div className="text-sm text-gray-500">{page.category}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -486,12 +718,22 @@ const IntegrationsTab = () => {
                   )}
                 </div>
                 
-                <Button
-                  onClick={() => saveIntegration(platform)}
-                  disabled={!data.public_url || !data.external_id}
-                >
-                  {isConnected ? 'Update' : 'Connect'}
-                </Button>
+                <div className="flex gap-2">
+                  {isConnected && (
+                    <Button
+                      variant="outline"
+                      onClick={() => disconnectIntegration(platform)}
+                    >
+                      Disconnect
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => saveIntegration(platform)}
+                    disabled={!data.public_url || !data.external_id}
+                  >
+                    {isConnected ? 'Update' : 'Connect'}
+                  </Button>
+                </div>
               </div>
 
               {/* Connection Info */}
@@ -502,6 +744,18 @@ const IntegrationsTab = () => {
                   <div>Status: Connected</div>
                   {lastSynced && (
                     <div>Last sync: {new Date(lastSynced).toLocaleString()}</div>
+                  )}
+                  {platform === 'google' && (
+                    <div className="mt-2 p-2 bg-blue-50 rounded text-blue-700">
+                      <div className="font-medium">Note:</div>
+                      <div>Google Places API is read-only. Replies will be "Copy & Open".</div>
+                    </div>
+                  )}
+                  {platform === 'yelp' && (
+                    <div className="mt-2 p-2 bg-blue-50 rounded text-blue-700">
+                      <div className="font-medium">Note:</div>
+                      <div>Yelp Fusion API returns max 3 reviews per sync.</div>
+                    </div>
                   )}
                 </div>
               )}
@@ -536,10 +790,10 @@ const IntegrationsTab = () => {
                     return;
                   }
 
-                  const response = await fetch('/api/reviews/sync', {
+                  const response = await fetch('/api/reviews/sync/all', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ business_id: profile.business_id, platform: 'all' })
+                    body: JSON.stringify({ business_id: profile.business_id })
                   });
 
                   const result = await response.json();
@@ -551,6 +805,7 @@ const IntegrationsTab = () => {
                     toast.error(`Sync failed: ${result.error}`);
                   }
                 } catch (error) {
+                  console.error('Error syncing all:', error);
                   toast.error('Sync failed');
                 } finally {
                   setSyncing(prev => ({ ...prev, all: false }));

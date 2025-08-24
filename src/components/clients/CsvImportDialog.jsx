@@ -348,7 +348,9 @@ const CsvImportDialog = ({ open, onOpenChange, onImport, loading = false }) => {
               onValueChange={(value) => handleMappingChange(field, value)}
             >
               <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Select column" />
+                <SelectValue placeholder="Select column">
+                  {columnMapping[field] || "Select column"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">No mapping</SelectItem>
