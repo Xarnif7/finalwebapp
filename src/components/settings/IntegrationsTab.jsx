@@ -57,16 +57,41 @@ const IntegrationsTab = () => {
     }
   }, [user]);
 
-  // Check if Google Maps API is loaded
+  // Load Google Maps API dynamically
   useEffect(() => {
-    const checkGoogleApi = () => {
+    const loadGoogleMapsAPI = () => {
+      // Check if already loaded
       if (window.google && window.google.maps && window.google.maps.places) {
         setGoogleApiLoaded(true);
-      } else {
-        setTimeout(checkGoogleApi, 1000);
+        return;
       }
+
+      // Get API key from environment
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        console.error('Google Maps API key not found');
+        return;
+      }
+
+      // Create script element
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        console.log('Google Maps API loaded successfully');
+        setGoogleApiLoaded(true);
+      };
+      
+      script.onerror = () => {
+        console.error('Failed to load Google Maps API');
+      };
+
+      document.head.appendChild(script);
     };
-    checkGoogleApi();
+
+    loadGoogleMapsAPI();
   }, []);
 
   const checkEnvironmentVariables = async () => {
@@ -146,8 +171,17 @@ const IntegrationsTab = () => {
   const searchGooglePlaces = async (query) => {
     if (!query.trim()) return;
     
+    console.log('Searching for:', query);
+    console.log('Google API loaded:', googleApiLoaded);
+    console.log('Window google:', window.google);
+    
     if (!googleApiLoaded) {
       toast.error('Google Maps API is still loading. Please wait a moment and try again.');
+      return;
+    }
+    
+    if (!window.google || !window.google.maps || !window.google.maps.places) {
+      toast.error('Google Maps API not available. Please refresh the page.');
       return;
     }
     
@@ -160,15 +194,22 @@ const IntegrationsTab = () => {
         componentRestrictions: { country: 'us' }
       };
       
+      console.log('Making Places API request:', request);
+      
       service.getPlacePredictions(request, (predictions, status) => {
         setSearching(false);
+        console.log('Places API response:', { status, predictions: predictions?.length });
+        
         if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
           setGoogleSearchResults(predictions);
           setShowGoogleSearch(true);
+          toast.success(`Found ${predictions.length} businesses`);
         } else {
           console.log('No predictions found or error:', status);
           if (status === 'ZERO_RESULTS') {
             toast.info('No businesses found with that name. Try a different search term.');
+          } else {
+            toast.error(`Search failed: ${status}`);
           }
         }
       });
