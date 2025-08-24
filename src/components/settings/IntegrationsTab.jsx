@@ -164,22 +164,30 @@ const IntegrationsTab = () => {
   const searchGooglePlaces = async (query) => {
     if (!query.trim()) return;
     
-    console.log('Searching for:', query);
+    console.log('=== SEARCH DEBUG ===');
+    console.log('Query:', query);
     console.log('Google API loaded:', googleApiLoaded);
-    console.log('Window google:', window.google);
+    console.log('Window google exists:', !!window.google);
+    console.log('Google maps exists:', !!(window.google && window.google.maps));
+    console.log('Google places exists:', !!(window.google && window.google.maps && window.google.maps.places));
+    console.log('PlacesServiceStatus:', window.google?.maps?.places?.PlacesServiceStatus);
     
     if (!googleApiLoaded) {
+      console.log('API not loaded yet');
       toast.error('Google Maps API is still loading. Please wait a moment and try again.');
       return;
     }
     
     if (!window.google || !window.google.maps || !window.google.maps.places) {
+      console.log('Google API not available');
       toast.error('Google Maps API not available. Please refresh the page.');
       return;
     }
     
     try {
       setSearching(true);
+      console.log('Creating AutocompleteService...');
+      
       const service = new window.google.maps.places.AutocompleteService();
       const request = {
         input: query,
@@ -190,10 +198,17 @@ const IntegrationsTab = () => {
       console.log('Making Places API request:', request);
       
       service.getPlacePredictions(request, (predictions, status) => {
+        console.log('=== PLACES API RESPONSE ===');
+        console.log('Status:', status);
+        console.log('Status OK constant:', window.google.maps.places.PlacesServiceStatus.OK);
+        console.log('Status comparison:', status === window.google.maps.places.PlacesServiceStatus.OK);
+        console.log('Predictions count:', predictions?.length);
+        console.log('Predictions:', predictions);
+        
         setSearching(false);
-        console.log('Places API response:', { status, predictions: predictions?.length });
         
         if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+          console.log('Success! Setting results...');
           setGoogleSearchResults(predictions);
           setShowGoogleSearch(true);
           toast.success(`Found ${predictions.length} businesses`);
@@ -615,26 +630,54 @@ const IntegrationsTab = () => {
                {platform === 'google' && (
                  <div>
                    <Label>Search for your business</Label>
-                   {!googleApiLoaded && (
-                     <div className="mb-2 p-2 bg-yellow-50 text-yellow-700 rounded text-sm">
-                       <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
-                       Loading Google Maps API...
-                     </div>
-                   )}
+                                       {!googleApiLoaded && (
+                      <div className="mb-2 p-2 bg-yellow-50 text-yellow-700 rounded text-sm">
+                        <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
+                        Loading Google Maps API...
+                      </div>
+                    )}
+                    {googleApiLoaded && (
+                      <div className="mb-2 p-2 bg-green-50 text-green-700 rounded text-sm">
+                        ✅ Google Maps API Loaded
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-2"
+                          onClick={() => {
+                            console.log('=== MANUAL TEST ===');
+                            console.log('Testing search with "dentist"');
+                            searchGooglePlaces('dentist');
+                          }}
+                        >
+                          Test Search
+                        </Button>
+                      </div>
+                    )}
                    <div className="flex gap-2 mt-1">
-                                         <Input
-                       placeholder="Search for your business name..."
-                       value={googleSearchQuery}
-                       onChange={(e) => {
-                         setGoogleSearchQuery(e.target.value);
-                         if (e.target.value.length > 2) {
-                           searchGooglePlaces(e.target.value);
-                         } else {
-                           setShowGoogleSearch(false);
-                           setGoogleSearchResults([]);
-                         }
-                       }}
-                     />
+                                                               <Input
+                        placeholder="Search for your business name..."
+                        value={googleSearchQuery}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          console.log('Input changed:', value);
+                          setGoogleSearchQuery(value);
+                          
+                          if (value.length > 2) {
+                            console.log('Triggering search for:', value);
+                            searchGooglePlaces(value);
+                          } else {
+                            console.log('Clearing results, query too short');
+                            setShowGoogleSearch(false);
+                            setGoogleSearchResults([]);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && googleSearchQuery.trim()) {
+                            console.log('Enter pressed, searching for:', googleSearchQuery);
+                            searchGooglePlaces(googleSearchQuery);
+                          }
+                        }}
+                      />
                                          <Button
                        variant="outline"
                        size="sm"
