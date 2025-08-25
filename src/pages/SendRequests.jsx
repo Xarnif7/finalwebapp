@@ -497,40 +497,73 @@ const SendRequests = () => {
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          {customer.email && <div className="text-sm">{customer.email}</div>}
-                          {customer.phone && <div className="text-xs text-muted-foreground">{customer.phone}</div>}
+                          {customer.email && (
+                            <div className="flex items-center gap-1">
+                              <Mail className="h-3 w-3 text-green-600" />
+                              <span className="text-sm">{customer.email}</span>
+                            </div>
+                          )}
+                          {!customer.email && (
+                            <div className="flex items-center gap-1">
+                              <Mail className="h-3 w-3 text-gray-400" />
+                              <span className="text-xs text-gray-500">No email</span>
+                            </div>
+                          )}
+                          {customer.phone && (
+                            <div className="flex items-center gap-1">
+                              <MessageSquare className="h-3 w-3 text-blue-600" />
+                              <span className="text-sm">{customer.phone}</span>
+                            </div>
+                          )}
+                          {!customer.phone && (
+                            <div className="flex items-center gap-1">
+                              <MessageSquare className="h-3 w-3 text-gray-400" />
+                              <span className="text-xs text-gray-500">No phone</span>
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          {customer.email && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedCustomer(customer);
-                                setSelectedChannel('email');
-                                setShowSendModal(true);
-                              }}
-                            >
-                              <Mail className="h-4 w-4 mr-2" />
-                              Email
-                            </Button>
-                          )}
-                          {customer.phone && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedCustomer(customer);
-                                setSelectedChannel('sms');
-                                setShowSendModal(true);
-                              }}
-                            >
-                              <MessageSquare className="h-4 w-4 mr-2" />
-                              SMS
-                            </Button>
-                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedCustomer(customer);
+                              setSelectedChannel('email');
+                              setShowSendModal(true);
+                            }}
+                            disabled={!customer.email}
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            Email
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedCustomer(customer);
+                              setSelectedChannel('sms');
+                              setShowSendModal(true);
+                            }}
+                            disabled={!customer.phone}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            SMS
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedCustomer(customer);
+                              setSelectedChannel('both');
+                              setShowSendModal(true);
+                            }}
+                            disabled={!customer.email || !customer.phone}
+                          >
+                            <Send className="h-4 w-4 mr-2" />
+                            Both
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -653,6 +686,7 @@ const SendRequests = () => {
                     variant={selectedChannel === 'email' ? 'default' : 'outline'}
                     onClick={() => setSelectedChannel('email')}
                     disabled={!selectedCustomer?.email}
+                    className="flex-1"
                   >
                     <Mail className="h-4 w-4 mr-2" />
                     Email
@@ -661,11 +695,33 @@ const SendRequests = () => {
                     variant={selectedChannel === 'sms' ? 'default' : 'outline'}
                     onClick={() => setSelectedChannel('sms')}
                     disabled={!selectedCustomer?.phone}
+                    className="flex-1"
                   >
                     <MessageSquare className="h-4 w-4 mr-2" />
                     SMS
                   </Button>
+                  <Button
+                    variant={selectedChannel === 'both' ? 'default' : 'outline'}
+                    onClick={() => setSelectedChannel('both')}
+                    disabled={!selectedCustomer?.email || !selectedCustomer?.phone}
+                    className="flex-1"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Both
+                  </Button>
                 </div>
+                {selectedChannel === 'email' && !selectedCustomer?.email && (
+                  <p className="text-sm text-red-600 mt-1">Customer has no email address</p>
+                )}
+                {selectedChannel === 'sms' && !selectedCustomer?.phone && (
+                  <p className="text-sm text-red-600 mt-1">Customer has no phone number</p>
+                )}
+                {selectedChannel === 'both' && (!selectedCustomer?.email || !selectedCustomer?.phone) && (
+                  <p className="text-sm text-red-600 mt-1">
+                    Customer missing {!selectedCustomer?.email && !selectedCustomer?.phone ? 'email and phone' : 
+                    !selectedCustomer?.email ? 'email' : 'phone'}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -682,7 +738,17 @@ const SendRequests = () => {
                 <Button variant="outline" onClick={() => setShowSendModal(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSendRequest} disabled={sending || !requestMessage.trim()}>
+                <Button 
+                  onClick={handleSendRequest} 
+                  disabled={
+                    sending || 
+                    !requestMessage.trim() || 
+                    !selectedCustomer ||
+                    (selectedChannel === 'email' && !selectedCustomer?.email) ||
+                    (selectedChannel === 'sms' && !selectedCustomer?.phone) ||
+                    (selectedChannel === 'both' && (!selectedCustomer?.email || !selectedCustomer?.phone))
+                  }
+                >
                   {sending ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : (

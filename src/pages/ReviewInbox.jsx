@@ -559,7 +559,7 @@ const ReviewInbox = () => {
     }
   };
 
-  const handleSendReply = async () => {
+  const handleSendReply = async (channel = 'manual') => {
     if (!selectedReview || !replyText.trim()) return;
 
     try {
@@ -583,7 +583,7 @@ const ReviewInbox = () => {
         body: JSON.stringify({
           reviewId: selectedReview.id,
           replyText: replyText,
-          channel: 'manual',
+          channel: channel,
           responderId: user.id
         })
       });
@@ -594,43 +594,49 @@ const ReviewInbox = () => {
         throw new Error(result.error || 'Failed to save reply');
       }
 
-      // Handle platform-specific actions
-      if (selectedReview.platform === 'facebook') {
-        // Try to post reply via Facebook API
-        try {
-          const fbResponse = await fetch('/api/reviews/reply/facebook', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              business_id: profile.business_id,
-              review_id: selectedReview.id,
-              reply_text: replyText
-            })
-          });
+      // Handle platform-specific actions based on channel
+      if (channel === 'manual') {
+        if (selectedReview.platform === 'facebook') {
+          // Try to post reply via Facebook API
+          try {
+            const fbResponse = await fetch('/api/reviews/reply/facebook', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                business_id: profile.business_id,
+                review_id: selectedReview.id,
+                reply_text: replyText
+              })
+            });
 
-          const fbResult = await fbResponse.json();
-          
-          if (fbResponse.ok) {
-            toast.success('Reply posted to Facebook!');
-          } else if (fbResult.code === 'PERMISSION_DENIED') {
-            toast.info('Reply not permitted - use Copy & Open Facebook');
-          } else {
-            toast.error(`Facebook reply failed: ${fbResult.error}`);
+            const fbResult = await fbResponse.json();
+            
+            if (fbResponse.ok) {
+              toast.success('Reply posted to Facebook!');
+            } else if (fbResult.code === 'PERMISSION_DENIED') {
+              toast.info('Reply not permitted - use Copy & Open Facebook');
+            } else {
+              toast.error(`Facebook reply failed: ${fbResult.error}`);
+            }
+          } catch (error) {
+            toast.info('Use Copy & Open Facebook to post reply');
           }
-        } catch (error) {
-          toast.info('Use Copy & Open Facebook to post reply');
-        }
-      } else if (selectedReview.platform === 'google') {
-        // For Google, check if GBP is connected
-        const isGoogleConnected = selectedReview.external_id && selectedReview.external_id.length > 10;
-        if (isGoogleConnected) {
-          toast.success('Reply logged! Use Copy & Open Google to post.');
+        } else if (selectedReview.platform === 'google') {
+          // For Google, check if GBP is connected
+          const isGoogleConnected = selectedReview.external_id && selectedReview.external_id.length > 10;
+          if (isGoogleConnected) {
+            toast.success('Reply logged! Use Copy & Open Google to post.');
+          } else {
+            toast.info('Google Business Profile not connected. Use Copy & Open Google instead.');
+          }
         } else {
-          toast.info('Google Business Profile not connected. Use Copy & Open Google instead.');
+          // For Yelp and other platforms
+          toast.success('Reply logged! Use Copy & Open Yelp to post.');
         }
-      } else {
-        // For Yelp and other platforms
-        toast.success('Reply logged! Use Copy & Open Yelp to post.');
+      } else if (channel === 'email') {
+        toast.success('Email reply logged! Email functionality will be implemented soon.');
+      } else if (channel === 'sms') {
+        toast.success('SMS reply logged! SMS functionality will be implemented soon.');
       }
 
       // Refresh reviews and metrics
@@ -750,24 +756,44 @@ const ReviewInbox = () => {
 
     if (selectedReview.platform === 'facebook') {
       return (
-        <Button
-          onClick={handleSendReply}
-          disabled={!replyText.trim() || sendingReply}
-          className="w-full"
-        >
-          {sendingReply ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          ) : (
+        <div className="flex gap-2">
+          <Button
+            onClick={() => handleSendReply('manual')}
+            disabled={!replyText.trim() || sendingReply}
+            className="flex-1"
+          >
+            {sendingReply ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Send className="h-4 w-4 mr-2" />
+            )}
+            Log Manual Reply
+          </Button>
+          <Button
+            onClick={() => handleSendReply('email')}
+            disabled={!replyText.trim() || sendingReply}
+            variant="outline"
+            className="flex-1"
+          >
             <Send className="h-4 w-4 mr-2" />
-          )}
-          Send Reply
-        </Button>
+            Send Email Reply
+          </Button>
+          <Button
+            onClick={() => handleSendReply('sms')}
+            disabled={!replyText.trim() || sendingReply}
+            variant="outline"
+            className="flex-1"
+          >
+            <Send className="h-4 w-4 mr-2" />
+            Send SMS Reply
+          </Button>
+        </div>
       );
     } else if (selectedReview.platform === 'google' && isGoogleConnected) {
       return (
         <div className="flex gap-2">
           <Button
-            onClick={handleSendReply}
+            onClick={() => handleSendReply('manual')}
             disabled={!replyText.trim() || sendingReply}
             className="flex-1"
           >
@@ -793,6 +819,15 @@ const ReviewInbox = () => {
       // For Yelp and unconnected Google, show copy + open options
       return (
         <div className="flex gap-2">
+          <Button
+            onClick={() => handleSendReply('manual')}
+            disabled={!replyText.trim() || sendingReply}
+            variant="outline"
+            className="flex-1"
+          >
+            <Send className="h-4 w-4 mr-2" />
+            Log Manual Reply
+          </Button>
           <Button
             onClick={copyReply}
             disabled={!replyText.trim()}
@@ -1172,6 +1207,19 @@ const ReviewInbox = () => {
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium">AI Reply Assistant</h4>
                         <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => markAsReplied(selectedReview.id)}
+                            disabled={sendingReply}
+                            variant="outline"
+                            size="sm"
+                          >
+                            {sendingReply ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                            )}
+                            Mark as Replied
+                          </Button>
                           <Select
                             value={replyTone}
                             onValueChange={setReplyTone}

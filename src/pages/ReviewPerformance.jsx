@@ -48,6 +48,36 @@ const ReviewPerformance = () => {
     windowDays: parseInt(timeRange)
   });
 
+  const exportCSV = () => {
+    if (!stats?.ratingTrends?.length) return;
+
+    const csvContent = [
+      ['Week Start', 'Average Rating', 'Review Count'],
+      ...stats.ratingTrends.map(trend => [
+        new Date(trend.weekStart).toLocaleDateString(),
+        trend.avgRating,
+        trend.count
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `review-trends-${timeRange}days.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    toast.success('CSV exported successfully!');
+  };
+
+  const downloadChart = () => {
+    // Placeholder for chart download functionality
+    toast.info('Chart download functionality will be implemented soon!');
+  };
+
   const fetchMetrics = async () => {
     try {
       setLoading(true);
@@ -336,7 +366,29 @@ const ReviewPerformance = () => {
       {/* Rating Trends Chart */}
       <Card className="rounded-2xl">
         <CardHeader>
-          <CardTitle>Rating Trends</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            Rating Trends
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportCSV}
+                disabled={!stats?.ratingTrends?.length}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={downloadChart}
+                disabled={!stats?.ratingTrends?.length}
+              >
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Download Chart
+              </Button>
+            </div>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {stats?.ratingTrends?.length === 0 ? (
