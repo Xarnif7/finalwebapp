@@ -86,7 +86,7 @@ const ReviewInbox = () => {
         .from('reviews')
         .select('*', { count: 'exact', head: true })
         .eq('business_id', profile.business_id)
-        .eq('is_replied', false);
+        .eq('responded', false);
 
       // Get average rating (last 30 days)
       const thirtyDaysAgo = new Date();
@@ -96,7 +96,7 @@ const ReviewInbox = () => {
         .from('reviews')
         .select('rating')
         .eq('business_id', profile.business_id)
-        .gte('review_created_at', thirtyDaysAgo.toISOString());
+        .gte('created_at', thirtyDaysAgo.toISOString());
 
       const avgRating = recentReviews && recentReviews.length > 0 
         ? (recentReviews.reduce((sum, r) => sum + r.rating, 0) / recentReviews.length).toFixed(1)
@@ -110,7 +110,7 @@ const ReviewInbox = () => {
         .from('reviews')
         .select('*', { count: 'exact', head: true })
         .eq('business_id', profile.business_id)
-        .gte('review_created_at', sevenDaysAgo.toISOString());
+        .gte('created_at', sevenDaysAgo.toISOString());
 
       // Calculate median response time (placeholder for now)
       const responseTime = 2.4; // hours
@@ -156,9 +156,9 @@ const ReviewInbox = () => {
 
       if (filters.status !== 'all') {
         if (filters.status === 'replied') {
-          query = query.eq('is_replied', true);
+          query = query.eq('responded', true);
         } else if (filters.status === 'unreplied') {
-          query = query.eq('is_replied', false);
+          query = query.eq('responded', false);
         }
       }
 
@@ -170,16 +170,16 @@ const ReviewInbox = () => {
       }
 
       if (filters.search) {
-        query = query.or(`reviewer_name.ilike.%${filters.search}%,text.ilike.%${filters.search}%`);
+        query = query.or(`author_name.ilike.%${filters.search}%,body.ilike.%${filters.search}%`);
       }
 
       // Apply sorting
       switch (sortBy) {
         case 'newest':
-          query = query.order('review_created_at', { ascending: false });
+          query = query.order('created_at', { ascending: false });
           break;
         case 'oldest':
-          query = query.order('review_created_at', { ascending: true });
+          query = query.order('created_at', { ascending: true });
           break;
         case 'highest':
           query = query.order('rating', { ascending: false });
@@ -188,7 +188,7 @@ const ReviewInbox = () => {
           query = query.order('rating', { ascending: true });
           break;
         default:
-          query = query.order('review_created_at', { ascending: false });
+          query = query.order('created_at', { ascending: false });
       }
 
       const { data, error } = await query;
@@ -278,20 +278,20 @@ const ReviewInbox = () => {
                  .single();
 
                if (!existingReview) {
-                 // Insert new review
-                 const { error: insertError } = await supabase
-                   .from('reviews')
-                   .insert({
-                     business_id: profile.business_id,
-                     platform: 'google',
-                     external_review_id: reviewId,
-                     reviewer_name: authorName,
-                     rating: reviewRating,
-                     text: reviewText,
-                     review_url: reviewUrl,
-                     review_created_at: new Date(reviewTime * 1000).toISOString(),
-                     sentiment: classifySentiment(reviewText, reviewRating)
-                   });
+                                   // Insert new review
+                  const { error: insertError } = await supabase
+                    .from('reviews')
+                    .insert({
+                      business_id: profile.business_id,
+                      platform: 'google',
+                      external_review_id: reviewId,
+                      author_name: authorName,
+                      rating: reviewRating,
+                      body: reviewText,
+                      review_url: reviewUrl,
+                      created_at: new Date(reviewTime * 1000).toISOString(),
+                      sentiment: classifySentiment(reviewText, reviewRating)
+                    });
 
                  if (!insertError) {
                    totalInserted++;
@@ -300,19 +300,19 @@ const ReviewInbox = () => {
                    console.error(`Error inserting review:`, insertError);
                  }
                } else {
-                 // Update existing review
-                 const { error: updateError } = await supabase
-                   .from('reviews')
-                   .update({
-                     reviewer_name: authorName,
-                     rating: reviewRating,
-                     text: reviewText,
-                     review_url: reviewUrl,
-                     review_created_at: new Date(reviewTime * 1000).toISOString(),
-                     sentiment: classifySentiment(reviewText, reviewRating),
-                     updated_at: new Date().toISOString()
-                   })
-                   .eq('id', existingReview.id);
+                                   // Update existing review
+                  const { error: updateError } = await supabase
+                    .from('reviews')
+                    .update({
+                      author_name: authorName,
+                      rating: reviewRating,
+                      body: reviewText,
+                      review_url: reviewUrl,
+                      created_at: new Date(reviewTime * 1000).toISOString(),
+                      sentiment: classifySentiment(reviewText, reviewRating),
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('id', existingReview.id);
 
                  if (!updateError) {
                    totalUpdated++;
@@ -1080,7 +1080,7 @@ const ReviewInbox = () => {
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
                           {getPlatformIcon(review.platform)}
-                          <span className="font-medium text-sm">{review.reviewer_name}</span>
+                          <span className="font-medium text-sm">{review.author_name}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           {getRatingStars(review.rating)}
@@ -1088,19 +1088,19 @@ const ReviewInbox = () => {
                       </div>
                       
                       <div className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                        {review.text}
+                        {review.body}
                       </div>
                       
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {getSentimentBadge(review.sentiment)}
-                          {review.is_replied && (
+                          {review.responded && (
                             <Badge variant="secondary" className="bg-green-100 text-green-800">
                               <CheckCircle className="h-3 w-3 mr-1" />
                               Replied
                             </Badge>
                           )}
-                          {!review.is_replied && (
+                          {!review.responded && (
                             <Badge variant="outline" className="text-orange-600 border-orange-200">
                               <AlertCircle className="h-3 w-3 mr-1" />
                               Needs Reply
@@ -1108,7 +1108,7 @@ const ReviewInbox = () => {
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {new Date(review.review_created_at).toLocaleDateString()}
+                          {new Date(review.created_at).toLocaleDateString()}
                         </div>
                       </div>
                     </div>
@@ -1161,13 +1161,13 @@ const ReviewInbox = () => {
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         {getPlatformIcon(selectedReview.platform)}
-                        <span className="font-medium">{selectedReview.reviewer_name}</span>
+                        <span className="font-medium">{selectedReview.author_name}</span>
                         <Badge variant="outline">{selectedReview.platform}</Badge>
                       </div>
                       <div className="flex items-center gap-1 mb-2">
                         {getRatingStars(selectedReview.rating)}
                         <span className="text-sm text-muted-foreground ml-2">
-                          {new Date(selectedReview.review_created_at).toLocaleString()}
+                          {new Date(selectedReview.created_at).toLocaleString()}
                         </span>
                       </div>
                       {getSentimentBadge(selectedReview.sentiment)}
@@ -1187,11 +1187,11 @@ const ReviewInbox = () => {
 
                   {/* Review Text */}
                   <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm">{selectedReview.text}</p>
+                    <p className="text-sm">{selectedReview.body}</p>
                   </div>
 
                   {/* Existing Reply */}
-                  {selectedReview.is_replied && selectedReview.reply_text && (
+                  {selectedReview.responded && selectedReview.reply_text && (
                     <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                       <div className="font-medium text-green-800 mb-2">Your Reply:</div>
                       <p className="text-sm text-green-700">{selectedReview.reply_text}</p>
@@ -1202,7 +1202,7 @@ const ReviewInbox = () => {
                   )}
 
                   {/* AI Reply Generation */}
-                  {!selectedReview.is_replied && (
+                  {!selectedReview.responded && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium">AI Reply Assistant</h4>

@@ -99,8 +99,8 @@ const ReviewPerformance = () => {
         .from('reviews')
         .select('*')
         .eq('business_id', profile.business_id)
-        .gte('review_created_at', startDate.toISOString())
-        .order('review_created_at', { ascending: true });
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: true });
 
       if (reviewsError) throw reviewsError;
 
@@ -110,7 +110,7 @@ const ReviewPerformance = () => {
         ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
         : 0;
       
-      const repliedReviews = reviews.filter(r => r.is_replied).length;
+      const repliedReviews = reviews.filter(r => r.responded).length;
       const replyRate = totalReviews > 0 ? Math.round((repliedReviews / totalReviews) * 100) : 0;
 
       // Calculate response time (placeholder for now)
@@ -170,7 +170,7 @@ const ReviewPerformance = () => {
       endDate.setDate(endDate.getDate() - (days - ((i + 1) * intervalSize)));
 
       const intervalReviews = reviews.filter(review => {
-        const reviewDate = new Date(review.review_created_at);
+        const reviewDate = new Date(review.created_at);
         return reviewDate >= endDate && reviewDate < startDate;
       });
 
