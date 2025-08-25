@@ -576,101 +576,100 @@ const ReviewInbox = () => {
         return;
       }
 
-      // Handle different platforms
+      // Call the API endpoint to log the reply
+      const response = await fetch('/api/reviews/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reviewId: selectedReview.id,
+          replyText: replyText,
+          channel: 'manual',
+          responderId: user.id
+        })
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to save reply');
+      }
+
+      // Handle platform-specific actions
       if (selectedReview.platform === 'facebook') {
         // Try to post reply via Facebook API
-        const response = await fetch('/api/reviews/reply/facebook', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            business_id: profile.business_id,
-            review_id: selectedReview.id,
-            reply_text: replyText
-          })
-        });
+        try {
+          const fbResponse = await fetch('/api/reviews/reply/facebook', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              business_id: profile.business_id,
+              review_id: selectedReview.id,
+              reply_text: replyText
+            })
+          });
 
-        const result = await response.json();
-        
-        if (response.ok) {
-          toast.success('Reply posted successfully!');
-          await saveReplyLocally(replyText, true);
-        } else if (result.code === 'PERMISSION_DENIED') {
-          // Show copy & open options
-          toast.info('Reply not permitted - use Copy & Open Facebook');
-          await saveReplyLocally(replyText, false);
-        } else {
-          toast.error(`Reply failed: ${result.error}`);
+          const fbResult = await fbResponse.json();
+          
+          if (fbResponse.ok) {
+            toast.success('Reply posted to Facebook!');
+          } else if (fbResult.code === 'PERMISSION_DENIED') {
+            toast.info('Reply not permitted - use Copy & Open Facebook');
+          } else {
+            toast.error(`Facebook reply failed: ${fbResult.error}`);
+          }
+        } catch (error) {
+          toast.info('Use Copy & Open Facebook to post reply');
         }
       } else if (selectedReview.platform === 'google') {
-        // For Google, try to post via Google Business Profile if connected
-        if (selectedReview.external_id) {
-          try {
-            // This would call the Google Business Profile API
-            // For now, we'll simulate success and save locally
-            toast.success('Reply posted to Google Business Profile!');
-            await saveReplyLocally(replyText, true);
-          } catch (error) {
-            toast.error('Failed to post to Google Business Profile. Use Copy & Open Google instead.');
-            await saveReplyLocally(replyText, false);
-          }
+        // For Google, check if GBP is connected
+        const isGoogleConnected = selectedReview.external_id && selectedReview.external_id.length > 10;
+        if (isGoogleConnected) {
+          toast.success('Reply logged! Use Copy & Open Google to post.');
         } else {
-          // Not connected to Google Business Profile
           toast.info('Google Business Profile not connected. Use Copy & Open Google instead.');
-          await saveReplyLocally(replyText, false);
         }
       } else {
-        // For Yelp and other platforms, just copy to clipboard
-        await navigator.clipboard.writeText(replyText);
-        toast.success('Reply copied to clipboard!');
-        await saveReplyLocally(replyText, false);
+        // For Yelp and other platforms
+        toast.success('Reply logged! Use Copy & Open Yelp to post.');
       }
+
+      // Refresh reviews and metrics
+      await fetchReviews();
+      await fetchMetrics();
+      
     } catch (error) {
       console.error('Error sending reply:', error);
-      toast.error('Failed to send reply');
+      toast.error(error.message || 'Failed to send reply');
     } finally {
       setSendingReply(false);
     }
   };
 
-  const saveReplyLocally = async (replyText, wasPosted) => {
+  const markAsReplied = async (reviewId) => {
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('business_id')
-        .eq('id', user.id)
-        .single();
-
-      if (!profile?.business_id) return;
-
-      // Update the review with reply information
-      const { error: updateError } = await supabase
-        .from('reviews')
-        .update({
-          reply_text: replyText,
-          reply_posted_at: wasPosted ? new Date().toISOString() : null,
-          is_replied: true,
-          updated_at: new Date().toISOString()
+      const response = await fetch('/api/reviews/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reviewId: reviewId,
+          replyText: 'Thanks for your feedback!',
+          channel: 'manual',
+          responderId: user.id
         })
-        .eq('id', selectedReview.id);
+      });
 
-      if (updateError) {
-        console.error('Error saving reply:', updateError);
-        toast.error('Failed to save reply locally');
-      } else {
-        // Update local state
-        setSelectedReview(prev => ({
-          ...prev,
-          is_replied: true,
-          reply_text: replyText,
-          reply_posted_at: wasPosted ? new Date().toISOString() : null
-        }));
-        
-        // Refresh reviews to update the list
-        fetchReviews();
-        fetchMetrics(); // Update metrics
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to mark as replied');
       }
+
+      toast.success('Review marked as replied!');
+      await fetchReviews();
+      await fetchMetrics();
     } catch (error) {
-      console.error('Error saving reply locally:', error);
+      console.error('Error marking as replied:', error);
+      toast.error(error.message || 'Failed to mark as replied');
     }
   };
 

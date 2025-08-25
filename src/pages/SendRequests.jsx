@@ -106,7 +106,18 @@ const SendRequests = () => {
   };
 
   const handleSendRequest = async () => {
-    if (!selectedCustomer || !requestMessage.trim()) return;
+    if (!selectedCustomer) return;
+
+    // Validate contact info
+    if ((selectedChannel === 'email' || selectedChannel === 'both') && !selectedCustomer.email) {
+      toast.error('Customer has no email address');
+      return;
+    }
+
+    if ((selectedChannel === 'sms' || selectedChannel === 'both') && !selectedCustomer.phone) {
+      toast.error('Customer has no phone number');
+      return;
+    }
 
     try {
       setSending(true);
@@ -122,49 +133,34 @@ const SendRequests = () => {
         return;
       }
 
-      // Create review request record
-      const { error: insertError } = await supabase
-        .from('review_requests')
-        .insert({
-          business_id: profile.business_id,
-          customer_id: selectedCustomer.id,
-          channel: selectedChannel,
-          message: requestMessage,
-          status: 'queued',
-          created_at: new Date().toISOString()
-        });
+      // Call the API endpoint to send the request
+      const response = await fetch('/api/review-requests/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          businessId: profile.business_id,
+          customerId: selectedCustomer.id,
+          channel: selectedChannel
+        })
+      });
 
-      if (insertError) {
-        // If table doesn't exist, create it first
-        if (insertError.code === 'PGRST116') {
-          await createReviewRequestsTable();
-          // Retry insert
-          const { error: retryError } = await supabase
-            .from('review_requests')
-            .insert({
-              business_id: profile.business_id,
-              customer_id: selectedCustomer.id,
-              channel: selectedChannel,
-              message: requestMessage,
-              status: 'queued',
-              created_at: new Date().toISOString()
-            });
-          
-          if (retryError) throw retryError;
-        } else {
-          throw insertError;
-        }
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send request');
       }
 
       toast.success(`Review request sent via ${selectedChannel}!`);
       setShowSendModal(false);
       setSelectedCustomer(null);
-      setRequestMessage('');
+      setSelectedChannel('email');
       fetchData(); // Refresh data
       
     } catch (error) {
       console.error('Error sending request:', error);
-      toast.error('Failed to send review request');
+      toast.error(error.message || 'Failed to send review request');
     } finally {
       setSending(false);
     }
@@ -221,7 +217,7 @@ const SendRequests = () => {
     }
   };
 
-  const saveTemplate = async (channel) => {
+  const saveTemplate = async (kind) => {
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -231,22 +227,25 @@ const SendRequests = () => {
 
       if (!profile?.business_id) return;
 
-      // Save template to database (we'll create this table later)
+      // Validate SMS length
+      if (kind === 'sms' && templates[kind].body.length > 320) {
+        toast.error('SMS message is too long (max 320 characters)');
+        return;
+      }
+
+      // Save to templates table
       const { error } = await supabase
         .from('templates')
         .upsert({
           business_id: profile.business_id,
-          type: 'review_request',
-          channel: channel,
-          content: templates[channel],
-          updated_at: new Date().toISOString()
+          kind,
+          subject: kind === 'email' ? templates[kind].subject : null,
+          body: templates[kind].body
         });
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
+      if (error) throw error;
 
-      toast.success(`${channel.charAt(0).toUpperCase() + channel.slice(1)} template saved!`);
+      toast.success(`${kind.toUpperCase()} template saved!`);
       setEditingTemplate(null);
     } catch (error) {
       console.error('Error saving template:', error);

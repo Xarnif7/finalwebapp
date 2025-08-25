@@ -10,6 +10,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/auth/AuthProvider";
 import { toast } from "react-hot-toast";
+import { useReviewStats } from "@/hooks/useReviewStats";
 
 const platformColors = {
   Google: "bg-white text-purple-600 border-purple-200 hover:bg-purple-50 transition-colors",
@@ -20,21 +21,32 @@ const platformColors = {
 const ReviewPerformance = () => {
   const { user } = useAuth();
   const [timeRange, setTimeRange] = useState("30");
-  const [loading, setLoading] = useState(true);
-  const [metrics, setMetrics] = useState({
-    avgRating: 0,
-    totalReviews: 0,
-    responseTime: 0,
-    replyRate: 0
-  });
-  const [platformBreakdown, setPlatformBreakdown] = useState([]);
-  const [ratingTrends, setRatingTrends] = useState([]);
+  const [businessId, setBusinessId] = useState(null);
 
+  // Get business ID when user loads
   useEffect(() => {
-    if (user) {
-      fetchMetrics();
-    }
-  }, [user, timeRange]);
+    const getBusinessId = async () => {
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('business_id')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile?.business_id) {
+          setBusinessId(profile.business_id);
+        }
+      }
+    };
+    
+    getBusinessId();
+  }, [user]);
+
+  // Use the custom hook for stats
+  const { data: stats, loading, error, refresh } = useReviewStats({
+    businessId,
+    windowDays: parseInt(timeRange)
+  });
 
   const fetchMetrics = async () => {
     try {
@@ -184,41 +196,41 @@ const ReviewPerformance = () => {
 
   const kpiData = [
     {
-      title: "Your Average Rating",
-      value: metrics.avgRating.toFixed(1),
-      change: `Last ${timeRange} days`,
+      title: "Average Rating",
+      value: stats?.avgRating?.toFixed(1) || "0.0",
+      subtitle: `Last ${timeRange} days`,
       icon: Star,
-      bgColor: "bg-yellow-50",
-      borderColor: "border-yellow-200",
-      iconColor: "text-yellow-600"
+      color: "text-amber-600",
+      bgColor: "bg-amber-50",
+      gradient: "bg-gradient-to-br from-amber-50/60 to-white"
     },
     {
       title: "Total Reviews",
-      value: metrics.totalReviews.toString(),
-      change: `Last ${timeRange} days`,
-      icon: TrendingUp,
+      value: stats?.totalReviews || 0,
+      subtitle: `Last ${timeRange} days`,
+      icon: MessageSquare,
+      color: "text-green-600",
       bgColor: "bg-green-50",
-      borderColor: "border-green-200", 
-      iconColor: "text-green-600"
+      gradient: "bg-gradient-to-br from-green-50/60 to-white"
     },
     {
       title: "Response Time",
-      value: `${metrics.responseTime}h`,
-      change: "Average",
+      value: stats?.avgResponseTimeHours ? `${stats.avgResponseTimeHours}h` : "—",
+      subtitle: "Average",
       icon: Clock,
+      color: "text-blue-600",
       bgColor: "bg-blue-50",
-      borderColor: "border-blue-200",
-      iconColor: "text-blue-600"
+      gradient: "bg-gradient-to-br from-blue-50/60 to-white"
     },
     {
       title: "Reply Rate",
-      value: `${metrics.replyRate}%`,
-      change: `Last ${timeRange} days`,
-      icon: MessageSquare,
+      value: stats?.replyRatePct ? `${stats.replyRatePct}%` : "—",
+      subtitle: `Last ${timeRange} days`,
+      icon: TrendingUp,
+      color: "text-purple-600",
       bgColor: "bg-purple-50",
-      borderColor: "border-purple-200",
-      iconColor: "text-purple-600"
-    },
+      gradient: "bg-gradient-to-br from-purple-50/60 to-white"
+    }
   ];
 
   if (loading) {
@@ -273,16 +285,18 @@ const ReviewPerformance = () => {
       {/* KPI Cards */}
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {kpiData.map((kpi, i) => (
-          <Card key={i} className={`${kpi.bgColor} ${kpi.borderColor} border rounded-xl transition-all duration-200 hover:shadow-md hover:-translate-y-[1px]`}>
-            <CardContent className="p-5 md:p-6">
+          <Card key={i} className={`${kpi.gradient} ring-1 ring-black/5 rounded-2xl shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-[1px]`}>
+            <CardContent className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className={`p-2 rounded-lg ${kpi.bgColor}`}>
-                  <kpi.icon className={`w-6 h-6 ${kpi.iconColor}`} />
+                  <kpi.icon className={`h-6 w-6 ${kpi.color}`} />
                 </div>
               </div>
-              <div className="text-2xl font-bold text-slate-900 mb-1 leading-tight">{kpi.value}</div>
-              <div className="text-xs text-slate-500 mb-1">{kpi.title}</div>
-              <div className="text-[11px] text-emerald-600 font-medium">{kpi.change}</div>
+              <div>
+                <h3 className="text-3xl font-semibold text-gray-700 mb-1">{kpi.value}</h3>
+                <p className="text-sm text-gray-700 font-medium mb-1">{kpi.title}</p>
+                <p className="text-xs text-gray-500">{kpi.subtitle}</p>
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -294,21 +308,23 @@ const ReviewPerformance = () => {
           <CardTitle>Platform Breakdown</CardTitle>
         </CardHeader>
         <CardContent>
-          {platformBreakdown.length === 0 ? (
+          {stats?.platformBreakdown?.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Eye className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
               <p>No platform data available</p>
             </div>
           ) : (
             <div className="grid md:grid-cols-3 gap-4">
-              {platformBreakdown.map((platform, index) => (
+              {stats?.platformBreakdown?.map((platform, index) => (
                 <div key={index} className="text-center p-4 rounded-lg bg-slate-50">
-                  <Badge className={`mb-2 ${platform.color}`}>{platform.platform}</Badge>
-                  <div className="text-2xl font-bold text-slate-900">{platform.reviews}</div>
+                  <Badge className={`mb-2 ${platformColors[platform.platform] || 'bg-gray-100 text-gray-600'}`}>
+                    {platform.platform}
+                  </Badge>
+                  <div className="text-2xl font-bold text-slate-900">{platform.count}</div>
                   <div className="text-sm text-slate-500 mb-1">Total Reviews</div>
                   <div className="flex items-center justify-center gap-1">
                     <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                    <span className="text-sm font-medium">{platform.rating}</span>
+                    <span className="text-sm font-medium">{platform.avgRating}</span>
                   </div>
                 </div>
               ))}
@@ -323,7 +339,7 @@ const ReviewPerformance = () => {
           <CardTitle>Rating Trends</CardTitle>
         </CardHeader>
         <CardContent>
-          {ratingTrends.length === 0 ? (
+          {stats?.ratingTrends?.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <TrendingUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
               <p>No trend data available</p>
@@ -332,19 +348,19 @@ const ReviewPerformance = () => {
             <div className="h-64">
               {/* Simple bar chart visualization */}
               <div className="flex items-end justify-between h-48 gap-2">
-                {ratingTrends.map((trend, index) => (
+                {stats?.ratingTrends?.map((trend, index) => (
                   <div key={index} className="flex-1 flex flex-col items-center">
                     <div 
                       className="w-full bg-blue-500 rounded-t transition-all duration-300 hover:bg-blue-600"
                       style={{ 
-                        height: `${Math.max((trend.rating / 5) * 100, 10)}%`,
+                        height: `${Math.max((trend.avgRating / 5) * 100, 10)}%`,
                         minHeight: '20px'
                       }}
-                      title={`${trend.period}: ${trend.rating}/5 (${trend.count} reviews)`}
+                      title={`${trend.weekStart}: ${trend.avgRating}/5 (${trend.count} reviews)`}
                     ></div>
                     <div className="text-xs text-muted-foreground mt-2 text-center">
-                      <div className="font-medium">{trend.rating}</div>
-                      <div className="text-[10px]">{trend.period}</div>
+                      <div className="font-medium">{trend.avgRating}</div>
+                      <div className="text-[10px]">{new Date(trend.weekStart).toLocaleDateString()}</div>
                     </div>
                   </div>
                 ))}
@@ -372,5 +388,6 @@ const ReviewPerformance = () => {
 };
 
 export default ReviewPerformance;
+
 
 
