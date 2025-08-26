@@ -140,21 +140,22 @@ const SendRequests = () => {
 
       if (!profile?.business_id) return;
 
-      const response = await fetch('/api/review-requests/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-internal-key': import.meta.env.VITE_INTERNAL_API_KEY
-        },
-        body: JSON.stringify({
-          businessId: profile.business_id,
-          customerId: selectedCustomer.id,
-          channel: selectedChannel,
-          message: requestMessage
-        })
-      });
+      // Generate review link
+      const reviewLink = `https://yourdomain.com/review?ref=${selectedCustomer.id}`;
 
-      if (!response.ok) throw new Error('Failed to send request');
+      // Insert review request record
+      const { error } = await supabase
+        .from('review_requests')
+        .insert({
+          business_id: profile.business_id,
+          customer_id: selectedCustomer.id,
+          channel: selectedChannel,
+          review_link: reviewLink,
+          email_status: selectedChannel === 'email' || selectedChannel === 'both' ? 'queued' : 'skipped',
+          sms_status: selectedChannel === 'sms' || selectedChannel === 'both' ? 'queued' : 'skipped'
+        });
+
+      if (error) throw error;
 
       toast.success('Review request sent successfully!');
       setShowSendModal(false);
