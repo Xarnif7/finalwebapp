@@ -22,7 +22,11 @@ import {
   Loader2,
   Edit,
   Save,
-  RotateCcw
+  RotateCcw,
+  Smartphone,
+  User,
+  Phone,
+  AtSign
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/auth/AuthProvider';
@@ -106,16 +110,22 @@ const SendRequests = () => {
   };
 
   const handleSendRequest = async () => {
-    if (!selectedCustomer) return;
-
-    // Validate contact info
-    if ((selectedChannel === 'email' || selectedChannel === 'both') && !selectedCustomer.email) {
-      toast.error('Customer has no email address');
+    if (!selectedCustomer || !requestMessage.trim()) {
+      toast.error('Please select a customer and enter a message');
       return;
     }
 
-    if ((selectedChannel === 'sms' || selectedChannel === 'both') && !selectedCustomer.phone) {
-      toast.error('Customer has no phone number');
+    // Validate contact info based on selected channel
+    if (selectedChannel === 'email' && !selectedCustomer.email) {
+      toast.error('Selected customer does not have an email address');
+      return;
+    }
+    if (selectedChannel === 'sms' && !selectedCustomer.phone) {
+      toast.error('Selected customer does not have a phone number');
+      return;
+    }
+    if (selectedChannel === 'both' && !selectedCustomer.email && !selectedCustomer.phone) {
+      toast.error('Selected customer does not have email or phone number');
       return;
     }
 
@@ -128,96 +138,39 @@ const SendRequests = () => {
         .eq('id', user.id)
         .single();
 
-      if (!profile?.business_id) {
-        toast.error('Business not found');
-        return;
-      }
+      if (!profile?.business_id) return;
 
-      // Call the API endpoint to send the request
       const response = await fetch('/api/review-requests/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-internal-key': import.meta.env.VITE_INTERNAL_API_KEY
         },
         body: JSON.stringify({
           businessId: profile.business_id,
           customerId: selectedCustomer.id,
-          channel: selectedChannel
+          channel: selectedChannel,
+          message: requestMessage
         })
       });
 
-      const result = await response.json();
+      if (!response.ok) throw new Error('Failed to send request');
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to send request');
-      }
-
-      toast.success(`Review request sent via ${selectedChannel}!`);
+      toast.success('Review request sent successfully!');
       setShowSendModal(false);
       setSelectedCustomer(null);
       setSelectedChannel('email');
-      fetchData(); // Refresh data
-      
+      setRequestMessage('');
+      await fetchData();
     } catch (error) {
       console.error('Error sending request:', error);
-      toast.error(error.message || 'Failed to send review request');
+      toast.error('Failed to send request');
     } finally {
       setSending(false);
     }
   };
 
-  const createReviewRequestsTable = async () => {
-    try {
-      const { error } = await supabase.rpc('exec_sql', {
-        sql: `
-          CREATE TABLE IF NOT EXISTS review_requests (
-            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-            business_id UUID NOT NULL,
-            customer_id UUID NOT NULL,
-            channel TEXT NOT NULL CHECK (channel IN ('email', 'sms')),
-            message TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'sent', 'delivered', 'bounced', 'replied')),
-            sent_at TIMESTAMPTZ,
-            delivered_at TIMESTAMPTZ,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-          );
-          
-          -- Add RLS policies
-          ALTER TABLE review_requests ENABLE ROW LEVEL SECURITY;
-          
-          CREATE POLICY "Users can view their own review requests" ON review_requests
-            FOR SELECT USING (
-              business_id IN (
-                SELECT business_id FROM profiles WHERE id = auth.uid()
-              )
-            );
-          
-          CREATE POLICY "Users can insert their own review requests" ON review_requests
-            FOR INSERT WITH CHECK (
-              business_id IN (
-                SELECT business_id FROM profiles WHERE id = auth.uid()
-              )
-            );
-          
-          CREATE POLICY "Users can update their own review requests" ON review_requests
-            FOR UPDATE USING (
-              business_id IN (
-                SELECT business_id FROM profiles WHERE id = auth.uid()
-              )
-            );
-        `
-      });
-
-      if (error) throw error;
-      toast.success('Review requests table created successfully');
-    } catch (error) {
-      console.error('Error creating table:', error);
-      throw error;
-    }
-  };
-
-  const saveTemplate = async (kind) => {
+  const saveTemplate = async (type) => {
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -227,25 +180,45 @@ const SendRequests = () => {
 
       if (!profile?.business_id) return;
 
+      const template = templates[type];
+      
       // Validate SMS length
-      if (kind === 'sms' && templates[kind].body.length > 320) {
-        toast.error('SMS message is too long (max 320 characters)');
+      if (type === 'sms' && template.body.length > 160) {
+        toast.error('SMS message must be 160 characters or less');
         return;
       }
 
-      // Save to templates table
-      const { error } = await supabase
+      // Check if template exists
+      const { data: existingTemplate } = await supabase
         .from('templates')
-        .upsert({
-          business_id: profile.business_id,
-          kind,
-          subject: kind === 'email' ? templates[kind].subject : null,
-          body: templates[kind].body
-        });
+        .select('id')
+        .eq('business_id', profile.business_id)
+        .eq('kind', type)
+        .single();
 
-      if (error) throw error;
+      if (existingTemplate) {
+        // Update existing template
+        await supabase
+          .from('templates')
+          .update({
+            subject: type === 'email' ? template.subject : null,
+            body: template.body,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingTemplate.id);
+      } else {
+        // Create new template
+        await supabase
+          .from('templates')
+          .insert({
+            business_id: profile.business_id,
+            kind: type,
+            subject: type === 'email' ? template.subject : null,
+            body: template.body
+          });
+      }
 
-      toast.success(`${kind.toUpperCase()} template saved!`);
+      toast.success(`${type.toUpperCase()} template saved successfully!`);
       setEditingTemplate(null);
     } catch (error) {
       console.error('Error saving template:', error);
@@ -254,37 +227,38 @@ const SendRequests = () => {
   };
 
   const getStatusBadge = (status) => {
-    const statusConfig = {
-      queued: { color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-      sent: { color: 'bg-blue-100 text-blue-800', icon: Send },
-      delivered: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
-      bounced: { color: 'bg-red-100 text-red-800', icon: XCircle },
-      replied: { color: 'bg-purple-100 text-purple-800', icon: MessageSquare }
-    };
-
-    const config = statusConfig[status] || statusConfig.queued;
-    const Icon = config.icon;
-
-    return (
-      <Badge className={`${config.color} border`}>
-        <Icon className="h-3 w-3 mr-1" />
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </Badge>
-    );
+    switch (status) {
+      case 'sent':
+        return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Sent</Badge>;
+      case 'failed':
+        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" />Failed</Badge>;
+      case 'queued':
+        return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" />Queued</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
   };
 
   const getChannelIcon = (channel) => {
-    return channel === 'email' ? <Mail className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />;
+    switch (channel) {
+      case 'email':
+        return <Mail className="w-4 h-4" />;
+      case 'sms':
+        return <Smartphone className="w-4 h-4" />;
+      case 'both':
+        return <MessageSquare className="w-4 h-4" />;
+      default:
+        return <Send className="w-4 h-4" />;
+    }
   };
 
   const filteredCustomers = customers.filter(customer => {
     if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
+      const searchTerm = filters.search.toLowerCase();
       return (
-        customer.first_name?.toLowerCase().includes(searchLower) ||
-        customer.last_name?.toLowerCase().includes(searchLower) ||
-        customer.email?.toLowerCase().includes(searchLower) ||
-        customer.phone?.toLowerCase().includes(searchLower)
+        customer.full_name?.toLowerCase().includes(searchTerm) ||
+        customer.email?.toLowerCase().includes(searchTerm) ||
+        customer.phone?.includes(searchTerm)
       );
     }
     return true;
@@ -294,340 +268,276 @@ const SendRequests = () => {
     if (filters.channel !== 'all' && request.channel !== filters.channel) return false;
     if (filters.status !== 'all' && request.status !== filters.status) return false;
     if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
       const customer = customers.find(c => c.id === request.customer_id);
-      if (!customer) return false;
-      const searchLower = filters.search.toLowerCase();
       return (
-        customer.first_name?.toLowerCase().includes(searchLower) ||
-        customer.last_name?.toLowerCase().includes(searchLower) ||
-        customer.email?.toLowerCase().includes(searchLower)
+        customer?.full_name?.toLowerCase().includes(searchTerm) ||
+        customer?.email?.toLowerCase().includes(searchTerm) ||
+        customer?.phone?.includes(searchTerm)
       );
     }
     return true;
   });
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
+  const getCustomerContactInfo = (customer) => {
+    const hasEmail = customer.email && customer.email.trim() !== '';
+    const hasPhone = customer.phone && customer.phone.trim() !== '';
+    
+    return {
+      hasEmail,
+      hasPhone,
+      email: hasEmail ? customer.email : null,
+      phone: hasPhone ? customer.phone : null
+    };
+  };
+
+  const getDefaultChannel = (customer) => {
+    const contactInfo = getCustomerContactInfo(customer);
+    if (contactInfo.hasEmail) return 'email';
+    if (contactInfo.hasPhone) return 'sms';
+    return 'email'; // fallback
+  };
+
+  const isSendButtonDisabled = () => {
+    if (!selectedCustomer || !requestMessage.trim()) return true;
+    
+    const contactInfo = getCustomerContactInfo(selectedCustomer);
+    
+    switch (selectedChannel) {
+      case 'email':
+        return !contactInfo.hasEmail;
+      case 'sms':
+        return !contactInfo.hasPhone;
+      case 'both':
+        return !contactInfo.hasEmail && !contactInfo.hasPhone;
+      default:
+        return true;
+    }
+  };
+
+  const getSendButtonError = () => {
+    if (!selectedCustomer) return 'Please select a customer';
+    if (!requestMessage.trim()) return 'Please enter a message';
+    
+    const contactInfo = getCustomerContactInfo(selectedCustomer);
+    
+    switch (selectedChannel) {
+      case 'email':
+        return !contactInfo.hasEmail ? 'Customer has no email address' : null;
+      case 'sms':
+        return !contactInfo.hasPhone ? 'Customer has no phone number' : null;
+      case 'both':
+        return (!contactInfo.hasEmail && !contactInfo.hasPhone) ? 'Customer has no email or phone number' : null;
+      default:
+        return 'Please select a channel';
+    }
+  };
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="space-y-6">
       <PageHeader
-        title="Send Requests"
-        subtitle="Send review requests to your customers and manage templates"
+        title="Send Review Requests"
+        subtitle="Request reviews from your customers via email and SMS"
       />
 
-      {/* Templates Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Email Template */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Templates Section */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Mail className="h-5 w-5 text-blue-600" />
-                Email Template
-              </div>
-              {editingTemplate === 'email' ? (
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => saveTemplate('email')}>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setEditingTemplate(null)}>
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <Button size="sm" variant="outline" onClick={() => setEditingTemplate('email')}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-              )}
+            <CardTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5" />
+              Email & SMS Templates
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {editingTemplate === 'email' ? (
-              <>
-                <div>
-                  <Label htmlFor="email-subject">Subject</Label>
+            {/* Email Template */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  Email Template
+                </Label>
+                <div className="flex gap-2">
+                  {editingTemplate === 'email' ? (
+                    <>
+                      <Button size="sm" onClick={() => saveTemplate('email')}>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingTemplate(null)}>
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => setEditingTemplate('email')}>
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
+              {editingTemplate === 'email' ? (
+                <div className="space-y-3">
                   <Input
-                    id="email-subject"
+                    placeholder="Subject"
                     value={templates.email.subject}
                     onChange={(e) => setTemplates(prev => ({
                       ...prev,
                       email: { ...prev.email, subject: e.target.value }
                     }))}
-                    placeholder="Email subject"
                   />
-                </div>
-                <div>
-                  <Label htmlFor="email-body">Body</Label>
                   <Textarea
-                    id="email-body"
+                    placeholder="Email body..."
                     value={templates.email.body}
                     onChange={(e) => setTemplates(prev => ({
                       ...prev,
                       email: { ...prev.email, body: e.target.value }
                     }))}
-                    rows={8}
-                    placeholder="Email body with merge tags like {customer.name}"
+                    rows={4}
                   />
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Available merge tags: {'{customer.name}'}, {'{review_link}'}, {'{company_name}'}
-                </div>
-              </>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-sm font-medium">Subject</Label>
-                  <p className="text-sm text-muted-foreground">{templates.email.subject}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Body</Label>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line">{templates.email.body}</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* SMS Template */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-green-600" />
-                SMS Template
-              </div>
-              {editingTemplate === 'sms' ? (
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => saveTemplate('sms')}>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setEditingTemplate(null)}>
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Cancel
-                  </Button>
+                  <div className="text-xs text-gray-500">
+                    Available variables: {'{customer.name}'}, {'{review_link}'}, {'{company_name}'}
+                  </div>
                 </div>
               ) : (
-                <Button size="sm" variant="outline" onClick={() => setEditingTemplate('sms')}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="font-medium text-sm mb-1">{templates.email.subject}</div>
+                  <div className="text-sm text-gray-600 line-clamp-3">{templates.email.body}</div>
+                </div>
               )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {editingTemplate === 'sms' ? (
-              <>
-                <div>
-                  <Label htmlFor="sms-body">Message</Label>
+            </div>
+
+            {/* SMS Template */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2">
+                  <Smartphone className="w-4 h-4" />
+                  SMS Template
+                </Label>
+                <div className="flex gap-2">
+                  {editingTemplate === 'sms' ? (
+                    <>
+                      <Button size="sm" onClick={() => saveTemplate('sms')}>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingTemplate(null)}>
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => setEditingTemplate('sms')}>
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
+              {editingTemplate === 'sms' ? (
+                <div className="space-y-3">
                   <Textarea
-                    id="sms-body"
+                    placeholder="SMS message..."
                     value={templates.sms.body}
                     onChange={(e) => setTemplates(prev => ({
                       ...prev,
                       sms: { ...prev.sms, body: e.target.value }
                     }))}
-                    rows={6}
-                    placeholder="SMS message with merge tags like {customer.name}"
+                    rows={3}
                   />
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">
+                      Available variables: {'{customer.name}'}, {'{review_link}'}
+                    </span>
+                    <span className={templates.sms.body.length > 160 ? 'text-red-500' : 'text-gray-500'}>
+                      {templates.sms.body.length}/160
+                    </span>
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  Available merge tags: {'{customer.name}'}, {'{review_link}'}
+              ) : (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-600">{templates.sms.body}</div>
                 </div>
-              </>
-            ) : (
-              <div>
-                <Label className="text-sm font-medium">Message</Label>
-                <p className="text-sm text-muted-foreground whitespace-pre-line">{templates.sms.body}</p>
-              </div>
-            )}
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Send New Request Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Send className="w-5 h-5" />
+              Send New Request
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={() => setShowSendModal(true)} 
+              className="w-full"
+              size="lg"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Send Review Request
+            </Button>
           </CardContent>
         </Card>
       </div>
 
-      {/* Send New Request */}
+      {/* Request History Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5 text-primary" />
-            Send New Request
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 mb-4">
-            <div className="flex-1">
-              <Label htmlFor="customer-search">Search Customer</Label>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Request History
+            </CardTitle>
+            <div className="flex gap-2">
               <Input
-                id="customer-search"
-                placeholder="Search by name, email, or phone..."
+                placeholder="Search requests..."
                 value={filters.search}
                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                className="w-64"
               />
+              <Select value={filters.channel} onValueChange={(value) => setFilters(prev => ({ ...prev, channel: value }))}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Channel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="sms">SMS</SelectItem>
+                  <SelectItem value="both">Both</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="queued">Queued</SelectItem>
+                  <SelectItem value="sent">Sent</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Button onClick={() => setShowSendModal(true)} disabled={filteredCustomers.length === 0}>
-              <Send className="h-4 w-4 mr-2" />
-              Send Request
-            </Button>
           </div>
-
-          {filteredCustomers.length > 0 && (
-            <div className="max-h-64 overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCustomers.slice(0, 10).map((customer) => (
-                    <TableRow key={customer.id}>
-                      <TableCell className="font-medium">
-                        {customer.first_name} {customer.last_name}
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {customer.email && (
-                            <div className="flex items-center gap-1">
-                              <Mail className="h-3 w-3 text-green-600" />
-                              <span className="text-sm">{customer.email}</span>
-                            </div>
-                          )}
-                          {!customer.email && (
-                            <div className="flex items-center gap-1">
-                              <Mail className="h-3 w-3 text-gray-400" />
-                              <span className="text-xs text-gray-500">No email</span>
-                            </div>
-                          )}
-                          {customer.phone && (
-                            <div className="flex items-center gap-1">
-                              <MessageSquare className="h-3 w-3 text-blue-600" />
-                              <span className="text-sm">{customer.phone}</span>
-                            </div>
-                          )}
-                          {!customer.phone && (
-                            <div className="flex items-center gap-1">
-                              <MessageSquare className="h-3 w-3 text-gray-400" />
-                              <span className="text-xs text-gray-500">No phone</span>
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedCustomer(customer);
-                              setSelectedChannel('email');
-                              setShowSendModal(true);
-                            }}
-                            disabled={!customer.email}
-                          >
-                            <Mail className="h-4 w-4 mr-2" />
-                            Email
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedCustomer(customer);
-                              setSelectedChannel('sms');
-                              setShowSendModal(true);
-                            }}
-                            disabled={!customer.phone}
-                          >
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            SMS
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedCustomer(customer);
-                              setSelectedChannel('both');
-                              setShowSendModal(true);
-                            }}
-                            disabled={!customer.email || !customer.phone}
-                          >
-                            <Send className="h-4 w-4 mr-2" />
-                            Both
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Request History */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Request History</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 mb-4">
-            <Select
-              value={filters.channel}
-              onValueChange={(value) => setFilters(prev => ({ ...prev, channel: value }))}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Channel" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Channels</SelectItem>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="sms">SMS</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={filters.status}
-              onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="queued">Queued</SelectItem>
-                <SelectItem value="sent">Sent</SelectItem>
-                <SelectItem value="delivered">Delivered</SelectItem>
-                <SelectItem value="bounced">Bounced</SelectItem>
-                <SelectItem value="replied">Replied</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {filteredRequests.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Send className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-              <p>No requests found</p>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin" />
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Channel</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Message</TableHead>
+                  <TableHead>Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -636,24 +546,20 @@ const SendRequests = () => {
                   return (
                     <TableRow key={request.id}>
                       <TableCell>
-                        {new Date(request.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {customer ? `${customer.first_name} ${customer.last_name}` : 'Unknown'}
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-500" />
+                          <span className="font-medium">{customer?.full_name || 'Unknown'}</span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getChannelIcon(request.channel)}
-                          {request.channel}
+                          <span className="capitalize">{request.channel}</span>
                         </div>
                       </TableCell>
+                      <TableCell>{getStatusBadge(request.status)}</TableCell>
                       <TableCell>
-                        {getStatusBadge(request.status)}
-                      </TableCell>
-                      <TableCell className="max-w-xs">
-                        <p className="text-sm text-muted-foreground truncate">
-                          {request.message}
-                        </p>
+                        {new Date(request.requested_at).toLocaleDateString()}
                       </TableCell>
                     </TableRow>
                   );
@@ -666,99 +572,142 @@ const SendRequests = () => {
 
       {/* Send Request Modal */}
       {showSendModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl mx-4">
-            <CardHeader>
-              <CardTitle>Send Review Request</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Customer</Label>
-                <p className="text-sm text-muted-foreground">
-                  {selectedCustomer?.first_name} {selectedCustomer?.last_name}
-                </p>
-              </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold">Send Review Request</h2>
+              <Button variant="outline" size="sm" onClick={() => setShowSendModal(false)}>
+                ×
+              </Button>
+            </div>
 
+            <div className="space-y-6">
+              {/* Customer Selection */}
               <div>
-                <Label>Channel</Label>
-                <div className="flex gap-2 mt-2">
-                  <Button
-                    variant={selectedChannel === 'email' ? 'default' : 'outline'}
-                    onClick={() => setSelectedChannel('email')}
-                    disabled={!selectedCustomer?.email}
-                    className="flex-1"
-                  >
-                    <Mail className="h-4 w-4 mr-2" />
-                    Email
-                  </Button>
-                  <Button
-                    variant={selectedChannel === 'sms' ? 'default' : 'outline'}
-                    onClick={() => setSelectedChannel('sms')}
-                    disabled={!selectedCustomer?.phone}
-                    className="flex-1"
-                  >
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    SMS
-                  </Button>
-                  <Button
-                    variant={selectedChannel === 'both' ? 'default' : 'outline'}
-                    onClick={() => setSelectedChannel('both')}
-                    disabled={!selectedCustomer?.email || !selectedCustomer?.phone}
-                    className="flex-1"
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    Both
-                  </Button>
+                <Label className="block mb-3">Select Customer</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto">
+                  {filteredCustomers.map((customer) => {
+                    const contactInfo = getCustomerContactInfo(customer);
+                    const isSelected = selectedCustomer?.id === customer.id;
+                    
+                    return (
+                      <div
+                        key={customer.id}
+                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                          isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => {
+                          setSelectedCustomer(customer);
+                          setSelectedChannel(getDefaultChannel(customer));
+                        }}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <User className="w-4 h-4 text-gray-500" />
+                          <span className="font-medium">{customer.full_name}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {contactInfo.hasEmail ? (
+                            <Badge variant="outline" className="text-xs">
+                              <AtSign className="w-3 h-3 mr-1" />
+                              {contactInfo.email}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              <AtSign className="w-3 h-3 mr-1" />
+                              No email
+                            </Badge>
+                          )}
+                          {contactInfo.hasPhone ? (
+                            <Badge variant="outline" className="text-xs">
+                              <Phone className="w-3 h-3 mr-1" />
+                              {contactInfo.phone}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              <Phone className="w-3 h-3 mr-1" />
+                              No phone
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                {selectedChannel === 'email' && !selectedCustomer?.email && (
-                  <p className="text-sm text-red-600 mt-1">Customer has no email address</p>
-                )}
-                {selectedChannel === 'sms' && !selectedCustomer?.phone && (
-                  <p className="text-sm text-red-600 mt-1">Customer has no phone number</p>
-                )}
-                {selectedChannel === 'both' && (!selectedCustomer?.email || !selectedCustomer?.phone) && (
-                  <p className="text-sm text-red-600 mt-1">
-                    Customer missing {!selectedCustomer?.email && !selectedCustomer?.phone ? 'email and phone' : 
-                    !selectedCustomer?.email ? 'email' : 'phone'}
-                  </p>
+              </div>
+
+              {/* Channel Selection */}
+              <div>
+                <Label className="block mb-3">Channel</Label>
+                <div className="flex gap-2">
+                  {['email', 'sms', 'both'].map((channel) => {
+                    const contactInfo = selectedCustomer ? getCustomerContactInfo(selectedCustomer) : { hasEmail: false, hasPhone: false };
+                    const isDisabled = (
+                      (channel === 'email' && !contactInfo.hasEmail) ||
+                      (channel === 'sms' && !contactInfo.hasPhone) ||
+                      (channel === 'both' && !contactInfo.hasEmail && !contactInfo.hasPhone)
+                    );
+                    
+                    return (
+                      <Button
+                        key={channel}
+                        variant={selectedChannel === channel ? 'default' : 'outline'}
+                        onClick={() => setSelectedChannel(channel)}
+                        disabled={isDisabled}
+                        className="flex items-center gap-2"
+                      >
+                        {getChannelIcon(channel)}
+                        {channel.charAt(0).toUpperCase() + channel.slice(1)}
+                      </Button>
+                    );
+                  })}
+                </div>
+                {selectedCustomer && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    {selectedChannel === 'email' && !getCustomerContactInfo(selectedCustomer).hasEmail && (
+                      <span className="text-red-600">Customer has no email address</span>
+                    )}
+                    {selectedChannel === 'sms' && !getCustomerContactInfo(selectedCustomer).hasPhone && (
+                      <span className="text-red-600">Customer has no phone number</span>
+                    )}
+                    {selectedChannel === 'both' && !getCustomerContactInfo(selectedCustomer).hasEmail && !getCustomerContactInfo(selectedCustomer).hasPhone && (
+                      <span className="text-red-600">Customer has no email or phone number</span>
+                    )}
+                  </div>
                 )}
               </div>
 
+              {/* Message */}
               <div>
-                <Label>Message</Label>
+                <Label className="block mb-3">Message</Label>
                 <Textarea
+                  placeholder="Enter your review request message..."
                   value={requestMessage}
                   onChange={(e) => setRequestMessage(e.target.value)}
-                  rows={6}
-                  placeholder={`Enter your ${selectedChannel} message...`}
+                  rows={4}
                 />
               </div>
 
-              <div className="flex gap-2 justify-end">
+              {/* Actions */}
+              <div className="flex gap-3 justify-end">
                 <Button variant="outline" onClick={() => setShowSendModal(false)}>
                   Cancel
                 </Button>
                 <Button 
-                  onClick={handleSendRequest} 
-                  disabled={
-                    sending || 
-                    !requestMessage.trim() || 
-                    !selectedCustomer ||
-                    (selectedChannel === 'email' && !selectedCustomer?.email) ||
-                    (selectedChannel === 'sms' && !selectedCustomer?.phone) ||
-                    (selectedChannel === 'both' && (!selectedCustomer?.email || !selectedCustomer?.phone))
-                  }
+                  onClick={handleSendRequest}
+                  disabled={isSendButtonDisabled() || sending}
                 >
-                  {sending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Send className="h-4 w-4 mr-2" />
-                  )}
+                  {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                   Send Request
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+              
+              {getSendButtonError() && (
+                <div className="text-sm text-red-600 text-center">
+                  {getSendButtonError()}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
