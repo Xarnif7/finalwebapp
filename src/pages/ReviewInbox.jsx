@@ -39,7 +39,8 @@ import {
   Eye,
   Trash2,
   Archive,
-  RotateCcw
+  RotateCcw,
+  AlertTriangle
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/auth/AuthProvider';
@@ -463,37 +464,33 @@ const ReviewInbox = () => {
     const isGoogleConnected = selectedReview?.platform?.toLowerCase() === 'google';
     
     return (
-      <div className="flex gap-2">
+      <div className="flex gap-3 flex-wrap">
         <Button
           onClick={() => handleSendReply('manual')}
           disabled={!replyText && !aiReply}
-          className="flex-1"
+          className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold"
         >
           <LogOut className="w-4 h-4 mr-2" />
           Log Manual Reply
         </Button>
-        <div className="relative">
-          <Button
-            onClick={() => handleSendReply('email')}
-            disabled={!replyText && !aiReply}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <Mail className="w-4 h-4" />
-            Send Email
-          </Button>
-        </div>
-        <div className="relative">
-          <Button
-            onClick={() => handleSendReply('sms')}
-            disabled={!replyText && !aiReply}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <Smartphone className="w-4 h-4" />
-            Send SMS
-          </Button>
-        </div>
+        <Button
+          onClick={() => handleSendReply('email')}
+          disabled={!replyText && !aiReply}
+          variant="outline"
+          className="rounded-xl border-gray-200 hover:border-gray-300 font-medium"
+        >
+          <Mail className="w-4 h-4 mr-2" />
+          Send Email
+        </Button>
+        <Button
+          onClick={() => handleSendReply('sms')}
+          disabled={!replyText && !aiReply}
+          variant="outline"
+          className="rounded-xl border-gray-200 hover:border-gray-300 font-medium"
+        >
+          <Smartphone className="w-4 h-4 mr-2" />
+          Send SMS
+        </Button>
       </div>
     );
   };
@@ -502,75 +499,83 @@ const ReviewInbox = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Review Inbox"
-        subtitle="Manage and respond to customer reviews across all platforms"
-        action={
-          <Button onClick={syncReviews} disabled={syncing}>
-            {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-            Sync Reviews
-          </Button>
-        }
-      />
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Review Inbox</h1>
+          <p className="mt-2 text-gray-600">Manage and respond to customer reviews across all platforms</p>
+        </div>
+        <Button onClick={syncReviews} disabled={syncing} className="rounded-xl">
+          {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+          Sync Reviews
+        </Button>
+      </div>
 
-      {/* Metrics Strip */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Enhanced Metrics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
+          className="cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-300 rounded-2xl border-0 bg-gradient-to-br from-red-50 to-red-100/50 shadow-lg"
           onClick={() => applyFilterFromMetrics('unreplied')}
         >
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Unreplied</p>
-                <p className="text-2xl font-bold text-red-600">{metrics.unreplied}</p>
+                <p className="text-sm font-semibold text-red-700 mb-1">Unreplied</p>
+                <p className="text-3xl font-bold text-red-600">{metrics.unreplied}</p>
               </div>
-              <AlertCircle className="w-8 h-8 text-red-500" />
+              <div className="p-3 bg-red-200/50 rounded-xl">
+                <AlertCircle className="w-8 h-8 text-red-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
         
         <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
+          className="cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-300 rounded-2xl border-0 bg-gradient-to-br from-green-50 to-green-100/50 shadow-lg"
           onClick={() => applyFilterFromMetrics('avgRating')}
         >
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Avg Rating (30d)</p>
-                <p className="text-2xl font-bold text-green-600">{metrics.avgRating}</p>
+                <p className="text-sm font-semibold text-green-700 mb-1">Avg Rating (30d)</p>
+                <p className="text-3xl font-bold text-green-600">{metrics.avgRating}</p>
               </div>
-              <Star className="w-8 h-8 text-yellow-500" />
+              <div className="p-3 bg-green-200/50 rounded-xl">
+                <Star className="w-8 h-8 text-green-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
         
         <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
+          className="cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-300 rounded-2xl border-0 bg-gradient-to-br from-blue-50 to-blue-100/50 shadow-lg"
           onClick={() => applyFilterFromMetrics('newReviews')}
         >
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">New (7d)</p>
-                <p className="text-2xl font-bold text-blue-600">{metrics.newReviews}</p>
+                <p className="text-sm font-semibold text-blue-700 mb-1">New (7d)</p>
+                <p className="text-3xl font-bold text-blue-600">{metrics.newReviews}</p>
               </div>
-              <TrendingUp className="w-8 h-8 text-blue-500" />
+              <div className="p-3 bg-blue-200/50 rounded-xl">
+                <TrendingUp className="w-8 h-8 text-blue-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
         
         <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
+          className="cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-300 rounded-2xl border-0 bg-gradient-to-br from-purple-50 to-purple-100/50 shadow-lg"
           onClick={() => applyFilterFromMetrics('responseTime')}
         >
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Response Time</p>
-                <p className="text-2xl font-bold text-purple-600">{metrics.responseTime}h</p>
+                <p className="text-sm font-semibold text-purple-700 mb-1">Response Time</p>
+                <p className="text-3xl font-bold text-purple-600">{metrics.responseTime}h</p>
               </div>
-              <Clock className="w-8 h-8 text-purple-500" />
+              <div className="p-3 bg-purple-200/50 rounded-xl">
+                <Clock className="w-8 h-8 text-purple-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -579,116 +584,140 @@ const ReviewInbox = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Panel - Review List */}
         <div className="lg:col-span-1 space-y-4">
-          {/* Filters and Search */}
-          <Card>
-            <CardContent className="p-4 space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Search reviews..."
-                  value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  className="flex-1"
-                />
-                <Button variant="outline" size="icon">
-                  <Search className="w-4 h-4" />
-                </Button>
+          {/* Enhanced Filters and Search */}
+          <Card className="rounded-xl shadow-lg border-0 bg-gradient-to-br from-gray-50 to-white">
+            <CardContent className="p-6 space-y-6">
+              {/* Search Bar */}
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Search reviews..."
+                    value={filters.search}
+                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    className="pl-10 rounded-xl border-gray-200 focus:border-blue-300 focus:ring-blue-200"
+                  />
+                </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-2">
-                <Select value={filters.platform} onValueChange={(value) => setFilters(prev => ({ ...prev, platform: value }))}>
-                  <SelectTrigger className="text-left">
-                    <SelectValue placeholder="Platform" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Platforms</SelectItem>
-                    <SelectItem value="Google">Google</SelectItem>
-                    <SelectItem value="Facebook">Facebook</SelectItem>
-                    <SelectItem value="Yelp">Yelp</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Filter Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Platform</Label>
+                  <Select value={filters.platform} onValueChange={(value) => setFilters(prev => ({ ...prev, platform: value }))}>
+                    <SelectTrigger className="rounded-xl border-gray-200 focus:border-blue-300 focus:ring-blue-200">
+                      <SelectValue placeholder="All Platforms" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Platforms</SelectItem>
+                      <SelectItem value="Google">Google</SelectItem>
+                      <SelectItem value="Facebook">Facebook</SelectItem>
+                      <SelectItem value="Yelp">Yelp</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 
-                <Select value={filters.sentiment} onValueChange={(value) => setFilters(prev => ({ ...prev, sentiment: value }))}>
-                  <SelectTrigger className="text-left">
-                    <SelectValue placeholder="Sentiment" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Sentiments</SelectItem>
-                    <SelectItem value="positive">Positive</SelectItem>
-                    <SelectItem value="neutral">Neutral</SelectItem>
-                    <SelectItem value="negative">Negative</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Sentiment</Label>
+                  <Select value={filters.sentiment} onValueChange={(value) => setFilters(prev => ({ ...prev, sentiment: value }))}>
+                    <SelectTrigger className="rounded-xl border-gray-200 focus:border-blue-300 focus:ring-blue-200">
+                      <SelectValue placeholder="All Sentiments" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sentiments</SelectItem>
+                      <SelectItem value="positive">Positive</SelectItem>
+                      <SelectItem value="neutral">Neutral</SelectItem>
+                      <SelectItem value="negative">Negative</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 
-                <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
-                  <SelectTrigger className="text-left">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="unreplied">Needs Reply</SelectItem>
-                    <SelectItem value="replied">Replied</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Status</Label>
+                  <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+                    <SelectTrigger className="rounded-xl border-gray-200 focus:border-blue-300 focus:ring-blue-200">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="unreplied">Needs Reply</SelectItem>
+                      <SelectItem value="replied">Replied</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 
-                <Select value={filters.rating} onValueChange={(value) => setFilters(prev => ({ ...prev, rating: value }))}>
-                  <SelectTrigger className="text-left">
-                    <SelectValue placeholder="Rating" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Ratings</SelectItem>
-                    <SelectItem value="5">5 Stars</SelectItem>
-                    <SelectItem value="4">4 Stars</SelectItem>
-                    <SelectItem value="3">3 Stars</SelectItem>
-                    <SelectItem value="2">2 Stars</SelectItem>
-                    <SelectItem value="1">1 Star</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Rating</Label>
+                  <Select value={filters.rating} onValueChange={(value) => setFilters(prev => ({ ...prev, rating: value }))}>
+                    <SelectTrigger className="rounded-xl border-gray-200 focus:border-blue-300 focus:ring-blue-200">
+                      <SelectValue placeholder="All Ratings" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Ratings</SelectItem>
+                      <SelectItem value="5">5 Stars</SelectItem>
+                      <SelectItem value="4">4 Stars</SelectItem>
+                      <SelectItem value="3">3 Stars</SelectItem>
+                      <SelectItem value="2">2 Stars</SelectItem>
+                      <SelectItem value="1">1 Star</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 
-                <Select value={filters.dateRange} onValueChange={(value) => setFilters(prev => ({ ...prev, dateRange: value }))}>
-                  <SelectTrigger className="text-left">
-                    <SelectValue placeholder="Date Range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="week">Last 7 Days</SelectItem>
-                    <SelectItem value="month">Last 30 Days</SelectItem>
-                    <SelectItem value="quarter">Last 3 Months</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Date Range</Label>
+                  <Select value={filters.dateRange} onValueChange={(value) => setFilters(prev => ({ ...prev, dateRange: value }))}>
+                    <SelectTrigger className="rounded-xl border-gray-200 focus:border-blue-300 focus:ring-blue-200">
+                      <SelectValue placeholder="All Time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Time</SelectItem>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="week">Last 7 Days</SelectItem>
+                      <SelectItem value="month">Last 30 Days</SelectItem>
+                      <SelectItem value="quarter">Last 3 Months</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="text-left">
-                    <SelectValue placeholder="Sort By" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Newest First</SelectItem>
-                    <SelectItem value="oldest">Oldest First</SelectItem>
-                    <SelectItem value="highest">Highest Rating</SelectItem>
-                    <SelectItem value="lowest">Lowest Rating</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-700">Sort By</Label>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="rounded-xl border-gray-200 focus:border-blue-300 focus:ring-blue-200">
+                      <SelectValue placeholder="Newest First" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest First</SelectItem>
+                      <SelectItem value="oldest">Oldest First</SelectItem>
+                      <SelectItem value="highest">Highest Rating</SelectItem>
+                      <SelectItem value="lowest">Lowest Rating</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
-              <div className="flex items-center gap-2">
+              {/* Show All Toggle */}
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                 <Checkbox 
                   checked={showAllReviews}
                   onCheckedChange={setShowAllReviews}
+                  className="rounded-md"
                 />
-                <Label className="text-sm">Show all reviews</Label>
+                <Label className="text-sm font-medium text-gray-700">Show all reviews</Label>
               </div>
             </CardContent>
           </Card>
 
-          {/* Review List */}
-          <Card>
-            <CardHeader className="pb-3">
+          {/* Enhanced Review List */}
+          <Card className="rounded-xl shadow-lg border-0">
+            <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Reviews</CardTitle>
+                <CardTitle className="text-xl font-bold text-gray-900">Reviews</CardTitle>
                 {selectedReviews.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">{selectedReviews.length} selected</span>
-                    <Button variant="outline" size="sm" onClick={clearSelection}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                      {selectedReviews.length} selected
+                    </span>
+                    <Button variant="outline" size="sm" onClick={clearSelection} className="rounded-lg">
                       Clear
                     </Button>
                   </div>
@@ -697,66 +726,73 @@ const ReviewInbox = () => {
             </CardHeader>
             <CardContent className="p-0">
               {loading ? (
-                <div className="p-8 text-center">
-                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-                  <p className="text-gray-600">Loading reviews...</p>
+                <div className="p-12 text-center">
+                  <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4 text-blue-500" />
+                  <p className="text-gray-600 font-medium">Loading reviews...</p>
                 </div>
               ) : displayedReviews.length === 0 ? (
-                <div className="p-8 text-center">
-                  <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No reviews found</p>
+                <div className="p-12 text-center">
+                  <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600 font-medium">No reviews found</p>
                 </div>
               ) : (
-                <div className="space-y-1">
-                  {displayedReviews.map((review) => (
+                <div className="space-y-2 p-2">
+                  {displayedReviews.map((review, index) => (
                     <div
                       key={review.id}
-                      className={`p-4 border-b border-gray-100 cursor-pointer transition-colors ${
-                        selectedReview?.id === review.id ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
-                      }`}
+                      className={`p-5 rounded-xl cursor-pointer transition-all duration-200 hover:shadow-md ${
+                        selectedReview?.id === review.id 
+                          ? 'bg-blue-50 border-2 border-blue-200 shadow-md' 
+                          : 'bg-white border border-gray-100 hover:border-gray-200'
+                      } ${index % 2 === 0 ? 'bg-opacity-50' : ''}`}
                       onClick={() => setSelectedReview(review)}
                     >
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-start gap-4">
                         <Checkbox 
                           checked={selectedReviews.includes(review.id)}
                           onCheckedChange={() => toggleReviewSelection(review.id)}
                           onClick={(e) => e.stopPropagation()}
+                          className="mt-1"
                         />
                         
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="flex items-center gap-1">
-                              {getPlatformIcon(review.platform)}
-                              <span className="text-sm font-medium">{review.author_name}</span>
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 bg-gray-100 rounded-lg">
+                                {getPlatformIcon(review.platform)}
+                              </div>
+                              <span className="text-sm font-semibold text-gray-900">{review.author_name}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               {[...Array(5)].map((_, i) => (
                                 <Star
                                   key={i}
-                                  className={`w-3 h-3 ${i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                                  className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
                                 />
                               ))}
                             </div>
                             {review.responded ? (
-                              <Badge variant="default" className="bg-green-100 text-green-800">
+                              <Badge className="bg-green-100 text-green-800 border-green-200 rounded-full px-3 py-1">
                                 <CheckCircle className="w-3 h-3 mr-1" />
                                 Replied
                               </Badge>
                             ) : (
-                              <Badge variant="destructive">
-                                <AlertCircle className="w-3 h-3 mr-1" />
+                              <Badge className="bg-red-500 text-white border-0 rounded-full px-3 py-1 font-semibold">
+                                <AlertTriangle className="w-3 h-3 mr-1" />
                                 Needs Reply
                               </Badge>
                             )}
                           </div>
                           
-                          <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                          <p className="text-sm text-gray-700 line-clamp-2 mb-3 leading-relaxed">
                             {review.body}
                           </p>
                           
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <div className="flex items-center gap-3">
                             {getSentimentBadge(review.sentiment)}
-                            <span>{new Date(review.created_at).toLocaleDateString()}</span>
+                            <span className="text-xs text-gray-500 font-medium">
+                              {new Date(review.created_at).toLocaleDateString()}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -768,7 +804,7 @@ const ReviewInbox = () => {
                       <Button 
                         variant="outline" 
                         onClick={() => setShowAllReviews(true)}
-                        className="w-full"
+                        className="w-full rounded-xl border-gray-200 hover:border-gray-300"
                       >
                         View More Reviews ({reviews.length - 5} more)
                       </Button>
@@ -780,7 +816,7 @@ const ReviewInbox = () => {
                       <Button 
                         variant="outline" 
                         onClick={() => setShowAllReviews(false)}
-                        className="w-full"
+                        className="w-full rounded-xl border-gray-200 hover:border-gray-300"
                       >
                         Show Recent 5 Reviews
                       </Button>
@@ -792,39 +828,44 @@ const ReviewInbox = () => {
           </Card>
         </div>
 
-        {/* Right Panel - Review Details */}
+        {/* Enhanced Right Panel - Review Details */}
         <div className="lg:col-span-2">
           {selectedReview ? (
-            <Card>
-              <CardHeader>
+            <Card className="rounded-xl shadow-lg border-0 h-fit">
+              <CardHeader className="pb-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold">{selectedReview.author_name}</h3>
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        {getPlatformIcon(selectedReview.platform)}
+                    <div className="flex items-center gap-4 mb-3">
+                      <h3 className="text-2xl font-bold text-gray-900">{selectedReview.author_name}</h3>
+                      <Badge className="bg-gray-100 text-gray-700 border-gray-200 rounded-full px-3 py-1 flex items-center gap-2">
+                        <div className="p-1 bg-gray-200 rounded-md">
+                          {getPlatformIcon(selectedReview.platform)}
+                        </div>
                         {selectedReview.platform}
                       </Badge>
                       <div className="flex items-center gap-1">
                         {[...Array(5)].map((_, i) => (
                           <Star
                             key={i}
-                            className={`w-4 h-4 ${i < selectedReview.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                            className={`w-5 h-5 ${i < selectedReview.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
                           />
                         ))}
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600">
-                      {new Date(selectedReview.created_at).toLocaleString()}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      {getSentimentBadge(selectedReview.sentiment)}
+                      <span className="text-sm text-gray-600 font-medium">
+                        {new Date(selectedReview.created_at).toLocaleString()}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm">
+                  <div className="flex items-center gap-3">
+                    <Button variant="outline" size="sm" className="rounded-lg">
                       <ExternalLink className="w-4 h-4 mr-2" />
                       View Original
                     </Button>
                     {!selectedReview.responded && (
-                      <Button variant="outline" size="sm" onClick={markAsReplied}>
+                      <Button variant="outline" size="sm" onClick={markAsReplied} className="rounded-lg">
                         <CheckCircle className="w-4 h-4 mr-2" />
                         Mark as Replied
                       </Button>
@@ -833,22 +874,22 @@ const ReviewInbox = () => {
                 </div>
               </CardHeader>
               
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-8">
                 {/* Review Content */}
                 <div>
-                  <h4 className="font-medium mb-2">Review</h4>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-gray-800">{selectedReview.body}</p>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Review</h4>
+                  <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 p-6 rounded-xl border border-gray-200">
+                    <p className="text-gray-800 text-base leading-relaxed">{selectedReview.body}</p>
                   </div>
                 </div>
 
                 {/* Reply Editor */}
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium">Reply</h4>
+                    <h4 className="text-lg font-semibold text-gray-900">Reply</h4>
                     <Select value={replyTone} onValueChange={setReplyTone}>
-                      <SelectTrigger className="w-40 text-left">
-                        <SelectValue placeholder="Tone" />
+                      <SelectTrigger className="w-48 rounded-xl border-gray-200 focus:border-blue-300 focus:ring-blue-200">
+                        <SelectValue placeholder="Select Tone" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="professional">Professional</SelectItem>
@@ -859,63 +900,72 @@ const ReviewInbox = () => {
                     </Select>
                   </div>
                   
-                  <div className="flex gap-2">
+                  <div className="flex gap-3 flex-wrap">
                     <Button 
                       variant="outline" 
                       onClick={generateAiReply}
                       disabled={generatingReply}
+                      className="rounded-xl border-gray-200 hover:border-gray-300"
                     >
                       {generatingReply ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <MessageSquare className="w-4 h-4 mr-2" />}
                       Generate Draft
                     </Button>
-                    <Button variant="outline">
+                    <Button variant="outline" className="rounded-xl border-gray-200 hover:border-gray-300">
                       <RotateCcw className="w-4 h-4 mr-2" />
                       Regenerate
                     </Button>
-                    <Button variant="outline">
+                    <Button variant="outline" className="rounded-xl border-gray-200 hover:border-gray-300">
                       <Minus className="w-4 h-4 mr-2" />
                       Shorten
                     </Button>
-                    <Button variant="outline">
+                    <Button variant="outline" className="rounded-xl border-gray-200 hover:border-gray-300">
                       <ThumbsUp className="w-4 h-4 mr-2" />
                       Friendlier
                     </Button>
                   </div>
                   
                   {aiReply && (
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-blue-800">AI Generated Reply</span>
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 rounded-xl border border-blue-200">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm font-semibold text-blue-800">AI Generated Reply</span>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => setReplyText(aiReply)}>
+                          <Button variant="outline" size="sm" onClick={() => setReplyText(aiReply)} className="rounded-lg">
                             Use This
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" className="rounded-lg">
                             Add Thank You
                           </Button>
                         </div>
                       </div>
-                      <p className="text-blue-900">{aiReply}</p>
+                      <p className="text-blue-900 leading-relaxed">{aiReply}</p>
                     </div>
                   )}
                   
-                  <Textarea
-                    placeholder="Write your reply..."
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    rows={4}
-                  />
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold text-gray-700">Your Reply</Label>
+                    <Textarea
+                      placeholder="Write your reply..."
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      rows={5}
+                      className="rounded-xl border-gray-200 focus:border-blue-300 focus:ring-blue-200 resize-none"
+                    />
+                  </div>
                   
-                  {getReplyButton()}
+                  <div className="bg-gray-50 p-4 rounded-xl">
+                    {getReplyButton()}
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Review</h3>
-                <p className="text-gray-600">Choose a review from the list to view details and respond</p>
+            <Card className="rounded-xl shadow-lg border-0">
+              <CardContent className="p-16 text-center">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <MessageSquare className="w-10 h-10 text-gray-400" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">Select a Review</h3>
+                <p className="text-gray-600 text-lg">Choose a review from the list to view details and respond</p>
               </CardContent>
             </Card>
           )}
