@@ -62,6 +62,7 @@ const SendRequests = () => {
   useEffect(() => {
     if (user) {
       fetchData();
+      loadTemplates();
     }
   }, [user]);
 
@@ -86,7 +87,7 @@ const SendRequests = () => {
 
       if (customersError) throw customersError;
 
-      // Fetch review requests (we'll create this table later)
+      // Fetch review requests
       const { data: requestsData, error: requestsError } = await supabase
         .from('review_requests')
         .select('*')
@@ -106,6 +107,49 @@ const SendRequests = () => {
       toast.error('Failed to load data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTemplates = async () => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.business_id) return;
+
+      // Fetch saved templates
+      const { data: templatesData, error: templatesError } = await supabase
+        .from('templates')
+        .select('*')
+        .eq('business_id', profile.business_id);
+
+      if (templatesError && templatesError.code !== 'PGRST116') {
+        throw templatesError;
+      }
+
+      // Update templates with saved data
+      if (templatesData && templatesData.length > 0) {
+        const newTemplates = { ...templates };
+        templatesData.forEach(template => {
+          if (template.kind === 'email') {
+            newTemplates.email = {
+              subject: template.subject || newTemplates.email.subject,
+              body: template.body || newTemplates.email.body
+            };
+          } else if (template.kind === 'sms') {
+            newTemplates.sms = {
+              body: template.body || newTemplates.sms.body
+            };
+          }
+        });
+        setTemplates(newTemplates);
+      }
+    } catch (error) {
+      console.error('Error loading templates:', error);
+      // Don't show error to user as templates have defaults
     }
   };
 
@@ -140,8 +184,58 @@ const SendRequests = () => {
 
       if (!profile?.business_id) return;
 
+      // Get business info for email context
+      const { data: business } = await supabase
+        .from('businesses')
+        .select('name, email')
+        .eq('id', profile.business_id)
+        .single();
+
       // Generate review link
       const reviewLink = `https://yourdomain.com/review?ref=${selectedCustomer.id}`;
+
+      // Process message with template variables
+      let processedMessage = requestMessage
+        .replace(/{customer\.name}/g, selectedCustomer.full_name || 'Valued Customer')
+        .replace(/{review_link}/g, reviewLink)
+        .replace(/{company_name}/g, business?.name || 'Our Company');
+
+      // Send email if email channel is selected
+      if (selectedChannel === 'email' || selectedChannel === 'both') {
+        try {
+          // Use the email service with fallback
+          const { sendEmail } = await import('@/api/emailService');
+          
+          const emailResult = await sendEmail({
+            to: selectedCustomer.email,
+            subject: templates.email.subject.replace(/{customer\.name}/g, selectedCustomer.full_name || 'Valued Customer').replace(/{company_name}/g, business?.name || 'Our Company'),
+            body: processedMessage,
+            from: business?.email || 'noreply@yourdomain.com'
+          });
+
+          if (!emailResult.ok) {
+            throw new Error(emailResult.error || 'Failed to send email');
+          }
+        } catch (emailError) {
+          console.error('Email sending error:', emailError);
+          toast.error(`Email failed: ${emailError.message}`);
+          // Continue with SMS if both channels selected
+          if (selectedChannel === 'email') {
+            throw emailError;
+          }
+        }
+      }
+
+      // Handle SMS (placeholder for now - not functional)
+      if (selectedChannel === 'sms' || selectedChannel === 'both') {
+        // For now, just show a message that SMS is not yet available
+        if (selectedChannel === 'sms') {
+          toast.error('SMS functionality is not yet available. Please use email for now.');
+          return;
+        } else {
+          toast.info('SMS functionality is not yet available. Email was sent successfully.');
+        }
+      }
 
       // Insert review request record
       const { error } = await supabase
@@ -151,13 +245,20 @@ const SendRequests = () => {
           customer_id: selectedCustomer.id,
           channel: selectedChannel,
           review_link: reviewLink,
-          email_status: selectedChannel === 'email' || selectedChannel === 'both' ? 'queued' : 'skipped',
-          sms_status: selectedChannel === 'sms' || selectedChannel === 'both' ? 'queued' : 'skipped'
+          message: processedMessage,
+          email_status: selectedChannel === 'email' || selectedChannel === 'both' ? 'sent' : 'skipped',
+          sms_status: selectedChannel === 'sms' || selectedChannel === 'both' ? 'pending' : 'skipped',
+          created_at: new Date().toISOString()
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        // Don't fail the whole operation if database insert fails
+        toast.warning('Message sent but failed to save record');
+      } else {
+        toast.success('Review request sent successfully!');
+      }
 
-      toast.success('Review request sent successfully!');
       setShowSendModal(false);
       setSelectedCustomer(null);
       setSelectedChannel('email');
@@ -165,7 +266,7 @@ const SendRequests = () => {
       await fetchData();
     } catch (error) {
       console.error('Error sending request:', error);
-      toast.error('Failed to send request');
+      toast.error(`Failed to send request: ${error.message}`);
     } finally {
       setSending(false);
     }
@@ -473,7 +574,7 @@ const SendRequests = () => {
               Send New Request
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <Button 
               onClick={() => setShowSendModal(true)} 
               className="w-full"
@@ -482,6 +583,17 @@ const SendRequests = () => {
               <Plus className="w-4 h-4 mr-2" />
               Send Review Request
             </Button>
+            
+            <div className="text-sm text-gray-600 space-y-2">
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-green-600" />
+                <span>Email functionality is active</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-amber-600" />
+                <span>SMS functionality coming soon</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -648,16 +760,23 @@ const SendRequests = () => {
                       (channel === 'both' && !contactInfo.hasEmail && !contactInfo.hasPhone)
                     );
                     
+                    const isSmsChannel = channel === 'sms' || channel === 'both';
+                    
                     return (
                       <Button
                         key={channel}
                         variant={selectedChannel === channel ? 'default' : 'outline'}
                         onClick={() => setSelectedChannel(channel)}
                         disabled={isDisabled}
-                        className="flex items-center gap-2"
+                        className={`flex items-center gap-2 ${isSmsChannel ? 'relative' : ''}`}
                       >
                         {getChannelIcon(channel)}
                         {channel.charAt(0).toUpperCase() + channel.slice(1)}
+                        {isSmsChannel && (
+                          <Badge variant="secondary" className="ml-1 text-xs">
+                            Coming Soon
+                          </Badge>
+                        )}
                       </Button>
                     );
                   })}
@@ -673,6 +792,11 @@ const SendRequests = () => {
                     {selectedChannel === 'both' && !getCustomerContactInfo(selectedCustomer).hasEmail && !getCustomerContactInfo(selectedCustomer).hasPhone && (
                       <span className="text-red-600">Customer has no email or phone number</span>
                     )}
+                    {(selectedChannel === 'sms' || selectedChannel === 'both') && (
+                      <div className="mt-1">
+                        <span className="text-amber-600">⚠️ SMS functionality is not yet available</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -680,12 +804,51 @@ const SendRequests = () => {
               {/* Message */}
               <div>
                 <Label className="block mb-3">Message</Label>
-                <Textarea
-                  placeholder="Enter your review request message..."
-                  value={requestMessage}
-                  onChange={(e) => setRequestMessage(e.target.value)}
-                  rows={4}
-                />
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (selectedChannel === 'email') {
+                          setRequestMessage(templates.email.body);
+                        } else if (selectedChannel === 'sms') {
+                          setRequestMessage(templates.sms.body);
+                        }
+                      }}
+                    >
+                      Use Template
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setRequestMessage('')}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  <Textarea
+                    placeholder={
+                      selectedChannel === 'email' 
+                        ? "Enter your email message or use the template above..." 
+                        : selectedChannel === 'sms'
+                        ? "Enter your SMS message (160 characters max) or use the template above..."
+                        : "Enter your message..."
+                    }
+                    value={requestMessage}
+                    onChange={(e) => setRequestMessage(e.target.value)}
+                    rows={selectedChannel === 'sms' ? 3 : 4}
+                    maxLength={selectedChannel === 'sms' ? 160 : undefined}
+                  />
+                  {selectedChannel === 'sms' && (
+                    <div className="text-xs text-gray-500 text-right">
+                      {requestMessage.length}/160 characters
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-500">
+                    Available variables: {'{customer.name}'}, {'{review_link}'}, {'{company_name}'}
+                  </div>
+                </div>
               </div>
 
               {/* Actions */}
