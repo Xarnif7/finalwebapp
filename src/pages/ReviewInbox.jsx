@@ -5,6 +5,7 @@ import InboxHeader from '@/features/reviews/inbox/InboxHeader';
 import Filters from '@/features/reviews/inbox/Filters';
 import ThreadList from '@/features/reviews/inbox/ThreadList';
 import ThreadDetailDrawer from '@/features/reviews/inbox/ThreadDetailDrawer';
+import { useInboxThreads, useInboxCounts } from '@/hooks/useInboxData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -506,15 +507,32 @@ const ReviewInbox = () => {
     // Minimal shell using new components (data wiring to follow)
     const [filtersLite, setFiltersLite] = useState({ quick: 'all', search: '', channel: 'all', date: '30d' });
     const [selectedId, setSelectedId] = useState();
-    const counts = { sent: 0, opened: 0, clicked: 0, completed: 0 };
-    const threads = [];
+    const { data: countsData } = useInboxCounts();
+    const { data: threadsData, isLoading: threadsLoading } = useInboxThreads();
+    const counts = countsData || { sent: 0, opened: 0, clicked: 0, completed: 0 };
+    const threads = (threadsData || []).map(t => ({
+      id: t.id,
+      customer_name: t.name || 'Customer',
+      email: t.email,
+      rating: t.rating || null,
+      latest_at: t.latest_at,
+      flags: {
+        detractor: (t.sentiment === 'negative') || (t.rating && t.rating <= 3) || false,
+        urgent: t.sentiment === 'negative',
+        missed: t.status === 'sent' && !t.completed_at && t.opened_at && !t.clicked_at,
+      },
+    }));
     return (
       <div className="space-y-6">
         <InboxHeader counts={counts} />
         <Filters value={filtersLite} onChange={setFiltersLite} />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
-            <ThreadList items={threads} onSelect={setSelectedId} selectedId={selectedId} />
+            {threadsLoading ? (
+              <div className="p-6 text-slate-500">Loading threads…</div>
+            ) : (
+              <ThreadList items={threads} onSelect={setSelectedId} selectedId={selectedId} />
+            )}
           </div>
           <div className="lg:col-span-2">
             <ThreadDetailDrawer open={!!selectedId} onClose={() => setSelectedId(undefined)} threadId={selectedId} />
