@@ -1,5 +1,10 @@
 ﻿
 import React, { useState, useEffect } from 'react';
+import { isFeatureEnabled } from '@/lib/featureFlags';
+import InboxHeader from '@/features/reviews/inbox/InboxHeader';
+import Filters from '@/features/reviews/inbox/Filters';
+import ThreadList from '@/features/reviews/inbox/ThreadList';
+import ThreadDetailDrawer from '@/features/reviews/inbox/ThreadDetailDrawer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -496,6 +501,28 @@ const ReviewInbox = () => {
   };
 
   const displayedReviews = showAllReviews ? reviews : reviews.slice(0, 5);
+
+  if (isFeatureEnabled('conversationsLite')) {
+    // Minimal shell using new components (data wiring to follow)
+    const [filtersLite, setFiltersLite] = useState({ quick: 'all', search: '', channel: 'all', date: '30d' });
+    const [selectedId, setSelectedId] = useState();
+    const counts = { sent: 0, opened: 0, clicked: 0, completed: 0 };
+    const threads = [];
+    return (
+      <div className="space-y-6">
+        <InboxHeader counts={counts} />
+        <Filters value={filtersLite} onChange={setFiltersLite} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <ThreadList items={threads} onSelect={setSelectedId} selectedId={selectedId} />
+          </div>
+          <div className="lg:col-span-2">
+            <ThreadDetailDrawer open={!!selectedId} onClose={() => setSelectedId(undefined)} threadId={selectedId} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

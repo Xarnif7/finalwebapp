@@ -64,6 +64,132 @@ BEGIN
     END IF;
 END $$;
 
+-- ==============================
+-- Review Inbox RPCs and Telemetry
+-- ==============================
+
+-- Create telemetry table if not exists
+CREATE TABLE IF NOT EXISTS public.telemetry_events (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    business_id UUID NOT NULL,
+    event_type TEXT NOT NULL,
+    event_data JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Basic RLS for telemetry (read/write own business only)
+ALTER TABLE public.telemetry_events ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='telemetry_events' AND policyname='telemetry_select') THEN
+    CREATE POLICY telemetry_select ON public.telemetry_events
+      FOR SELECT USING (
+        business_id IN (SELECT business_id FROM public.profiles WHERE id = auth.uid())
+      );
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='telemetry_events' AND policyname='telemetry_insert') THEN
+    CREATE POLICY telemetry_insert ON public.telemetry_events
+      FOR INSERT WITH CHECK (
+        business_id IN (SELECT business_id FROM public.profiles WHERE id = auth.uid())
+      );
+  END IF;
+END $$;
+
+-- Function: log_telemetry_event
+CREATE OR REPLACE FUNCTION public.log_telemetry_event(
+  p_business_id UUID,
+  p_event_type TEXT,
+  p_event_data JSONB
+) RETURNS VOID AS $$
+BEGIN
+  INSERT INTO public.telemetry_events (business_id, event_type, event_data)
+  VALUES (p_business_id, p_event_type, p_event_data);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Inbox counts RPC
+CREATE OR REPLACE FUNCTION public.inbox_counts(p_business_id UUID)
+RETURNS TABLE (
+  sent BIGINT,
+  opened BIGINT,
+  clicked BIGINT,
+  completed BIGINT
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    COUNT(*) FILTER (WHERE rr.sent_at IS NOT NULL) AS sent,
+    COUNT(*) FILTER (WHERE rr.opened_at IS NOT NULL) AS opened,
+    COUNT(*) FILTER (WHERE rr.clicked_at IS NOT NULL) AS clicked,
+    COUNT(*) FILTER (WHERE rr.completed_at IS NOT NULL) AS completed
+  FROM public.review_requests rr
+  WHERE rr.business_id = p_business_id;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Inbox threads RPC
+CREATE OR REPLACE FUNCTION public.inbox_threads(p_business_id UUID)
+RETURNS TABLE (
+  id UUID,
+  status TEXT,
+  channel TEXT,
+  strategy TEXT,
+  best_send_at TIMESTAMPTZ,
+  sent_at TIMESTAMPTZ,
+  opened_at TIMESTAMPTZ,
+  clicked_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  tech_id UUID,
+  job_type TEXT,
+  job_end_at TIMESTAMPTZ,
+  review_link TEXT,
+  message TEXT,
+  name TEXT,
+  email TEXT,
+  sentiment TEXT,
+  pf_message TEXT,
+  pf_created_at TIMESTAMPTZ,
+  latest_at TIMESTAMPTZ
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    rr.id,
+    rr.status,
+    rr.channel,
+    rr.strategy,
+    rr.best_send_at,
+    rr.sent_at,
+    rr.opened_at,
+    rr.clicked_at,
+    rr.completed_at,
+    rr.tech_id,
+    rr.job_type,
+    rr.job_end_at,
+    rr.review_link,
+    rr.message,
+    c.name,
+    c.email,
+    pf.sentiment,
+    pf.message AS pf_message,
+    pf.created_at AS pf_created_at,
+    GREATEST(
+      COALESCE(rr.completed_at, '-infinity'),
+      COALESCE(rr.clicked_at, '-infinity'),
+      COALESCE(rr.opened_at, '-infinity'),
+      COALESCE(rr.sent_at, '-infinity'),
+      COALESCE(rr.best_send_at, '-infinity')
+    ) AS latest_at
+  FROM public.review_requests rr
+  JOIN public.customers c ON c.id = rr.customer_id
+  LEFT JOIN public.private_feedback pf ON pf.review_request_id = rr.id
+  WHERE rr.business_id = p_business_id
+  ORDER BY latest_at DESC;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
 -- Create review_sources table (without foreign key initially)
 CREATE TABLE IF NOT EXISTS public.review_sources (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
