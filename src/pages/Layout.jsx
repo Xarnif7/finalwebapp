@@ -35,8 +35,10 @@ const useSubscriptionStatusMemo = () => {
 
 const UserAvatar = ({ user, size = "40px" }) => {
   const getInitials = () => {
-    if (user?.full_name) {
-      return user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    // Try to get full name from user metadata first, then fallback to email
+    const fullName = user?.user_metadata?.full_name || user?.user_metadata?.name;
+    if (fullName) {
+      return fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     }
     return user?.email?.[0]?.toUpperCase() || 'U';
   };
@@ -272,41 +274,62 @@ export default function Layout({ children, currentPageName }) {
       return;
     }
     
+    // Wait for auth to initialize before making decisions
     if (loading) {
       console.log('[LAYOUT] Still loading, returning');
       return;
     }
     
-    if (!user) {
-      console.log('[LAYOUT] No user, setting unauthorized and navigating to landing');
-      setAuthStatus("unauthorized");
-      navigate("/");
-      return;
-    }
-    
-    console.log('[LAYOUT] Initializing business for user');
-    const initializeBusiness = async () => {
-      setAuthStatus("checking");
-      try {
-        const { data: businesses, error } = await supabase
-          .from('businesses')
-          .select('*')
-          .limit(1); // RLS will automatically filter by auth.uid()
+    // Add a small delay to ensure auth state is fully restored
+    const checkAuth = async () => {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Double-check the session after delay
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('[LAYOUT] Session check after delay:', { hasSession: !!session, hasUser: !!user });
+      
+      if (!session && !user) {
+        console.log('[LAYOUT] No session or user after delay, setting unauthorized and navigating to landing');
+        setAuthStatus("unauthorized");
+        navigate("/");
+        return;
+      }
+      
+      if (session && !user) {
+        console.log('[LAYOUT] Session exists but no user state, waiting for auth state to sync');
+        return;
+      }
+      
+      if (user || session) {
+        console.log('[LAYOUT] User or session exists, proceeding with business initialization');
         
-        if (!error && businesses && businesses.length > 0) {
-          setBusiness(businesses[0]);
-        } else if (currentPageName !== 'Onboarding') {
-          navigate("/onboarding");
-          return;
-        }
-        setAuthStatus("authorized");
-      } catch (error) {
-        console.error('[LAYOUT] Business initialization error:', error);
-        setAuthStatus("authorized"); // Allow access even if business init fails
+        // Initialize business for authenticated user
+        const initializeBusiness = async () => {
+          setAuthStatus("checking");
+          try {
+            const { data: businesses, error } = await supabase
+              .from('businesses')
+              .select('*')
+              .limit(1); // RLS will automatically filter by auth.uid()
+            
+            if (!error && businesses && businesses.length > 0) {
+              setBusiness(businesses[0]);
+            } else if (currentPageName !== 'Onboarding') {
+              navigate("/onboarding");
+              return;
+            }
+            setAuthStatus("authorized");
+          } catch (error) {
+            console.error('[LAYOUT] Business initialization error:', error);
+            setAuthStatus("authorized"); // Allow access even if business init fails
+          }
+        };
+        
+        initializeBusiness();
       }
     };
     
-    initializeBusiness();
+    checkAuth();
   }, [currentPageName, navigate, isLandingSitePage, user, loading, location.pathname]);
 
   const handleLogout = async () => {
@@ -325,6 +348,12 @@ export default function Layout({ children, currentPageName }) {
             <LandingFooter handleLogout={handleLogout} subscriptionStatus={subscriptionStatus} />
         </div>
     );
+  }
+
+  // Show loading state while checking auth to prevent flash
+  if (authStatus === "checking" || loading) {
+      console.log('[LAYOUT] Rendering loading state');
+      return null; // No loading indicator to prevent flash
   }
 
   // Don't show white screen during auth checking - render content immediately

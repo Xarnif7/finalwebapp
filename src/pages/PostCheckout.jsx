@@ -111,7 +111,7 @@ export default function PostCheckout() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        {/* Removed blue loading spinner to eliminate flash */}
         <h2 className="text-xl font-semibold text-gray-900 mb-2">
           {retryCount > 0 ? 'Verifying Payment...' : 'Processing Payment'}
         </h2>

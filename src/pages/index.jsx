@@ -30,6 +30,8 @@ import SimpleSetup from "./SimpleSetup";
 import Testimonials from "./Testimonials";
 import Paywall from "./Paywall";
 import PostCheckout from "./PostCheckout";
+import QRRedirect from "./QRRedirect";
+import PrivateFeedback from "./PrivateFeedback";
 import RequireOnboardingAccess from "../components/RequireOnboardingAccess";
 import ErrorBoundary from "../components/ui/error-boundary";
 
@@ -110,6 +112,8 @@ const PAGES = {
   Testimonials: Testimonials,
   Paywall: Paywall,
   PostCheckout: PostCheckout,
+  QRRedirect: QRRedirect,
+  PrivateFeedback: PrivateFeedback,
   NotFound: NotFound,
 };
 
@@ -158,6 +162,18 @@ function _getCurrentPage(url) {
   if (urlLastPart === 'post-checkout') {
     console.log('[ROUTING] Found post-checkout route');
     return 'PostCheckout';
+  }
+  
+  // Handle QR code redirects (r/{code})
+  if (url.includes('/r/')) {
+    console.log('[ROUTING] Found QR redirect route');
+    return 'QRRedirect';
+  }
+  
+  // Handle private feedback (feedback/{requestId})
+  if (url.includes('/feedback/')) {
+    console.log('[ROUTING] Found private feedback route');
+    return 'PrivateFeedback';
   }
   
   // Convert kebab-case to PascalCase for matching
@@ -320,6 +336,10 @@ function PagesContent() {
         
         {/* Auth routes */}
         <Route path="/auth/callback" element={<AuthCallback />} />
+        
+        {/* Public routes */}
+        <Route path="/r/:code" element={<TrackedComponent component={QRRedirect} name="QRRedirect" />} />
+        <Route path="/feedback/:requestId" element={<TrackedComponent component={PrivateFeedback} name="PrivateFeedback" />} />
         
         {/* Wildcard route must be last */}
         <Route path="*" element={<NotFound />} />

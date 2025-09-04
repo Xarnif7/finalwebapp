@@ -214,26 +214,12 @@ export default function Onboarding() {
 
   // Show loading state
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your business profile...</p>
-        </div>
-      </div>
-    );
+    return null; // No loading spinner to eliminate blue bar flash
   }
 
   // Always render the form even if there's an error - don't return null
   if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading user information...</p>
-        </div>
-      </div>
-    );
+    return null; // No loading spinner to eliminate blue bar flash
   }
 
   // Show error state with retry

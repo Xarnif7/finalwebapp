@@ -23,8 +23,10 @@ const mockNotifications = [
 
 const UserAvatar = ({ user, size = "40px" }) => {
   const getInitials = () => {
-    if (user?.full_name) {
-      return user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    // Try to get full name from user metadata first, then fallback to email
+    const fullName = user?.user_metadata?.full_name || user?.user_metadata?.name;
+    if (fullName) {
+      return fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     }
     return user?.email?.[0]?.toUpperCase() || 'U';
   };
@@ -85,7 +87,7 @@ export default function ModernTopNav({ onLogout }) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 z-50">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuLabel>My Account {user?.email ? `(${user.email})` : ''}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={goToProfile} className="cursor-pointer">
                 <UserIcon className="mr-2 h-4 w-4" />Profile

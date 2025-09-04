@@ -35,25 +35,19 @@ export default function AuthProvider({ children }) {
           console.error("[AUTH] Session check failed:", error);
         }
         
-        console.log("[AUTH] Initial session:", !!session?.user);
+        console.log("[AUTH] Initial session:", !!session?.user, session?.user?.email);
         setUser(session?.user ?? null);
-        // Don't set loading to true, keep it false for instant rendering
+        setLoading(false); // Ensure loading is false after session check
         console.log("[AUTH] Auth initialization complete");
       } catch (error) {
         console.error("[AUTH] Auth initialization failed:", error);
         setUser(null);
+        setLoading(false);
       }
     };
 
-    // Very short timeout to prevent any loading delays
-    const timeoutId = setTimeout(() => {
-      console.log("[AUTH] Timeout reached, ensuring no loading state");
-      setLoading(false);
-    }, 500); // 500ms timeout - very short
-
+    // Don't set loading to true - this causes the flash
     initializeAuth();
-
-    return () => clearTimeout(timeoutId);
   }, []);
 
   // Subscribe to auth state changes - ONLY ONCE

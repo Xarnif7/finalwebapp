@@ -1,5 +1,5 @@
 ﻿
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,6 +85,22 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { business } = useDashboard();
   const businessName = business?.name || "Your Business";
+  const [isVisible, setIsVisible] = useState(false);
+  const [showLoading, setShowLoading] = useState(true);
+
+  // Show branded loading screen first, then transition to dashboard
+  useEffect(() => {
+    // Show loading screen for a brief moment
+    const loadingTimer = setTimeout(() => {
+      setShowLoading(false);
+      // Then trigger the dashboard animation
+      setTimeout(() => {
+        setIsVisible(true);
+      }, 100);
+    }, 800); // Show loading for 800ms
+
+    return () => clearTimeout(loadingTimer);
+  }, []); // Only run once on mount
 
   // Performance instrumentation for data fetching
   useEffect(() => {
@@ -107,8 +123,54 @@ export default function Dashboard() {
     }, 50);
   }, [business]);
 
+  // Show branded loading screen
+  if (showLoading) {
+    return (
+      <div className="fixed inset-0 bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center z-50">
+        <div className="text-center">
+          {/* BLIPP Logo */}
+          <div className="mb-8">
+            <div className="inline-flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+                <span className="text-white font-bold text-xl">B</span>
+              </div>
+              <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                BLIPP
+              </span>
+            </div>
+          </div>
+          
+          {/* Loading Animation */}
+          <div className="mb-6">
+            <div className="w-16 h-16 mx-auto relative">
+              <div className="absolute inset-0 border-4 border-blue-200 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-transparent border-t-blue-600 rounded-full animate-spin"></div>
+            </div>
+          </div>
+          
+          {/* Loading Text */}
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-gray-800">Loading Your Dashboard</h2>
+            <p className="text-gray-600">Preparing your business insights...</p>
+          </div>
+          
+          {/* Progress Dots */}
+          <div className="flex justify-center space-x-2 mt-6">
+            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-8 space-y-8">
+    <div className={`p-8 space-y-8 transition-enabled transform ${
+      isVisible 
+        ? 'opacity-100 translate-y-0 scale-100' 
+        : 'opacity-0 translate-y-8 scale-95'
+    }`}>
       <div className="mb-8">
         <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">Welcome back, {businessName}!</h1>
         <p className="mt-1 text-slate-500">Here's your business performance overview.</p>
@@ -118,7 +180,12 @@ export default function Dashboard() {
                  {kpiData.map((kpi, i) => (
            <Link to={`/${kpi.href}`} key={i}>
             <Card 
-              className={`${kpi.bgColor} ${kpi.borderColor} border rounded-xl transition-all duration-200 hover:shadow-md hover:-translate-y-[1px] cursor-pointer`}
+              className={`${kpi.bgColor} ${kpi.borderColor} border rounded-xl transition-enabled hover:shadow-md hover:-translate-y-[1px] cursor-pointer transform ${
+                isVisible 
+                  ? 'opacity-100 translate-y-0' 
+                  : 'opacity-0 translate-y-4'
+              }`}
+              style={{ transitionDelay: `${i * 100}ms` }}
             >
               <CardContent className="p-5 md:p-6">
                 <div className="flex items-center justify-between mb-4">

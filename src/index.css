@@ -156,3 +156,31 @@ button:focus-visible {
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide any browser loading bars or progress indicators */
+::-webkit-progress-bar {
+  display: none !important;
+}
+
+::-webkit-progress-value {
+  display: none !important;
+}
+
+progress {
+  display: none !important;
+}
+
+/* Hide any potential loading bars */
+[role="progressbar"] {
+  display: none !important;
+}
+
+/* Ensure smooth transitions without blue bars */
+* {
+  transition: none !important;
+}
+
+/* Re-enable transitions only for specific elements */
+.transition-enabled {
+  transition: all 0.3s ease !important;
+}

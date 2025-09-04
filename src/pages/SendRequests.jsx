@@ -37,7 +37,7 @@ const SendRequests = () => {
   const { user } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [filters, setFilters] = useState({
     channel: 'all',
@@ -47,7 +47,10 @@ const SendRequests = () => {
   const [showSendModal, setShowSendModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedChannel, setSelectedChannel] = useState('email');
+  const [selectedStrategy, setSelectedStrategy] = useState('immediate');
   const [requestMessage, setRequestMessage] = useState('');
+  const [jobEndAt, setJobEndAt] = useState('');
+  const [predictedSendTime, setPredictedSendTime] = useState(null);
   const [templates, setTemplates] = useState({
     email: {
       subject: 'We\'d love your feedback!',
@@ -68,7 +71,7 @@ const SendRequests = () => {
 
   const fetchData = async () => {
     try {
-      setLoading(true);
+      // Don't set loading to true to prevent flash
       
       const { data: profile } = await supabase
         .from('profiles')
@@ -99,6 +102,9 @@ const SendRequests = () => {
         throw requestsError;
       }
 
+      console.log('Fetched customers:', customersData);
+      console.log('Fetched requests:', requestsData);
+      
       setCustomers(customersData || []);
       setRequests(requestsData || []);
       
@@ -106,7 +112,7 @@ const SendRequests = () => {
       console.error('Error fetching data:', error);
       toast.error('Failed to load data');
     } finally {
-      setLoading(false);
+      // Don't set loading to false to prevent flash
     }
   };
 
@@ -176,93 +182,73 @@ const SendRequests = () => {
     try {
       setSending(true);
       
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('business_id')
-        .eq('id', user.id)
-        .single();
-
-      if (!profile?.business_id) return;
-
-      // Get business info for email context
-      const { data: business } = await supabase
-        .from('businesses')
-        .select('name, email')
-        .eq('id', profile.business_id)
-        .single();
-
-      // Generate review link
-      const reviewLink = `https://yourdomain.com/review?ref=${selectedCustomer.id}`;
-
-      // Process message with template variables
-      let processedMessage = requestMessage
-        .replace(/{customer\.name}/g, selectedCustomer.full_name || 'Valued Customer')
-        .replace(/{review_link}/g, reviewLink)
-        .replace(/{company_name}/g, business?.name || 'Our Company');
-
-      // Send email if email channel is selected
-      if (selectedChannel === 'email' || selectedChannel === 'both') {
-        try {
-          // Use the email service with fallback
-          const { sendEmail } = await import('@/api/emailService');
-          
-          const emailResult = await sendEmail({
-            to: selectedCustomer.email,
-            subject: templates.email.subject.replace(/{customer\.name}/g, selectedCustomer.full_name || 'Valued Customer').replace(/{company_name}/g, business?.name || 'Our Company'),
-            body: processedMessage,
-            from: business?.email || 'noreply@yourdomain.com'
-          });
-
-          if (!emailResult.ok) {
-            throw new Error(emailResult.error || 'Failed to send email');
-          }
-        } catch (emailError) {
-          console.error('Email sending error:', emailError);
-          toast.error(`Email failed: ${emailError.message}`);
-          // Continue with SMS if both channels selected
-          if (selectedChannel === 'email') {
-            throw emailError;
-          }
-        }
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Authentication required');
+        return;
       }
 
-      // Handle SMS (placeholder for now - not functional)
-      if (selectedChannel === 'sms' || selectedChannel === 'both') {
-        // For now, just show a message that SMS is not yet available
-        if (selectedChannel === 'sms') {
-          toast.error('SMS functionality is not yet available. Please use email for now.');
-          return;
-        } else {
-          toast.info('SMS functionality is not yet available. Email was sent successfully.');
-        }
-      }
-
-      // Insert review request record
-      const { error } = await supabase
-        .from('review_requests')
-        .insert({
-          business_id: profile.business_id,
+      // Schedule the review request using the new API
+      const response = await fetch('/api/review-requests/schedule', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
           customer_id: selectedCustomer.id,
-          channel: selectedChannel,
-          review_link: reviewLink,
-          message: processedMessage,
-          email_status: selectedChannel === 'email' || selectedChannel === 'both' ? 'sent' : 'skipped',
-          sms_status: selectedChannel === 'sms' || selectedChannel === 'both' ? 'pending' : 'skipped',
-          created_at: new Date().toISOString()
+          channel: selectedChannel === 'both' ? 'email' : selectedChannel, // For now, default to email for 'both'
+          strategy: selectedStrategy,
+          job_end_at: jobEndAt || null,
+          job_type: 'service', // Default job type
+          tech_id: null // Could be selected from a dropdown in the future
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to schedule review request');
+      }
+
+      // If immediate strategy, also send now
+      if (selectedStrategy === 'immediate') {
+        const sendResponse = await fetch('/api/review-requests/send-now', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            review_request_id: result.review_request.id
+          })
         });
 
-      if (error) {
-        console.error('Database error:', error);
-        // Don't fail the whole operation if database insert fails
-        toast.warning('Message sent but failed to save record');
-      } else {
-        toast.success('Review request sent successfully!');
+        const sendResult = await sendResponse.json();
+
+        if (!sendResponse.ok) {
+          throw new Error(sendResult.error || 'Failed to send review request');
+        }
       }
 
-      setShowSendModal(false);
+      // Success
+      toast.success(
+        selectedStrategy === 'immediate' 
+          ? 'Review request sent successfully!' 
+          : `Review request scheduled for ${new Date(result.send_time).toLocaleString()}`
+      );
+
+      // Reset form
       setSelectedCustomer(null);
-      setSelectedChannel('email');
       setRequestMessage('');
+      setSelectedChannel('email');
+      setSelectedStrategy('immediate');
+      setJobEndAt('');
+      setPredictedSendTime(null);
+      setShowSendModal(false);
+
+      // Refresh data
       await fetchData();
     } catch (error) {
       console.error('Error sending request:', error);
@@ -393,6 +379,59 @@ const SendRequests = () => {
     };
   };
 
+  const calculatePredictedSendTime = (strategy, jobEndAt) => {
+    if (strategy === 'immediate') {
+      return new Date().toISOString();
+    }
+    
+    // Magic Send Time logic
+    const now = new Date();
+    const businessTime = new Date(now.toLocaleString("en-US", { timeZone: 'America/New_York' }));
+    
+    let sendTime = new Date(businessTime);
+    
+    if (jobEndAt) {
+      const jobEnd = new Date(jobEndAt);
+      sendTime = new Date(jobEnd.getTime() + (2.5 * 60 * 60 * 1000)); // 2.5 hours later
+      
+      if (sendTime.getHours() < 9) {
+        sendTime.setHours(9, 0, 0, 0);
+      } else if (sendTime.getHours() >= 17) {
+        sendTime.setDate(sendTime.getDate() + 1);
+        sendTime.setHours(9, 0, 0, 0);
+      }
+    } else {
+      // Default to next optimal time slot (Tue-Thu, 10am-1pm)
+      sendTime.setHours(10, 0, 0, 0);
+      
+      // Find next optimal day
+      while (![2, 3, 4].includes(sendTime.getDay())) {
+        sendTime.setDate(sendTime.getDate() + 1);
+      }
+    }
+    
+    // Avoid weekends
+    while (sendTime.getDay() === 0 || sendTime.getDay() === 6) {
+      sendTime.setDate(sendTime.getDate() + 1);
+    }
+    
+    return sendTime.toISOString();
+  };
+
+  const handleStrategyChange = (strategy) => {
+    setSelectedStrategy(strategy);
+    const predicted = calculatePredictedSendTime(strategy, jobEndAt);
+    setPredictedSendTime(predicted);
+  };
+
+  const handleJobEndAtChange = (value) => {
+    setJobEndAt(value);
+    if (selectedStrategy === 'magic') {
+      const predicted = calculatePredictedSendTime(selectedStrategy, value);
+      setPredictedSendTime(predicted);
+    }
+  };
+
   const getDefaultChannel = (customer) => {
     const contactInfo = getCustomerContactInfo(customer);
     if (contactInfo.hasEmail) return 'email';
@@ -439,8 +478,17 @@ const SendRequests = () => {
     <div className="space-y-6">
       <PageHeader
         title="Send Review Requests"
-        subtitle="Request reviews from your customers via email and SMS"
+        subtitle="Request reviews from your customers via email and SMS - Updated"
       />
+      
+      {/* Debug Info */}
+      <div className="bg-gray-100 p-4 rounded-lg mb-4">
+        <p className="text-sm text-gray-600">
+          Debug: Modal state: {showSendModal ? 'OPEN' : 'CLOSED'} | 
+          Customers loaded: {customers.length} | 
+          Selected customer: {selectedCustomer?.full_name || 'None'}
+        </p>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Templates Section */}
@@ -575,14 +623,58 @@ const SendRequests = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button 
-              onClick={() => setShowSendModal(true)} 
-              className="w-full"
-              size="lg"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Send Review Request
-            </Button>
+            <div className="text-sm text-gray-600 mb-4">
+              <p>Select a customer from your database and send them a review request via email.</p>
+            </div>
+            
+            {/* Customer Selection Button */}
+            <div className="space-y-3">
+              <Button 
+                onClick={() => {
+                  console.log('Customer selection button clicked');
+                  setShowSendModal(true);
+                }} 
+                className="w-full"
+                size="lg"
+                variant="outline"
+              >
+                <User className="w-4 h-4 mr-2" />
+                {selectedCustomer ? `Selected: ${selectedCustomer.full_name}` : 'Click to Select Customer'}
+              </Button>
+              
+              {selectedCustomer && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-blue-900">{selectedCustomer.full_name}</p>
+                      <p className="text-sm text-blue-700">{selectedCustomer.email}</p>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={() => setSelectedCustomer(null)}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Send Request Button - Only show when customer is selected */}
+            {selectedCustomer && (
+              <Button 
+                onClick={() => {
+                  console.log('Send request button clicked');
+                  setShowSendModal(true);
+                }} 
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                size="lg"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Send Review Request to {selectedCustomer.full_name}
+              </Button>
+            )}
             
             <div className="text-sm text-gray-600 space-y-2">
               <div className="flex items-center gap-2">
@@ -684,11 +776,15 @@ const SendRequests = () => {
       </Card>
 
       {/* Send Request Modal */}
+      {console.log('Modal render check - showSendModal:', showSendModal)}
       {showSendModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">Send Review Request</h2>
+              <div>
+                <h2 className="text-xl font-semibold">Customer Selection & Review Request</h2>
+                <p className="text-sm text-gray-600 mt-1">Step 1: Select a customer | Step 2: Configure and send</p>
+              </div>
               <Button variant="outline" size="sm" onClick={() => setShowSendModal(false)}>
                 ×
               </Button>
@@ -697,6 +793,11 @@ const SendRequests = () => {
             <div className="space-y-6">
               {/* Customer Selection */}
               <div>
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800 font-medium">📋 Available Customers</p>
+                  <p className="text-xs text-blue-700">Click on a customer below to select them for your review request</p>
+                </div>
+                
                 <Label className="block mb-3">Select Customer</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto">
                   {filteredCustomers.map((customer) => {
@@ -746,6 +847,21 @@ const SendRequests = () => {
                     );
                   })}
                 </div>
+                
+                {/* Selection Confirmation */}
+                {selectedCustomer && (
+                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-800">
+                        Customer Selected: {selectedCustomer.full_name}
+                      </span>
+                    </div>
+                    <p className="text-xs text-green-700 mt-1">
+                      Email: {selectedCustomer.email} | Now configure your message below
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Channel Selection */}
@@ -799,6 +915,69 @@ const SendRequests = () => {
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* Strategy Selection */}
+              <div>
+                <Label className="block mb-3">Send Strategy</Label>
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <Button
+                      variant={selectedStrategy === 'immediate' ? 'default' : 'outline'}
+                      onClick={() => handleStrategyChange('immediate')}
+                      className="flex items-center gap-2"
+                    >
+                      <Clock className="w-4 h-4" />
+                      Immediate
+                    </Button>
+                    <Button
+                      variant={selectedStrategy === 'magic' ? 'default' : 'outline'}
+                      onClick={() => handleStrategyChange('magic')}
+                      className="flex items-center gap-2"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      Magic Send Time
+                    </Button>
+                  </div>
+                  
+                  {selectedStrategy === 'magic' && (
+                    <div className="space-y-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div>
+                        <Label htmlFor="jobEndAt" className="text-sm">Job completion time (optional)</Label>
+                        <Input
+                          id="jobEndAt"
+                          type="datetime-local"
+                          value={jobEndAt}
+                          onChange={(e) => handleJobEndAtChange(e.target.value)}
+                          className="mt-1"
+                        />
+                        <p className="text-xs text-gray-600 mt-1">
+                          If provided, we'll send the request 2-3 hours after job completion
+                        </p>
+                      </div>
+                      
+                      {predictedSendTime && (
+                        <div className="p-2 bg-white border border-blue-300 rounded">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm font-medium text-blue-800">Predicted Send Time:</span>
+                          </div>
+                          <p className="text-sm text-blue-700 mt-1">
+                            {new Date(predictedSendTime).toLocaleString('en-US', {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              timeZoneName: 'short'
+                            })}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Message */}

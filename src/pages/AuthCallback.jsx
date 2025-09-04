@@ -26,7 +26,7 @@ export default function AuthCallback() {
       } catch (e) {
         console.error('[OAuth] exchange failed', e);
       } finally {
-        const dest = localStorage.getItem('postLoginRedirect') || '/';
+        const dest = localStorage.getItem('postLoginRedirect') || '/dashboard';
         localStorage.removeItem('postLoginRedirect');
         // Replace history (no flicker / no lingering query string)
         navigate(dest, { replace: true });
@@ -34,5 +34,10 @@ export default function AuthCallback() {
     })();
   }, [navigate]);
 
-  return null; // no UI -> eliminates flash/blue bar
+  // Return a blank white screen to eliminate any flash
+  return (
+    <div className="fixed inset-0 bg-white z-50">
+      {/* Completely blank - no flash */}
+    </div>
+  );
 }

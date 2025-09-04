@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Card,
@@ -13,6 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import PageHeader from "@/components/ui/PageHeader";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
+import { useDashboard } from "@/components/providers/DashboardProvider";
+import { supabase } from "@/lib/supabaseClient";
+import { useToast } from "@/components/ui/use-toast";
+import { QrCode, Download, Copy, Plus, Trash2 } from "lucide-react";
 
 const SettingsTab = ({ children, title, isActive, onClick }) => (
   <button
@@ -27,22 +31,150 @@ const SettingsTab = ({ children, title, isActive, onClick }) => (
   </button>
 );
 
-const ProfileSettings = () => (
-    <Card className="rounded-2xl">
-        <CardHeader><CardTitle>Profile</CardTitle><CardDescription>Update your personal information.</CardDescription></CardHeader>
-        <CardContent className="space-y-4">
-            <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" defaultValue="Alex Johnson" />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input id="email" type="email" defaultValue="alex@blipp.com" disabled />
-            </div>
-            <div className="flex justify-end"><Button>Save Profile</Button></div>
-        </CardContent>
-    </Card>
-);
+const ProfileSettings = () => {
+    const { user } = useDashboard();
+    const { toast } = useToast();
+    const [fullName, setFullName] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (user) {
+            // Load profile data from database
+            loadProfile();
+        }
+    }, [user]);
+
+    const loadProfile = async () => {
+        if (!user) return;
+        
+        try {
+            // Try to load from database first
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                console.warn('Error loading profile from database:', error);
+            }
+
+            // Set the full name from database, fallback to user metadata
+            const name = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || "";
+            setFullName(name);
+            
+            console.log('Loaded profile:', { 
+                fromDatabase: profile?.full_name, 
+                fromMetadata: user.user_metadata?.full_name || user.user_metadata?.name,
+                final: name 
+            });
+        } catch (error) {
+            console.warn('Error loading profile:', error);
+            // Fallback to user metadata only
+            const name = user.user_metadata?.full_name || user.user_metadata?.name || "";
+            setFullName(name);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!user) return;
+        
+        setLoading(true);
+        try {
+            console.log('Saving profile with name:', fullName);
+            
+            // First, try to update user metadata (this always works)
+            const { error: authError } = await supabase.auth.updateUser({
+                data: { 
+                    full_name: fullName,
+                    name: fullName 
+                }
+            });
+
+            if (authError) {
+                console.error('Auth update error:', authError);
+                throw authError;
+            }
+
+            console.log('Auth metadata updated successfully');
+
+            // Try to update profile in database (may fail if column doesn't exist yet)
+            try {
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .upsert({
+                        id: user.id,
+                        email: user.email,
+                        full_name: fullName,
+                        updated_at: new Date().toISOString()
+                    }, {
+                        onConflict: 'id'
+                    });
+
+                if (profileError) {
+                    console.warn("Profile database update failed (column may not exist yet):", profileError);
+                } else {
+                    console.log('Database profile updated successfully');
+                }
+            } catch (dbError) {
+                console.warn("Database update failed:", dbError);
+                // Continue anyway since user metadata was updated
+            }
+
+            toast({
+                title: "Success",
+                description: "Profile updated successfully!",
+            });
+            
+            // Force a page reload to ensure the user metadata is properly loaded
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+            
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            toast({
+                title: "Error",
+                description: "Failed to update profile. Please try again.",
+                variant: "destructive",
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Card className="rounded-2xl">
+            <CardHeader><CardTitle>Profile</CardTitle><CardDescription>Update your personal information.</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input 
+                        id="name" 
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Enter your full name"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input 
+                        id="email" 
+                        type="email" 
+                        value={user?.email || ""} 
+                        disabled 
+                        className="bg-gray-50"
+                    />
+                </div>
+                <div className="flex justify-end">
+                    <Button onClick={handleSave} disabled={loading}>
+                        {loading ? "Saving..." : "Save Profile"}
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
 
 const BusinessSettings = () => (
     <Card className="rounded-2xl">
@@ -80,11 +212,197 @@ const BillingSettings = () => (
     </Card>
 );
 
+const QRBuilderSettings = () => {
+    const { user } = useDashboard();
+    const { toast } = useToast();
+    const [qrCodes, setQrCodes] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [generating, setGenerating] = useState(false);
+
+    useEffect(() => {
+        if (user) {
+            loadQRCodes();
+        }
+    }, [user]);
+
+    const loadQRCodes = async () => {
+        if (!user) return;
+        
+        try {
+            setLoading(true);
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) return;
+
+            const response = await fetch('/api/qr/list', {
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`
+                }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                setQrCodes(result.qr_codes || []);
+            }
+        } catch (error) {
+            console.error('Error loading QR codes:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const generateQRCode = async () => {
+        if (!user) return;
+        
+        try {
+            setGenerating(true);
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                toast({
+                    title: "Error",
+                    description: "Authentication required",
+                    variant: "destructive",
+                });
+                return;
+            }
+
+            const response = await fetch('/api/qr/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({})
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                toast({
+                    title: "Success",
+                    description: "QR code generated successfully!",
+                });
+                loadQRCodes(); // Refresh the list
+            } else {
+                throw new Error(result.error || 'Failed to generate QR code');
+            }
+        } catch (error) {
+            console.error('Error generating QR code:', error);
+            toast({
+                title: "Error",
+                description: `Failed to generate QR code: ${error.message}`,
+                variant: "destructive",
+            });
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    const copyToClipboard = (text) => {
+        navigator.clipboard.writeText(text);
+        toast({
+            title: "Copied",
+            description: "URL copied to clipboard",
+        });
+    };
+
+    return (
+        <Card className="rounded-2xl">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <QrCode className="w-5 h-5" />
+                    QR Code Builder
+                </CardTitle>
+                <CardDescription>
+                    Generate QR codes for your technicians to track review attribution.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h3 className="font-medium">Your QR Codes</h3>
+                        <p className="text-sm text-gray-600">Generate QR codes for tech attribution</p>
+                    </div>
+                    <Button onClick={generateQRCode} disabled={generating} className="flex items-center gap-2">
+                        <Plus className="w-4 h-4" />
+                        {generating ? "Generating..." : "Generate QR Code"}
+                    </Button>
+                </div>
+
+                {loading ? (
+                    <div className="text-center py-8">
+                        <div className="w-8 h-8 mx-auto mb-4 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                        <p className="text-gray-600">Loading QR codes...</p>
+                    </div>
+                ) : qrCodes.length === 0 ? (
+                    <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                        <QrCode className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                        <p className="text-gray-600 mb-2">No QR codes generated yet</p>
+                        <p className="text-sm text-gray-500">Click "Generate QR Code" to create your first one</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {qrCodes.map((qr) => (
+                            <div key={qr.id} className="p-4 border border-gray-200 rounded-lg">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                                            <QrCode className="w-6 h-6 text-gray-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium">QR Code #{qr.code}</p>
+                                            <p className="text-sm text-gray-600">
+                                                {qr.scans_count} scans • Created {new Date(qr.created_at).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => copyToClipboard(qr.url)}
+                                            className="flex items-center gap-1"
+                                        >
+                                            <Copy className="w-4 h-4" />
+                                            Copy URL
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => window.open(qr.download_url, '_blank')}
+                                            className="flex items-center gap-1"
+                                        >
+                                            <Download className="w-4 h-4" />
+                                            Download
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div className="mt-3 p-2 bg-gray-50 rounded text-sm font-mono text-gray-700">
+                                    {qr.url}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">How it works:</h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                        <li>• Generate QR codes for each technician</li>
+                        <li>• Print and place at job sites</li>
+                        <li>• Customers scan to leave reviews</li>
+                        <li>• Track which tech gets credit for reviews</li>
+                    </ul>
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
 
 const SettingsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "profile";
-  const tabs = ["profile", "business", "billing", "integrations"];
+  const tabs = ["profile", "business", "billing", "integrations", "qr-builder"];
 
   return (
     <div className="p-8 space-y-6">
@@ -94,7 +412,12 @@ const SettingsPage = () => {
       />
       <div className="flex gap-2 p-1 bg-slate-200/50 rounded-lg max-w-min">
         {tabs.map(tab => (
-            <SettingsTab key={tab} title={tab.charAt(0).toUpperCase() + tab.slice(1)} isActive={activeTab === tab} onClick={() => setSearchParams({tab})} />
+            <SettingsTab 
+                key={tab} 
+                title={tab === 'qr-builder' ? 'QR Builder' : tab.charAt(0).toUpperCase() + tab.slice(1)} 
+                isActive={activeTab === tab} 
+                onClick={() => setSearchParams({tab})} 
+            />
         ))}
       </div>
       <div>
@@ -102,6 +425,7 @@ const SettingsPage = () => {
         {activeTab === 'business' && <BusinessSettings />}
         {activeTab === 'billing' && <BillingSettings />}
         {activeTab === 'integrations' && <IntegrationsTab />}
+        {activeTab === 'qr-builder' && <QRBuilderSettings />}
       </div>
     </div>
   );

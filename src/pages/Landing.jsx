@@ -19,9 +19,9 @@ const FloatingCard = ({ children, className = "", delay = 0 }) => {
   return (
     <motion.div
       className={`bg-white rounded-2xl shadow-xl border border-gray-100 transform-gpu will-change-[transform,opacity] ${className}`}
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, ease: "easeOut", delay }}
+      initial={{ opacity: 1, y: 0 }} // Start visible to prevent flash
+      animate={{ opacity: 1, y: 0 }} // Always visible
+      transition={{ duration: 0.3, ease: "easeOut", delay }}
       whileHover={{ 
         y: -2, 
         scale: 1.02, 
@@ -41,9 +41,9 @@ const AnimatedSection = ({ children, className = "", id }) => {
     <motion.section
       id={id}
       ref={ref}
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: isRevealed ? 1 : 0, y: isRevealed ? 0 : 12 }}
-      transition={{ duration: 0.45, ease: "easeOut" }}
+      initial={{ opacity: 1, y: 0 }} // Start visible to prevent flash
+      animate={{ opacity: 1, y: 0 }} // Always visible
+      transition={{ duration: 0.3, ease: "easeOut" }}
       className={`transform-gpu will-change-[transform,opacity] ${className}`}
     >
       {children}

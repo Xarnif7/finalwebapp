@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 
 // Hook for one-time reveal animations to prevent double bouncing
 export function useRevealOnce(options = {}) {
-  const [isRevealed, setIsRevealed] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(true); // Start with true to prevent flash
   const elementRef = useRef(null);
   const observerRef = useRef(null);
   const hasRevealedRef = useRef(false);
@@ -37,6 +37,7 @@ export function useRevealOnce(options = {}) {
 
   return [elementRef, isRevealed];
 }
+
 
 
 

@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
+import dotenv from 'dotenv';
 
-const supabaseUrl = process.env.SUPABASE_URL;
+// Load environment variables from .env.local if it exists, otherwise .env
+dotenv.config({ path: fs.existsSync('.env.local') ? '.env.local' : '.env' });
+
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
@@ -14,9 +18,10 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 async function runMigration() {
   try {
     console.log('Reading migration file...');
-    const migrationSQL = fs.readFileSync('database-reviews-enhancement.sql', 'utf8');
+    const migrationSQL = fs.readFileSync('supabase_migration.sql', 'utf8');
     
     console.log('Running migration...');
+    // Requires the `exec_sql(sql text)` Postgres function to exist in your DB
     const { error } = await supabase.rpc('exec_sql', { sql: migrationSQL });
     
     if (error) {

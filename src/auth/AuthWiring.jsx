@@ -13,11 +13,23 @@ export default function AuthWiring() {
   useEffect(() => {
     let alive = true;
     (async () => {
+      // Add a small delay to allow auth state to initialize
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const { data: { session } } = await supabase.auth.getSession();
       const path = location.pathname.toLowerCase();
       const needsAuth = PROTECTED.some(p => path.startsWith(p));
+      
+      console.log('[AUTH_WIRING] Session check:', { 
+        hasSession: !!session, 
+        path, 
+        needsAuth, 
+        triggered: triggered.current 
+      });
+      
       if (alive && needsAuth && !session && !triggered.current) {
         triggered.current = true;
+        console.log('[AUTH_WIRING] Redirecting to Google OAuth');
         await supabase.auth.signInWithOAuth({
           provider: "google",
           options: { redirectTo: `${window.location.origin}/auth/callback` }
@@ -32,7 +44,8 @@ export default function AuthWiring() {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) {
         const p = location.pathname.toLowerCase();
-        if (p === "/" || p.startsWith("/auth")) {
+        // Only redirect if we're on landing page or auth routes, not if already on dashboard
+        if ((p === "/" || p.startsWith("/auth")) && p !== "/dashboard") {
           navigate("/dashboard", { replace: true });
         }
       }

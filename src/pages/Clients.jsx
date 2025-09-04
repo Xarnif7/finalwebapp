@@ -38,7 +38,7 @@ export default function ClientsPage() {
     new_this_month: 0,
     conversion_rate: null,
   });
-  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Fetch stats
   useEffect(() => {
@@ -47,7 +47,7 @@ export default function ClientsPage() {
 
   const fetchStats = async () => {
     try {
-      setStatsLoading(true);
+      // Don't set loading to true to prevent flash
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -100,7 +100,7 @@ export default function ClientsPage() {
     } catch (error) {
       console.error('Failed to fetch stats:', error);
     } finally {
-      setStatsLoading(false);
+      // Don't set loading to false to prevent flash
     }
   };
 

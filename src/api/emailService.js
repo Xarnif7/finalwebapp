@@ -1,15 +1,11 @@
 /**
- * Email service with fallback for different environments
+ * Email service with Resend integration and fallback
  */
 
-// Fallback email service for non-base44 environments
+import { sendEmailViaResend } from './resendService';
+
+// Fallback email service for when Resend is not available
 const fallbackEmailService = async ({ to, subject, body, from }) => {
-  // In a real implementation, this would integrate with a service like:
-  // - SendGrid
-  // - Mailgun
-  // - AWS SES
-  // - Nodemailer with SMTP
-  
   console.log('Fallback email service called:', { to, subject, body, from });
   
   // For now, just simulate success
@@ -23,19 +19,34 @@ const fallbackEmailService = async ({ to, subject, body, from }) => {
 // Main email service function
 export const sendEmail = async (emailData) => {
   try {
-    // Try to use base44 SendEmail integration first
-    const { SendEmail } = await import('@/api/integrations');
+    // Try Resend first
+    console.log('Attempting to send email via Resend...');
+    const resendResult = await sendEmailViaResend(emailData);
     
-    if (SendEmail && typeof SendEmail === 'function') {
-      return await SendEmail(emailData);
+    if (resendResult.ok) {
+      console.log('Email sent successfully via Resend');
+      return resendResult;
     } else {
-      throw new Error('SendEmail integration not available');
+      throw new Error(resendResult.error || 'Resend failed');
     }
-  } catch (error) {
-    console.warn('Base44 SendEmail not available, using fallback:', error.message);
+  } catch (resendError) {
+    console.warn('Resend not available, trying base44 integration:', resendError.message);
     
-    // Use fallback service
-    return await fallbackEmailService(emailData);
+    try {
+      // Try to use base44 SendEmail integration as fallback
+      const { SendEmail } = await import('@/api/integrations');
+      
+      if (SendEmail && typeof SendEmail === 'function') {
+        return await SendEmail(emailData);
+      } else {
+        throw new Error('SendEmail integration not available');
+      }
+    } catch (base44Error) {
+      console.warn('Base44 SendEmail not available, using fallback:', base44Error.message);
+      
+      // Use fallback service
+      return await fallbackEmailService(emailData);
+    }
   }
 };
 

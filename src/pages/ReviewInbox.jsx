@@ -51,7 +51,7 @@ const ReviewInbox = () => {
   const { user } = useAuth();
   const [reviews, setReviews] = useState([]);
   const [selectedReview, setSelectedReview] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [filters, setFilters] = useState({
     platform: 'all',
@@ -137,7 +137,7 @@ const ReviewInbox = () => {
 
   const fetchReviews = async () => {
     try {
-      setLoading(true);
+      // Don't set loading to true to prevent flash
       
       const { data: profile } = await supabase
         .from('profiles')
@@ -216,7 +216,7 @@ const ReviewInbox = () => {
       console.error('Error fetching reviews:', error);
       toast.error('Failed to load reviews');
     } finally {
-      setLoading(false);
+      // Don't set loading to false to prevent flash
     }
   };
 

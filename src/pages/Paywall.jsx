@@ -100,33 +100,18 @@ export default function Paywall() {
   // Show loading spinner only briefly while checking auth/subscription status
   if (loading || (subLoading && !showPaywall)) {
     console.log('[PAYWALL] Still loading:', { loading, subLoading, showPaywall });
-    // Return null instead of loading screen to eliminate flash
-    return null;
+    return null; // No loading indicator to prevent flash
   }
 
   // Don't render if user is not authenticated
   if (!user) {
     console.log('[PAYWALL] Not rendering - no user');
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Redirecting...</p>
-        </div>
-      </div>
-    );
+    return null; // No loading spinner to eliminate blue bar flash
   }
 
   // If user has subscription but we're still checking onboarding, show loading
   if (hasSubscription && onboardingCompleted === null) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Setting up your account...</p>
-        </div>
-      </div>
-    );
+    return null; // No loading spinner to eliminate blue bar flash
   }
 
   console.log('[PAYWALL] Rendering paywall component');
