@@ -102,15 +102,6 @@ export default function AuthProvider({ children }) {
       // Store the redirect path for after login
       localStorage.setItem('postLoginRedirect', nextPath);
       
-      // Force a fresh OAuth flow by signing out first if there's any existing session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        console.log("[AUTH] Existing session found, signing out first");
-        await supabase.auth.signOut();
-        // Small delay to ensure signout completes
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      
       // Always initiate OAuth for new sign-ins with account picker
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

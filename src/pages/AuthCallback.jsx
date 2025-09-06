@@ -22,7 +22,15 @@ export default function AuthCallback() {
 
     (async () => {
       try {
-        await supabase.auth.exchangeCodeForSession(window.location.href);
+        const searchCode = url.searchParams.get('code');
+        const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+        const hashCode = hashParams.get('code');
+        const code = searchCode || hashCode;
+        if (!code) {
+          console.warn('[OAuth] No code found in URL');
+        } else {
+          await supabase.auth.exchangeCodeForSession({ code });
+        }
       } catch (e) {
         console.error('[OAuth] exchange failed', e);
       } finally {
