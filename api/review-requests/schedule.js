@@ -1,4 +1,70 @@
 import { createClient } from '@supabase/supabase-js';
+import { computeBestSendAt } from '../../src/lib/schedule/heuristics';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { businessId, items, dryRun } = req.body;
+    if (!businessId || !Array.isArray(items)) {
+      return res.status(400).json({ error: 'Invalid payload' });
+    }
+
+    const previews = items.map((it) => {
+      let best = null;
+      if (it.strategy === 'magic') {
+        best = computeBestSendAt({ jobEndAt: it.job_end_at || undefined });
+      }
+      return { customerId: it.customerId, strategy: it.strategy, best_send_at: best?.toISOString() || null };
+    });
+
+    if (dryRun) {
+      return res.status(200).json({ previews });
+    }
+
+    // Insert review_requests and scheduled_jobs
+    const toInsert = [];
+    for (const it of items) {
+      const best = it.strategy === 'magic' ? computeBestSendAt({ jobEndAt: it.job_end_at || undefined }).toISOString() : new Date().toISOString();
+      toInsert.push({
+        business_id: businessId,
+        customer_id: it.customerId,
+        channel: it.channel,
+        status: it.strategy === 'magic' ? 'scheduled' : 'sent',
+        best_send_at: it.strategy === 'magic' ? best : null,
+      });
+    }
+    const { data: inserted, error } = await supabase.from('review_requests').insert(toInsert).select('id, business_id, status, best_send_at');
+    if (error) return res.status(500).json({ error: 'Failed to insert review requests' });
+
+    const jobs = inserted
+      .filter((r) => r.status === 'scheduled' && r.best_send_at)
+      .map((r) => ({ business_id: r.business_id, job_type: 'send_review_request', payload: { review_request_id: r.id }, scheduled_for: r.best_send_at }));
+    if (jobs.length > 0) {
+      await supabase.from('scheduled_jobs').insert(jobs);
+    }
+
+    await supabase.rpc('log_telemetry_event', {
+      p_business_id: businessId,
+      p_event_type: 'bulk_requests_scheduled',
+      p_event_data: { count: inserted.length },
+    });
+
+    return res.status(200).json({ success: true, created: inserted.map((r) => r.id), previews });
+  } catch (e) {
+    console.error('schedule error', e);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+import { createClient } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
 
 const supabase = createClient(

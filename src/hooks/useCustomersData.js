@@ -15,6 +15,7 @@ export function useCustomersData(initialParams = {}) {
     tag: '',
     sort: '',
     status: 'all',
+    segment: 'all',
     ...initialParams,
   });
 
@@ -62,6 +63,22 @@ export function useCustomersData(initialParams = {}) {
         query = query.or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%,notes.ilike.%${searchTerm}%`);
       }
 
+      // Segments
+      if (queryParams.segment && queryParams.segment !== 'all') {
+        const now = new Date();
+        const last30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        if (queryParams.segment === 'new') {
+          query = query.gte('created_at', last30);
+        } else if (queryParams.segment === 'engaged') {
+          // joined to review_requests by rpc is ideal; basic heuristic: has recent review_request completed
+          // fallback: filter client-side after fetch if needed
+        } else if (queryParams.segment === 'needs_nudge') {
+          // will filter client-side after fetch if needed
+        } else if (queryParams.segment === 'detractors') {
+          // client-side flag based on private_feedback negative in last 30d if available
+        }
+      }
+
       // Apply sorting
       if (queryParams.sort) {
         const [field, order] = queryParams.sort.split(':');
@@ -82,7 +99,43 @@ export function useCustomersData(initialParams = {}) {
         throw new Error(error.message);
       }
 
-      setCustomers(data || []);
+      let list = data || [];
+      if (queryParams.segment && queryParams.segment !== 'all') {
+        if (queryParams.segment === 'engaged') {
+          // Needs review_requests/completions; attempt heuristic via review_requests table
+          const ids = list.map(c => c.id);
+          if (ids.length) {
+            const { data: reqs } = await supabase
+              .from('review_requests')
+              .select('customer_id, completed_at')
+              .in('customer_id', ids);
+            const engagedIds = new Set((reqs || []).filter(r => r.completed_at).map(r => r.customer_id));
+            list = list.filter(c => engagedIds.has(c.id));
+          }
+        } else if (queryParams.segment === 'needs_nudge') {
+          const ids = list.map(c => c.id);
+          if (ids.length) {
+            const { data: reqs } = await supabase
+              .from('review_requests')
+              .select('customer_id, opened_at, completed_at')
+              .in('customer_id', ids);
+            const needIds = new Set((reqs || []).filter(r => r.opened_at && !r.completed_at).map(r => r.customer_id));
+            list = list.filter(c => needIds.has(c.id));
+          }
+        } else if (queryParams.segment === 'detractors') {
+          const ids = list.map(c => c.id);
+          if (ids.length) {
+            const { data: pf } = await supabase
+              .from('private_feedback')
+              .select('review_request_id, sentiment, review_requests!inner(customer_id)')
+              .in('review_requests.customer_id', ids);
+            const detIds = new Set((pf || []).filter(p => p.sentiment === 'negative').map(p => p.review_requests.customer_id));
+            list = list.filter(c => detIds.has(c.id));
+          }
+        }
+      }
+
+      setCustomers(list);
       setTotal(count || 0);
 
     } catch (err) {

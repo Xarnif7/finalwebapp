@@ -9,6 +9,7 @@ import CustomerFormModal from "../components/clients/CustomerFormModal";
 import { supabase } from "@/lib/supabaseClient";
 import CsvImportDialog from "../components/clients/CsvImportDialog";
 import PageHeader from "@/components/ui/PageHeader";
+import { isFeatureEnabled } from "@/lib/featureFlags";
 import { toast } from "react-hot-toast";
 
 export default function ClientsPage() {
@@ -204,6 +205,42 @@ export default function ClientsPage() {
     return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
   };
 
+  const [segment, setSegment] = useState('all');
+  const [bulkSelection, setBulkSelection] = useState([]);
+  const [bulkPreview, setBulkPreview] = useState(null);
+
+  const segmentsEnabled = isFeatureEnabled('customersSegments');
+
+  async function previewBulkMagic() {
+    const ids = bulkSelection.length ? bulkSelection : customers.map(c => c.id);
+    const res = await fetch('/api/review-requests/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        businessId: (await supabase.from('profiles').select('business_id').single()).data?.business_id,
+        items: ids.map(id => ({ customerId: id, channel: 'sms', strategy: 'magic' })),
+        dryRun: true,
+      }),
+    });
+    if (res.ok) setBulkPreview(await res.json());
+  }
+
+  async function scheduleBulkMagic() {
+    const ids = bulkSelection.length ? bulkSelection : customers.map(c => c.id);
+    await fetch('/api/review-requests/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        businessId: (await supabase.from('profiles').select('business_id').single()).data?.business_id,
+        items: ids.map(id => ({ customerId: id, channel: 'sms', strategy: 'magic' })),
+        dryRun: false,
+      }),
+    });
+    setBulkPreview(null);
+    setBulkSelection([]);
+    toast.success('Magic send scheduled');
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -322,6 +359,29 @@ export default function ClientsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Segments & Bulk Magic */}
+      {segmentsEnabled && (
+        <Card>
+          <CardHeader><CardTitle>Segments & Bulk Magic</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {['all','new','engaged','needs_nudge','detractors'].map(s => (
+                <Button key={s} variant={segment===s?"default":"outline"} size="sm" onClick={()=>{setSegment(s); updateQueryParams({ segment: s });}}>{s.replace('_',' ')}</Button>
+              ))}
+              <div className="ml-auto flex gap-2">
+                <Button variant="outline" size="sm" onClick={previewBulkMagic}>Preview Magic</Button>
+                <Button size="sm" onClick={scheduleBulkMagic}>Schedule Magic</Button>
+              </div>
+            </div>
+            {bulkPreview && (
+              <div className="max-h-48 overflow-y-auto text-xs bg-slate-50 p-3 rounded">
+                <pre>{JSON.stringify(bulkPreview.previews?.slice(0,10), null, 2)}{bulkPreview.previews?.length>10?'\n…':''}</pre>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Customers Table */}
       <Card>

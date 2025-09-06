@@ -171,9 +171,13 @@ const CsvImportDialog = ({ open, onOpenChange, onImport, loading = false }) => {
             switch (field) {
               case 'email':
                 value = value.toLowerCase().trim();
+                if (value && !/^\S+@\S+\.\S+$/.test(value)) {
+                  value = '';
+                }
                 break;
               case 'phone':
                 value = value.replace(/\D/g, '');
+                if (value && value.length < 7) value = '';
                 break;
               case 'service_date':
                 // Try to normalize date format

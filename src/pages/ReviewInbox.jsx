@@ -1,6 +1,7 @@
 ﻿
 import React, { useState, useEffect } from 'react';
 import { isFeatureEnabled } from '@/lib/featureFlags';
+import { logEvent } from '@/lib/telemetry';
 import InboxHeader from '@/features/reviews/inbox/InboxHeader';
 import Filters from '@/features/reviews/inbox/Filters';
 import ThreadList from '@/features/reviews/inbox/ThreadList';
@@ -522,6 +523,39 @@ const ReviewInbox = () => {
         missed: t.status === 'sent' && !t.completed_at && t.opened_at && !t.clicked_at,
       },
     }));
+    // Telemetry: inbox viewed
+    useEffect(() => {
+      (async () => {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('business_id')
+            .single();
+          if (profile?.business_id) {
+            await logEvent(profile.business_id, 'inbox_viewed');
+          }
+        } catch {}
+      })();
+    }, []);
+
+    // Apply client-side filters for now
+    const filteredThreads = threads.filter((t) => {
+      // quick filter
+      if (filtersLite.quick === 'urgent' && !t.flags.urgent) return false;
+      if (filtersLite.quick === 'detractors' && !t.flags.detractor) return false;
+      if (filtersLite.quick === 'unreplied' && t.rating && t.rating > 0) {
+        // placeholder: no replied flag on thread yet
+      }
+      if (filtersLite.quick === 'completed' && !(t.rating && t.rating >= 4)) return false;
+      // channel filter requires t.channel when available; pass-through for now
+      // search
+      if (filtersLite.search) {
+        const q = filtersLite.search.toLowerCase();
+        const hay = `${t.customer_name} ${t.email || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
     return (
       <div className="space-y-6">
         <InboxHeader counts={counts} />
@@ -531,7 +565,7 @@ const ReviewInbox = () => {
             {threadsLoading ? (
               <div className="p-6 text-slate-500">Loading threads…</div>
             ) : (
-              <ThreadList items={threads} onSelect={setSelectedId} selectedId={selectedId} />
+              <ThreadList items={filteredThreads} onSelect={setSelectedId} selectedId={selectedId} />
             )}
           </div>
           <div className="lg:col-span-2">

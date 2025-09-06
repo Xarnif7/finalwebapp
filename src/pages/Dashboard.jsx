@@ -4,6 +4,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import KpiTile from "@/components/ui/KpiTile";
+import StatDelta from "@/components/ui/StatDelta";
 import { Users, Star, TrendingUp, MessageSquare, Plus, ArrowRight, Zap, Shield, BarChart3, Send, Clock, Settings, Instagram, Compass } from "lucide-react";
 
 import { useDashboard } from "@/components/providers/DashboardProvider";
@@ -175,32 +177,28 @@ export default function Dashboard() {
         <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">Welcome back, {businessName}!</h1>
         <p className="mt-1 text-slate-500">Here's your business performance overview.</p>
       </div>
-
-             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                 {kpiData.map((kpi, i) => (
-           <Link to={`/${kpi.href}`} key={i}>
-            <Card 
-              className={`${kpi.bgColor} ${kpi.borderColor} border rounded-xl transition-enabled hover:shadow-md hover:-translate-y-[1px] cursor-pointer transform ${
-                isVisible 
-                  ? 'opacity-100 translate-y-0' 
-                  : 'opacity-0 translate-y-4'
-              }`}
-              style={{ transitionDelay: `${i * 100}ms` }}
-            >
-              <CardContent className="p-5 md:p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`p-2 rounded-lg ${kpi.bgColor}`}>
-                    <kpi.icon className={`w-6 h-6 ${kpi.iconColor}`} />
-                  </div>
-                </div>
-                <div className="text-2xl font-bold text-slate-900 mb-1 leading-tight">{kpi.value}</div>
-                <div className="text-xs text-slate-500 mb-1">{kpi.title}</div>
-                <div className="text-[11px] text-emerald-600 font-medium">{kpi.change} vs last month</div>
-              </CardContent>
-            </Card>
-          </Link>
-                 ))}
-       </div>
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {kpiData.map((kpi, i) => {
+          const parseDelta = (txt) => {
+            if (!txt) return null;
+            const cleaned = String(txt).replace(/[%+]/g, '');
+            const num = Number(cleaned);
+            return Number.isFinite(num) ? num : null;
+          };
+          const delta = parseDelta(kpi.change);
+          return (
+            <Link to={`/${kpi.href}`} key={i}>
+              <KpiTile
+                title={kpi.title}
+                value={kpi.value}
+                icon={<kpi.icon className={`w-6 h-6 ${kpi.iconColor}`} />}
+                rightSlot={delta !== null ? <StatDelta value={delta} /> : null}
+                className={`transition-enabled ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+              />
+            </Link>
+          );
+        })}
+      </div>
 
       {/* Mini Stats Row */}
       <div className="grid md:grid-cols-3 gap-6">
@@ -274,8 +272,8 @@ export default function Dashboard() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Recent Reviews</CardTitle>
                          <Button variant="ghost" size="sm" onClick={() => navigate('/review-inbox')}>
-               View all <ArrowRight className="w-4 h-4 ml-1" />
-             </Button>
+              View all <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
           </CardHeader>
           <CardContent className="max-h-80 overflow-y-auto">
             <div className="space-y-3">
@@ -306,11 +304,11 @@ export default function Dashboard() {
           <CardContent className="grid grid-cols-4 gap-3">
             {quickActions.map(action => (
                              <Button 
-                 key={action.label} 
-                 variant="outline" 
-                 className="w-full h-20 text-xs border-slate-200 hover:shadow-sm flex flex-col items-center justify-center gap-2 p-3" 
-                 onClick={() => navigate(`/${action.url}`)}
-               >
+                key={action.label} 
+                variant="outline" 
+                className="w-full h-20 text-xs border-slate-200 hover:shadow-sm flex flex-col items-center justify-center gap-2 p-3" 
+                onClick={() => navigate(`/${action.url}`)}
+              >
                 <action.icon className={`w-8 h-8 ${action.color}`} />
                 <span className="text-center leading-tight font-medium">{action.label}</span>
               </Button>

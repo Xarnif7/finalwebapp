@@ -7,6 +7,14 @@
     {
       "path": "/api/reviews/sync/all?key=INTERNAL_API_KEY_VALUE",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/_cron/magic-send-dispatcher",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/_cron/missed-review-recovery",
+      "schedule": "0 * * * *"
     }
   ]
 }

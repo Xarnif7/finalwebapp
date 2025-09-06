@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { review_request_id, sentiment, category, message } = req.body;
+    const { review_request_id, sentiment, category, message, preferred_callback_time } = req.body;
 
     // Validate required fields
     if (!review_request_id || !sentiment || !category || !message) {
@@ -74,15 +74,28 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to create private feedback' });
     }
 
+    // Optionally schedule a callback job
+    if (preferred_callback_time) {
+      await supabase
+        .from('scheduled_jobs')
+        .insert({
+          business_id: reviewRequest.business_id,
+          job_type: 'callback',
+          payload: { feedback_id: feedback.id, review_request_id },
+          scheduled_for: preferred_callback_time,
+        });
+    }
+
     // Log telemetry event
     await supabase.rpc('log_telemetry_event', {
       p_business_id: reviewRequest.business_id,
-      p_event_type: 'feedback_created',
+      p_event_type: 'private_feedback_created',
       p_event_data: {
         feedback_id: feedback.id,
         review_request_id: review_request_id,
         sentiment: sentiment,
-        category: category
+        category: category,
+        preferred_callback_time: preferred_callback_time || null
       }
     });
 

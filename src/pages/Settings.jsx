@@ -17,6 +17,7 @@ import { useDashboard } from "@/components/providers/DashboardProvider";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 import { QrCode, Download, Copy, Plus, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const SettingsTab = ({ children, title, isActive, onClick }) => (
   <button
@@ -218,10 +219,13 @@ const QRBuilderSettings = () => {
     const [qrCodes, setQrCodes] = useState([]);
     const [loading, setLoading] = useState(false);
     const [generating, setGenerating] = useState(false);
+    const [techs, setTechs] = useState([]);
+    const [selectedTech, setSelectedTech] = useState("");
 
     useEffect(() => {
         if (user) {
             loadQRCodes();
+            loadTechs();
         }
     }, [user]);
 
@@ -271,7 +275,7 @@ const QRBuilderSettings = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session.access_token}`
                 },
-                body: JSON.stringify({})
+                body: JSON.stringify({ tech_id: selectedTech || undefined })
             });
 
             const result = await response.json();
@@ -295,6 +299,22 @@ const QRBuilderSettings = () => {
         } finally {
             setGenerating(false);
         }
+    };
+
+    const loadTechs = async () => {
+        try {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('business_id')
+              .single();
+            if (!profile?.business_id) return;
+            const { data } = await supabase
+              .from('techs')
+              .select('id, name')
+              .eq('business_id', profile.business_id)
+              .order('name');
+            setTechs(data || []);
+        } catch (e) {}
     };
 
     const copyToClipboard = (text) => {
@@ -322,10 +342,23 @@ const QRBuilderSettings = () => {
                         <h3 className="font-medium">Your QR Codes</h3>
                         <p className="text-sm text-gray-600">Generate QR codes for tech attribution</p>
                     </div>
-                    <Button onClick={generateQRCode} disabled={generating} className="flex items-center gap-2">
-                        <Plus className="w-4 h-4" />
-                        {generating ? "Generating..." : "Generate QR Code"}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Select value={selectedTech} onValueChange={setSelectedTech}>
+                            <SelectTrigger className="w-56">
+                                <SelectValue placeholder="Select technician (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">No tech (generic)</SelectItem>
+                                {techs.map(t => (
+                                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Button onClick={generateQRCode} disabled={generating} className="flex items-center gap-2">
+                            <Plus className="w-4 h-4" />
+                            {generating ? "Generating..." : "Generate QR Code"}
+                        </Button>
+                    </div>
                 </div>
 
                 {loading ? (
@@ -376,8 +409,9 @@ const QRBuilderSettings = () => {
                                         </Button>
                                     </div>
                                 </div>
-                                <div className="mt-3 p-2 bg-gray-50 rounded text-sm font-mono text-gray-700">
-                                    {qr.url}
+                                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                    <div className="p-2 bg-gray-50 rounded font-mono text-gray-700">{qr.url}</div>
+                                    <div className="p-2 bg-gray-50 rounded text-gray-700">{qr.tech_name ? `Tech: ${qr.tech_name}` : 'Generic code'}</div>
                                 </div>
                             </div>
                         ))}
