@@ -59,7 +59,7 @@ export default function InboxPage() {
           <div className="elevated-card p-4">
             <div className="flex items-center justify-between mb-2">
               <div className="text-slate-900 font-semibold">Selection</div>
-              <button className="text-xs rounded-lg px-2 py-1 ring-1 ring-slate-200 hover:bg-slate-50" onClick={()=>{ const all = items.reduce((a,i)=>({ ...a, [i.id]: true }),{} as Record<number,boolean>); setChecked(all); setSelected(items.length); }}>Select all</button>
+              <button className="text-xs rounded-lg px-2 py-1 ring-1 ring-slate-200 hover:bg-slate-50" onClick={()=>{ const all = items.reduce((a,i)=>({ ...a, [i.id]: true }),{}); setChecked(all); setSelected(items.length); }}>Select all</button>
             </div>
             <ul className="space-y-2">
               {items.map(item=> (
