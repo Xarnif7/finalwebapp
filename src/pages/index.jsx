@@ -1,4 +1,16 @@
 ﻿import Layout from "./Layout.jsx";
+import AppLayout from "@/components/layout/AppLayout";
+import SectionHeader from "@/components/ui/SectionHeader";
+import KpiCard from "@/components/ui/KpiCard";
+import HomePage from "@/pages/pro/HomePage";
+import InboxPage from "@/pages/pro/InboxPage";
+import CustomersPage from "@/pages/pro/CustomersPage";
+import AutopilotPage from "@/pages/pro/AutopilotPage";
+import RequestsPage from "@/pages/pro/RequestsPage";
+import InsightsPage from "@/pages/pro/InsightsPage";
+import AdminSettingsPage from "@/pages/pro/AdminSettingsPage";
+import AdminTeamPage from "@/pages/pro/AdminTeamPage";
+import AdminAuditLogPage from "@/pages/pro/AdminAuditLogPage";
 import AuthCallback from "./AuthCallback.jsx";
 import AuthProvider, { useAuth } from "../auth/AuthProvider";
 import { useState, useEffect } from "react";
@@ -26,16 +38,19 @@ import Conversations from "./Conversations";
 import ReviewPerformance from "./ReviewPerformance";
 import Features from "./Features";
 import HowItWorks from "./HowItWorks";
+import LandingExperiment from "./LandingExperiment";
 import SimpleSetup from "./SimpleSetup";
 import Testimonials from "./Testimonials";
 import Paywall from "./Paywall";
 import PostCheckout from "./PostCheckout";
+import DashboardPreview from "./DashboardPreview";
 import QRRedirect from "./QRRedirect";
 import PrivateFeedback from "./PrivateFeedback";
 import RequireOnboardingAccess from "../components/RequireOnboardingAccess";
 import ErrorBoundary from "../components/ui/error-boundary";
 
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
+import LegacyRouteNotice from "@/components/layout/LegacyRouteNotice";
 
 // Performance instrumentation
 let currentNavigationId = 0;
@@ -299,6 +314,20 @@ function PagesContent() {
   console.log('[PAGES] PAGES[currentPage] exists:', !!PAGES[currentPage]);
 
   return (
+    <>
+      {location.pathname.startsWith('/pro') ? (
+        <Routes>
+          <Route path="/pro/home" element={<AppLayout><HomePage /></AppLayout>} />
+          <Route path="/pro/inbox" element={<AppLayout><InboxPage /></AppLayout>} />
+          <Route path="/pro/customers" element={<AppLayout><CustomersPage /></AppLayout>} />
+          <Route path="/pro/autopilot" element={<AppLayout><AutopilotPage /></AppLayout>} />
+          <Route path="/pro/requests" element={<AppLayout><RequestsPage /></AppLayout>} />
+          <Route path="/pro/insights" element={<AppLayout><InsightsPage /></AppLayout>} />
+          <Route path="/pro/admin/settings" element={<AppLayout><AdminSettingsPage /></AppLayout>} />
+          <Route path="/pro/admin/team" element={<AppLayout><AdminTeamPage /></AppLayout>} />
+          <Route path="/pro/admin/audit-log" element={<AppLayout><AdminAuditLogPage /></AppLayout>} />
+        </Routes>
+      ) : (
     <Layout currentPageName={currentPage}>
       <Routes>
         <Route path="/" element={<TrackedComponent component={Landing} name="Landing" />} />
@@ -333,6 +362,22 @@ function PagesContent() {
         <Route path="/testimonials" element={<TrackedComponent component={Testimonials} name="Testimonials" />} />
         <Route path="/paywall" element={<TrackedComponent component={Paywall} name="Paywall" />} />
         <Route path="/post-checkout" element={<TrackedComponent component={PostCheckout} name="PostCheckout" />} />
+        <Route path="/dashboard/preview" element={<TrackedComponent component={DashboardPreview} name="DashboardPreview" />} />
+        <Route path="/landing-experiment" element={<TrackedComponent component={LandingExperiment} name="LandingExperiment" />} />
+        {/* Legacy redirects to new shell */}
+        <Route path="/dashboard" element={<Navigate to="/pro/home" replace />} />
+        <Route path="/reviews" element={<><Navigate to="/pro/inbox?filter=reviews" replace /><LegacyRouteNotice target="/inbox" /></>} />
+        <Route path="/review-inbox" element={<><Navigate to="/pro/inbox?filter=reviews" replace /><LegacyRouteNotice target="/inbox" /></>} />
+        <Route path="/conversations" element={<><Navigate to="/pro/inbox?filter=messages" replace /><LegacyRouteNotice target="/inbox" /></>} />
+        <Route path="/social" element={<><Navigate to="/pro/inbox?filter=social" replace /><LegacyRouteNotice target="/inbox" /></>} />
+        <Route path="/send-requests" element={<><Navigate to="/pro/requests" replace /><LegacyRouteNotice target="/requests" /></>} />
+        <Route path="/performance" element={<><Navigate to="/pro/insights?view=performance" replace /><LegacyRouteNotice target="/insights" /></>} />
+        <Route path="/reports" element={<><Navigate to="/pro/insights?view=reports" replace /><LegacyRouteNotice target="/insights" /></>} />
+        <Route path="/automation" element={<><Navigate to="/pro/autopilot" replace /><LegacyRouteNotice target="/autopilot" /></>} />
+        <Route path="/competitors" element={<><Navigate to="/pro/insights?view=competitors" replace /><LegacyRouteNotice target="/insights" /></>} />
+        <Route path="/team" element={<><Navigate to="/pro/admin/team" replace /><LegacyRouteNotice target="/admin/team" /></>} />
+        <Route path="/audit-log" element={<><Navigate to="/pro/admin/audit-log" replace /><LegacyRouteNotice target="/admin/audit-log" /></>} />
+        <Route path="/settings" element={<><Navigate to="/pro/admin/settings" replace /><LegacyRouteNotice target="/admin/settings" /></>} />
         
         {/* Auth routes */}
         <Route path="/auth/callback" element={<AuthCallback />} />
@@ -345,6 +390,8 @@ function PagesContent() {
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Layout>
+      )}
+    </>
   );
 }
 

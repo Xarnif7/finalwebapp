@@ -1,5 +1,5 @@
 ﻿import { useLocation, useNavigate, Link } from "react-router-dom";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 
 import { User } from "@/api/entities";
 
@@ -274,63 +274,37 @@ export default function Layout({ children, currentPageName }) {
       return;
     }
     
-    // Wait for auth to initialize before making decisions
-    if (loading) {
-      console.log('[LAYOUT] Still loading, returning');
-      return;
-    }
-    
-    // Add a small delay to ensure auth state is fully restored
-    const checkAuth = async () => {
-      await new Promise(resolve => setTimeout(resolve, 300));
+    // For dashboard pages, just check if user exists
+    if (user) {
+      console.log('[LAYOUT] User exists, initializing business');
+      setAuthStatus("checking");
       
-      // Double-check the session after delay
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('[LAYOUT] Session check after delay:', { hasSession: !!session, hasUser: !!user });
-      
-      if (!session && !user) {
-        console.log('[LAYOUT] No session or user after delay, setting unauthorized and navigating to landing');
-        setAuthStatus("unauthorized");
-        navigate("/");
-        return;
-      }
-      
-      if (session && !user) {
-        console.log('[LAYOUT] Session exists but no user state, waiting for auth state to sync');
-        return;
-      }
-      
-      if (user || session) {
-        console.log('[LAYOUT] User or session exists, proceeding with business initialization');
-        
-        // Initialize business for authenticated user
-        const initializeBusiness = async () => {
-          setAuthStatus("checking");
-          try {
-            const { data: businesses, error } = await supabase
-              .from('businesses')
-              .select('*')
-              .limit(1); // RLS will automatically filter by auth.uid()
-            
-            if (!error && businesses && businesses.length > 0) {
-              setBusiness(businesses[0]);
-            } else if (currentPageName !== 'Onboarding') {
-              navigate("/onboarding");
-              return;
-            }
-            setAuthStatus("authorized");
-          } catch (error) {
-            console.error('[LAYOUT] Business initialization error:', error);
-            setAuthStatus("authorized"); // Allow access even if business init fails
+      const initializeBusiness = async () => {
+        try {
+          const { data: businesses, error } = await supabase
+            .from('businesses')
+            .select('*')
+            .limit(1);
+          
+          if (!error && businesses && businesses.length > 0) {
+            setBusiness(businesses[0]);
+          } else if (currentPageName !== 'Onboarding') {
+            navigate("/onboarding");
+            return;
           }
-        };
-        
-        initializeBusiness();
-      }
-    };
-    
-    checkAuth();
-  }, [currentPageName, navigate, isLandingSitePage, user, loading, location.pathname]);
+          setAuthStatus("authorized");
+        } catch (error) {
+          console.error('[LAYOUT] Business initialization error:', error);
+          setAuthStatus("authorized");
+        }
+      };
+      
+      initializeBusiness();
+    } else {
+      console.log('[LAYOUT] No user, setting unauthorized');
+      setAuthStatus("unauthorized");
+    }
+  }, [currentPageName, navigate, isLandingSitePage, user, location.pathname]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -351,7 +325,7 @@ export default function Layout({ children, currentPageName }) {
   }
 
   // Show loading state while checking auth to prevent flash
-  if (authStatus === "checking" || loading) {
+  if (authStatus === "checking") {
       console.log('[LAYOUT] Rendering loading state');
       return null; // No loading indicator to prevent flash
   }
@@ -374,22 +348,44 @@ export default function Layout({ children, currentPageName }) {
     <ThemeProvider>
         <DashboardProvider value={{ user, business, updateBusiness }}>
           <ErrorBoundary>
+            <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[999] bg-white text-slate-900 px-4 py-2 rounded shadow">Skip to content</a>
             <div className="flex h-screen bg-[var(--bg)]">
             <ModernSidebar />
 
-            <div className="flex-1 flex flex-col min-w-0">
-                <ModernTopNav onLogout={handleLogout} />
-
-                <main className="flex-1 overflow-y-auto">
-                    <div className="h-full">
-                        {children}
-                    </div>
-                </main>
-            </div>
+            <DashboardMain onLogout={handleLogout}>
+                {children}
+            </DashboardMain>
             </div>
           </ErrorBoundary>
         </DashboardProvider>
     </ThemeProvider>
+  );
+}
+
+function DashboardMain({ children, onLogout }) {
+  const mainRef = useRef(null);
+  const [headerElevated, setHeaderElevated] = useState(false);
+
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      setHeaderElevated(el.scrollTop > 0);
+    };
+    onScroll();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  return (
+    <div className="flex-1 flex flex-col min-w-0" role="main" aria-label="Dashboard">
+        <ModernTopNav onLogout={onLogout} elevated={headerElevated} />
+        <main id="main-content" ref={mainRef} className="flex-1 overflow-y-auto" tabIndex={-1}>
+            <div className="h-full p-6 md:p-8">
+                {children}
+            </div>
+        </main>
+    </div>
   );
 }
 

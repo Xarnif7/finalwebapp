@@ -1,3 +1,7 @@
+export function useFeatureFlags() {
+  return { competitors: false };
+}
+
 export const featureFlags = {
   conversationsLite: (import.meta.env.VITE_FEATURE_CONVERSATIONS_LITE ?? 'false') === 'true',
   replyCoach: (import.meta.env.VITE_WIP_REPLY_COACH ?? 'false') === 'true',

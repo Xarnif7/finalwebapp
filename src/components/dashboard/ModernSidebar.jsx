@@ -47,7 +47,7 @@ const navigationGroups = [
 
 const BlippLogo = ({ collapsed }) => (
     <div className="flex items-center justify-center p-6 h-20 border-b border-slate-200">
-        <Link to="/">
+        <Link to="/" aria-label="Go to home">
             <AnimatePresence>
                 {!collapsed && (
                     <motion.img
@@ -95,7 +95,23 @@ const NavItem = ({ item, expandedGroups, toggleGroup, collapsed }) => {
                         isParentActive ? "text-slate-900 bg-slate-100" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50",
                         collapsed && "justify-center"
                     )}
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isGroupOpen}
+                    aria-controls={`group-${item.title}`}
                     onClick={() => toggleGroup(item.title)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleGroup(item.title);
+                        }
+                        if (e.key === 'ArrowRight' && !isGroupOpen) {
+                            toggleGroup(item.title);
+                        }
+                        if (e.key === 'ArrowLeft' && isGroupOpen) {
+                            toggleGroup(item.title);
+                        }
+                    }}
                     title={collapsed ? item.title : ''}
                 >
                     {isParentActive && <div className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b from-[#1A73E8] to-[#7C3AED]" />}
@@ -109,7 +125,7 @@ const NavItem = ({ item, expandedGroups, toggleGroup, collapsed }) => {
                     {!collapsed && <ChevronRight className={cn("w-4 h-4 transition-transform", isGroupOpen && "rotate-90")} />}
                 </div>
                 {!collapsed && isGroupOpen && (
-                    <div className="pl-6 mt-1 space-y-1">
+                    <div id={`group-${item.title}`} className="pl-6 mt-1 space-y-1" role="region" aria-label={`${item.title} submenu`}>
                         {item.subItems.map(subItem => (
                             <Link key={subItem.title} to={`/${subItem.url}`}>
                                 <div className={cn(
@@ -143,6 +159,8 @@ const NavItem = ({ item, expandedGroups, toggleGroup, collapsed }) => {
                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-50",
                     collapsed && "justify-center"
                 )}
+                role="link"
+                aria-current={isActive ? 'page' : undefined}
             >
                 {isActive && <div className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b from-[#1A73E8] to-[#7C3AED]" />}
                 <item.icon className="w-6 h-6 shrink-0" />
@@ -169,6 +187,20 @@ export default function ModernSidebar() {
         if (collapseState) setCollapsed(JSON.parse(collapseState));
     }, []);
 
+    // Auto-collapse on small screens, restore on larger
+    useEffect(() => {
+        const mql = window.matchMedia('(max-width: 1024px)');
+        const apply = () => {
+            const next = mql.matches ? true : JSON.parse(localStorage.getItem('blipp.sidebarCollapsed') || 'false');
+            setCollapsed(next);
+        };
+        apply();
+        mql.addEventListener ? mql.addEventListener('change', apply) : mql.addListener(apply);
+        return () => {
+            mql.removeEventListener ? mql.removeEventListener('change', apply) : mql.removeListener(apply);
+        };
+    }, []);
+
     const toggleGroup = (title) => {
         const newExpanded = expandedGroups.includes(title)
             ? expandedGroups.filter(g => g !== title)
@@ -183,17 +215,21 @@ export default function ModernSidebar() {
         localStorage.setItem('blipp.sidebarCollapsed', JSON.stringify(newCollapsedState));
     }
 
+    const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     return (
         <motion.aside 
             className="flex-col bg-white border-r border-slate-200 h-full flex"
             animate={{ width: collapsed ? 88 : 256 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
+            transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2, ease: "easeInOut" }}
+            role="navigation"
+            aria-label="Primary"
         >
             <BlippLogo collapsed={collapsed} />
-            <nav className="flex-1 px-4 py-6 space-y-6">
+            <nav className="flex-1 px-4 py-6 space-y-6" aria-label="Sidebar sections">
                 {navigationGroups.map((group) => (
                     <div key={group.title}>
-                        {!collapsed && <h3 className="px-4 mb-2 text-xs font-semibold uppercase text-slate-400 tracking-wider">{group.title}</h3>}
+                        {!collapsed && <h3 className="px-4 mb-2 text-xs font-semibold uppercase text-slate-400 tracking-wider" aria-label={`${group.title} section`}>{group.title}</h3>}
                         <div className="space-y-1">
                             {group.items.map((item) => (
                                 <NavItem key={item.title} item={item} expandedGroups={expandedGroups} toggleGroup={toggleGroup} collapsed={collapsed} />
@@ -203,7 +239,7 @@ export default function ModernSidebar() {
                 ))}
             </nav>
             <div className="border-t border-slate-200 p-4">
-                <Button variant="ghost" className="w-full justify-center" onClick={toggleCollapse}>
+                <Button variant="ghost" className="w-full justify-center focus-visible:ring-2 focus-visible:ring-slate-400" onClick={toggleCollapse} aria-pressed={collapsed} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
                     <ChevronsLeft className={cn("w-5 h-5 transition-transform", collapsed && "rotate-180")} />
                 </Button>
             </div>

@@ -41,7 +41,7 @@ const UserAvatar = ({ user, size = "40px" }) => {
   );
 };
 
-export default function ModernTopNav({ onLogout }) {
+export default function ModernTopNav({ onLogout, elevated = false }) {
   const navigate = useNavigate();
   const { user } = useDashboard();
 
@@ -51,18 +51,18 @@ export default function ModernTopNav({ onLogout }) {
   const viewAllNotifications = () => navigate(createPageUrl('AuditLog'));
     
   return (
-    <header className="h-20 bg-white border-b border-slate-200 px-6 flex items-center justify-end z-40">
+    <header className={`h-20 bg-white px-6 flex items-center justify-end z-40 ${elevated ? 'border-b border-slate-200 shadow-sm' : 'border-b border-slate-200'}`} role="banner">
       <div className="flex items-center gap-3">
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative h-12 w-12">
-                  <Bell className="w-5 h-5 text-slate-500" />
-                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500 text-white">
+                <Button variant="ghost" size="icon" className="relative h-12 w-12" aria-label="Open notifications">
+                  <Bell className="w-5 h-5 text-slate-500" aria-hidden="true" />
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500 text-white" aria-label={`${mockNotifications.length} notifications`}>
                     {mockNotifications.length}
                   </Badge>
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 z-50">
+            <DropdownMenuContent align="end" className="w-80 z-50" role="dialog" aria-label="Notifications">
                 <DropdownMenuLabel>Notifications</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {mockNotifications.map((n, index) => (
@@ -73,7 +73,7 @@ export default function ModernTopNav({ onLogout }) {
                 ))}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                    <button onClick={viewAllNotifications} className="w-full text-center text-blue-600 font-semibold py-2 cursor-pointer">
+                    <button onClick={viewAllNotifications} className="w-full text-center text-blue-600 font-semibold py-2 cursor-pointer" aria-label="View all notifications">
                         View all notifications
                     </button>
                 </DropdownMenuItem>
@@ -82,11 +82,11 @@ export default function ModernTopNav({ onLogout }) {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="group" aria-label="User menu">
+            <button className="group" aria-label="Open user menu">
                 <UserAvatar user={user} size="40px" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 z-50">
+          <DropdownMenuContent align="end" className="w-56 z-50" role="dialog" aria-label="User menu">
             <DropdownMenuLabel>My Account {user?.email ? `(${user.email})` : ''}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={goToProfile} className="cursor-pointer">

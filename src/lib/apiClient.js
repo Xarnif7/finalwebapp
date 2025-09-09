@@ -1,3 +1,10 @@
+import axios from "axios";
+
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || "/api",
+  withCredentials: true,
+});
+
 // API client helper for dev vs prod environments
 const getBaseUrl = () => {
   if (window.location.origin.includes('localhost:5173') || window.location.origin.includes('localhost:5174')) {
