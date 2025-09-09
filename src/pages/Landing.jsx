@@ -81,6 +81,7 @@ export default function Landing() {
       /* User.login();  // disabled auto-redirect */
     }
   };
+  
 
   return (
     <div className="bg-white text-gray-900 font-sans overflow-hidden">
