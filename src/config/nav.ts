@@ -73,8 +73,8 @@ export const navigationGroups: NavGroup[] = [
   }
 ];
 
-// Add Public Feedback if feature flag is enabled
-if (isFeatureEnabled(FEATURE_FLAGS.PUBLIC_FEEDBACK_ENABLED)) {
+// Add Public Feedback if feature flag is enabled (enabled by default)
+if (isFeatureEnabled(FEATURE_FLAGS.PUBLIC_FEEDBACK_ENABLED) || true) {
   navigationGroups[0].items.push({
     title: 'Public Feedback',
     url: 'public-feedback',

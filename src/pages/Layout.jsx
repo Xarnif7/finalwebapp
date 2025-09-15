@@ -21,7 +21,6 @@ import { useAuth } from "../auth/AuthProvider";
 import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
 import { supabase } from "../lib/supabaseClient";
 import { useOnboardingStatus } from "../hooks/useOnboardingStatus";
-import FeatureFlagToggle from "../components/dev/FeatureFlagToggle";
 
 // Hoist subscription status to avoid multiple calls
 const useSubscriptionStatusMemo = () => {
@@ -390,7 +389,6 @@ export default function Layout({ children, currentPageName }) {
             </div>
           </ErrorBoundary>
         </DashboardProvider>
-        <FeatureFlagToggle />
     </ThemeProvider>
   );
 }

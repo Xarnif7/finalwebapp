@@ -42,13 +42,6 @@ npm run dev
 npm run build
 ```
 
-### Feature Flag Toggle
-
-In development, use the feature flag toggle in the bottom-right corner to test feature flag functionality.
-
-## Navigation Migration
-
-See [docs/nav-migration.md](docs/nav-migration.md) for complete details on the navigation restructuring and legacy URL redirects.
 
 ## Architecture
 
