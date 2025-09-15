@@ -33,10 +33,51 @@ export default function AuthCallback() {
         }
 
         if (session && session.user) {
-          console.log('[AuthCallback] Successfully authenticated, redirecting...');
-          const dest = localStorage.getItem('postLoginRedirect') || '/reporting';
-          localStorage.removeItem('postLoginRedirect');
-          navigate(dest, { replace: true });
+          console.log('[AuthCallback] Successfully authenticated, checking subscription status...');
+          
+          // Check subscription and onboarding status
+          try {
+            // Check if user has a business (indicates subscription)
+            const { data: businesses } = await supabase
+              .from('businesses')
+              .select('*')
+              .limit(1);
+            
+            const hasSubscription = businesses && businesses.length > 0;
+            const business = businesses?.[0];
+            const onboardingCompleted = business?.onboarding_completed;
+            
+            console.log('[AuthCallback] Subscription check:', { 
+              hasSubscription, 
+              onboardingCompleted 
+            });
+            
+            let dest;
+            if (hasSubscription) {
+              if (onboardingCompleted) {
+                dest = '/reporting'; // Main dashboard
+              } else {
+                dest = '/onboarding'; // Complete onboarding first
+              }
+            } else {
+              dest = '/paywall'; // No subscription - go to paywall
+            }
+            
+            // Use stored redirect if available, otherwise use calculated dest
+            const storedDest = localStorage.getItem('postLoginRedirect');
+            if (storedDest) {
+              dest = storedDest;
+            }
+            
+            localStorage.removeItem('postLoginRedirect');
+            console.log('[AuthCallback] Redirecting to:', dest);
+            navigate(dest, { replace: true });
+            
+          } catch (subError) {
+            console.error('[AuthCallback] Subscription check error:', subError);
+            // Fallback to paywall if we can't check subscription
+            navigate('/paywall', { replace: true });
+          }
         } else {
           console.log('[AuthCallback] No valid session, redirecting to landing...');
           navigate('/', { replace: true });
