@@ -37,30 +37,42 @@ export default function AuthCallback() {
           
           // Check subscription and onboarding status
           try {
-            // Check if user has a business (indicates subscription)
+            // Check subscription status from subscriptions table
+            const { data: subscriptions } = await supabase
+              .from('subscriptions')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .eq('deleted', false)
+              .order('created_at', { ascending: false })
+              .limit(1);
+            
+            const hasActiveSubscription = subscriptions && subscriptions.length > 0 && 
+              ['active', 'trialing'].includes(subscriptions[0].status);
+            
+            // Check business/onboarding status
             const { data: businesses } = await supabase
               .from('businesses')
               .select('*')
               .limit(1);
             
-            const hasSubscription = businesses && businesses.length > 0;
             const business = businesses?.[0];
             const onboardingCompleted = business?.onboarding_completed;
             
-            console.log('[AuthCallback] Subscription check:', { 
-              hasSubscription, 
-              onboardingCompleted 
+            console.log('[AuthCallback] Status check:', { 
+              hasActiveSubscription, 
+              onboardingCompleted,
+              subStatus: subscriptions?.[0]?.status 
             });
             
             let dest;
-            if (hasSubscription) {
+            if (hasActiveSubscription) {
               if (onboardingCompleted) {
                 dest = '/reporting'; // Main dashboard
               } else {
                 dest = '/onboarding'; // Complete onboarding first
               }
             } else {
-              dest = '/paywall'; // No subscription - go to paywall
+              dest = '/pricing'; // No active subscription - go to pricing
             }
             
             // Use stored redirect if available, otherwise use calculated dest
