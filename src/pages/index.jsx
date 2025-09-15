@@ -1,6 +1,6 @@
 ﻿import Layout from "./Layout.jsx";
 import AuthCallback from "./AuthCallback.jsx";
-import AuthProvider, { useAuth } from "../auth/AuthProvider";
+import { useAuth } from "../hooks/useAuth";
 import { useState, useEffect } from "react";
 import Landing from "./Landing";
 import Onboarding from "./Onboarding";
@@ -37,6 +37,7 @@ import ErrorBoundary from "../components/ui/error-boundary";
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 import { SubscriptionGate } from "../components/auth/SubscriptionGate";
 import { AuthGuard } from "../components/auth/AuthGuard";
+import { LoginGuard, DashboardGuard } from "../components/auth/RouteGuards";
 import { legacyUrlMappings } from "../config/nav";
 import { FEATURE_FLAGS, isFeatureEnabled } from "../lib/featureFlags";
 
@@ -310,7 +311,7 @@ function PagesContent() {
         {/* Landing and Auth Routes */}
         <Route path="/" element={<TrackedComponent component={Landing} name="Landing" />} />
         <Route path="/landing" element={<TrackedComponent component={Landing} name="Landing" />} />
-        <Route path="/login" element={<TrackedComponent component={Landing} name="Landing" />} />
+        <Route path="/login" element={<LoginGuard><TrackedComponent component={Landing} name="Landing" /></LoginGuard>} />
         <Route path="/pricing" element={<TrackedComponent component={Paywall} name="Paywall" />} />
         <Route path="/onboarding" element={<RequireOnboardingAccess><TrackedComponent component={Onboarding} name="Onboarding" /></RequireOnboardingAccess>} />
         <Route path="/auth/callback" element={<AuthCallback />} />

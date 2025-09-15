@@ -77,7 +77,7 @@ export default function AuthCallback() {
             
             // Use stored redirect if available, otherwise use calculated dest
             const storedDest = localStorage.getItem('postLoginRedirect');
-            if (storedDest) {
+            if (storedDest && storedDest !== '/') {
               dest = storedDest;
             }
             

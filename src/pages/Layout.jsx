@@ -19,8 +19,7 @@ import {
 import { LogOut, User as UserIcon, Repeat, Zap } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabaseClient";
-import { AuthCTA } from "../components/auth/AuthCTA";
-import { UserMenu } from "../components/auth/UserMenu";
+import { Header } from "../components/Header";
 
 // Simplified layout - auth and subscription status handled by components
 
@@ -44,55 +43,9 @@ const UserAvatar = ({ user, size = "40px" }) => {
   );
 };
 
-const LandingHeader = React.memo(() => {
-    return (
-        <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200/50">
-            <div className="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
-                <Link to="/" className="flex-shrink-0">
-                    <img
-                        src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/0e243f198_NEWBLIPPLOGO.png"
-                        alt="Blipp"
-                        className="h-16 w-auto"
-                    />
-                </Link>
-                <nav className="hidden md:flex items-center gap-8">
-                    <Link
-                        to="/features"
-                        className="text-gray-700 hover:text-blue-600 font-medium transition-all duration-300 relative group"
-                    >
-                        Features
-                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300 group-hover:w-full"></span>
-                    </Link>
-                    <Link
-                        to="/how-it-works"
-                        className="text-gray-700 hover:text-blue-600 font-medium transition-all duration-300 relative group"
-                    >
-                        How It Works
-                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300 group-hover:w-full"></span>
-                    </Link>
-                    <Link
-                        to="/simple-setup"
-                        className="text-gray-700 hover:text-blue-600 font-medium transition-all duration-300 relative group"
-                    >
-                        Simple Setup
-                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300 group-hover:w-full"></span>
-                    </Link>
-                    <Link
-                        to="/testimonials"
-                        className="text-gray-700 hover:text-blue-600 font-medium transition-all duration-300 relative group"
-                    >
-                        Testimonials
-                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300 group-hover:w-full"></span>
-                    </Link>
-                </nav>
-                <div className="flex items-center gap-3">
-                    <AuthCTA />
-                    <UserMenu />
-                </div>
-            </div>
-        </header>
-    );
-});
+        const LandingHeader = React.memo(() => {
+            return <Header />;
+        });
 
 const LandingFooter = React.memo(() => {
     return (
