@@ -17,23 +17,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, User as UserIcon, Repeat, Zap } from "lucide-react";
-import { useAuth } from "../auth/AuthProvider";
-import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
+import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabaseClient";
-import { useOnboardingStatus } from "../hooks/useOnboardingStatus";
 import { AuthCTA } from "../components/auth/AuthCTA";
 import { UserMenu } from "../components/auth/UserMenu";
 
-// Hoist subscription status to avoid multiple calls
-const useSubscriptionStatusMemo = () => {
-  const subscriptionStatus = useSubscriptionStatus();
-  return useMemo(() => subscriptionStatus, [
-    subscriptionStatus.active,
-    subscriptionStatus.status,
-    subscriptionStatus.plan_tier,
-    subscriptionStatus.loading
-  ]);
-};
+// Simplified layout - auth and subscription status handled by components
 
 const UserAvatar = ({ user, size = "40px" }) => {
   const getInitials = () => {
