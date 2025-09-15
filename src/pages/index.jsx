@@ -1,6 +1,6 @@
 ﻿import Layout from "./Layout.jsx";
 import AuthCallback from "./AuthCallback.jsx";
-import { useAuth } from "../hooks/useAuth";
+import AuthProvider, { useAuth } from "../auth/AuthProvider";
 import { useState, useEffect } from "react";
 import Landing from "./Landing";
 import Onboarding from "./Onboarding";
