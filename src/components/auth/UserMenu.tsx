@@ -54,7 +54,24 @@ export function UserMenu() {
       await supabase.auth.signOut();
       // Clear any stored redirects
       localStorage.removeItem('postLoginRedirect');
-      navigate('/login', { replace: true });
+      // Store the current path as redirect destination
+      localStorage.setItem('postLoginRedirect', window.location.pathname);
+      
+      // Initiate Google OAuth for account switching
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            prompt: 'select_account',
+            include_granted_scopes: 'true'
+          }
+        }
+      });
+
+      if (error) {
+        console.error('OAuth error:', error);
+      }
     } catch (error) {
       console.error('Error switching account:', error);
     }
