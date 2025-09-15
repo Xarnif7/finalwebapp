@@ -1,0 +1,9 @@
+@echo off
+echo Adding files...
+git add -A
+echo Committing fix...
+git commit -m "fix: add .tsx extension to AuthProvider import to fix ReferenceError"
+echo Pushing to deploy...
+git push origin auth-final
+echo Deployment fix complete!
+pause
