@@ -2,11 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
-import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
-import { AuthCTA } from '@/components/auth/AuthCTA';
-import { UserMenu } from '@/components/auth/UserMenu';
+import { Button } from '../ui/button';
+import { useAuth } from '../hooks/useAuth';
+import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
+import { AuthCTA } from './auth/AuthCTA';
+import { UserMenu } from './auth/UserMenu';
 
 export function Header() {
   const { status: authStatus } = useAuth();

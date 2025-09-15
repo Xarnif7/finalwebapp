@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
+import { useAuth } from '../../hooks/useAuth';
+import { useSubscriptionStatus } from '../../hooks/useSubscriptionStatus';
 
 // Guard for /login - redirect if already signed in
 export function LoginGuard({ children }: { children: React.ReactNode }) {
