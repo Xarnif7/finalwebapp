@@ -1,6 +1,6 @@
 ﻿import Layout from "./Layout.jsx";
 import AuthCallback from "./AuthCallback.jsx";
-import { useAuth } from "../auth/AuthProvider";
+import AuthProvider, { useAuth } from "../auth/AuthProvider";
 import { useState, useEffect } from "react";
 import Landing from "./Landing";
 import Onboarding from "./Onboarding";
@@ -399,9 +399,11 @@ export default function Pages() {
 
   return (
     <Router>
-      <ErrorBoundary>
-        <PagesContent />
-      </ErrorBoundary>
+      <AuthProvider>
+        <ErrorBoundary>
+          <PagesContent />
+        </ErrorBoundary>
+      </AuthProvider>
     </Router>
   );
 }
