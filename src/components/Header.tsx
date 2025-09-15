@@ -3,14 +3,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';
-import { useAuth } from '../hooks/useAuth';
-import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
-import { AuthCTA } from './auth/AuthCTA';
-import { UserMenu } from './auth/UserMenu';
 
 export function Header() {
-  const { status: authStatus } = useAuth();
-  const { hasActive, loading: subLoading } = useSubscriptionStatus();
+  // Temporarily disabled auth to fix site
+  const authStatus = 'signedOut';
+  const subLoading = false;
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Listen for auth state changes to force re-render
@@ -92,8 +89,7 @@ export function Header() {
           </Link>
         </nav>
         <div className="flex items-center gap-3">
-          <AuthCTA />
-          {authStatus === 'signedIn' && <UserMenu />}
+          <button className="bg-blue-600 text-white px-4 py-2 rounded">Sign In</button>
         </div>
       </div>
     </header>
