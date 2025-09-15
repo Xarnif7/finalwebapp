@@ -17,13 +17,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, User as UserIcon, Repeat, Zap } from "lucide-react";
-import { useAuth } from "../auth/AuthProvider";
-import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
 import { supabase } from "../lib/supabaseClient";
-import { AuthCTA } from "../components/auth/AuthCTA";
-import { UserMenu } from "../components/auth/UserMenu";
 
-// Simplified layout - auth and subscription status handled by components
+// Simplified layout - no auth dependencies
 
 const UserAvatar = ({ user, size = "40px" }) => {
   const getInitials = () => {
@@ -99,7 +95,7 @@ const LandingFooter = React.memo(() => {
         <footer className="py-12 px-6 bg-gradient-to-r from-blue-600 to-purple-600">
             <div className="max-w-7xl mx-auto text-center flex items-center justify-between">
                 <p className="text-white">© 2024 Blipp. All rights reserved.</p>
-                <AuthCTA />
+                <button className="bg-white text-blue-600 px-6 py-2 rounded font-medium">Get Started</button>
             </div>
         </footer>
     );
@@ -108,7 +104,6 @@ const LandingFooter = React.memo(() => {
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
 
   console.log('[LAYOUT] Rendering with currentPageName:', currentPageName, 'pathname:', location.pathname, 'children type:', typeof children);
 
@@ -116,7 +111,7 @@ export default function Layout({ children, currentPageName }) {
   
   console.log('[LAYOUT] isLandingSitePage:', isLandingSitePage, 'currentPageName:', currentPageName);
 
-  // Simplified layout logic - auth guards are handled by route components
+  // Simplified layout logic - no auth dependencies
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -143,7 +138,7 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <ThemeProvider>
-        <DashboardProvider value={{ user }}>
+        <DashboardProvider value={{ user: null }}>
           <ErrorBoundary>
             <div className="flex h-screen bg-[var(--bg)]">
             <ModernSidebar />
