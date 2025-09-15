@@ -87,8 +87,7 @@ const UserAvatar = ({ user, size = "40px" }) => {
                             </Link>
                         </nav>
                         <div className="flex items-center gap-3">
-                            <AuthCTA />
-                            <UserMenu />
+                            <button className="bg-blue-600 text-white px-4 py-2 rounded">Sign In</button>
                         </div>
                     </div>
                 </header>
