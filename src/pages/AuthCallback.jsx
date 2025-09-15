@@ -34,7 +34,7 @@ export default function AuthCallback() {
       } catch (e) {
         console.error('[OAuth] exchange failed', e);
       } finally {
-        const dest = localStorage.getItem('postLoginRedirect') || '/dashboard';
+        const dest = localStorage.getItem('postLoginRedirect') || '/reporting';
         localStorage.removeItem('postLoginRedirect');
         // Replace history (no flicker / no lingering query string)
         navigate(dest, { replace: true });

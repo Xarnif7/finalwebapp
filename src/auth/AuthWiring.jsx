@@ -2,7 +2,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 
-const PROTECTED = ["/dashboard","/onboarding","/settings","/clients","/reviews","/conversations"];
+const PROTECTED = ["/dashboard","/onboarding","/settings","/clients","/reviews","/conversations","/customers","/automations","/reporting","/public-feedback"];
 
 export default function AuthWiring() {
   const navigate = useNavigate();
@@ -44,9 +44,9 @@ export default function AuthWiring() {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) {
         const p = location.pathname.toLowerCase();
-        // Only redirect if we're on landing page or auth routes, not if already on dashboard
-        if ((p === "/" || p.startsWith("/auth")) && p !== "/dashboard") {
-          navigate("/dashboard", { replace: true });
+        // Only redirect if we're on landing page or auth routes, not if already on dashboard/reporting
+        if ((p === "/" || p.startsWith("/auth")) && p !== "/dashboard" && p !== "/reporting") {
+          navigate("/reporting", { replace: true });
         }
       }
     });

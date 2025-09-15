@@ -144,7 +144,7 @@ export default function Landing() {
     if (user) {
       if (hasSubscription) {
         if (onboarding_completed) {
-          navigate("/dashboard");
+          navigate("/reporting");
         } else {
           navigate("/onboarding"); // Need to complete onboarding first
         }

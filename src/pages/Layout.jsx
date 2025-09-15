@@ -73,7 +73,7 @@ const LandingHeader = React.memo(({ handleLogout, subscriptionStatus }) => {
             handleAuth('/');
         } else if (hasSubscription) {
             if (onboarding_completed) {
-                navigate("/dashboard");
+                navigate("/reporting");
             } else {
                 navigate("/onboarding");
             }
@@ -202,7 +202,7 @@ const LandingFooter = React.memo(({ handleLogout, subscriptionStatus }) => {
         if (user) {
             if (hasSubscription) {
                 if (onboarding_completed) {
-                    navigate("/dashboard");
+                    navigate("/reporting");
                 } else {
                     navigate("/onboarding");
                 }
