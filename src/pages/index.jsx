@@ -34,8 +34,10 @@ import QRRedirect from "./QRRedirect";
 import PrivateFeedback from "./PrivateFeedback";
 import RequireOnboardingAccess from "../components/RequireOnboardingAccess";
 import ErrorBoundary from "../components/ui/error-boundary";
+import { legacyUrlMappings } from "../config/nav";
+import { FEATURE_FLAGS, isFeatureEnabled } from "../lib/featureFlags";
 
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
 
 // Performance instrumentation
 let currentNavigationId = 0;
@@ -301,30 +303,57 @@ function PagesContent() {
   return (
     <Layout currentPageName={currentPage}>
       <Routes>
+        {/* Landing and Auth Routes */}
         <Route path="/" element={<TrackedComponent component={Landing} name="Landing" />} />
         <Route path="/landing" element={<TrackedComponent component={Landing} name="Landing" />} />
         <Route path="/onboarding" element={<RequireOnboardingAccess><TrackedComponent component={Onboarding} name="Onboarding" /></RequireOnboardingAccess>} />
-        <Route path="/dashboard" element={<RequireAuth><TrackedComponent component={Dashboard} name="Dashboard" /></RequireAuth>} />
-        <Route path="/clients" element={<RequireAuth><TrackedComponent component={Clients} name="Clients" /></RequireAuth>} />
-        <Route path="/settings" element={<RequireAuth><TrackedComponent component={Settings} name="Settings" /></RequireAuth>} />
-        <Route path="/reviews" element={<RequireAuth><TrackedComponent component={Reviews} name="Reviews" /></RequireAuth>} />
-        <Route path="/review-tracking" element={<RequireAuth><TrackedComponent component={ReviewTracking} name="ReviewTracking" /></RequireAuth>} />
-        <Route path="/review-performance" element={<RequireAuth><TrackedComponent component={ReviewPerformance} name="ReviewPerformance" /></RequireAuth>} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         
-        {/* Dashboard Routes */}
-        <Route path="/review-inbox" element={<RequireAuth><TrackedComponent component={ReviewInbox} name="ReviewInbox" /></RequireAuth>} />
-        <Route path="/send-requests" element={<RequireAuth><TrackedComponent component={SendRequests} name="SendRequests" /></RequireAuth>} />
-        <Route path="/automated-requests" element={<RequireAuth><TrackedComponent component={AutomatedRequests} name="AutomatedRequests" /></RequireAuth>} />
-        <Route path="/conversations" element={<RequireAuth><TrackedComponent component={Conversations} name="Conversations" /></RequireAuth>} />
-        <Route path="/social-posts" element={<RequireAuth><TrackedComponent component={SocialPosts} name="SocialPosts" /></RequireAuth>} />
-        <Route path="/sequences" element={<RequireAuth><TrackedComponent component={Sequences} name="Sequences" /></RequireAuth>} />
-        <Route path="/competitors" element={<RequireAuth><TrackedComponent component={Competitors} name="Competitors" /></RequireAuth>} />
-        <Route path="/revenue-impact" element={<RequireAuth><TrackedComponent component={RevenueImpact} name="RevenueImpact" /></RequireAuth>} />
-        <Route path="/team-roles" element={<RequireAuth><TrackedComponent component={TeamRoles} name="TeamRoles" /></RequireAuth>} />
-        <Route path="/audit-log" element={<RequireAuth><TrackedComponent component={AuditLog} name="AuditLog" /></RequireAuth>} />
-        <Route path="/notifications" element={<RequireAuth><TrackedComponent component={Notifications} name="Notifications" /></RequireAuth>} />
-        <Route path="/integrations" element={<RequireAuth><TrackedComponent component={Integrations} name="Integrations" /></RequireAuth>} />
-        <Route path="/csv-import" element={<RequireAuth><TrackedComponent component={CsvImport} name="CsvImport" /></RequireAuth>} />
+        {/* NEW CONSOLIDATED NAVIGATION STRUCTURE */}
+        
+        {/* Customers Tab */}
+        <Route path="/customers" element={<RequireAuth><TrackedComponent component={Clients} name="Clients" /></RequireAuth>} />
+        <Route path="/customers/import" element={<RequireAuth><TrackedComponent component={CsvImport} name="CsvImport" /></RequireAuth>} />
+        
+        {/* Automations Tab */}
+        <Route path="/automations" element={<RequireAuth><TrackedComponent component={SendRequests} name="SendRequests" /></RequireAuth>} />
+        <Route path="/automations/send-requests" element={<RequireAuth><TrackedComponent component={SendRequests} name="SendRequests" /></RequireAuth>} />
+        <Route path="/automations/automated-requests" element={<RequireAuth><TrackedComponent component={AutomatedRequests} name="AutomatedRequests" /></RequireAuth>} />
+        <Route path="/automations/sequences" element={<RequireAuth><TrackedComponent component={Sequences} name="Sequences" /></RequireAuth>} />
+        <Route path="/automations/social-posts" element={<RequireAuth><TrackedComponent component={SocialPosts} name="SocialPosts" /></RequireAuth>} />
+        
+        {/* Reviews Tab */}
+        <Route path="/reviews" element={<RequireAuth><TrackedComponent component={Reviews} name="Reviews" /></RequireAuth>} />
+        <Route path="/reviews/inbox" element={<RequireAuth><TrackedComponent component={ReviewInbox} name="ReviewInbox" /></RequireAuth>} />
+        <Route path="/reviews/performance" element={<RequireAuth><TrackedComponent component={ReviewPerformance} name="ReviewPerformance" /></RequireAuth>} />
+        <Route path="/reviews/tracking" element={<RequireAuth><TrackedComponent component={ReviewTracking} name="ReviewTracking" /></RequireAuth>} />
+        
+        {/* Reporting Tab (Main Dashboard) */}
+        <Route path="/reporting" element={<RequireAuth><TrackedComponent component={Dashboard} name="Dashboard" /></RequireAuth>} />
+        <Route path="/reporting/revenue-impact" element={<RequireAuth><TrackedComponent component={RevenueImpact} name="RevenueImpact" /></RequireAuth>} />
+        <Route path="/reporting/competitors" element={<RequireAuth><TrackedComponent component={Competitors} name="Competitors" /></RequireAuth>} />
+        <Route path="/reporting/conversations" element={<RequireAuth><TrackedComponent component={Conversations} name="Conversations" /></RequireAuth>} />
+        
+        {/* Settings Tab */}
+        <Route path="/settings" element={<RequireAuth><TrackedComponent component={Settings} name="Settings" /></RequireAuth>} />
+        <Route path="/settings/integrations" element={<RequireAuth><TrackedComponent component={Integrations} name="Integrations" /></RequireAuth>} />
+        <Route path="/settings/team-roles" element={<RequireAuth><TrackedComponent component={TeamRoles} name="TeamRoles" /></RequireAuth>} />
+        <Route path="/settings/audit-log" element={<RequireAuth><TrackedComponent component={AuditLog} name="AuditLog" /></RequireAuth>} />
+        <Route path="/settings/notifications" element={<RequireAuth><TrackedComponent component={Notifications} name="Notifications" /></RequireAuth>} />
+        
+        {/* Public Feedback Tab (Feature Flagged) */}
+        {isFeatureEnabled(FEATURE_FLAGS.PUBLIC_FEEDBACK_ENABLED) && (
+          <Route path="/public-feedback" element={<RequireAuth><TrackedComponent component={PrivateFeedback} name="PrivateFeedback" /></RequireAuth>} />
+        )}
+        
+        {/* LEGACY REDIRECTS - Maintain query parameters */}
+        {Object.entries(legacyUrlMappings).map(([oldPath, newPath]) => (
+          <Route 
+            key={oldPath}
+            path={oldPath} 
+            element={<Navigate to={newPath} replace />} 
+          />
+        ))}
         
         {/* Marketing routes - must come before wildcard */}
         <Route path="/features" element={<TrackedComponent component={Features} name="Features" />} />
@@ -333,9 +362,6 @@ function PagesContent() {
         <Route path="/testimonials" element={<TrackedComponent component={Testimonials} name="Testimonials" />} />
         <Route path="/paywall" element={<TrackedComponent component={Paywall} name="Paywall" />} />
         <Route path="/post-checkout" element={<TrackedComponent component={PostCheckout} name="PostCheckout" />} />
-        
-        {/* Auth routes */}
-        <Route path="/auth/callback" element={<AuthCallback />} />
         
         {/* Public routes */}
         <Route path="/r/:code" element={<TrackedComponent component={QRRedirect} name="QRRedirect" />} />

@@ -4,46 +4,28 @@ import { cn } from '@/components/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import {
-  LayoutDashboard, Users, MessageSquare, Star, Instagram, BarChart3, Settings,
-  ChevronRight, Repeat, FileText, MessageCircle, Compass, Send, Activity, ChevronsLeft
+  Users, Star, BarChart3, Settings, Zap, MessageCircle,
+  ChevronRight, ChevronsLeft, Send, Activity, Repeat, FileText, Compass, Instagram, LayoutDashboard
 } from 'lucide-react';
+import { navigationGroups } from '@/config/nav';
+import { isFeatureEnabled } from '@/lib/featureFlags';
 
-const navigationGroups = [
-  {
-    title: 'Overview',
-    items: [
-      { title: 'Dashboard', url: 'dashboard', icon: LayoutDashboard },
-    ]
-  },
-  {
-    title: 'Workspace',
-    items: [
-      { title: 'Customers', url: 'clients', icon: Users },
-      { 
-        title: 'Reviews', 
-        icon: Star,
-        subItems: [
-          { title: 'Review Inbox', url: 'review-inbox' },
-          { title: 'Send Requests', url: 'send-requests' },
-          { title: 'Performance', url: 'review-performance' },
-        ]
-      },
-      { title: 'Conversations', url: 'conversations', icon: MessageCircle },
-      { title: 'Social', url: 'social-posts', icon: Instagram },
-      { title: 'Automation', url: 'sequences', icon: Repeat },
-      { title: 'Competitors', url: 'competitors', icon: Compass },
-      { title: 'Reports', url: 'revenue-impact', icon: BarChart3 },
-    ]
-  },
-  {
-    title: 'Admin',
-    items: [
-      { title: 'Team & Roles', url: 'team-roles', icon: Users },
-      { title: 'Audit Log', url: 'audit-log', icon: FileText },
-      { title: 'Settings', url: 'settings', icon: Settings },
-    ]
-  }
-];
+// Icon mapping for navigation items
+const iconMap = {
+  Users,
+  Star,
+  BarChart3,
+  Settings,
+  Zap,
+  MessageCircle,
+  LayoutDashboard,
+  Send,
+  Activity,
+  Repeat,
+  FileText,
+  Compass,
+  Instagram
+};
 
 const BlippLogo = ({ collapsed }) => (
     <div className="flex items-center justify-center p-6 h-20 border-b border-slate-200">
@@ -100,7 +82,7 @@ const NavItem = ({ item, expandedGroups, toggleGroup, collapsed }) => {
                 >
                     {isParentActive && <div className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b from-[#1A73E8] to-[#7C3AED]" />}
                     <div className="flex items-center gap-3.5">
-                        <item.icon className="w-6 h-6 shrink-0" />
+                        {React.createElement(iconMap[item.icon] || Users, { className: "w-6 h-6 shrink-0" })}
                         {!collapsed && <span className="relative">
                             {item.title}
                             <div className="absolute -bottom-1 left-0 h-[2px] w-0 group-hover:w-full transition-[width] duration-250 ease-out rounded-full bg-gradient-to-r from-[#1A73E8] to-[#7C3AED]" />
@@ -145,7 +127,7 @@ const NavItem = ({ item, expandedGroups, toggleGroup, collapsed }) => {
                 )}
             >
                 {isActive && <div className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b from-[#1A73E8] to-[#7C3AED]" />}
-                <item.icon className="w-6 h-6 shrink-0" />
+                {React.createElement(iconMap[item.icon] || Users, { className: "w-6 h-6 shrink-0" })}
                 {!collapsed && <span className="relative">
                     {item.title}
                     {!isActive && (
@@ -158,7 +140,7 @@ const NavItem = ({ item, expandedGroups, toggleGroup, collapsed }) => {
 };
 
 export default function ModernSidebar() {
-    const [expandedGroups, setExpandedGroups] = useState(['Reviews']);
+    const [expandedGroups, setExpandedGroups] = useState(['Reviews', 'Automations', 'Reporting', 'Settings']);
     const [collapsed, setCollapsed] = useState(false);
 
     useEffect(() => {
@@ -195,7 +177,9 @@ export default function ModernSidebar() {
                     <div key={group.title}>
                         {!collapsed && <h3 className="px-4 mb-2 text-xs font-semibold uppercase text-slate-400 tracking-wider">{group.title}</h3>}
                         <div className="space-y-1">
-                            {group.items.map((item) => (
+                            {group.items
+                                .filter(item => !item.featureFlag || isFeatureEnabled(item.featureFlag))
+                                .map((item) => (
                                 <NavItem key={item.title} item={item} expandedGroups={expandedGroups} toggleGroup={toggleGroup} collapsed={collapsed} />
                             ))}
                         </div>
