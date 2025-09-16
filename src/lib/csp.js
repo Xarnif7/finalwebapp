@@ -38,7 +38,8 @@ export const CSP_DIRECTIVES = {
     'https://accounts.google.com',
     'https://www.googleapis.com',
     'https://vercel.live',
-    'https://va.vercel-scripts.com'
+    'https://va.vercel-scripts.com',
+    'https://base44.app'
   ],
   'frame-src': [
     "'self'",

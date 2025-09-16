@@ -32,7 +32,13 @@ export default function AuthWiring() {
         console.log('[AUTH_WIRING] Redirecting to Google OAuth');
         await supabase.auth.signInWithOAuth({
           provider: "google",
-          options: { redirectTo: `${window.location.origin}/auth/callback` }
+          options: { 
+            redirectTo: `${window.location.origin}/auth/callback`,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent'
+            }
+          }
         });
       }
     })();

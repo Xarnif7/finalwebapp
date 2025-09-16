@@ -297,40 +297,42 @@ const DashboardRoutes = () => (
   </AuthProvider>
 );
 
-// Marketing routes that don't require auth
+// Marketing routes that now have auth context for reactive UI
 const MarketingRoutes = () => (
-  <Routes>
-    {/* Landing and Auth Routes */}
-    <Route path="/" element={<TrackedComponent component={Landing} name="Landing" />} />
-    <Route path="/landing" element={<TrackedComponent component={Landing} name="Landing" />} />
-    <Route path="/login" element={<LoginGuard><TrackedComponent component={Landing} name="Landing" /></LoginGuard>} />
-    <Route path="/pricing" element={<TrackedComponent component={Paywall} name="Paywall" />} />
-    <Route path="/auth/callback" element={<AuthCallback />} />
-    
-    {/* Marketing routes */}
-    <Route path="/features" element={<TrackedComponent component={Features} name="Features" />} />
-    <Route path="/how-it-works" element={<TrackedComponent component={HowItWorks} name="HowItWorks" />} />
-    <Route path="/simple-setup" element={<TrackedComponent component={SimpleSetup} name="SimpleSetup" />} />
-    <Route path="/testimonials" element={<TrackedComponent component={Testimonials} name="Testimonials" />} />
-    <Route path="/paywall" element={<TrackedComponent component={Paywall} name="Paywall" />} />
-    <Route path="/post-checkout" element={<TrackedComponent component={PostCheckout} name="PostCheckout" />} />
-    
-    {/* Public routes */}
-    <Route path="/r/:code" element={<TrackedComponent component={QRRedirect} name="QRRedirect" />} />
-    <Route path="/feedback/:requestId" element={<TrackedComponent component={PrivateFeedback} name="PrivateFeedback" />} />
-    
-    {/* LEGACY REDIRECTS - Maintain query parameters */}
-    {Object.entries(legacyUrlMappings).map(([oldPath, newPath]) => (
-      <Route 
-        key={oldPath}
-        path={oldPath} 
-        element={<Navigate to={newPath} replace />} 
-      />
-    ))}
-    
-    {/* Wildcard route must be last */}
-    <Route path="*" element={<NotFound />} />
-  </Routes>
+  <AuthProvider>
+    <Routes>
+      {/* Landing and Auth Routes */}
+      <Route path="/" element={<TrackedComponent component={Landing} name="Landing" />} />
+      <Route path="/landing" element={<TrackedComponent component={Landing} name="Landing" />} />
+      <Route path="/login" element={<LoginGuard><TrackedComponent component={Landing} name="Landing" /></LoginGuard>} />
+      <Route path="/pricing" element={<TrackedComponent component={Paywall} name="Paywall" />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      
+      {/* Marketing routes */}
+      <Route path="/features" element={<TrackedComponent component={Features} name="Features" />} />
+      <Route path="/how-it-works" element={<TrackedComponent component={HowItWorks} name="HowItWorks" />} />
+      <Route path="/simple-setup" element={<TrackedComponent component={SimpleSetup} name="SimpleSetup" />} />
+      <Route path="/testimonials" element={<TrackedComponent component={Testimonials} name="Testimonials" />} />
+      <Route path="/paywall" element={<TrackedComponent component={Paywall} name="Paywall" />} />
+      <Route path="/post-checkout" element={<TrackedComponent component={PostCheckout} name="PostCheckout" />} />
+      
+      {/* Public routes */}
+      <Route path="/r/:code" element={<TrackedComponent component={QRRedirect} name="QRRedirect" />} />
+      <Route path="/feedback/:requestId" element={<TrackedComponent component={PrivateFeedback} name="PrivateFeedback" />} />
+      
+      {/* LEGACY REDIRECTS - Maintain query parameters */}
+      {Object.entries(legacyUrlMappings).map(([oldPath, newPath]) => (
+        <Route 
+          key={oldPath}
+          path={oldPath} 
+          element={<Navigate to={newPath} replace />} 
+        />
+      ))}
+      
+      {/* Wildcard route must be last */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  </AuthProvider>
 );
 
 export default function Pages() {

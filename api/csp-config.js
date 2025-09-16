@@ -11,7 +11,7 @@ export default function handler(req, res) {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
-    "connect-src 'self' https://*.supabase.co https://api.stripe.com https://accounts.google.com https://www.googleapis.com https://vercel.live https://va.vercel-scripts.com",
+    "connect-src 'self' https://*.supabase.co https://api.stripe.com https://accounts.google.com https://www.googleapis.com https://vercel.live https://va.vercel-scripts.com https://base44.app",
     "frame-src 'self' https://js.stripe.com https://accounts.google.com",
     "object-src 'none'",
     "base-uri 'self'",
