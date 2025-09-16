@@ -134,12 +134,9 @@ const CountUpNumber = ({ end, duration = 2000 }) => {
 
 export default function Landing() {
   const navigate = useNavigate();
-  // Temporarily disabled auth to fix site
-  const user = null;
-  const handleAuth = () => {};
-  const hasSubscription = false;
-  const onboarding_completed = false;
-  const subscriptionStatus = { active: false, status: 'none', plan_tier: null, onboarding_completed: false, loading: false };
+  const { user, handleAuth } = useAuth();
+  const subscriptionStatus = useSubscriptionStatus();
+  const { active: hasSubscription, onboarding_completed } = subscriptionStatus;
   const { scrollYProgress } = useScroll();
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 

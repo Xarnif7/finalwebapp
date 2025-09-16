@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LogOut, User as UserIcon, Repeat, Zap } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import { AuthCTA } from "../components/auth/AuthCTA";
+import { UserMenu } from "../components/auth/UserMenu";
 
 // Simplified layout - no auth dependencies
 
@@ -83,7 +85,7 @@ const UserAvatar = ({ user, size = "40px" }) => {
                             </Link>
                         </nav>
                         <div className="flex items-center gap-3">
-                            <button className="bg-blue-600 text-white px-4 py-2 rounded">Sign In</button>
+                            <AuthCTA />
                         </div>
                     </div>
                 </header>
@@ -95,7 +97,7 @@ const LandingFooter = React.memo(() => {
         <footer className="py-12 px-6 bg-gradient-to-r from-blue-600 to-purple-600">
             <div className="max-w-7xl mx-auto text-center flex items-center justify-between">
                 <p className="text-white">© 2024 Blipp. All rights reserved.</p>
-                <button className="bg-white text-blue-600 px-6 py-2 rounded font-medium">Get Started</button>
+                <AuthCTA />
             </div>
         </footer>
     );
