@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 
 import { User } from "@/api/entities";
+import { getPageNameFromPath, derivePathname, DEFAULT_PAGE_NAME } from "../lib/routing/pageName";
 
 import ModernSidebar from "../components/dashboard/ModernSidebar";
 import ModernTopNav from "../components/dashboard/ModernTopNav";
@@ -107,11 +108,18 @@ export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  console.log('[LAYOUT] Rendering with currentPageName:', currentPageName, 'pathname:', location.pathname, 'children type:', typeof children);
-
-  const isLandingSitePage = ["Landing", "Features", "HowItWorks", "SimpleSetup", "Testimonials", "Paywall", "PostCheckout", "NotFound"].includes(currentPageName);
+  // Derive page name from pathname as single source of truth
+  const pathname = derivePathname(location.pathname);
+  const currentPage = getPageNameFromPath(pathname);
   
-  console.log('[LAYOUT] isLandingSitePage:', isLandingSitePage, 'currentPageName:', currentPageName);
+  // Use provided currentPageName or fallback to derived currentPage
+  const pageName = currentPageName || currentPage;
+
+  console.log('[LAYOUT] Rendering with currentPageName:', pageName, 'pathname:', pathname, 'children type:', typeof children);
+
+  const isLandingSitePage = ["Landing", "Features", "HowItWorks", "SimpleSetup", "Testimonials", "Paywall", "PostCheckout", "NotFound"].includes(pageName);
+  
+  console.log('[LAYOUT] isLandingSitePage:', isLandingSitePage, 'currentPageName:', pageName);
 
   // Simplified layout logic - no auth dependencies
 
@@ -121,7 +129,7 @@ export default function Layout({ children, currentPageName }) {
   };
   
   if (isLandingSitePage) {
-    console.log('[LAYOUT] Rendering landing site layout for:', currentPageName);
+    console.log('[LAYOUT] Rendering landing site layout for:', pageName);
     return (
         <div className="bg-white text-gray-900 font-sans min-h-screen">
             <LandingHeader />
@@ -131,12 +139,12 @@ export default function Layout({ children, currentPageName }) {
     );
   }
 
-  if (["CustomLogin", "Onboarding", "PostCheckout"].includes(currentPageName)) {
-      console.log('[LAYOUT] Rendering simple layout for:', currentPageName);
+  if (["CustomLogin", "Onboarding", "PostCheckout"].includes(pageName)) {
+      console.log('[LAYOUT] Rendering simple layout for:', pageName);
       return <div>{children}</div>;
   }
 
-  console.log('[LAYOUT] Rendering dashboard layout for:', currentPageName);
+  console.log('[LAYOUT] Rendering dashboard layout for:', pageName);
 
   return (
     <ThemeProvider>

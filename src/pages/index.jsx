@@ -2,6 +2,7 @@
 import AuthCallback from "./AuthCallback.jsx";
 import { AuthProvider, useAuth } from "../components/auth/AuthProvider";
 import { useState, useEffect } from "react";
+import { getPageNameFromPath, DEFAULT_PAGE_NAME } from "../lib/routing/pageName";
 import Landing from "./Landing";
 import Onboarding from "./Onboarding";
 import Dashboard from "./Dashboard";
@@ -123,87 +124,10 @@ const PAGES = {
 };
 
 function _getCurrentPage(url) {
-  if (!url || url === '') {
-    console.log('[ROUTING] Empty URL, returning Landing');
-    return 'Landing';
-  }
-  
-  if (url.endsWith('/')) {
-    url = url.slice(0, -1);
-  }
-  let urlLastPart = url.split('/').pop();
-  if (urlLastPart.includes('?')) {
-    urlLastPart = urlLastPart.split('?')[0];
-  }
-  
-  console.log('[ROUTING] _getCurrentPage called with:', { url, urlLastPart });
-  
-  // Handle special cases and kebab-case URLs
-  if (urlLastPart === 'paywall') {
-    console.log('[ROUTING] Found paywall route');
-    return 'Paywall';
-  }
-  
-  if (urlLastPart === 'how-it-works') {
-    console.log('[ROUTING] Found how-it-works route');
-    return 'HowItWorks';
-  }
-  
-  if (urlLastPart === 'simple-setup') {
-    console.log('[ROUTING] Found simple-setup route');
-    return 'SimpleSetup';
-  }
-  
-  if (urlLastPart === 'features') {
-    console.log('[ROUTING] Found features route');
-    return 'Features';
-  }
-  
-  if (urlLastPart === 'testimonials') {
-    console.log('[ROUTING] Found testimonials route');
-    return 'Testimonials';
-  }
-  
-  if (urlLastPart === 'post-checkout') {
-    console.log('[ROUTING] Found post-checkout route');
-    return 'PostCheckout';
-  }
-  
-  // Handle QR code redirects (r/{code})
-  if (url.includes('/r/')) {
-    console.log('[ROUTING] Found QR redirect route');
-    return 'QRRedirect';
-  }
-  
-  // Handle private feedback (feedback/{requestId})
-  if (url.includes('/feedback/')) {
-    console.log('[ROUTING] Found private feedback route');
-    return 'PrivateFeedback';
-  }
-  
-  // Convert kebab-case to PascalCase for matching
-  const pascalCaseUrl = urlLastPart
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join('');
-  
-  console.log('[ROUTING] Converted to PascalCase:', pascalCaseUrl);
-  
-  // Try exact match first
-  let pageName = Object.keys(PAGES).find(
-    (page) => page.toLowerCase() === urlLastPart.toLowerCase()
-  );
-  
-  // If no exact match, try PascalCase match
-  if (!pageName) {
-    pageName = Object.keys(PAGES).find(
-      (page) => page === pascalCaseUrl
-    );
-  }
-  
-  console.log('[ROUTING] Found page name:', pageName);
-  
-  return pageName || 'Landing';
+  // Delegate to the routing utility for consistent page name resolution
+  const pageName = getPageNameFromPath(url || '/');
+  console.log('[ROUTING] _getCurrentPage called with:', { url, resolvedPage: pageName });
+  return pageName;
 }
 
 function RequireAuth({ children }) {
@@ -309,18 +233,18 @@ function PagesContent() {
     'ReviewLanding', 'AutomatedRequests', 'ReviewInbox', 'SendRequests', 'SocialPosts', 
     'Sequences', 'Competitors', 'TeamRoles', 'AuditLog', 'CsvImport', 'Notifications', 
     'Integrations', 'RevenueImpact', 'Conversations', 'ReviewPerformance', 'PrivateFeedback'
-  ].includes(currentPageName);
+  ].includes(currentPage);
 
   if (isDashboardRoute) {
     return (
-      <Layout currentPageName={currentPageName}>
+      <Layout currentPageName={currentPage}>
         <DashboardRoutes />
       </Layout>
     );
   }
 
   return (
-    <Layout currentPageName={currentPageName}>
+    <Layout currentPageName={currentPage}>
       <MarketingRoutes />
     </Layout>
   );
