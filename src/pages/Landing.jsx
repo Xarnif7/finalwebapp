@@ -139,6 +139,7 @@ export default function Landing() {
   const handleAuth = () => {};
   const hasSubscription = false;
   const onboarding_completed = false;
+  const subscriptionStatus = { active: false, status: 'none', plan_tier: null, onboarding_completed: false, loading: false };
   const { scrollYProgress } = useScroll();
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
