@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from './AuthProvider';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { supabase } from '@/lib/supabase/browser';
+import { UserMenu } from './UserMenu';
 
 export function AuthCTA() {
   const { status: authStatus, user } = useAuth();
@@ -65,8 +66,9 @@ export function AuthCTA() {
       return (
         <div className="flex items-center gap-3">
           <Button asChild className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
-            <Link to="/pricing">Get Started</Link>
+            <Link to="/pricing">View Plans</Link>
           </Button>
+          <UserMenu />
         </div>
       );
     }
@@ -77,6 +79,7 @@ export function AuthCTA() {
         <Button asChild className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
           <Link to="/reporting">View Dashboard</Link>
         </Button>
+        <UserMenu />
       </div>
     );
   }

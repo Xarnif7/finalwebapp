@@ -2,13 +2,14 @@
 
 
 import React, { useEffect, useState, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { motion, useScroll, useTransform, MotionConfig, useInView } from "framer-motion";
 import { useAuth } from "../components/auth/AuthProvider";
 import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
 import { useRevealOnce } from "../hooks/useRevealOnce";
+import { AuthCTA } from "../components/auth/AuthCTA";
 import {
   Star, MessageSquare, TrendingUp, Clock, Shield, Zap, Target, Rocket, Heart, CheckCircle,
   BarChart3, Repeat, Compass, Brain, MessageCircle as ConversationsIcon, ArrowRight,
@@ -133,67 +134,13 @@ const CountUpNumber = ({ end, duration = 2000 }) => {
 };
 
 export default function Landing() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const subscriptionStatus = useSubscriptionStatus();
   const { active: hasSubscription, onboarding_completed } = subscriptionStatus;
   const { scrollYProgress } = useScroll();
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
-  const handleGetStarted = async () => {
-    if (user) {
-      if (hasSubscription) {
-        if (onboarding_completed) {
-          navigate("/reporting");
-        } else {
-          navigate("/onboarding"); // Need to complete onboarding first
-        }
-      } else {
-        navigate("/paywall"); // Redirect to paywall if no subscription
-      }
-    } else {
-      // Import supabase for OAuth
-      const { supabase } = await import('../lib/supabase/browser');
-      
-      try {
-        // Store the current path as redirect destination
-        localStorage.setItem('postLoginRedirect', window.location.pathname);
-        
-        // Initiate Google OAuth
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: `${window.location.origin}/auth/callback`,
-            queryParams: {
-              prompt: 'select_account',
-              include_granted_scopes: 'true'
-            }
-          }
-        });
 
-        if (error) {
-          console.error('OAuth error:', error);
-        }
-      } catch (error) {
-        console.error('Sign in error:', error);
-      }
-    }
-  };
-
-  // Determine button text based on user status
-  const getButtonText = () => {
-    console.log('[LANDING] Button text calculation:', { 
-      user: !!user, 
-      hasSubscription, 
-      onboarding_completed, 
-      subscriptionStatus 
-    });
-    
-    if (!user) return 'Start Growing Your Reputation';
-    if (hasSubscription && onboarding_completed) return 'View Dashboard';
-    if (hasSubscription && !onboarding_completed) return 'Complete Onboarding';
-    return 'Choose Your Plan';
-  };
 
   return (
     <MotionConfig
@@ -257,13 +204,9 @@ export default function Landing() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1, delay: 0.4, ease: [0.6, 0.01, 0.05, 0.95] }}
               >
-                <Button data-auth="true"
-                  size="lg"
-                  onClick={handleGetStarted}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-lg px-10 py-6 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
-                >
-                  {getButtonText()}
-                </Button>
+                <div className="flex items-center gap-3">
+                  <AuthCTA />
+                </div>
               </motion.div>
             </div>
 
@@ -521,14 +464,9 @@ export default function Landing() {
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-4xl font-bold text-gray-900 mb-6">Ready to Transform Your Reputation?</h2>
             <p className="text-xl text-gray-600 mb-8">Join thousands of businesses already growing with Blipp</p>
-            <Button data-auth="true"
-              size="lg"
-              onClick={handleGetStarted}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-xl px-12 py-8 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-2 hover:scale-110"
-            >
-              {getButtonText()}
-              <ArrowRight className="w-6 h-6 ml-3" />
-            </Button>
+            <div className="flex items-center gap-3">
+              <AuthCTA />
+            </div>
           </div>
                  </AnimatedSection>
        </main>
