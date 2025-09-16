@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase/browser';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../../auth/AuthProvider';
 import { useSubscriptionStatus } from '../../../hooks/useSubscriptionStatus';
@@ -19,20 +20,33 @@ export function PrimaryCTA({ className = '' }: PrimaryCTAProps) {
     hasActive: hasActive || false,
   });
 
-  const handlePrimaryClick = () => {
+  const handlePrimaryClick = async () => {
     if (ctaDecision.primary.action === 'signin') {
-      navigate('/login?next=/pricing');
-    } else {
-      navigate(ctaDecision.primary.href);
+      // Send to Google OAuth
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: { prompt: 'select_account', include_granted_scopes: 'true' }
+        }
+      });
+      return;
     }
+    navigate(ctaDecision.primary.href);
   };
 
-  const handleSecondaryClick = () => {
+  const handleSecondaryClick = async () => {
     if (ctaDecision.secondary?.action === 'signin') {
-      navigate('/login?next=/pricing');
-    } else if (ctaDecision.secondary?.href) {
-      navigate(ctaDecision.secondary.href);
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: { prompt: 'select_account', include_granted_scopes: 'true' }
+        }
+      });
+      return;
     }
+    if (ctaDecision.secondary?.href) navigate(ctaDecision.secondary.href);
   };
 
   // Loading state - show skeleton buttons

@@ -60,7 +60,7 @@ export function getCTADecision({ status, hasActive }: CTAState): CTADecision {
       // No active subscription
       return {
         primary: { 
-          label: 'View Plans', 
+          label: 'Get Started', 
           href: '/pricing', 
           action: 'pricing' 
         },

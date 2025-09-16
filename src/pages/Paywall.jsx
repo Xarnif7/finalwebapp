@@ -169,8 +169,14 @@ export default function Paywall() {
 
   const startCheckout = async (planTier) => {
     if (!user) {
-      // This shouldn't happen due to guards, but just in case
-      navigate('/login?next=/pricing');
+      // Not signed in → trigger Google OAuth
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: { prompt: 'select_account', include_granted_scopes: 'true' }
+        }
+      });
       return;
     }
 

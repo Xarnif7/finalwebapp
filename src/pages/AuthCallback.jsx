@@ -95,13 +95,8 @@ export default function AuthCallback() {
               }
             }
             
-            // Use stored redirect if available, otherwise use calculated dest
-            const storedDest = localStorage.getItem('postLoginRedirect');
-            if (storedDest && storedDest !== '/') {
-              dest = storedDest;
-            }
-            
-            localStorage.removeItem('postLoginRedirect');
+            // After OAuth default to landing; subscription logic will drive header CTA
+            const storedDest = '/';
             console.log('[AuthCallback] Redirecting to:', dest);
             
             // Force a page refresh to ensure all components re-render with new auth state
