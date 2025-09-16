@@ -9,7 +9,7 @@ import { motion, useScroll, useTransform, MotionConfig, useInView } from "framer
 import { useAuth } from "../components/auth/AuthProvider";
 import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
 import { useRevealOnce } from "../hooks/useRevealOnce";
-import { AuthCTA } from "../components/auth/AuthCTA";
+import { PrimaryCTA } from "../components/marketing/ctas";
 import {
   Star, MessageSquare, TrendingUp, Clock, Shield, Zap, Target, Rocket, Heart, CheckCircle,
   BarChart3, Repeat, Compass, Brain, MessageCircle as ConversationsIcon, ArrowRight,
@@ -205,9 +205,7 @@ export default function Landing() {
                 transition={{ duration: 1, delay: 0.4, ease: [0.6, 0.01, 0.05, 0.95] }}
                 className="md:hidden" // Hide on md+ screens to avoid duplication with header
               >
-                <div className="flex items-center gap-3">
-                  <AuthCTA />
-                </div>
+                <PrimaryCTA />
               </motion.div>
             </div>
 
@@ -465,9 +463,7 @@ export default function Landing() {
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-4xl font-bold text-gray-900 mb-6">Ready to Transform Your Reputation?</h2>
             <p className="text-xl text-gray-600 mb-8">Join thousands of businesses already growing with Blipp</p>
-            <div className="flex items-center gap-3">
-              <AuthCTA />
-            </div>
+            <PrimaryCTA />
           </div>
                  </AnimatedSection>
        </main>

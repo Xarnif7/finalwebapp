@@ -35,6 +35,10 @@ export default function AuthCallback() {
         if (session && session.user) {
           console.log('[AuthCallback] Successfully authenticated, checking subscription status...');
           
+          // Check if this is a checkout success callback
+          const urlParams = new URLSearchParams(window.location.search);
+          const fromCheckout = urlParams.get('from') === 'checkout_success';
+          
           // Check subscription and onboarding status
           try {
             // Check subscription status from subscriptions table
@@ -61,18 +65,34 @@ export default function AuthCallback() {
             console.log('[AuthCallback] Status check:', { 
               hasActiveSubscription, 
               onboardingCompleted,
+              fromCheckout,
               subStatus: subscriptions?.[0]?.status 
             });
             
             let dest;
-            if (hasActiveSubscription) {
-              if (onboardingCompleted) {
-                dest = '/reporting'; // Main dashboard
+            
+            if (fromCheckout) {
+              // After successful checkout, go to dashboard or onboarding
+              if (hasActiveSubscription) {
+                if (onboardingCompleted) {
+                  dest = '/dashboard'; // Main dashboard
+                } else {
+                  dest = '/onboarding'; // Complete onboarding first
+                }
               } else {
-                dest = '/onboarding'; // Complete onboarding first
+                dest = '/pricing'; // Checkout didn't work, go back to pricing
               }
             } else {
-              dest = '/pricing'; // No active subscription - go to pricing
+              // Regular OAuth callback
+              if (hasActiveSubscription) {
+                if (onboardingCompleted) {
+                  dest = '/dashboard'; // Main dashboard
+                } else {
+                  dest = '/onboarding'; // Complete onboarding first
+                }
+              } else {
+                dest = '/pricing'; // No active subscription - go to pricing
+              }
             }
             
             // Use stored redirect if available, otherwise use calculated dest

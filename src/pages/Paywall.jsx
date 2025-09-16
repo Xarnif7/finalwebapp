@@ -24,6 +24,62 @@ export default function Paywall() {
     checkoutLoading 
   });
 
+  // Pricing page guards
+  useEffect(() => {
+    if (loading || subLoading) {
+      // Still loading auth state, show skeleton
+      return;
+    }
+
+    if (authStatus === 'signedOut') {
+      // Not signed in, redirect to login with pricing as next
+      navigate('/login?next=/pricing', { replace: true });
+      return;
+    }
+
+    if (authStatus === 'signedIn' && hasSubscription) {
+      // Already subscribed, redirect to dashboard
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+
+    // Signed in but no active subscription - show pricing
+    setShowPaywall(true);
+  }, [authStatus, hasSubscription, loading, subLoading, navigate]);
+
+  // Show loading skeleton while auth state is loading
+  if (loading || subLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-20">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <div className="h-12 w-96 bg-gray-200 rounded-lg animate-pulse mx-auto mb-6" />
+            <div className="h-6 w-64 bg-gray-200 rounded animate-pulse mx-auto" />
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white rounded-2xl p-8 shadow-xl">
+                <div className="h-8 w-32 bg-gray-200 rounded animate-pulse mb-4" />
+                <div className="h-12 w-24 bg-gray-200 rounded animate-pulse mb-6" />
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map((j) => (
+                    <div key={j} className="h-4 w-full bg-gray-200 rounded animate-pulse" />
+                  ))}
+                </div>
+                <div className="h-12 w-full bg-gray-200 rounded-lg animate-pulse mt-8" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not showing paywall yet
+  if (!showPaywall) {
+    return null;
+  }
+
   // Timeout mechanism to show paywall even if subscription check is slow
   useEffect(() => {
     if (loading) return; // Wait for auth to be ready
@@ -118,15 +174,51 @@ export default function Paywall() {
   console.log('[PAYWALL] Rendering paywall component');
 
   const startCheckout = async (planTier) => {
+    if (!user) {
+      // This shouldn't happen due to guards, but just in case
+      navigate('/login?next=/pricing');
+      return;
+    }
+
     setCheckoutLoading(true);
     
     try {
       console.log('[PAYWALL] Starting checkout for plan:', planTier);
       
-      // Remove timeout to make checkout instant
-      const response = await apiClient.post('/api/stripe/checkout', { planTier });
+      // Get the current session token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        throw new Error('No valid session found');
+      }
 
-      const { url } = response;
+      // Map planTier to priceId (you'll need to update this based on your actual Stripe price IDs)
+      const priceIdMap = {
+        'starter': process.env.VITE_STRIPE_STARTER_PRICE_ID || 'price_starter',
+        'pro': process.env.VITE_STRIPE_PRO_PRICE_ID || 'price_pro',
+        'enterprise': process.env.VITE_STRIPE_ENTERPRISE_PRICE_ID || 'price_enterprise',
+      };
+
+      const priceId = priceIdMap[planTier];
+      if (!priceId) {
+        throw new Error(`Invalid plan tier: ${planTier}`);
+      }
+
+      const response = await fetch('/api/checkout/create-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ priceId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create checkout session');
+      }
+
+      const { url } = await response.json();
       console.log('[PAYWALL] Got checkout URL:', url);
       
       if (url) {
@@ -139,14 +231,10 @@ export default function Paywall() {
     } catch (error) {
       console.error('[PAYWALL] Checkout failed:', error);
       
-      if (error.message === 'AUTH_REQUIRED') {
-        console.log('[PAYWALL] Auth required, triggering OAuth');
-        await handleAuth('/paywall');
-        return;
-      } else if (error.message === 'network_error') {
+      if (error.message === 'network_error') {
         alert('Network error. Please check your connection and try again.');
       } else {
-        alert('Failed to initiate checkout. Please try again or contact support.');
+        alert(`Failed to initiate checkout: ${error.message}`);
       }
     } finally {
       setCheckoutLoading(false);
