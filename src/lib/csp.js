@@ -31,16 +31,15 @@ export const CSP_DIRECTIVES = {
     'https:',
     'blob:'
   ],
-  'connect-src': [
-    "'self'",
-    'https://*.supabase.co',
-    'https://api.stripe.com',
-    'https://accounts.google.com',
-    'https://www.googleapis.com',
-    'https://vercel.live',
-    'https://va.vercel-scripts.com',
-    'https://base44.app'
-  ],
+      'connect-src': [
+        "'self'",
+        'https://*.supabase.co',
+        'https://api.stripe.com',
+        'https://accounts.google.com',
+        'https://www.googleapis.com',
+        'https://vercel.live',
+        'https://va.vercel-scripts.com'
+      ],
   'frame-src': [
     "'self'",
     'https://js.stripe.com',
