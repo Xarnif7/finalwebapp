@@ -74,23 +74,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           session,
         });
 
-        // Handle specific auth events
+        // Handle specific auth events - update state only; no global reloads here
         if (event === 'SIGNED_IN' && session) {
           console.log('User signed in:', session.user.email);
-          // Force a re-render of any cached components
           window.dispatchEvent(new CustomEvent('authStateChanged', { detail: { event: 'SIGNED_IN' } }));
-          // Force a page refresh to ensure all components re-render with new auth state
-          setTimeout(() => {
-            window.location.reload();
-          }, 100);
         } else if (event === 'SIGNED_OUT') {
           console.log('User signed out');
-          // Force a re-render of any cached components
           window.dispatchEvent(new CustomEvent('authStateChanged', { detail: { event: 'SIGNED_OUT' } }));
-          // Force a page refresh to ensure all components re-render with new auth state
-          setTimeout(() => {
-            window.location.reload();
-          }, 100);
         }
       }
     );

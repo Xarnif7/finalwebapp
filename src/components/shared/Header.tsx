@@ -69,8 +69,10 @@ export function Header() {
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
-      navigate('/', { replace: true });
-      window.location.reload();
+      // Explicit navigation; avoid full reload loop
+      if (window.location.pathname !== '/') {
+        navigate('/', { replace: true });
+      }
     } catch (error) {
       console.error('Error signing out:', error);
     }

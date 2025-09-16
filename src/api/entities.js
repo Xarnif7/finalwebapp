@@ -27,11 +27,11 @@ export const AuditLog = base44.entities.AuditLog;
 export const User = base44.auth;
 
 
-// --- Auto-login guard: block redirects unless explicitly enabled ---
-if (typeof window !== "undefined" && typeof User !== "undefined" && typeof User.login === "function") {
-  const __origLogin = User.login;
-  User.login = (...args) => {
-    if (window.__allowLogin === true) return __origLogin(...args);
-    try { console.debug("Auto-login blocked"); } catch {}
-  };
-}
+// Disable legacy base44 auto-login override in marketing to prevent loops
+try {
+  if (typeof window !== "undefined" && typeof User !== "undefined" && typeof User.login === "function") {
+    // Restore original behavior by no-op wrapping without side effects
+    const __origLogin = User.login.bind(User);
+    User.login = (...args) => __origLogin(...args);
+  }
+} catch {}

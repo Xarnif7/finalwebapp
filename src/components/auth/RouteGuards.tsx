@@ -13,12 +13,8 @@ export function LoginGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (authStatus === 'signedIn') {
-      // Already signed in, redirect based on subscription status
-      if (hasActive) {
-        navigate('/reporting', { replace: true });
-      } else {
-        navigate('/pricing', { replace: true });
-      }
+      // Already signed in: send to dashboard if active, else to landing (no auto /pricing)
+      navigate(hasActive ? '/reporting' : '/', { replace: true });
     }
   }, [authStatus, hasActive, navigate]);
 
