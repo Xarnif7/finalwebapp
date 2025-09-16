@@ -14,7 +14,6 @@ export const useAuth = () => {
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false); // Start with false to eliminate loading screen
-  const navigate = useNavigate();
   const authInitialized = useRef(false);
   const authSubscription = useRef(null);
 
@@ -95,7 +94,8 @@ export default function AuthProvider({ children }) {
       // If user is already logged in, navigate directly
       if (user) {
         console.log("[AUTH] User already logged in, navigating to:", nextPath);
-        navigate(nextPath);
+        // Use window.location for navigation to avoid useNavigate issues
+        window.location.href = nextPath;
         return;
       }
       
@@ -125,7 +125,7 @@ export default function AuthProvider({ children }) {
       // Clear the redirect path on error
       localStorage.removeItem('postLoginRedirect');
     }
-  }, [user, navigate]);
+  }, [user]);
 
   // Memoize context value to prevent unnecessary re-renders
   const value = useMemo(() => ({ 
