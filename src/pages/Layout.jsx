@@ -21,6 +21,9 @@ import { LogOut, User as UserIcon, Repeat, Zap } from "lucide-react";
 import { supabase } from "../lib/supabase/browser";
 import { AuthCTA } from "../components/auth/AuthCTA";
 import { UserMenu } from "../components/auth/UserMenu";
+import { useAuth } from "../components/auth/AuthProvider";
+import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
+import { ViewPlansButton, QuickRoundCTA } from "../components/marketing/ctas";
 
 // Simplified layout - no auth dependencies
 
@@ -45,6 +48,9 @@ const UserAvatar = ({ user, size = "40px" }) => {
 };
 
         const LandingHeader = React.memo(() => {
+            const { status: authStatus, user } = useAuth();
+            const { active: hasActive, loading: subLoading } = useSubscriptionStatus();
+            
             return (
                 <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200/50">
                     <div className="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
@@ -85,8 +91,32 @@ const UserAvatar = ({ user, size = "40px" }) => {
                                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300 group-hover:w-full"></span>
                             </Link>
                         </nav>
-                        <div className="flex items-center gap-3">
-                            <AuthCTA />
+                        <div className="flex items-center gap-3 md:gap-4">
+                            {/* Loading state - show skeleton buttons */}
+                            {authStatus === 'loading' || subLoading ? (
+                                <>
+                                    <div className="h-10 w-24 bg-gray-200 rounded-xl animate-pulse" />
+                                    <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse" />
+                                </>
+                            ) : authStatus === 'signedIn' && user ? (
+                                // Signed in state
+                                <>
+                                    {hasActive ? (
+                                        <Button asChild className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-2 text-sm font-medium rounded-xl">
+                                            <Link to="/reporting">View Dashboard</Link>
+                                        </Button>
+                                    ) : (
+                                        <ViewPlansButton variant="header" />
+                                    )}
+                                    <UserMenu />
+                                </>
+                            ) : (
+                                // Signed out state - show hero CTAs
+                                <>
+                                    <ViewPlansButton variant="header" />
+                                    <QuickRoundCTA variant="header" />
+                                </>
+                            )}
                         </div>
                     </div>
                 </header>
