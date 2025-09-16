@@ -24,7 +24,7 @@ export default function Paywall() {
     checkoutLoading 
   });
 
-  // Pricing page guards
+  // Pricing page guards - require authentication
   useEffect(() => {
     if (loading || subLoading) {
       // Still loading auth state, show skeleton
@@ -32,8 +32,14 @@ export default function Paywall() {
     }
 
     if (authStatus === 'signedOut') {
-      // Not signed in, redirect to login with pricing as next
-      navigate('/login?next=/pricing', { replace: true });
+      // Not signed in, trigger Google OAuth directly
+      supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: { prompt: 'select_account', include_granted_scopes: 'true' }
+        }
+      });
       return;
     }
 

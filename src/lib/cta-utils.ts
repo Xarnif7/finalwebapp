@@ -27,16 +27,11 @@ export function getCTADecision({ status, hasActive }: CTAState): CTADecision {
     };
   }
 
-  // Signed out state
+  // Signed out state - only show Sign in button
   if (status === 'signedOut') {
     return {
       primary: { 
         label: 'Sign in', 
-        href: '/login?next=/pricing', 
-        action: 'signin' 
-      },
-      secondary: { 
-        label: 'Get Started', 
         href: '/login?next=/pricing', 
         action: 'signin' 
       },
