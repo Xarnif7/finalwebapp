@@ -7,8 +7,8 @@ export const CSP_DIRECTIVES = {
   'default-src': ["'self'"],
   'script-src': [
     "'self'",
-    "'strict-dynamic'",
     'https://*.supabase.co',
+    'https://*.supabase.in',
     'https://accounts.google.com',
     'https://www.gstatic.com',
     'https://www.google.com',

@@ -7,7 +7,7 @@ export default function handler(req, res) {
   // Create strict CSP header with nonce
   const cspHeader = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://*.supabase.co https://accounts.google.com https://www.gstatic.com https://www.google.com https://vercel.live https://va.vercel-scripts.com https://js.stripe.com`,
+    `script-src 'self' 'nonce-${nonce}' https://*.supabase.co https://*.supabase.in https://accounts.google.com https://www.gstatic.com https://www.google.com https://vercel.live https://va.vercel-scripts.com https://js.stripe.com`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
