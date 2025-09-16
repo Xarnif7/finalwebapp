@@ -6,7 +6,7 @@ import { getPageNameFromPath, derivePathname, DEFAULT_PAGE_NAME } from "../lib/r
 
 import ModernSidebar from "../components/dashboard/ModernSidebar";
 import ModernTopNav from "../components/dashboard/ModernTopNav";
-import { Header as SharedHeader } from "../components/Header";
+import { Header as SharedHeader } from "../components/shared/Header";
 import { ThemeProvider } from "../components/providers/ThemeProvider";
 import { DashboardProvider } from "../components/providers/DashboardProvider";
 import ErrorBoundary from "../components/ui/error-boundary";

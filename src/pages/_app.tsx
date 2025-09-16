@@ -1,10 +1,13 @@
-import type { AppProps } from 'next/app';
 import React from 'react';
-// IMPORTANT: Do not duplicate—import from this path only.
 import { AuthProvider } from '@/components/auth/AuthProvider';
-import '@/index.css';
+import '../index.css';
 
-export default function MyApp({ Component, pageProps }: AppProps) {
+interface AppProps {
+  Component: React.ComponentType<any>;
+  pageProps: any;
+}
+
+function MyApp({ Component, pageProps }: AppProps) {
   return (
     <AuthProvider>
       <Component {...pageProps} />
@@ -12,4 +15,4 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   );
 }
 
-
+export default MyApp;

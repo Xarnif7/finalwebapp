@@ -32,14 +32,8 @@ export default function Paywall() {
     }
 
     if (authStatus === 'signedOut') {
-      // Not signed in, trigger Google OAuth directly
-      supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: { prompt: 'select_account', include_granted_scopes: 'true' }
-        }
-      });
+      // Not signed in, redirect to login with pricing as next
+      navigate('/login?next=/pricing', { replace: true });
       return;
     }
 

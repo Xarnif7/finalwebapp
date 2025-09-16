@@ -1,6 +1,7 @@
 ﻿import Layout from "./Layout.jsx";
 import AuthCallback from "./AuthCallback.jsx";
 import { AuthProvider, useAuth } from "../components/auth/AuthProvider";
+import { Header } from "../components/shared/Header";
 import { useState, useEffect } from "react";
 import { getPageNameFromPath, DEFAULT_PAGE_NAME } from "../lib/routing/pageName";
 import Landing from "./Landing";
