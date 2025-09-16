@@ -5,12 +5,16 @@ import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { useAuth } from './auth/AuthProvider';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
-import { AuthCTA } from './auth/AuthCTA';
+import { PrimaryCTA } from './marketing/ctas';
 import { UserMenu } from './auth/UserMenu';
 
 export function Header() {
-  const { status: authStatus } = useAuth();
-  const { hasActive, loading: subLoading } = useSubscriptionStatus();
+  const { status: authStatus, user } = useAuth();
+  const { loading: subLoading } = useSubscriptionStatus();
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.info('[HEADER] useAuth status:', authStatus, !!user);
+  }
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Listen for auth state changes to force re-render
@@ -92,7 +96,7 @@ export function Header() {
           </Link>
         </nav>
         <div className="flex items-center gap-3">
-          <AuthCTA />
+          <PrimaryCTA />
           {authStatus === 'signedIn' && <UserMenu />}
         </div>
       </div>

@@ -34,6 +34,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      // Dev-only marker to detect provider mount location
+      console.info('[AUTH] Provider mounted (tree):', typeof window === 'undefined' ? 'server/app' : 'client/pages-or-app');
+    }
+
     // Get initial session
     const getInitialSession = async () => {
       try {
@@ -110,6 +115,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={contextValue}>
+      {process.env.NODE_ENV !== 'production' && (
+        <div style={{position:'fixed',bottom:8,right:8,zIndex:9999,background:'rgba(17,24,39,0.85)',color:'#fff',padding:'4px 8px',borderRadius:6,fontSize:12}}>
+          AuthProvider active
+        </div>
+      )}
       {children}
     </AuthContext.Provider>
   );
