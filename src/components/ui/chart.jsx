@@ -56,11 +56,9 @@ const ChartStyle = ({
     return null
   }
 
-  return (
-    (<style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(([theme, prefix]) => `
+  // Generate CSS styles without dangerouslySetInnerHTML
+  const cssStyles = Object.entries(THEMES)
+    .map(([theme, prefix]) => `
 ${prefix} [data-chart=${id}] {
 ${colorConfig
 .map(([key, itemConfig]) => {
@@ -72,8 +70,12 @@ return color ? `  --color-${key}: ${color};` : null
 .join("\n")}
 }
 `)
-          .join("\n"),
-      }} />)
+    .join("\n");
+
+  return (
+    <style>
+      {cssStyles}
+    </style>
   );
 }
 
