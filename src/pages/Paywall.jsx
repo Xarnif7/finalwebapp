@@ -47,38 +47,7 @@ export default function Paywall() {
     setShowPaywall(true);
   }, [authStatus, hasSubscription, loading, subLoading, navigate]);
 
-  // Show loading skeleton while auth state is loading
-  if (loading || subLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-20">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <div className="h-12 w-96 bg-gray-200 rounded-lg animate-pulse mx-auto mb-6" />
-            <div className="h-6 w-64 bg-gray-200 rounded animate-pulse mx-auto" />
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white rounded-2xl p-8 shadow-xl">
-                <div className="h-8 w-32 bg-gray-200 rounded animate-pulse mb-4" />
-                <div className="h-12 w-24 bg-gray-200 rounded animate-pulse mb-6" />
-                <div className="space-y-3">
-                  {[1, 2, 3, 4].map((j) => (
-                    <div key={j} className="h-4 w-full bg-gray-200 rounded animate-pulse" />
-                  ))}
-                </div>
-                <div className="h-12 w-full bg-gray-200 rounded-lg animate-pulse mt-8" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render if not showing paywall yet
-  if (!showPaywall) {
-    return null;
-  }
+  // Note: Do not return early before hooks. Rendering guards are handled below after hooks.
 
   // Timeout mechanism to show paywall even if subscription check is slow
   useEffect(() => {
@@ -154,21 +123,46 @@ export default function Paywall() {
     }
   }, [user, loading, hasSubscription, subLoading, onboardingCompleted, navigate]);
 
-  // Show loading spinner only briefly while checking auth/subscription status
+  // Rendering guards (safe here because all hooks above have executed)
   if (loading || (subLoading && !showPaywall)) {
     console.log('[PAYWALL] Still loading:', { loading, subLoading, showPaywall });
-    return null; // No loading indicator to prevent flash
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-20">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <div className="h-12 w-96 bg-gray-200 rounded-lg animate-pulse mx-auto mb-6" />
+            <div className="h-6 w-64 bg-gray-200 rounded animate-pulse mx-auto" />
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white rounded-2xl p-8 shadow-xl">
+                <div className="h-8 w-32 bg-gray-200 rounded animate-pulse mb-4" />
+                <div className="h-12 w-24 bg-gray-200 rounded animate-pulse mb-6" />
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map((j) => (
+                    <div key={j} className="h-4 w-full bg-gray-200 rounded animate-pulse" />
+                  ))}
+                </div>
+                <div className="h-12 w-full bg-gray-200 rounded-lg animate-pulse mt-8" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  // Don't render if user is not authenticated
+  if (!showPaywall) {
+    return null;
+  }
+
   if (!user) {
     console.log('[PAYWALL] Not rendering - no user');
-    return null; // No loading spinner to eliminate blue bar flash
+    return null;
   }
 
-  // If user has subscription but we're still checking onboarding, show loading
   if (hasSubscription && onboardingCompleted === null) {
-    return null; // No loading spinner to eliminate blue bar flash
+    return null;
   }
 
   console.log('[PAYWALL] Rendering paywall component');
