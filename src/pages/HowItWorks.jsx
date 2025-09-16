@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { motion, useInView } from "framer-motion";
-import { useAuth } from "../auth/AuthProvider";
+import { useAuth } from "../components/auth/AuthProvider";
 import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
 import {
   Settings, Zap, BarChart3, ArrowRight, CheckCircle, MessageSquare,
@@ -30,10 +30,9 @@ const AnimatedSection = ({ children, className = "", id }) => {
 
 export default function HowItWorks() {
   const navigate = useNavigate();
-  // Temporarily disabled auth to fix site
-  const user = null;
-  const handleAuth = () => {};
-  const hasSubscription = false;
+  const { user } = useAuth();
+  const subscriptionStatus = useSubscriptionStatus();
+  const { active: hasSubscription } = subscriptionStatus;
   
   console.log('[HOWITWORKS] Component rendering with props:', { 
     user: !!user, 
@@ -41,7 +40,7 @@ export default function HowItWorks() {
     pathname: window.location.pathname 
   });
   
-  const handleGetStarted = () => {
+  const handleGetStarted = async () => {
     if (user) {
       if (hasSubscription) {
         navigate(createPageUrl("Dashboard"));
@@ -49,7 +48,31 @@ export default function HowItWorks() {
         navigate("/paywall"); // Redirect to paywall if no subscription
       }
     } else {
-      handleAuth();
+      // Import supabase for OAuth
+      const { supabase } = await import('../lib/supabase/browser');
+      
+      try {
+        // Store the current path as redirect destination
+        localStorage.setItem('postLoginRedirect', window.location.pathname);
+        
+        // Initiate Google OAuth
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+            queryParams: {
+              prompt: 'select_account',
+              include_granted_scopes: 'true'
+            }
+          }
+        });
+
+        if (error) {
+          console.error('OAuth error:', error);
+        }
+      } catch (error) {
+        console.error('Sign in error:', error);
+      }
     }
   };
 

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from './AuthProvider';
 import { useSubscriptionStatus } from '../../hooks/useSubscriptionStatus';
 
 // Guard for /login - redirect if already signed in

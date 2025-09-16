@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { isFeatureEnabled } from '@/lib/featureFlags';
 import { generateReplyDrafts } from '@/lib/ai/replyCoach';
 import { logEvent } from '@/lib/telemetry';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabase/browser';
 
 type Props = {
   open: boolean;

@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, User as UserIcon, Repeat, Zap } from "lucide-react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabase/browser";
 import { AuthCTA } from "../components/auth/AuthCTA";
 import { UserMenu } from "../components/auth/UserMenu";
 

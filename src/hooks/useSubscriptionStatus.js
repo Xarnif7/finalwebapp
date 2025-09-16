@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { useAuth } from "../auth/AuthProvider";
+import { useAuth } from "../components/auth/AuthProvider";
 import { apiClient } from "../lib/apiClient";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabase/browser";
 
 // Subscription status hook that checks the API endpoint
 export function useSubscriptionStatus(options = {}) {

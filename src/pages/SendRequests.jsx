@@ -28,8 +28,8 @@ import {
   Phone,
   AtSign
 } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
-import { useAuth } from '@/auth/AuthProvider';
+import { supabase } from '@/lib/supabase/browser';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { toast } from 'react-hot-toast';
 import PageHeader from '@/components/ui/PageHeader';
 

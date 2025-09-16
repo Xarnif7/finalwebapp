@@ -1,6 +1,6 @@
 ﻿import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabase/browser";
 
 const PROTECTED = ["/dashboard","/onboarding","/settings","/clients","/reviews","/conversations","/customers","/automations","/reporting","/public-feedback"];
 

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/AuthProvider";
+import { useAuth } from "../components/auth/AuthProvider";
 import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Star, Zap, Crown } from "lucide-react";
 import { apiClient } from "../lib/apiClient";

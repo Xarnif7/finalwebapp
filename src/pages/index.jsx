@@ -1,6 +1,6 @@
 ﻿import Layout from "./Layout.jsx";
 import AuthCallback from "./AuthCallback.jsx";
-import AuthProvider, { useAuth } from "../auth/AuthProvider";
+import { AuthProvider, useAuth } from "../components/auth/AuthProvider";
 import { useState, useEffect } from "react";
 import Landing from "./Landing";
 import Onboarding from "./Onboarding";
@@ -303,19 +303,34 @@ function PagesContent() {
   console.log('[PAGES] Current page resolved to:', currentPage);
   console.log('[PAGES] PAGES[currentPage] exists:', !!PAGES[currentPage]);
 
+  // Determine if this is a dashboard route that needs auth
+  const isDashboardRoute = [
+    'Onboarding', 'Dashboard', 'Clients', 'Settings', 'Reviews', 'ReviewTracking', 
+    'ReviewLanding', 'AutomatedRequests', 'ReviewInbox', 'SendRequests', 'SocialPosts', 
+    'Sequences', 'Competitors', 'TeamRoles', 'AuditLog', 'CsvImport', 'Notifications', 
+    'Integrations', 'RevenueImpact', 'Conversations', 'ReviewPerformance', 'PrivateFeedback'
+  ].includes(currentPageName);
+
+  if (isDashboardRoute) {
+    return (
+      <Layout currentPageName={currentPageName}>
+        <DashboardRoutes />
+      </Layout>
+    );
+  }
+
   return (
-    <Layout currentPageName={currentPage}>
-        <Routes>
-        {/* Landing and Auth Routes */}
-        <Route path="/" element={<TrackedComponent component={Landing} name="Landing" />} />
-        <Route path="/landing" element={<TrackedComponent component={Landing} name="Landing" />} />
-        <Route path="/login" element={<LoginGuard><TrackedComponent component={Landing} name="Landing" /></LoginGuard>} />
-        <Route path="/pricing" element={<TrackedComponent component={Paywall} name="Paywall" />} />
-        <Route path="/onboarding" element={<RequireOnboardingAccess><TrackedComponent component={Onboarding} name="Onboarding" /></RequireOnboardingAccess>} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        
-        {/* NEW CONSOLIDATED NAVIGATION STRUCTURE */}
-        
+    <Layout currentPageName={currentPageName}>
+      <MarketingRoutes />
+    </Layout>
+  );
+}
+
+// Dashboard routes that require auth
+const DashboardRoutes = () => (
+  <AuthProvider>
+    <ErrorBoundary>
+      <Routes>
         {/* Customers Tab */}
         <Route path="/customers" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Clients} name="Clients" /></ProtectedRoute>} />
         <Route path="/customers/import" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={CsvImport} name="CsvImport" /></ProtectedRoute>} />
@@ -351,33 +366,48 @@ function PagesContent() {
           <Route path="/public-feedback" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={PrivateFeedback} name="PrivateFeedback" /></ProtectedRoute>} />
         )}
         
-        {/* LEGACY REDIRECTS - Maintain query parameters */}
-        {Object.entries(legacyUrlMappings).map(([oldPath, newPath]) => (
-          <Route 
-            key={oldPath}
-            path={oldPath} 
-            element={<Navigate to={newPath} replace />} 
-          />
-        ))}
-        
-        {/* Marketing routes - must come before wildcard */}
-        <Route path="/features" element={<TrackedComponent component={Features} name="Features" />} />
-        <Route path="/how-it-works" element={<TrackedComponent component={HowItWorks} name="HowItWorks" />} />
-        <Route path="/simple-setup" element={<TrackedComponent component={SimpleSetup} name="SimpleSetup" />} />
-        <Route path="/testimonials" element={<TrackedComponent component={Testimonials} name="Testimonials" />} />
-        <Route path="/paywall" element={<TrackedComponent component={Paywall} name="Paywall" />} />
-        <Route path="/post-checkout" element={<TrackedComponent component={PostCheckout} name="PostCheckout" />} />
-        
-        {/* Public routes */}
-        <Route path="/r/:code" element={<TrackedComponent component={QRRedirect} name="QRRedirect" />} />
-        <Route path="/feedback/:requestId" element={<TrackedComponent component={PrivateFeedback} name="PrivateFeedback" />} />
-        
-        {/* Wildcard route must be last */}
-        <Route path="*" element={<NotFound />} />
-        </Routes>
-    </Layout>
-  );
-}
+        {/* Onboarding */}
+        <Route path="/onboarding" element={<RequireOnboardingAccess><TrackedComponent component={Onboarding} name="Onboarding" /></RequireOnboardingAccess>} />
+      </Routes>
+    </ErrorBoundary>
+  </AuthProvider>
+);
+
+// Marketing routes that don't require auth
+const MarketingRoutes = () => (
+  <Routes>
+    {/* Landing and Auth Routes */}
+    <Route path="/" element={<TrackedComponent component={Landing} name="Landing" />} />
+    <Route path="/landing" element={<TrackedComponent component={Landing} name="Landing" />} />
+    <Route path="/login" element={<LoginGuard><TrackedComponent component={Landing} name="Landing" /></LoginGuard>} />
+    <Route path="/pricing" element={<TrackedComponent component={Paywall} name="Paywall" />} />
+    <Route path="/auth/callback" element={<AuthCallback />} />
+    
+    {/* Marketing routes */}
+    <Route path="/features" element={<TrackedComponent component={Features} name="Features" />} />
+    <Route path="/how-it-works" element={<TrackedComponent component={HowItWorks} name="HowItWorks" />} />
+    <Route path="/simple-setup" element={<TrackedComponent component={SimpleSetup} name="SimpleSetup" />} />
+    <Route path="/testimonials" element={<TrackedComponent component={Testimonials} name="Testimonials" />} />
+    <Route path="/paywall" element={<TrackedComponent component={Paywall} name="Paywall" />} />
+    <Route path="/post-checkout" element={<TrackedComponent component={PostCheckout} name="PostCheckout" />} />
+    
+    {/* Public routes */}
+    <Route path="/r/:code" element={<TrackedComponent component={QRRedirect} name="QRRedirect" />} />
+    <Route path="/feedback/:requestId" element={<TrackedComponent component={PrivateFeedback} name="PrivateFeedback" />} />
+    
+    {/* LEGACY REDIRECTS - Maintain query parameters */}
+    {Object.entries(legacyUrlMappings).map(([oldPath, newPath]) => (
+      <Route 
+        key={oldPath}
+        path={oldPath} 
+        element={<Navigate to={newPath} replace />} 
+      />
+    ))}
+    
+    {/* Wildcard route must be last */}
+    <Route path="*" element={<NotFound />} />
+  </Routes>
+);
 
 export default function Pages() {
   // Router provider confirmation
@@ -396,11 +426,9 @@ export default function Pages() {
 
   return (
     <Router>
-      <AuthProvider>
-        <ErrorBoundary>
-          <PagesContent />
-        </ErrorBoundary>
-      </AuthProvider>
+      <ErrorBoundary>
+        <PagesContent />
+      </ErrorBoundary>
     </Router>
   );
 }

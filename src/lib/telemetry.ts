@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase } from './supabase/browser';
 
 export async function logEvent(businessId: string, eventType: string, eventData?: Record<string, any>) {
   try {

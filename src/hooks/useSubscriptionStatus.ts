@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import { useAuth } from './useAuth';
+import { supabase } from '../lib/supabase/browser';
+import { useAuth } from '../components/auth/AuthProvider';
 
 export type SubscriptionStatus = 
   | 'none' 

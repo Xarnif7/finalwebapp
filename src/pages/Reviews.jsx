@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Send, MessageSquare, Mail, Eye, MousePointer, X, Loader2 } from "lucide-react";
 import { Client, ReviewRequest, User } from "@/api/entities";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabase/browser";
 import { sendRequest } from "@/api/functions"; // Use default import
 import { motion } from "framer-motion";
 import { format } from "date-fns";

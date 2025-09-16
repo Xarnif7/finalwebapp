@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Client, ReviewRequest, ReviewTracking, User } from "@/api/entities";
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../lib/supabase/browser";
 
 const StatCard = ({ title, value, change, icon: Icon, color, delay = 0 }) => {
   return (

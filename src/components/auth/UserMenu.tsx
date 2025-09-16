@@ -9,9 +9,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LogOut, User as UserIcon, Repeat, CreditCard, Settings, LayoutDashboard } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from './AuthProvider';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabase/browser';
 
 const UserAvatar = ({ user, size = "40px" }) => {
   const getInitials = () => {

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../../lib/supabase/browser';
 
 export interface AuthState {
   status: 'loading' | 'signedOut' | 'signedIn';
@@ -15,6 +15,16 @@ export interface AuthContextType extends AuthState {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Default auth state for when used outside provider
+const defaultAuthState: AuthContextType = {
+  status: 'signedOut',
+  user: null,
+  session: null,
+  signOut: async () => {
+    console.warn('signOut called outside AuthProvider context');
+  },
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
@@ -97,10 +107,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Safe useAuth hook that never throws
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
+  
+  // Return default state if used outside provider instead of throwing
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    console.warn('useAuth used outside AuthProvider context, returning default signedOut state');
+    return defaultAuthState;
   }
+  
   return context;
 }

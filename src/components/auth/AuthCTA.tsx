@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from './AuthProvider';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabase/browser';
 
 export function AuthCTA() {
   const { status: authStatus, user } = useAuth();

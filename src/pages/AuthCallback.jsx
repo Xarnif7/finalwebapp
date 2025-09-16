@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase/browser';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -83,7 +83,9 @@ export default function AuthCallback() {
             
             localStorage.removeItem('postLoginRedirect');
             console.log('[AuthCallback] Redirecting to:', dest);
-            navigate(dest, { replace: true });
+            
+            // Force a page refresh to ensure all components re-render with new auth state
+            window.location.href = dest;
             
           } catch (subError) {
             console.error('[AuthCallback] Subscription check error:', subError);

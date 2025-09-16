@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import PageHeader from "@/components/ui/PageHeader";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
 import { useDashboard } from "@/components/providers/DashboardProvider";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import { useToast } from "@/components/ui/use-toast";
 import { QrCode, Download, Copy, Plus, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

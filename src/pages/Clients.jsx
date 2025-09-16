@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Users, TrendingUp, UserCheck, Search, Upload, Edit, Archive, Trash2, Calendar, Mail, Phone } from "lucide-react";
 import { useCustomersData } from "@/hooks/useCustomersData";
 import CustomerFormModal from "../components/clients/CustomerFormModal";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase/browser";
 import CsvImportDialog from "../components/clients/CsvImportDialog";
 import PageHeader from "@/components/ui/PageHeader";
 import { isFeatureEnabled } from "@/lib/featureFlags";
