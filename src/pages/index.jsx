@@ -36,7 +36,6 @@ import RequireOnboardingAccess from "../components/RequireOnboardingAccess";
 import ErrorBoundary from "../components/ui/error-boundary";
 import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 import { SubscriptionGate } from "../components/auth/SubscriptionGate";
-import { AuthGuard } from "../components/auth/AuthGuard";
 import { LoginGuard, DashboardGuard } from "../components/auth/RouteGuards";
 import { legacyUrlMappings } from "../config/nav";
 import { FEATURE_FLAGS, isFeatureEnabled } from "../lib/featureFlags";
@@ -309,7 +308,6 @@ function PagesContent() {
 
   return (
     <Layout currentPageName={currentPage}>
-      <AuthGuard>
         <Routes>
         {/* Landing and Auth Routes */}
         <Route path="/" element={<TrackedComponent component={Landing} name="Landing" />} />
@@ -380,7 +378,6 @@ function PagesContent() {
         {/* Wildcard route must be last */}
         <Route path="*" element={<NotFound />} />
         </Routes>
-      </AuthGuard>
     </Layout>
   );
 }
