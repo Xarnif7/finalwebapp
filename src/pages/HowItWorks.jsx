@@ -30,8 +30,10 @@ const AnimatedSection = ({ children, className = "", id }) => {
 
 export default function HowItWorks() {
   const navigate = useNavigate();
-  const { user, handleAuth } = useAuth();
-  const { active: hasSubscription } = useSubscriptionStatus();
+  // Temporarily disabled auth to fix site
+  const user = null;
+  const handleAuth = () => {};
+  const hasSubscription = false;
   
   console.log('[HOWITWORKS] Component rendering with props:', { 
     user: !!user, 

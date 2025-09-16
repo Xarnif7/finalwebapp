@@ -208,7 +208,10 @@ function _getCurrentPage(url) {
 }
 
 function RequireAuth({ children }) {
-  const { user, loading, handleAuth } = useAuth();
+  // Temporarily disabled auth to fix site
+  const user = null;
+  const loading = false;
+  const handleAuth = () => {};
   const [authTriggered, setAuthTriggered] = useState(false);
 
   // If no user and we haven't triggered auth yet, trigger it once

@@ -9,8 +9,12 @@ import { apiClient } from "../lib/apiClient";
 
 export default function Paywall() {
   const navigate = useNavigate();
-  const { user, loading, handleAuth } = useAuth();
-  const { active: hasSubscription, loading: subLoading } = useSubscriptionStatus();
+  // Temporarily disabled auth to fix site
+  const user = null;
+  const loading = false;
+  const handleAuth = () => {};
+  const hasSubscription = false;
+  const subLoading = false;
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(null);
   const [showPaywall, setShowPaywall] = useState(false);
