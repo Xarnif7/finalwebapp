@@ -233,7 +233,7 @@ ALTER TABLE competitors ADD CONSTRAINT fk_competitors_business_id FOREIGN KEY (b
 ALTER TABLE alerts ADD CONSTRAINT fk_alerts_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
 ALTER TABLE audit_log ADD CONSTRAINT fk_audit_log_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
 
--- 8. Enable RLS on all tenant tables
+-- 8. Enable RLS on all tenant tables (but don't create policies yet)
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
@@ -245,7 +245,23 @@ ALTER TABLE competitors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 
--- 9. Create RLS policies for data isolation
+-- 9. Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_customers_business_id ON customers(business_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_business_id ON reviews(business_id);
+CREATE INDEX IF NOT EXISTS idx_messages_business_id ON messages(business_id);
+CREATE INDEX IF NOT EXISTS idx_ai_drafts_business_id ON ai_drafts(business_id);
+CREATE INDEX IF NOT EXISTS idx_sequences_business_id ON sequences(business_id);
+CREATE INDEX IF NOT EXISTS idx_scheduled_jobs_business_id ON scheduled_jobs(business_id);
+CREATE INDEX IF NOT EXISTS idx_csv_imports_business_id ON csv_imports(business_id);
+CREATE INDEX IF NOT EXISTS idx_competitors_business_id ON competitors(business_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_business_id ON alerts(business_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_business_id ON audit_log(business_id);
+
+-- 10. Create indexes for profiles table
+CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_business_id ON profiles(business_id);
+
+-- 11. Create RLS policies for data isolation (after all tables and indexes are created)
 -- These policies ensure users can only access data from their business
 
 -- Customers policies
@@ -523,22 +539,6 @@ CREATE POLICY "Users can insert audit_log to their business" ON audit_log
             SELECT business_id FROM profiles WHERE user_id = auth.uid()
         )
     );
-
--- 10. Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_customers_business_id ON customers(business_id);
-CREATE INDEX IF NOT EXISTS idx_reviews_business_id ON reviews(business_id);
-CREATE INDEX IF NOT EXISTS idx_messages_business_id ON messages(business_id);
-CREATE INDEX IF NOT EXISTS idx_ai_drafts_business_id ON ai_drafts(business_id);
-CREATE INDEX IF NOT EXISTS idx_sequences_business_id ON sequences(business_id);
-CREATE INDEX IF NOT EXISTS idx_scheduled_jobs_business_id ON scheduled_jobs(business_id);
-CREATE INDEX IF NOT EXISTS idx_csv_imports_business_id ON csv_imports(business_id);
-CREATE INDEX IF NOT EXISTS idx_competitors_business_id ON competitors(business_id);
-CREATE INDEX IF NOT EXISTS idx_alerts_business_id ON alerts(business_id);
-CREATE INDEX IF NOT EXISTS idx_audit_log_business_id ON audit_log(business_id);
-
--- 11. Create indexes for profiles table
-CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id);
-CREATE INDEX IF NOT EXISTS idx_profiles_business_id ON profiles(business_id);
 
 -- Migration completed successfully
 SELECT 'Multi-tenant schema migration completed successfully' as status;
