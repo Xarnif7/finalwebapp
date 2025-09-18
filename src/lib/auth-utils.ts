@@ -12,10 +12,12 @@ export async function signInWithGoogle(): Promise<void> {
   const supabaseUrl = getSupabaseUrl();
   const redirectTo = `${siteUrl}/auth/callback?next=/`;
 
-  // Dev-only debug logging
-  if (import.meta.env.DEV) {
-    console.log(`[OAUTH] provider='google' redirectTo=${redirectTo} supabaseUrl=${supabaseUrl}`);
-  }
+  // Debug logging for both dev and production
+  console.log(`[OAUTH] Environment: ${import.meta.env.MODE}`);
+  console.log(`[OAUTH] VITE_SITE_URL: ${import.meta.env.VITE_SITE_URL}`);
+  console.log(`[OAUTH] Resolved siteUrl: ${siteUrl}`);
+  console.log(`[OAUTH] redirectTo: ${redirectTo}`);
+  console.log(`[OAUTH] supabaseUrl: ${supabaseUrl}`);
 
   try {
     await supabase.auth.signInWithOAuth({
