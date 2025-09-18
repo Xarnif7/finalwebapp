@@ -19,7 +19,7 @@ app.use(cors({
 app.use(express.json());
 
 // Initialize Stripe
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_51RtYR7Fr7CPBk7jlcadsIjiuw8z1qSvrq0SWJYkRwDRE1rpI1CctOOaPwLXgkq2Q0pRaPGt0f7tIwBFisOurg0PA00b5iOOwkR';
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 console.log('[SERVER] Stripe secret key found:', stripeSecretKey ? 'Yes' : 'No');
 
 if (!stripeSecretKey) {
