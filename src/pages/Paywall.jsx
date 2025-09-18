@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
 import { signInWithGoogle } from "../lib/auth-utils";
+import { supabase } from "../lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Star, Zap, Crown } from "lucide-react";
 import { apiClient } from "../lib/apiClient";
@@ -188,7 +189,7 @@ export default function Paywall() {
 
       // Map planTier to priceId (you'll need to update this based on your actual Stripe price IDs)
       const priceIdMap = {
-        'starter': import.meta.env.VITE_STRIPE_STARTER_PRICE_ID || 'price_starter',
+        'basic': import.meta.env.VITE_STRIPE_BASIC_PRICE_ID || 'price_basic',
         'pro': import.meta.env.VITE_STRIPE_PRO_PRICE_ID || 'price_pro',
         'enterprise': import.meta.env.VITE_STRIPE_ENTERPRISE_PRICE_ID || 'price_enterprise',
       };
