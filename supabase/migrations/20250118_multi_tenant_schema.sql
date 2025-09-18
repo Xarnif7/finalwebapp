@@ -159,66 +159,34 @@ ALTER TABLE competitors ADD COLUMN IF NOT EXISTS business_id uuid;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS business_id uuid;
 ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS business_id uuid;
 
--- 4. Backfill existing data with placeholder business
--- Create a default business for existing data
--- First, let's check what columns exist in the businesses table
+-- 4. Skip businesses table insert for now
+-- The businesses table already exists with complex schema
+-- We'll handle business creation in the application code instead
+-- This avoids constraint issues with the existing table structure
+
+-- Backfill existing rows with a business_id from existing businesses table
+-- Use the first available business ID, or skip if no businesses exist
 DO $$
 DECLARE
-    column_count integer;
-    has_created_by boolean := false;
-    has_owner_id boolean := false;
-    has_created_at boolean := false;
-    has_updated_at boolean := false;
-    has_is_active boolean := false;
-    has_is_deleted boolean := false;
-    has_created_by_user_id boolean := false;
-    has_created_by_user_email boolean := false;
-    has_created_by_user_name boolean := false;
+    first_business_id uuid;
 BEGIN
-    -- Check which columns exist
-    SELECT COUNT(*) INTO column_count FROM information_schema.columns WHERE table_name = 'businesses';
+    -- Get the first business ID from the existing businesses table
+    SELECT id INTO first_business_id FROM businesses LIMIT 1;
     
-    -- Check for specific columns
-    SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'businesses' AND column_name = 'created_by') INTO has_created_by;
-    SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'businesses' AND column_name = 'owner_id') INTO has_owner_id;
-    SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'businesses' AND column_name = 'created_at') INTO has_created_at;
-    SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'businesses' AND column_name = 'updated_at') INTO has_updated_at;
-    SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'businesses' AND column_name = 'is_active') INTO has_is_active;
-    SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'businesses' AND column_name = 'is_deleted') INTO has_is_deleted;
-    SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'businesses' AND column_name = 'created_by_user_id') INTO has_created_by_user_id;
-    SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'businesses' AND column_name = 'created_by_user_email') INTO has_created_by_user_email;
-    SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'businesses' AND column_name = 'created_by_user_name') INTO has_created_by_user_name;
-    
-    -- Insert based on what columns exist
-    IF has_created_by AND has_owner_id AND has_created_at AND has_updated_at AND has_is_active AND has_is_deleted AND has_created_by_user_id AND has_created_by_user_email AND has_created_by_user_name THEN
-        -- Full schema with all columns
-        INSERT INTO businesses (id, name, created_by, owner_id, created_at, updated_at, is_active, is_deleted, created_by_user_id, created_by_user_email, created_by_user_name) 
-        VALUES ('00000000-0000-0000-0000-000000000001', 'Legacy Data Business', '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', now(), now(), true, false, '00000000-0000-0000-0000-000000000000', 'legacy@system.local', 'System User')
-        ON CONFLICT (id) DO NOTHING;
-    ELSIF has_created_by THEN
-        -- Just created_by column
-        INSERT INTO businesses (id, name, created_by) 
-        VALUES ('00000000-0000-0000-0000-000000000001', 'Legacy Data Business', '00000000-0000-0000-0000-000000000000')
-        ON CONFLICT (id) DO NOTHING;
-    ELSE
-        -- Basic schema
-        INSERT INTO businesses (id, name) 
-        VALUES ('00000000-0000-0000-0000-000000000001', 'Legacy Data Business')
-        ON CONFLICT (id) DO NOTHING;
+    -- Only backfill if we found a business
+    IF first_business_id IS NOT NULL THEN
+        UPDATE customers SET business_id = first_business_id WHERE business_id IS NULL;
+        UPDATE reviews SET business_id = first_business_id WHERE business_id IS NULL;
+        UPDATE messages SET business_id = first_business_id WHERE business_id IS NULL;
+        UPDATE ai_drafts SET business_id = first_business_id WHERE business_id IS NULL;
+        UPDATE sequences SET business_id = first_business_id WHERE business_id IS NULL;
+        UPDATE scheduled_jobs SET business_id = first_business_id WHERE business_id IS NULL;
+        UPDATE csv_imports SET business_id = first_business_id WHERE business_id IS NULL;
+        UPDATE competitors SET business_id = first_business_id WHERE business_id IS NULL;
+        UPDATE alerts SET business_id = first_business_id WHERE business_id IS NULL;
+        UPDATE audit_log SET business_id = first_business_id WHERE business_id IS NULL;
     END IF;
 END $$;
-
--- Backfill existing rows with the default business_id
-UPDATE customers SET business_id = '00000000-0000-0000-0000-000000000001' WHERE business_id IS NULL;
-UPDATE reviews SET business_id = '00000000-0000-0000-0000-000000000001' WHERE business_id IS NULL;
-UPDATE messages SET business_id = '00000000-0000-0000-0000-000000000001' WHERE business_id IS NULL;
-UPDATE ai_drafts SET business_id = '00000000-0000-0000-0000-000000000001' WHERE business_id IS NULL;
-UPDATE sequences SET business_id = '00000000-0000-0000-0000-000000000001' WHERE business_id IS NULL;
-UPDATE scheduled_jobs SET business_id = '00000000-0000-0000-0000-000000000001' WHERE business_id IS NULL;
-UPDATE csv_imports SET business_id = '00000000-0000-0000-0000-000000000001' WHERE business_id IS NULL;
-UPDATE competitors SET business_id = '00000000-0000-0000-0000-000000000001' WHERE business_id IS NULL;
-UPDATE alerts SET business_id = '00000000-0000-0000-0000-000000000001' WHERE business_id IS NULL;
-UPDATE audit_log SET business_id = '00000000-0000-0000-0000-000000000001' WHERE business_id IS NULL;
 
 -- 5. Set NOT NULL constraints after backfill
 ALTER TABLE customers ALTER COLUMN business_id SET NOT NULL;
