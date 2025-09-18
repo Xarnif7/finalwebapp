@@ -35,9 +35,9 @@ export default function PostCheckout() {
         console.log('[POSTCHECKOUT] Verify response:', data);
 
         if (data.ok) {
-          console.log('[POSTCHECKOUT] Payment verified, navigating to onboarding');
-          // Instant redirect to onboarding
-          navigate('/onboarding', { replace: true });
+          console.log('[POSTCHECKOUT] Payment verified, navigating to dashboard');
+          // Instant redirect to dashboard
+          navigate('/dashboard', { replace: true });
         } else if (data.reason === 'pending') {
           console.log('[POSTCHECKOUT] Payment still pending, will retry');
           if (retryCount < maxRetries) {

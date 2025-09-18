@@ -36,10 +36,18 @@ const UserAvatar = ({ user, size = "40px" }) => {
 
 export function Header() {
   const { status: authStatus, user } = useAuth();
-  const { active: hasActive, loading: subLoading } = useSubscriptionStatus();
+  const subscriptionStatus = useSubscriptionStatus();
+  const { active: hasActive, loading: subLoading } = subscriptionStatus;
   const navigate = useNavigate();
   const [refreshKey, setRefreshKey] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[HEADER] Subscription status:', subscriptionStatus);
+    console.log('[HEADER] Auth status:', authStatus);
+    console.log('[HEADER] User:', user?.id);
+  }, [subscriptionStatus, authStatus, user]);
 
   // Listen for auth state changes to force re-render
   useEffect(() => {

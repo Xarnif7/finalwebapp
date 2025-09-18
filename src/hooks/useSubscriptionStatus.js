@@ -5,7 +5,8 @@ import { supabase } from "../lib/supabase/browser";
 
 // Subscription status hook that checks the API endpoint
 export function useSubscriptionStatus(options = {}) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, status: authStatus } = useAuth();
+  const isAuthenticated = authStatus === 'signedIn';
   const [status, setStatus] = useState({ active: false, status: 'none', plan_tier: null, onboarding_completed: false, loading: true });
   const lastCheck = useRef(0);
   const lastUserId = useRef(null);
@@ -83,17 +84,24 @@ export function useSubscriptionStatus(options = {}) {
           throw new Error('No active session');
         }
         
-        // Call the subscription status API with auth token
-        let endpoint = '/api/subscription/status';
+        // Call the local subscription status API with auth token
+        let endpoint = 'http://localhost:3001/api/subscription/status';
         if (forceRefresh) {
           endpoint += `?t=${Date.now()}`; // Add timestamp to bypass cache
         }
         
-        const apiPromise = apiClient.get(endpoint, {
+        const apiPromise = fetch(endpoint, {
+          method: 'GET',
           headers: {
-            'Authorization': `Bearer ${session.access_token}`
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
           },
           signal: abortControllerRef.current.signal
+        }).then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          }
+          return res.json();
         });
         
         const data = await Promise.race([apiPromise, timeoutPromise]);

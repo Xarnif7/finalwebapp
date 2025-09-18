@@ -1,7 +1,7 @@
 // API client helper for dev vs prod environments
 const getBaseUrl = () => {
   if (window.location.origin.includes('localhost:5173') || window.location.origin.includes('localhost:5174')) {
-    return 'http://localhost:3000';
+    return 'http://localhost:3001';
   }
   return '';
 };

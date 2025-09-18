@@ -187,19 +187,37 @@ export default function Paywall() {
         throw new Error('No valid session found');
       }
 
-      // Map planTier to priceId (you'll need to update this based on your actual Stripe price IDs)
+      // Map planTier to priceId (temporarily hardcoded to test checkout)
       const priceIdMap = {
-        'basic': import.meta.env.VITE_STRIPE_BASIC_PRICE_ID || 'price_basic',
-        'pro': import.meta.env.VITE_STRIPE_PRO_PRICE_ID || 'price_pro',
-        'enterprise': import.meta.env.VITE_STRIPE_ENTERPRISE_PRICE_ID || 'price_enterprise',
+        'basic': 'price_1Rull2Fr7CPBk7jlff5ak4uq',
+        'pro': 'price_1Rvn5oFr7CPBk7jl2CryiFFX',
+        'enterprise': 'price_1RvnATFr7CPBk7jlpYCYcU9q',
       };
+
+      console.log('[PAYWALL] Environment variables:', {
+        VITE_STRIPE_BASIC_PRICE_ID: import.meta.env.VITE_STRIPE_BASIC_PRICE_ID,
+        VITE_STRIPE_PRO_PRICE_ID: import.meta.env.VITE_STRIPE_PRO_PRICE_ID,
+        VITE_STRIPE_ENTERPRISE_PRICE_ID: import.meta.env.VITE_STRIPE_ENTERPRISE_PRICE_ID,
+      });
 
       const priceId = priceIdMap[planTier];
       if (!priceId) {
-        throw new Error(`Invalid plan tier: ${planTier}`);
+        console.error('[PAYWALL] Missing price ID for plan tier:', planTier);
+        console.error('[PAYWALL] Available price IDs:', priceIdMap);
+        throw new Error(`Invalid plan tier: ${planTier}. Available tiers: ${Object.keys(priceIdMap).join(', ')}`);
       }
 
-      const response = await fetch('/api/checkout/create-session', {
+      let url;
+      
+      // Use local API server for development, production API for production
+      const apiUrl = import.meta.env.DEV 
+        ? 'http://localhost:3001/api/checkout/create-session'
+        : '/api/checkout/create-session';
+
+      console.log('[PAYWALL] Using API URL:', apiUrl);
+      console.log('[PAYWALL] Price ID:', priceId);
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -229,7 +247,7 @@ export default function Paywall() {
         throw new Error('Invalid response format from server');
       }
 
-      const { url } = responseData;
+      url = responseData.url;
       console.log('[PAYWALL] Got checkout URL:', url);
       
       if (url) {
