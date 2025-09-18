@@ -1,6 +1,4 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default function handler(req, res) {
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ 
@@ -10,7 +8,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   // Read the X-Zapier-Token header
-  const zapierToken = req.headers['x-zapier-token'] as string;
+  const zapierToken = req.headers['x-zapier-token'];
 
   // Check if token is missing or doesn't match
   if (!zapierToken || zapierToken !== process.env.ZAPIER_TOKEN) {
