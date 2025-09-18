@@ -14,9 +14,11 @@ import { toast } from "react-hot-toast";
 import ZapierCrmCard from "../components/zapier/ZapierCrmCard";
 import IntegrationActivityPanel from "../components/zapier/IntegrationActivityPanel";
 import { useAuth } from "../components/auth/AuthProvider";
+import { useCurrentBusinessId } from "../lib/tenancy";
 
 export default function ClientsPage() {
   const { user } = useAuth();
+  const { businessId, loading: businessLoading, error: businessError } = useCurrentBusinessId();
   const [showAddForm, setShowAddForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -47,32 +49,20 @@ export default function ClientsPage() {
 
   // Fetch stats
   useEffect(() => {
-    fetchStats();
-  }, []);
+    if (businessId) {
+      fetchStats();
+    }
+  }, [businessId]);
 
   const fetchStats = async () => {
+    if (!businessId) return;
+
     try {
-      // Don't set loading to true to prevent flash
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get user's business_id from profiles
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('business_id')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError || !profile?.business_id) {
-        console.error('Business not found');
-        return;
-      }
-
       // Get total customers
       const { count: totalCustomers, error: totalError } = await supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
-        .eq('business_id', profile.business_id)
+        .eq('business_id', businessId)
         .eq('status', 'active');
 
       if (totalError) {
@@ -88,7 +78,7 @@ export default function ClientsPage() {
       const { count: newThisMonth, error: newMonthError } = await supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
-        .eq('business_id', profile.business_id)
+        .eq('business_id', businessId)
         .eq('status', 'active')
         .gte('created_at', startOfMonth.toISOString());
 
@@ -104,8 +94,6 @@ export default function ClientsPage() {
       });
     } catch (error) {
       console.error('Failed to fetch stats:', error);
-    } finally {
-      // Don't set loading to false to prevent flash
     }
   };
 
@@ -216,12 +204,14 @@ export default function ClientsPage() {
   const segmentsEnabled = isFeatureEnabled('customersSegments');
 
   async function previewBulkMagic() {
+    if (!businessId) return;
+    
     const ids = bulkSelection.length ? bulkSelection : customers.map(c => c.id);
     const res = await fetch('/api/review-requests/schedule', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        businessId: (await supabase.from('profiles').select('business_id').single()).data?.business_id,
+        businessId,
         items: ids.map(id => ({ customerId: id, channel: 'sms', strategy: 'magic' })),
         dryRun: true,
       }),
@@ -230,12 +220,14 @@ export default function ClientsPage() {
   }
 
   async function scheduleBulkMagic() {
+    if (!businessId) return;
+    
     const ids = bulkSelection.length ? bulkSelection : customers.map(c => c.id);
     await fetch('/api/review-requests/schedule', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        businessId: (await supabase.from('profiles').select('business_id').single()).data?.business_id,
+        businessId,
         items: ids.map(id => ({ customerId: id, channel: 'sms', strategy: 'magic' })),
         dryRun: false,
       }),
@@ -243,6 +235,44 @@ export default function ClientsPage() {
     setBulkPreview(null);
     setBulkSelection([]);
     toast.success('Magic send scheduled');
+  }
+
+  // Show business error state
+  if (businessError) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Customers"
+          description="Manage your customer relationships and track their information"
+        />
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8 text-red-600">
+              <div className="text-lg font-medium mb-2">Business Access Error</div>
+              <div className="text-sm">{businessError}</div>
+              <div className="text-xs text-muted-foreground mt-2">
+                Please contact support if this issue persists.
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show loading state while business is loading
+  if (businessLoading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Customers"
+          description="Manage your customer relationships and track their information"
+        />
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
   }
 
   return (

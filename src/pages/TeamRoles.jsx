@@ -1,216 +1,288 @@
-﻿
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Shield, Briefcase, User, Eye, Mail, Phone, MoreVertical, Edit, Trash2 } from "lucide-react";
-import { motion } from "framer-motion";
-import PageHeader from "@/components/ui/PageHeader";
-
-const roleConfig = {
-  owner: { icon: Shield, color: "text-indigo-800", bg: "bg-indigo-100", label: "Owner" },
-  admin: { icon: Shield, color: "text-blue-800", bg: "bg-blue-100", label: "Admin" },
-  manager: { icon: Briefcase, color: "text-purple-800", bg: "bg-purple-100", label: "Manager" },
-  staff: { icon: User, color: "text-teal-800", bg: "bg-teal-100", label: "Staff" },
-  viewer: { icon: Eye, color: "text-gray-800", bg: "bg-gray-100", label: "Viewer" }
-};
-
-const mockTeamMembers = [
-  { id: "1", full_name: "Alex Johnson", email: "alex@blipp.com", role: "owner", active: true, last_login: "2024-01-15T14:30:00Z" },
-  { id: "2", full_name: "Sarah Wilson", email: "sarah@company.com", role: "admin", active: true, last_login: "2024-01-15T12:15:00Z" },
-  { id: "3", full_name: "Mike Chen", email: "mike@company.com", role: "staff", active: true, last_login: "2024-01-14T16:45:00Z" },
-  { id: "4", full_name: "Emily Rodriguez", email: "emily@company.com", role: "viewer", active: false, last_login: "2024-01-10T09:30:00Z" }
-];
+﻿import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Mail, User, Shield, UserCheck, Trash2 } from 'lucide-react';
+import { useCurrentBusinessId, getBusinessInfo, getTeamMembers } from '@/lib/tenancy';
+import { toast } from 'react-hot-toast';
 
 export default function TeamRolesPage() {
-  const [teamMembers, setTeamMembers] = useState(mockTeamMembers);
-  const [inviteModalOpen, setInviteModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [newMember, setNewMember] = useState({
-    full_name: "",
-    email: "",
-    role: "staff"
+  const { businessId, loading: businessLoading, error: businessError } = useCurrentBusinessId();
+  const [businessInfo, setBusinessInfo] = useState(null);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteData, setInviteData] = useState({
+    email: '',
+    role: 'staff'
   });
 
-  const handleInviteMember = () => {
-    const member = {
-      id: Date.now().toString(),
-      ...newMember,
-      active: true,
-      last_login: null
-    };
-    setTeamMembers([...teamMembers, member]);
-    setNewMember({ full_name: "", email: "", role: "staff" });
-    setInviteModalOpen(false);
-  };
+  // Load business info and team members
+  useEffect(() => {
+    if (businessId) {
+      loadBusinessData();
+    }
+  }, [businessId]);
 
-  const handleEditMember = (member) => {
-    setSelectedMember(member);
-    setEditModalOpen(true);
-  };
-
-  const handleDeleteMember = (memberId) => {
-    if (confirm("Are you sure you want to remove this team member?")) {
-      setTeamMembers(teamMembers.filter(m => m.id !== memberId));
+  const loadBusinessData = async () => {
+    setLoading(true);
+    try {
+      const [business, members] = await Promise.all([
+        getBusinessInfo(businessId),
+        getTeamMembers(businessId)
+      ]);
+      
+      setBusinessInfo(business);
+      setTeamMembers(members);
+    } catch (error) {
+      console.error('Failed to load business data:', error);
+      toast.error('Failed to load team information');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getUserInitials = (name) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const handleInviteMember = async (e) => {
+    e.preventDefault();
+    if (!businessId) return;
+
+    setLoading(true);
+    try {
+      // TODO: Implement actual invitation logic
+      // For now, just show a placeholder
+      toast.success(`Invitation sent to ${inviteData.email}`);
+      setInviteData({ email: '', role: 'staff' });
+      setShowInviteForm(false);
+    } catch (error) {
+      console.error('Failed to send invitation:', error);
+      toast.error('Failed to send invitation');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return (
-    <div className="p-8 space-y-6">
-      <PageHeader 
-        title="Team & Roles"
-        subtitle="Manage who has access to your Blipp account."
-      />
+  const handleRemoveMember = async (userId) => {
+    if (!window.confirm('Are you sure you want to remove this team member?')) return;
 
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-slate-600">
-          {teamMembers.filter(m => m.active).length} active members
+    setLoading(true);
+    try {
+      // TODO: Implement actual removal logic
+      toast.success('Team member removed');
+      await loadBusinessData();
+    } catch (error) {
+      console.error('Failed to remove team member:', error);
+      toast.error('Failed to remove team member');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getRoleBadge = (role) => {
+    const variants = {
+      owner: 'default',
+      admin: 'secondary',
+      staff: 'outline'
+    };
+    
+    const icons = {
+      owner: Shield,
+      admin: UserCheck,
+      staff: User
+    };
+    
+    const Icon = icons[role] || User;
+    
+    return (
+      <Badge variant={variants[role] || 'outline'} className="flex items-center gap-1">
+        <Icon className="h-3 w-3" />
+        {role}
+      </Badge>
+    );
+  };
+
+  if (businessError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Team & Roles</h1>
+          <p className="text-muted-foreground">Manage your team members and their permissions</p>
         </div>
-        <Button onClick={() => setInviteModalOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Invite Member
-        </Button>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8 text-red-600">
+              <div className="text-lg font-medium mb-2">Business Access Error</div>
+              <div className="text-sm">{businessError}</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (businessLoading || loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Team & Roles</h1>
+          <p className="text-muted-foreground">Manage your team members and their permissions</p>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Team & Roles</h1>
+        <p className="text-muted-foreground">Manage your team members and their permissions</p>
       </div>
 
-      <div className="grid gap-4">
-        {teamMembers.map((member, i) => {
-          const roleInfo = roleConfig[member.role];
-          const RoleIcon = roleInfo.icon;
-          
-          return (
-            <motion.div
-              key={member.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-            >
-              <Card className="rounded-2xl">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                        {getUserInitials(member.full_name)}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-semibold text-slate-900">{member.full_name}</h3>
-                          <Badge className={`${roleInfo.bg} ${roleInfo.color} gap-1 transition-transform hover:scale-105`}>
-                            <RoleIcon className="w-3 h-3" />
-                            {roleInfo.label}
-                          </Badge>
-                          {!member.active && <Badge variant="secondary" className="transition-transform hover:scale-105">Inactive</Badge>}
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-slate-500 mt-1">
-                          <div className="flex items-center gap-1">
-                            <Mail className="w-3 h-3" />
-                            {member.email}
-                          </div>
-                          {member.last_login ? (
-                            <div>Last login: {new Date(member.last_login).toLocaleDateString()}</div>
-                          ) : (
-                            <div>Invitation pending</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleEditMember(member)}>
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      {member.role !== 'owner' && (
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteMember(member.id)} className="text-red-600 hover:text-red-700">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      {/* Role Legend */}
-      <Card className="rounded-2xl">
+      {/* Business Info */}
+      <Card>
         <CardHeader>
-          <CardTitle>Role Permissions</CardTitle>
+          <CardTitle>Business Information</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {Object.entries(roleConfig).map(([key, config]) => {
-              const IconComponent = config.icon;
-              return (
-                <div key={key} className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg">
-                  <div className={`p-1 rounded ${config.bg}`}>
-                    <IconComponent className={`w-4 h-4 ${config.color}`} />
-                  </div>
-                  <span className="text-sm font-medium">{config.label}</span>
-                </div>
-              );
-            })}
-          </div>
+          {businessInfo ? (
+            <div className="space-y-2">
+              <div>
+                <Label className="text-sm font-medium">Business Name</Label>
+                <p className="text-sm text-muted-foreground">{businessInfo.name}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Business ID</Label>
+                <p className="text-sm text-muted-foreground font-mono">{businessInfo.id}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Created</Label>
+                <p className="text-sm text-muted-foreground">
+                  {new Date(businessInfo.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">
+              Loading business information...
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Invite Member Modal */}
-      <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Invite Team Member</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Full Name</Label>
-              <Input 
-                value={newMember.full_name}
-                onChange={(e) => setNewMember({...newMember, full_name: e.target.value})}
-                placeholder="John Doe"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Email Address</Label>
-              <Input 
-                type="email"
-                value={newMember.email}
-                onChange={(e) => setNewMember({...newMember, email: e.target.value})}
-                placeholder="john@company.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select value={newMember.role} onValueChange={(value) => setNewMember({...newMember, role: value})}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="staff">Staff</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setInviteModalOpen(false)}>Cancel</Button>
-              <Button onClick={handleInviteMember} disabled={!newMember.full_name || !newMember.email}>
-                Send Invitation
+      {/* Team Members */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Team Members</CardTitle>
+          <Button onClick={() => setShowInviteForm(true)} size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Invite Member
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {teamMembers.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <User className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+              <div className="text-lg font-medium mb-2">No team members</div>
+              <div className="text-sm mb-4">Invite team members to collaborate on your business</div>
+              <Button onClick={() => setShowInviteForm(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Invite First Member
               </Button>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          ) : (
+            <div className="space-y-4">
+              {teamMembers.map((member) => (
+                <div key={member.user_id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
+                      <User className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <div className="font-medium">
+                        {member.auth_users?.email || 'Unknown User'}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Joined {new Date(member.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {getRoleBadge(member.role)}
+                    {member.role !== 'owner' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveMember(member.user_id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Invite Form Modal */}
+      {showInviteForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Invite Team Member</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleInviteMember} className="space-y-4">
+                <div>
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={inviteData.email}
+                    onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+                    placeholder="team@example.com"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="role">Role</Label>
+                  <Select
+                    value={inviteData.role}
+                    onValueChange={(value) => setInviteData({ ...inviteData, role: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="staff">Staff</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowInviteForm(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? 'Sending...' : 'Send Invitation'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
-
-

@@ -219,9 +219,7 @@ app.get('/api/stripe/verify', async (req, res) => {
             .upsert({
               id: user.id, // Use user ID as business ID for simplicity
               name: `${user.email.split('@')[0]}'s Business`,
-              owner_id: user.id,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              created_at: new Date().toISOString()
             }, {
               onConflict: 'id'
             });
@@ -235,15 +233,12 @@ app.get('/api/stripe/verify', async (req, res) => {
           const { error: profileError } = await supabase
             .from('profiles')
             .upsert({
-              id: user.id,
-              email: user.email,
+              user_id: user.id,
               business_id: user.id, // Use user ID as business ID
-              stripe_customer_id: session.customer,
-              onboarding_completed: false,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              role: 'owner',
+              created_at: new Date().toISOString()
             }, {
-              onConflict: 'id'
+              onConflict: 'user_id'
             });
           
           if (profileError) {

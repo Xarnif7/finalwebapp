@@ -73,6 +73,7 @@ export function getPageNameFromPath(pathname: string): string {
     'reviews': 'Reviews',
     'feedback': 'Feedback',
     'settings': 'Settings',
+    'team-roles': 'TeamRoles',
     'onboarding': 'Onboarding',
   };
   

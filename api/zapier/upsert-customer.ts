@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { methodNotAllowed, unauthorized, send, readJson } from '../_lib/http';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminClient, getUserBusinessId, getOrCreateBusinessByName, createAuditLog } from '../_lib/supabase';
+import { generatePayloadHash } from '../_lib/tenancy';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Handle OPTIONS for CORS preflight
@@ -29,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Validate required fields
-  const { external_id, first_name, last_name, email, phone, tags, source, event_ts } = data;
+  const { external_id, first_name, last_name, email, phone, tags, source, event_ts, business_id, external_business_key } = data;
 
   // At least one of email or phone must be present
   if (!email && !phone) {
@@ -37,21 +38,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Initialize Supabase client with service role key
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('[zapier:upsert-customer] Missing Supabase credentials');
-      return send(res, 500, { ok: false, error: 'Server configuration error' });
-    }
+    // Initialize Supabase client
+    const supabase = getAdminClient();
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Resolve business_id from payload or fallback
+    let resolvedBusinessId: string;
+    
+    if (business_id) {
+      resolvedBusinessId = business_id;
+    } else if (external_business_key) {
+      // TODO: Implement external business key lookup
+      // For now, treat as business name
+      resolvedBusinessId = await getOrCreateBusinessByName(external_business_key);
+    } else {
+      // Fallback: use Demo Business
+      resolvedBusinessId = await getOrCreateBusinessByName('Demo Business');
+    }
 
     // Prepare customer data
     const customerData = {
       external_id,
-      business_id: 'demo_business_id', // Placeholder until business_id is provided by Zapier
+      business_id: resolvedBusinessId, // Use resolved business_id
       first_name,
       last_name,
       email,
@@ -62,11 +69,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updated_at: new Date().toISOString()
     };
 
-    // Check if customer with this external_id already exists
+    // Check if customer with this external_id already exists within the same business
     const { data: existingCustomer, error: selectError } = await supabase
       .from('customers')
       .select('id')
       .eq('external_id', external_id)
+      .eq('business_id', resolvedBusinessId)
       .single();
 
     let result;
@@ -76,6 +84,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .from('customers')
         .update(customerData)
         .eq('external_id', external_id)
+        .eq('business_id', resolvedBusinessId)
         .select('id')
         .single();
 
@@ -106,10 +115,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('[zapier:upsert-customer] Created customer:', newCustomer.id);
     }
 
+    // Create audit log entry
+    const payloadHash = generatePayloadHash(data);
+    await createAuditLog(resolvedBusinessId, 'zapier', 'upsert-customer', payloadHash);
+
     // Return success response
     return send(res, 200, {
       ok: true,
       id: result.id,
+      business_id: resolvedBusinessId,
       message: 'Customer upserted'
     });
 
