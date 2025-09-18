@@ -183,17 +183,27 @@ BEGIN
     END IF;
     
     -- Update existing data to use the valid business_id
-    -- Only update tables that exist and have data
-    UPDATE customers SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE reviews SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE messages SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE ai_drafts SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE sequences SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE scheduled_jobs SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE csv_imports SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE competitors SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE alerts SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE audit_log SET business_id = first_business_id WHERE business_id IS NULL;
+    -- Update both NULL values and invalid business_ids
+    UPDATE customers SET business_id = first_business_id 
+    WHERE business_id IS NULL OR business_id NOT IN (SELECT id FROM businesses);
+    UPDATE reviews SET business_id = first_business_id 
+    WHERE business_id IS NULL OR business_id NOT IN (SELECT id FROM businesses);
+    UPDATE messages SET business_id = first_business_id 
+    WHERE business_id IS NULL OR business_id NOT IN (SELECT id FROM businesses);
+    UPDATE ai_drafts SET business_id = first_business_id 
+    WHERE business_id IS NULL OR business_id NOT IN (SELECT id FROM businesses);
+    UPDATE sequences SET business_id = first_business_id 
+    WHERE business_id IS NULL OR business_id NOT IN (SELECT id FROM businesses);
+    UPDATE scheduled_jobs SET business_id = first_business_id 
+    WHERE business_id IS NULL OR business_id NOT IN (SELECT id FROM businesses);
+    UPDATE csv_imports SET business_id = first_business_id 
+    WHERE business_id IS NULL OR business_id NOT IN (SELECT id FROM businesses);
+    UPDATE competitors SET business_id = first_business_id 
+    WHERE business_id IS NULL OR business_id NOT IN (SELECT id FROM businesses);
+    UPDATE alerts SET business_id = first_business_id 
+    WHERE business_id IS NULL OR business_id NOT IN (SELECT id FROM businesses);
+    UPDATE audit_log SET business_id = first_business_id 
+    WHERE business_id IS NULL OR business_id NOT IN (SELECT id FROM businesses);
     
     RAISE NOTICE 'Backfilled existing data with business_id: %', first_business_id;
 END $$;
