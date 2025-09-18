@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';
-import { useAuth } from './auth/AuthProvider';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
 import { PrimaryCTA } from './marketing/ctas';
 import { UserMenu } from './auth/UserMenu';
@@ -35,7 +35,7 @@ export function Header() {
         <div className="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
           <Link to="/" className="flex-shrink-0">
             <img
-              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/0e243f198_NEWBLIPPLOGO.png"
+              src="/images/blipp-logo.svg"
               alt="Blipp"
               className="h-16 w-auto"
             />
@@ -60,7 +60,7 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
         <Link to="/" className="flex-shrink-0">
           <img
-            src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/0e243f198_NEWBLIPPLOGO.png"
+            src="https://xvzkrctudezyasinskyo.supabase.co/storage/v1/object/public/blipp-assets/public/0e243f198_NEWBLIPPLOGO.png"
             alt="Blipp"
             className="h-16 w-auto"
           />

@@ -11,7 +11,7 @@ import { Building2, Loader2 } from "lucide-react"; // Added Loader2, Building2 a
 
 import { motion } from "framer-motion"; // Added framer-motion
 import { supabase } from "../lib/supabase/browser";
-import { useAuth } from "../components/auth/AuthProvider";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export default function Onboarding() {
   const navigate = useNavigate();

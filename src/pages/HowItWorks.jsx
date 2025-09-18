@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { motion, useInView } from "framer-motion";
-import { useAuth } from "../components/auth/AuthProvider";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
 import {
   Settings, Zap, BarChart3, ArrowRight, CheckCircle, MessageSquare,
@@ -49,27 +49,14 @@ export default function HowItWorks() {
       }
     } else {
       // Import supabase for OAuth
-      const { supabase } = await import('../lib/supabase/browser');
+      const { signInWithGoogle } = await import('../lib/auth-utils');
       
       try {
         // Store the current path as redirect destination
         localStorage.setItem('postLoginRedirect', window.location.pathname);
         
         // Initiate Google OAuth
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: `${window.location.origin}/auth/callback`,
-            queryParams: {
-              prompt: 'select_account',
-              include_granted_scopes: 'true'
-            }
-          }
-        });
-
-        if (error) {
-          console.error('OAuth error:', error);
-        }
+        await signInWithGoogle();
       } catch (error) {
         console.error('Sign in error:', error);
       }
@@ -107,7 +94,7 @@ export default function HowItWorks() {
         <section className="pt-20 pb-16 px-6">
           <div className="max-w-4xl mx-auto text-center">
             <motion.h1
-              className="text-4xl md:text-6xl font-bold text-gray-900 mb-6"
+              className="text-4xl md:text-6xl font-display font-bold text-gray-900 mb-6"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1 }}
@@ -115,7 +102,7 @@ export default function HowItWorks() {
               How It <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Works</span>
             </motion.h1>
             <motion.p
-              className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto"
+              className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto font-sans"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 0.2 }}
@@ -143,10 +130,10 @@ export default function HowItWorks() {
                           {step.number}
                         </div>
                         <div>
-                          <h3 className="text-3xl font-bold text-gray-900">{step.title}</h3>
+                          <h3 className="text-3xl font-display font-bold text-gray-900">{step.title}</h3>
                         </div>
                       </div>
-                      <p className="text-lg text-gray-600 mb-8">{step.description}</p>
+                      <p className="text-lg text-gray-600 mb-8 font-sans">{step.description}</p>
                       <div className="space-y-3">
                         {step.features.map((feature, i) => (
                           <motion.div
@@ -158,7 +145,7 @@ export default function HowItWorks() {
                             viewport={{ once: true }}
                           >
                             <CheckCircle className="w-5 h-5 text-green-500" />
-                            <span>{feature}</span>
+                            <span className="font-sans">{feature}</span>
                           </motion.div>
                         ))}
                       </div>
@@ -193,7 +180,7 @@ export default function HowItWorks() {
         </AnimatedSection>
 
         {/* Benefits Section */}
-        <AnimatedSection className="py-24 lg:py-28 px-6 bg-gray-50">
+        <AnimatedSection className="py-24 lg:py-28 px-6">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold text-gray-900 mb-6">Why Businesses Choose Blipp</h2>

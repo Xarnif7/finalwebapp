@@ -31,18 +31,18 @@ const SimpleSetup = () => {
   console.log('[SIMPLESETUP] Component rendering with pathname:', window.location.pathname);
   
   return (
-    <div className="pt-24 pb-20 px-6 bg-gray-50">
+    <div className="pt-24 pb-20 px-6">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold mb-6 text-gray-900">Simple Setup</h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <h1 className="text-5xl font-display font-bold mb-6 text-gray-900">Simple Setup</h1>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto font-sans">
             Getting started with Blipp is incredibly simple. No complex integrations or lengthy setup processes.
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center mb-20">
           <div>
-            <h2 className="text-3xl font-bold mb-8 text-gray-900">Why Choose Blipp?</h2>
+            <h2 className="text-3xl font-display font-bold mb-8 text-gray-900">Why Choose Blipp?</h2>
             <div className="space-y-8">
               {features.map((feature, index) => (
                 <motion.div
@@ -57,8 +57,8 @@ const SimpleSetup = () => {
                     {feature.icon}
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold mb-2 text-gray-900">{feature.title}</h3>
-                    <p className="text-gray-600 leading-relaxed">{feature.description}</p>
+                    <h3 className="text-xl font-sans font-bold mb-2 text-gray-900">{feature.title}</h3>
+                    <p className="text-gray-600 leading-relaxed font-sans">{feature.description}</p>
                   </div>
                 </motion.div>
               ))}
@@ -67,7 +67,7 @@ const SimpleSetup = () => {
 
           <div>
             <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
-              <h3 className="text-2xl font-bold mb-6 text-gray-900 text-center">Get Started in 4 Easy Steps</h3>
+              <h3 className="text-2xl font-display font-bold mb-6 text-gray-900 text-center">Get Started in 4 Easy Steps</h3>
               <div className="space-y-4">
                 {steps.map((step, index) => (
                   <motion.div
@@ -81,7 +81,7 @@ const SimpleSetup = () => {
                     <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
                       {index + 1}
                     </div>
-                    <span className="text-gray-800 font-medium">{step}</span>
+                    <span className="text-gray-800 font-sans font-medium">{step}</span>
                     <Check className="w-5 h-5 text-green-500 ml-auto" />
                   </motion.div>
                 ))}

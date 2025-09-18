@@ -39,6 +39,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.info('[AUTH] Provider mounted (tree):', typeof window === 'undefined' ? 'server/app' : 'client/pages-or-app');
     }
 
+        // Skip env check since we're using hardcoded values
+        console.log('[AUTH] Using hardcoded Supabase client');
+
     // Get initial session
     const getInitialSession = async () => {
       try {
@@ -76,10 +79,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Handle specific auth events - update state only; no global reloads here
         if (event === 'SIGNED_IN' && session) {
-          console.log('User signed in:', session.user.email);
+          console.log('[AUTH] User signed in:', session.user.email);
+          console.log('[AUTH] Current URL before auth event:', window.location.href);
           window.dispatchEvent(new CustomEvent('authStateChanged', { detail: { event: 'SIGNED_IN' } }));
         } else if (event === 'SIGNED_OUT') {
-          console.log('User signed out');
+          console.log('[AUTH] User signed out');
           window.dispatchEvent(new CustomEvent('authStateChanged', { detail: { event: 'SIGNED_OUT' } }));
         }
       }
@@ -105,11 +109,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={contextValue}>
-      {process.env.NODE_ENV !== 'production' && (
-        <div style={{position:'fixed',bottom:8,right:8,zIndex:9999,background:'rgba(17,24,39,0.85)',color:'#fff',padding:'4px 8px',borderRadius:6,fontSize:12}}>
-          AuthProvider active
-        </div>
-      )}
       {children}
     </AuthContext.Provider>
   );

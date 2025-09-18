@@ -5,6 +5,7 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   server: {
     allowedHosts: true,
     headers: {
@@ -37,4 +38,4 @@ export default defineConfig({
       }
     }
   }
-}) 
+})

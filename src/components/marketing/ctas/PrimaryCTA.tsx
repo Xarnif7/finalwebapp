@@ -1,10 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase/browser';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '../../auth/AuthProvider';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { useSubscriptionStatus } from '../../../hooks/useSubscriptionStatus';
 import { getCTADecision } from '../../../lib/cta-utils';
+import { signInWithGoogle } from '../../../lib/auth-utils';
 
 interface PrimaryCTAProps {
   className?: string;
@@ -22,14 +22,7 @@ export function PrimaryCTA({ className = '' }: PrimaryCTAProps) {
 
   const handlePrimaryClick = async () => {
     if (ctaDecision.primary.action === 'signin') {
-      // Send to Google OAuth
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: { prompt: 'select_account', include_granted_scopes: 'true' }
-        }
-      });
+      await signInWithGoogle();
       return;
     }
     navigate(ctaDecision.primary.href);
@@ -37,13 +30,7 @@ export function PrimaryCTA({ className = '' }: PrimaryCTAProps) {
 
   const handleSecondaryClick = async () => {
     if (ctaDecision.secondary?.action === 'signin') {
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: { prompt: 'select_account', include_granted_scopes: 'true' }
-        }
-      });
+      await signInWithGoogle();
       return;
     }
     if (ctaDecision.secondary?.href) navigate(ctaDecision.secondary.href);

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from './AuthProvider';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 
 interface AuthGuardProps {

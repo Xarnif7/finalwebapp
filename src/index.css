@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Sticky header shadow effect */
+.sticky-header-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Ensure fonts are properly applied */
+.font-sans {
+  font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.font-display {
+  font-family: 'Outfit', ui-sans-serif, system-ui, sans-serif !important;
+}
+
 
 /* :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -27,12 +41,17 @@ a:hover {
   color: #535bf2;
 }
 
-body {
+html, body {
   margin: 0;
-  display: flex;
-  place-items: center;
+  padding: 0;
   min-width: 320px;
   min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 h1 {
@@ -183,4 +202,44 @@ progress {
 /* Re-enable transitions only for specific elements */
 .transition-enabled {
   transition: all 0.3s ease !important;
+}
+
+/* Navigation underline animation */
+.nav-underline {
+  transition: width 0.3s ease-out !important;
+}
+
+/* Logo transparency - ensure no background or box around logo */
+header img[alt="Blipp"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  vertical-align: top !important;
+}
+
+/* Remove any potential background from the Link wrapper */
+header a[href="/"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Ensure SVG has no background */
+header img[alt="Blipp"] svg {
+  background: transparent !important;
+  background-color: transparent !important;
 }

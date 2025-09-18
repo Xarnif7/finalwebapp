@@ -1,19 +1,9 @@
 ﻿import { useEffect } from "react";
-import { supabase } from "../lib/supabase/browser";
+import { signInWithGoogle } from "../lib/auth-utils";
 
 export default function AuthStart() {
   useEffect(() => {
-    const redirectTo = `${window.location.origin}/auth/callback`;
-    supabase.auth.signInWithOAuth({ 
-      provider: "google", 
-      options: { 
-        redirectTo,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent'
-        }
-      } 
-    });
+    signInWithGoogle();
   }, []);
   return <div style={{ padding: 24, fontSize: 16 }}>Redirecting to Google…</div>;
 }

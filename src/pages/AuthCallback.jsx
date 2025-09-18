@@ -12,12 +12,17 @@ export default function AuthCallback() {
       // Prevent multiple redirects
       if (hasRedirected.current) return;
       
+      console.log('[AuthCallback] Starting callback handling...');
+      
       try {
-        // Get the current session
+        // Wait a moment for Supabase to process the OAuth callback
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Wait for session to be available
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
-          console.error('Session error:', sessionError);
+          console.error('[AuthCallback] Session error:', sessionError);
           hasRedirected.current = true;
           navigate('/', { replace: true });
           return;
@@ -29,20 +34,10 @@ export default function AuthCallback() {
           // Get next destination from query params, default to '/'
           const next = searchParams.get('next') || '/';
           
-          // Use stored redirect if available, otherwise use next param
-          const storedDest = localStorage.getItem('postLoginRedirect');
-          const dest = storedDest || next;
-          
-          localStorage.removeItem('postLoginRedirect');
-          console.log('[AuthCallback] Redirecting to:', dest);
-          
           hasRedirected.current = true;
           
-          // Navigate and refresh once
-          navigate(dest, { replace: true });
-          setTimeout(() => {
-            window.location.reload();
-          }, 100);
+          // Navigate to destination
+          navigate(next, { replace: true });
           
         } else {
           console.log('[AuthCallback] No valid session, redirecting to landing...');

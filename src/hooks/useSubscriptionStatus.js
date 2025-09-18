@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useAuth } from "../components/auth/AuthProvider";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { apiClient } from "../lib/apiClient";
 import { supabase } from "../lib/supabase/browser";
 

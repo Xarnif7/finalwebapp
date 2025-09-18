@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" width="200" height="60">
+  <!-- Speech bubble with B -->
+  <path d="M15 10 C15 5, 20 0, 25 0 L35 0 C40 0, 45 5, 45 10 L45 20 C45 25, 40 30, 35 30 L30 30 L25 35 L25 30 L20 30 C15 30, 10 25, 10 20 L10 10 Z" fill="#1E40AF"/>
+  <text x="27.5" y="22" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">B</text>
+  
+  <!-- LIPP text -->
+  <text x="60" y="25" fill="url(#gradient)" font-family="Arial, sans-serif" font-size="24" font-weight="bold">LIPP</text>
+  
+  <!-- Gradient definition -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1E40AF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+</svg>

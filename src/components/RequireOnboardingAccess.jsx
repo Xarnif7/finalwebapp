@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "./auth/AuthProvider";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 // Component that gates access to onboarding based on subscription status
 export default function RequireOnboardingAccess({ children }) {

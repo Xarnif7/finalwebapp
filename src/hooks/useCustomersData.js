@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../components/auth/AuthProvider';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { supabase } from '../lib/supabase/browser';
 
 export function useCustomersData(initialParams = {}) {

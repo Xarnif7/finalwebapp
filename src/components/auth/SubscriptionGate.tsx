@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from './AuthProvider';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 
 interface SubscriptionGateProps {

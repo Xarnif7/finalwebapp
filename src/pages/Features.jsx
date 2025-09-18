@@ -51,11 +51,11 @@ const Features = () => {
   }, []);
 
   return (
-    <div className="py-24 lg:py-28 px-6 bg-gray-50">
+    <div className="py-24 lg:py-28 px-6">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
-          <h1 className="text-4xl lg:text-5xl font-bold mb-6 text-gray-900">A smarter way to manage your reputation</h1>
-          <p className="text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto">
+          <h1 className="text-4xl lg:text-5xl font-display font-bold mb-6 text-gray-900">A smarter way to manage your reputation</h1>
+          <p className="text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto font-sans">
             Blipp is more than a review tool. It's a full-stack reputation marketing platform designed to help you grow.
           </p>
         </div>
@@ -70,8 +70,8 @@ const Features = () => {
               className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 transform-gpu will-change-[transform,opacity] hover:translate-y-[-2px] hover:shadow-xl transition-all duration-300 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
             >
               <div className="mb-6 flex justify-start">{feature.icon}</div>
-              <h3 className="text-xl font-bold mb-4 text-gray-900">{feature.title}</h3>
-              <p className="text-gray-600 leading-relaxed">{feature.description}</p>
+              <h3 className="text-xl font-sans font-bold mb-4 text-gray-900">{feature.title}</h3>
+              <p className="text-gray-600 leading-relaxed font-sans">{feature.description}</p>
             </motion.div>
           ))}
         </div>

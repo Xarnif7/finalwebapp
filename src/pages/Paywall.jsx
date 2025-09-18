@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../components/auth/AuthProvider";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
-import { supabase } from "../lib/supabase/browser";
+import { signInWithGoogle } from "../lib/auth-utils";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Star, Zap, Crown } from "lucide-react";
 import { apiClient } from "../lib/apiClient";
@@ -170,13 +170,7 @@ export default function Paywall() {
   const startCheckout = async (planTier) => {
     if (!user) {
       // Not signed in → trigger Google OAuth
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: { prompt: 'select_account', include_granted_scopes: 'true' }
-        }
-      });
+      await signInWithGoogle();
       return;
     }
 
@@ -194,9 +188,9 @@ export default function Paywall() {
 
       // Map planTier to priceId (you'll need to update this based on your actual Stripe price IDs)
       const priceIdMap = {
-        'starter': process.env.VITE_STRIPE_STARTER_PRICE_ID || 'price_starter',
-        'pro': process.env.VITE_STRIPE_PRO_PRICE_ID || 'price_pro',
-        'enterprise': process.env.VITE_STRIPE_ENTERPRISE_PRICE_ID || 'price_enterprise',
+        'starter': import.meta.env.VITE_STRIPE_STARTER_PRICE_ID || 'price_starter',
+        'pro': import.meta.env.VITE_STRIPE_PRO_PRICE_ID || 'price_pro',
+        'enterprise': import.meta.env.VITE_STRIPE_ENTERPRISE_PRICE_ID || 'price_enterprise',
       };
 
       const priceId = priceIdMap[planTier];
@@ -303,10 +297,10 @@ export default function Paywall() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+          <h1 className="text-4xl md:text-6xl font-display font-bold text-gray-900 mb-6">
             Choose Your <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Plan</span>
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto font-sans">
             Start growing your reputation today. Choose the plan that fits your business needs.
           </p>
         </div>
@@ -340,11 +334,11 @@ export default function Paywall() {
                   }`}>
                     <plan.icon className="w-8 h-8 text-white" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
-                  <p className="text-gray-600 mb-4">{plan.description}</p>
+                  <h3 className="text-2xl font-display font-bold text-gray-900 mb-2">{plan.name}</h3>
+                  <p className="text-gray-600 mb-4 font-sans">{plan.description}</p>
                   <div className="flex items-baseline justify-center">
-                    <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
-                    <span className="text-gray-600 ml-1">{plan.period}</span>
+                    <span className="text-4xl font-display font-bold text-gray-900">{plan.price}</span>
+                    <span className="text-gray-600 ml-1 font-sans">{plan.period}</span>
                   </div>
                 </div>
 
@@ -353,7 +347,7 @@ export default function Paywall() {
                   {plan.features.map((feature, index) => (
                     <li key={index} className="flex items-start gap-3">
                       <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-gray-700">{feature}</span>
+                      <span className="text-gray-700 font-sans">{feature}</span>
                     </li>
                   ))}
                 </ul>

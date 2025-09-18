@@ -9,8 +9,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LogOut, User as UserIcon, Repeat, CreditCard, Settings, LayoutDashboard } from 'lucide-react';
-import { useAuth } from './AuthProvider';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
+import { switchAccount } from '@/lib/auth-utils';
 import { supabase } from '@/lib/supabase/browser';
 
 const UserAvatar = ({ user, size = "40px" }) => {
@@ -58,20 +59,7 @@ export function UserMenu() {
       localStorage.setItem('postLoginRedirect', window.location.pathname);
       
       // Initiate Google OAuth for account switching
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            prompt: 'select_account',
-            include_granted_scopes: 'true'
-          }
-        }
-      });
-
-      if (error) {
-        console.error('OAuth error:', error);
-      }
+      await switchAccount();
     } catch (error) {
       console.error('Error switching account:', error);
     }

@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useAuth } from './AuthProvider';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
-import { supabase } from '@/lib/supabase/browser';
+import { signInWithGoogle } from '@/lib/auth-utils';
 import { UserMenu } from './UserMenu';
 
 export function AuthCTA() {
@@ -16,20 +16,7 @@ export function AuthCTA() {
       localStorage.setItem('postLoginRedirect', window.location.pathname);
       
       // Initiate Google OAuth
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            prompt: 'select_account',
-            include_granted_scopes: 'true'
-          }
-        }
-      });
-
-      if (error) {
-        console.error('OAuth error:', error);
-      }
+      await signInWithGoogle();
     } catch (error) {
       console.error('Sign in error:', error);
     }

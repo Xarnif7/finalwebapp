@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../components/auth/AuthProvider";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { supabase } from "../lib/supabase/browser";
 
 // Hook to check if user has completed onboarding

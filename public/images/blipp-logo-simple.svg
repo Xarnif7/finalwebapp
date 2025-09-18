@@ -1,0 +1,10 @@
+<svg width="200" height="60" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle for the "B" -->
+  <circle cx="30" cy="30" r="25" fill="#3B82F6" />
+  
+  <!-- Letter "B" -->
+  <text x="30" y="38" font-family="Arial, sans-serif" font-size="28" font-weight="bold" text-anchor="middle" fill="white">B</text>
+  
+  <!-- "BLIPP" text -->
+  <text x="70" y="38" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#1F2937">BLIPP</text>
+</svg>

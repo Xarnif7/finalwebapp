@@ -57,11 +57,11 @@ const StarRating = ({ rating }) => (
 
 const Testimonials = () => {
   return (
-    <div className="py-24 lg:py-28 px-6 bg-gray-50">
+    <div className="py-24 lg:py-28 px-6">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
-          <h1 className="text-4xl lg:text-5xl font-bold mb-6 text-gray-900">What Our Customers Say</h1>
-          <p className="text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto">
+          <h1 className="text-4xl lg:text-5xl font-display font-bold mb-6 text-gray-900">What Our Customers Say</h1>
+          <p className="text-lg lg:text-xl text-gray-600 max-w-3xl mx-auto font-sans">
             Join hundreds of businesses that have transformed their online reputation with Blipp.
           </p>
         </div>
@@ -80,7 +80,7 @@ const Testimonials = () => {
               
               <StarRating rating={testimonial.rating} />
               
-              <p className="text-gray-700 leading-relaxed my-4">
+              <p className="text-gray-700 leading-relaxed my-4 font-sans">
                 "{testimonial.review}"
               </p>
               
@@ -89,8 +89,8 @@ const Testimonials = () => {
                   {testimonial.avatar}
                 </div>
                 <div>
-                  <h4 className="font-bold text-gray-900">{testimonial.name}</h4>
-                  <p className="text-gray-500 text-sm">{testimonial.business}</p>
+                  <h4 className="font-sans font-bold text-gray-900">{testimonial.name}</h4>
+                  <p className="text-gray-500 text-sm font-sans">{testimonial.business}</p>
                 </div>
               </div>
             </motion.div>

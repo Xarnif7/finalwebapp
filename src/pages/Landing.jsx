@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { motion, useScroll, useTransform, MotionConfig, useInView } from "framer-motion";
-import { useAuth } from "../components/auth/AuthProvider";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
 import { useRevealOnce } from "../hooks/useRevealOnce";
 import { PrimaryCTA } from "../components/marketing/ctas";
@@ -66,8 +66,8 @@ const HowItWorksStep = ({ Icon, title, description, delay = 0 }) => {
       <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
         <Icon className="w-8 h-8 text-white" />
       </div>
-      <h3 className="text-xl font-semibold mb-2">{title}</h3>
-      <p className="text-gray-600">{description}</p>
+      <h3 className="text-xl font-sans font-semibold mb-2">{title}</h3>
+      <p className="text-gray-600 font-sans">{description}</p>
     </motion.div>
   );
 };
@@ -83,7 +83,7 @@ const SetupListItem = ({ text, delay = 0 }) => {
       transition={{ duration: 0.45, delay, ease: "easeOut" }}
     >
       <CheckCircle className="w-5 h-5 text-green-500" />
-      <span>{text}</span>
+      <span className="font-sans">{text}</span>
     </motion.div>
   );
 };
@@ -103,10 +103,10 @@ const TestimonialCard = ({ testimonial, delay = 0 }) => {
           <Star key={j} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
         ))}
       </div>
-      <p className="text-gray-700 mb-4">"{testimonial.quote}"</p>
+      <p className="text-gray-700 mb-4 font-sans">"{testimonial.quote}"</p>
       <div>
-        <div className="font-semibold">{testimonial.name}</div>
-        <div className="text-sm text-gray-500">{testimonial.role}</div>
+        <div className="font-sans font-semibold">{testimonial.name}</div>
+        <div className="text-sm text-gray-500 font-sans">{testimonial.role}</div>
       </div>
     </motion.div>
   );
@@ -160,19 +160,18 @@ export default function Landing() {
         <div className="absolute -bottom-32 left-1/2 w-96 h-96 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse" style={{ animationDelay: '4s' }} />
       </motion.div>
 
-      <main className="relative z-10 pt-24">
+      <main className="relative z-10">
         {/* Hero Section */}
-        <section id="home" className="pt-20 pb-32 px-6">
-          <div className="max-w-4xl mx-auto">
+        <section id="home" className="min-h-screen flex items-center justify-center px-6 py-24">
+          <div className="max-w-4xl mx-auto w-full">
             <div className="text-center">
               <motion.h1
-                className="mb-12"
+                className="mb-16 font-display font-extrabold"
                 style={{
                   textShadow: '0 8px 32px rgba(0,0,0,0.12)',
                   wordSpacing: '0.1em',
                   fontSize: 'clamp(3rem, 7vw, 5rem)',
-                  fontWeight: '900',
-                  lineHeight: '0.9',
+                  lineHeight: '0.95',
                   letterSpacing: '-0.05em',
                   maxWidth: '900px',
                   margin: '0 auto'
@@ -191,7 +190,7 @@ export default function Landing() {
               </motion.h1>
 
               <motion.p
-                className="text-xl md:text-2xl text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed"
+                className="text-xl md:text-2xl text-[#475569] mb-16 max-w-[680px] mx-auto font-sans leading-relaxed"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1, delay: 0.2, ease: [0.6, 0.01, 0.05, 0.95] }}
@@ -199,57 +198,50 @@ export default function Landing() {
                 Effortless review generation that saves you time and drives steady growth by turning every customer into a loyal advocate.
               </motion.p>
 
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1, delay: 0.4, ease: [0.6, 0.01, 0.05, 0.95] }}
-                className="md:hidden" // Hide on md+ screens to avoid duplication with header
-              >
-                <PrimaryCTA />
-              </motion.div>
             </div>
 
             <motion.div
-              className="mt-20 relative"
+              className="relative"
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1.2, delay: 0.6, ease: [0.6, 0.01, 0.05, 0.95] }}
             >
               <div className="relative max-w-5xl mx-auto">
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 blur-3xl rounded-3xl" />
-                <FloatingCard className="p-8 relative">
+                <div className="bg-white rounded-2xl shadow-xl ring-1 ring-black/5 p-8 relative">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="text-center">
-                      <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <Star className="w-8 h-8 text-white" />
+                      <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <Star className="w-8 h-8 text-blue-600" />
                       </div>
-                      <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                      <h3 className="text-3xl font-display font-extrabold text-gray-900 mb-2">
                         <CountUpNumber end={247} />%
                       </h3>
-                      <p className="text-gray-600">Average Review Increase</p>
+                      <p className="text-[#64748B] font-sans">Average Review Increase</p>
                     </div>
                     <div className="text-center">
-                      <div className="w-16 h-16 bg-gradient-to-r from-amber-500 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <TrendingUp className="w-8 h-8 text-white" />
+                      <div className="w-16 h-16 bg-gradient-to-r from-amber-100 to-amber-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <TrendingUp className="w-8 h-8 text-amber-600" />
                       </div>
-                      <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                      <h3 className="text-3xl font-display font-extrabold text-gray-900 mb-2">
                         <CountUpNumber end={89} />%
                       </h3>
-                      <p className="text-gray-600">Customer Response Rate</p>
+                      <p className="text-[#64748B] font-sans">Customer Response Rate</p>
                     </div>
                     <div className="text-center">
-                      <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <Clock className="w-8 h-8 text-white" />
+                      <div className="w-16 h-16 bg-gradient-to-r from-purple-100 to-purple-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <Clock className="w-8 h-8 text-purple-600" />
                       </div>
-                      <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                      <h3 className="text-3xl font-display font-extrabold text-gray-900 mb-2">
                         <CountUpNumber end={24} />/7
                       </h3>
-                      <p className="text-gray-600">Automated Operation</p>
+                      <p className="text-[#64748B] font-sans">Automated Operation</p>
                     </div>
                   </div>
-                </FloatingCard>
+                </div>
               </div>
             </motion.div>
+
           </div>
         </section>
 
@@ -257,8 +249,8 @@ export default function Landing() {
         <AnimatedSection id="features" className="py-24 lg:py-28 px-6 bg-white">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 mb-6">Powerful Features That Drive Results</h2>
-              <p className="text-lg text-gray-600 max-w-2xl mx-auto">Everything you need to automate your reputation management and grow your business</p>
+              <h2 className="text-4xl font-display font-bold text-gray-900 mb-6">Powerful Features That Drive Results</h2>
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto font-sans">Everything you need to automate your reputation management and grow your business</p>
             </div>
             <div className="space-y-24">
               {/* Feature 1: Review Management */}
@@ -293,8 +285,8 @@ export default function Landing() {
                     <Star className="w-5 h-5" />
                     <span>Review Management</span>
                   </div>
-                  <h3 className="text-3xl font-bold text-gray-900 mb-4">Centralized Review Control</h3>
-                  <p className="text-gray-600 text-lg mb-6">Monitor and respond to reviews across Google, Yelp, and Facebook from one unified dashboard. Never miss a customer interaction again.</p>
+                  <h3 className="text-3xl font-display font-bold text-gray-900 mb-4">Centralized Review Control</h3>
+                  <p className="text-gray-600 text-lg mb-6 font-sans">Monitor and respond to reviews across Google, Yelp, and Facebook from one unified dashboard. Never miss a customer interaction again.</p>
                   <ul className="space-y-3">
                     <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-green-500" /><span>Real-time review notifications</span></li>
                     <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-green-500" /><span>Automated sentiment analysis</span></li>
@@ -335,8 +327,8 @@ export default function Landing() {
                     <Repeat className="w-5 h-5" />
                     <span>Automation Sequences</span>
                   </div>
-                  <h3 className="text-3xl font-bold text-gray-900 mb-4">Put Your Follow-ups on Autopilot</h3>
-                  <p className="text-gray-600 text-lg mb-6">Create multi-step SMS and email campaigns that run automatically. Nurture leads, request reviews, and re-engage past customers without lifting a finger.</p>
+                  <h3 className="text-3xl font-display font-bold text-gray-900 mb-4">Put Your Follow-ups on Autopilot</h3>
+                  <p className="text-gray-600 text-lg mb-6 font-sans">Create multi-step SMS and email campaigns that run automatically. Nurture leads, request reviews, and re-engage past customers without lifting a finger.</p>
                    <ul className="space-y-3">
                     <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-green-500" /><span>Custom delays and triggers</span></li>
                     <li className="flex items-center gap-3"><CheckCircle className="w-5 h-5 text-green-500" /><span>Intelligent throttling to avoid spam</span></li>
@@ -346,7 +338,7 @@ export default function Landing() {
               </div>
                <div className="text-center pt-8">
                                    <Link to="/features">
-                    <Button data-auth="true" size="lg" variant="outline" className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
+                    <Button data-auth="true" size="lg" variant="outline" className="border-2 border-blue-600 text-blue-600 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:border-blue-700">
                       Explore All Features <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   </Link>
@@ -356,17 +348,17 @@ export default function Landing() {
         </AnimatedSection>
 
         {/* How It Works Preview */}
-        <AnimatedSection className="py-24 lg:py-28 px-6 bg-gray-50">
+        <AnimatedSection className="py-24 lg:py-28 px-6">
           <div className="max-w-6xl mx-auto text-center">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">How It Works</h2>
-            <p className="text-lg text-gray-600 mb-12 max-w-2xl mx-auto">Get started in minutes with our simple 3-step process</p>
+            <h2 className="text-4xl font-display font-bold text-gray-900 mb-6">How It Works</h2>
+            <p className="text-lg text-gray-600 mb-12 max-w-2xl mx-auto font-sans">Get started in minutes with our simple 3-step process</p>
             <div className="grid md:grid-cols-3 gap-6 lg:gap-8 mb-12">
               <HowItWorksStep Icon={Settings} title="Setup" description="Connect your business profiles in minutes" delay={0} />
               <HowItWorksStep Icon={Rocket} title="Automate" description="Let Blipp handle review requests automatically" delay={0.1} />
               <HowItWorksStep Icon={BarChart3} title="Grow" description="Watch your ratings and revenue increase" delay={0.2} />
             </div>
             <Link to="/how-it-works">
-              <Button data-auth="true" variant="outline" className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
+              <Button data-auth="true" variant="outline" className="border-2 border-blue-600 text-blue-600 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:border-blue-700">
                 Learn More <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
@@ -378,8 +370,8 @@ export default function Landing() {
           <div className="max-w-6xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="text-4xl font-bold text-gray-900 mb-6">Simple Setup</h2>
-                <p className="text-lg text-gray-600 mb-8">Get your reputation marketing engine running in under 10 minutes. No technical knowledge required.</p>
+                <h2 className="text-4xl font-display font-bold text-gray-900 mb-6">Simple Setup</h2>
+                <p className="text-lg text-gray-600 mb-8 font-sans">Get your reputation marketing engine running in under 10 minutes. No technical knowledge required.</p>
                 <div className="space-y-4 mb-8">
                   <SetupListItem text="Connect your Google My Business profile" delay={0} />
                   <SetupListItem text="Import your customer list (CSV or manual)" delay={0.1} />
@@ -443,29 +435,27 @@ export default function Landing() {
         {/* Testimonials Preview */}
         <AnimatedSection className="py-20 px-6 bg-gradient-to-r from-blue-50 to-purple-50">
           <div className="max-w-6xl mx-auto text-center">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Trusted by Growing Businesses</h2>
-            <p className="text-lg text-gray-600 mb-12">See what our customers are saying about their success with Blipp</p>
+            <h2 className="text-4xl font-display font-bold text-gray-900 mb-6">Trusted by Growing Businesses</h2>
+            <p className="text-lg text-gray-600 mb-12 font-sans">See what our customers are saying about their success with Blipp</p>
             <div className="grid md:grid-cols-3 gap-8 mb-12">
               <TestimonialCard testimonial={{ name: "Sarah Johnson", role: "Dental Practice Owner", quote: "Blipp tripled our Google reviews in just 3 months. Game changer!", rating: 5 }} delay={0} />
               <TestimonialCard testimonial={{ name: "Mike Rodriguez", role: "Restaurant Manager", quote: "The automation saves us hours every week. Our rating went from 3.8 to 4.6.", rating: 5 }} delay={0.1} />
               <TestimonialCard testimonial={{ name: "Emily Chen", role: "Spa Director", quote: "Customer conversations are so much easier now. Revenue is up 40%.", rating: 5 }} delay={0.2} />
             </div>
                             <Link to="/testimonials">
-              <Button data-auth="true" variant="outline" className="border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white">
+              <Button data-auth="true" variant="outline" className="border-2 border-purple-600 text-purple-600 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:border-purple-700">
                 Read All Stories <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
           </div>
         </AnimatedSection>
 
-        {/* Final CTA */}
-        <AnimatedSection className="py-20 px-6 md:hidden"> {/* Hide on md+ screens to avoid duplication with header */}
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Ready to Transform Your Reputation?</h2>
-            <p className="text-xl text-gray-600 mb-8">Join thousands of businesses already growing with Blipp</p>
-            <PrimaryCTA />
+        {/* Footer Bar */}
+        <div className="py-12 px-6 bg-gradient-to-r from-blue-600 to-purple-600">
+          <div className="max-w-7xl mx-auto text-center">
+            <p className="text-white text-lg font-medium">© 2025 Blipp. All rights reserved.</p>
           </div>
-                 </AnimatedSection>
+        </div>
        </main>
      </div>
      </MotionConfig>

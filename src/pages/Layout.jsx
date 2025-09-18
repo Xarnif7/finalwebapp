@@ -10,57 +10,15 @@ import { Header as SharedHeader } from "../components/shared/Header";
 import { ThemeProvider } from "../components/providers/ThemeProvider";
 import { DashboardProvider } from "../components/providers/DashboardProvider";
 import ErrorBoundary from "../components/ui/error-boundary";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { LogOut, User as UserIcon, Repeat, Zap } from "lucide-react";
 import { supabase } from "../lib/supabase/browser";
-import { AuthCTA } from "../components/auth/AuthCTA";
-import { UserMenu } from "../components/auth/UserMenu";
-import { useAuth } from "../components/auth/AuthProvider";
-import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
-import { PrimaryCTA } from "../components/marketing/ctas";
-
 // Simplified layout - no auth dependencies
-
-const UserAvatar = ({ user, size = "40px" }) => {
-  const getInitials = () => {
-    // Try to get full name from user metadata first, then fallback to email
-    const fullName = user?.user_metadata?.full_name || user?.user_metadata?.name;
-    if (fullName) {
-      return fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    }
-    return user?.email?.[0]?.toUpperCase() || 'U';
-  };
-
-  return (
-    <div 
-      className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-white rounded-full flex items-center justify-center font-semibold text-sm ring-2 ring-transparent group-hover:ring-purple-300 group-focus:ring-purple-400 transition-all"
-      style={{ width: size, height: size }}
-    >
-      {getInitials()}
-    </div>
-  );
-};
 
         const LandingHeader = React.memo(() => {
             return <SharedHeader />;
         });
 
 const LandingFooter = React.memo(() => {
-    return (
-        <footer className="py-12 px-6 bg-gradient-to-r from-blue-600 to-purple-600">
-            <div className="max-w-7xl mx-auto text-center flex items-center justify-between">
-                <p className="text-white">© 2024 Blipp. All rights reserved.</p>
-                <AuthCTA />
-            </div>
-        </footer>
-    );
+    return null; // Footer is now handled in individual pages
 });
 
 export default function Layout({ children, currentPageName }) {
@@ -90,9 +48,9 @@ export default function Layout({ children, currentPageName }) {
   if (isLandingSitePage) {
     console.log('[LAYOUT] Rendering landing site layout for:', pageName);
     return (
-        <div className="bg-white text-gray-900 font-sans min-h-screen">
+        <div className="bg-white text-gray-900 font-sans min-h-screen flex flex-col">
             <LandingHeader />
-            <main className="relative z-10">{children}</main>
+            <main className="relative z-10 flex-1">{children}</main>
             <LandingFooter />
         </div>
     );

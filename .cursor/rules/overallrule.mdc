@@ -1,0 +1,62 @@
+---
+description:Blipp — Project Rule (Always Apply)
+globs:
+alwaysApply: true
+---
+You are working on “Blipp,” a multi-tenant review-automation SaaS. Goal: finish and harden the web MVP (dashboard + automations + reviews inbox + Stripe billing + Supabase RLS + Twilio SMS + Resend email + AI replies). Never re-implement features that already exist—extend or refactor them.
+
+STACK & BOUNDARIES
+• Frontend: React + Tailwind (+ shadcn/ui, lucide). Dashboard = Vite SPA at app.myblipp.com. Marketing = Next.js at myblipp.com.
+• Backend/data: Supabase Postgres with RLS; serverless API on Vercel; Stripe for subscriptions; Twilio (A2P) for SMS; Resend for email; OpenAI for AI.
+• Keep multi-tenancy & RLS intact. Do not weaken security or bypass policies. Do not change billing webhooks unless the task is billing-scoped.
+
+BEFORE YOU CODE (ALWAYS)
+
+Read /docs/scope.md, /docs/data-model.md, and /docs/ledger.md.
+
+Search the repo for related work. If similar code exists, extend/refactor it—do not duplicate.
+
+Propose a short plan (bullets) and implement the smallest reversible diff.
+
+DEFINITION OF DONE (EVERY CHANGE)
+□ Plan → minimal diff. Builds locally, typecheck/lint pass.
+□ No auth/RLS regressions; DB migrations are incremental and idempotent, committed in repo.
+□ Update .env.example for any new env vars.
+□ Add/adjust a smoke test for critical paths touched.
+□ Verify the core user path: sign-in → onboarding → dashboard.
+□ Append an entry to /docs/ledger.md (what changed, why, files touched, how verified).
+
+NON-NEGOTIABLE GUARDRAILS
+• Never remove auth checks, RLS, webhook signature verification, error handling, or logging “to make it work.”
+• Never hardcode secrets; always use env vars.
+• Do not intermingle marketing (Next.js) and dashboard (Vite) code.
+• Prefer small PR-sized changes; avoid large rewrites without discussion in /docs/ledger.md.
+
+BACKEND / DATA (WHEN APPLICABLE)
+• SQL: use incremental migrations; avoid destructive changes without a safe migration path and backup. Keep snake_case names. Document schema deltas in /docs/data-model.md.
+• RLS: enforce tenant scoping at the SQL layer. Add policies/tests for any new table or column that impacts access.
+• API: validate inputs at boundaries (e.g., zod). Enforce session → tenant mapping on every request. Include request IDs and tenant IDs in logs.
+• Stripe: keep webhook signature verification and idempotency keys; don’t modify live endpoints without tests.
+• Twilio: handle STOP/STOPALL/UNSUBSCRIBE/CANCEL/END/QUIT and HELP; respect rate limits; store message SIDs; log delivery statuses.
+• Resend: use templates; validate addresses; implement retry/backoff.
+
+FRONTEND / UI (WHEN APPLICABLE)
+• Components small and focused; Tailwind utilities; use shadcn/ui for primitives and lucide for icons.
+• Add loading/empty/error states for each screen.
+• Accessibility: semantic HTML, keyboard navigable, visible focus states.
+• Keep state boundaries clear; avoid prop-drilling with sensible context.
+• Motion is subtle and non-blocking (Framer Motion allowed).
+• Do not fetch tenant data without auth.
+
+OBSERVABILITY & SAFETY
+• Keep structured logs; don’t remove telemetry or error boundaries.
+• Fail closed on validation; surface helpful, non-leaky errors to users.
+• Add minimal monitoring/logging around critical flows (auth, billing, messaging).
+
+IF REQUIRED FILES ARE MISSING
+• Create /docs/scope.md (1-page charter), /docs/data-model.md (ERD + table notes), and /docs/ledger.md (append-only change log) and keep them updated.
+
+INTERACTION CONTRACT (HOW YOU WORK)
+• Be concise. Propose a short plan first, then implement.
+• If something is ambiguous, check /docs and existing code before asking questions.
+• After changes, run the app and state exactly what path you verified.
