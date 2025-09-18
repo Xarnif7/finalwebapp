@@ -1,9 +1,8 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { methodNotAllowed, unauthorized, send, readJson } from '../_lib/http';
-import { getAdminClient, getUserBusinessId, getOrCreateBusinessByName, createAuditLog } from '../_lib/supabase';
-import { generatePayloadHash } from '../_lib/tenancy';
+import { methodNotAllowed, unauthorized, send, readJson } from '../_lib/http.js';
+import { getAdminClient, getOrCreateBusinessByName, createAuditLog } from '../_lib/supabase.js';
+import { generatePayloadHash } from '../_lib/tenancy.js';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req, res) {
   // Handle OPTIONS for CORS preflight
   if (req.method === 'OPTIONS') {
     res.status(204).end();
@@ -42,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const supabase = getAdminClient();
 
     // Resolve business_id from payload or fallback
-    let resolvedBusinessId: string;
+    let resolvedBusinessId;
     
     if (business_id) {
       resolvedBusinessId = business_id;

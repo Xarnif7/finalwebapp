@@ -1,23 +1,20 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { methodNotAllowed, unauthorized, send, readJson } from '../_lib/http';
-import { getAdminClient, getOrCreateBusinessByName, createAuditLog } from '../_lib/supabase';
-import { generatePayloadHash } from '../_lib/tenancy';
+import { methodNotAllowed, unauthorized, send, readJson } from '../_lib/http.js';
+import { getAdminClient, getOrCreateBusinessByName, createAuditLog } from '../_lib/supabase.js';
+import { generatePayloadHash } from '../_lib/tenancy.js';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req, res) {
   // Handle OPTIONS for CORS preflight
   if (req.method === 'OPTIONS') {
     res.status(204).end();
     return;
   }
 
-  // Only allow POST requests
   if (req.method !== 'POST') {
     return methodNotAllowed(res);
   }
 
-  // Check X-Zapier-Token header
+  // Check Zapier token
   const token = req.headers['x-zapier-token'] || req.headers['X-Zapier-Token'];
-  
   if (!token || token !== process.env.ZAPIER_TOKEN) {
     return unauthorized(res);
   }
@@ -55,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const supabase = getAdminClient();
 
     // Resolve business_id from payload or fallback
-    let resolvedBusinessId: string;
+    let resolvedBusinessId;
     
     if (business_id) {
       resolvedBusinessId = business_id;
@@ -105,8 +102,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (insertError) {
-      console.error('[zapier:review-request] Insert error:', insertError);
-      return send(res, 500, { ok: false, error: 'Failed to create review request' });
+        console.error('[zapier:review-request] Insert error:', insertError);
+        return send(res, 500, { ok: false, error: 'Failed to create review request' });
     }
 
     // Create audit log entry
