@@ -4,12 +4,19 @@
 -- Enable UUID extension if not already enabled
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. Create businesses table
-CREATE TABLE IF NOT EXISTS businesses (
-    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name text NOT NULL,
-    created_at timestamptz DEFAULT now()
-);
+-- 1. Create businesses table (if it doesn't exist)
+-- Note: If businesses table already exists with different schema, we'll alter it instead
+DO $$ 
+BEGIN
+    -- Check if businesses table exists
+    IF NOT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'businesses') THEN
+        CREATE TABLE businesses (
+            id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+            name text NOT NULL,
+            created_at timestamptz DEFAULT now()
+        );
+    END IF;
+END $$;
 
 -- 2. Create profiles table (user to business mapping)
 CREATE TABLE IF NOT EXISTS profiles (
@@ -154,8 +161,9 @@ ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS business_id uuid;
 
 -- 4. Backfill existing data with placeholder business
 -- Create a default business for existing data
-INSERT INTO businesses (id, name) 
-VALUES ('00000000-0000-0000-0000-000000000001', 'Legacy Data Business')
+-- Use a placeholder UUID for created_by since it's required
+INSERT INTO businesses (id, name, created_by) 
+VALUES ('00000000-0000-0000-0000-000000000001', 'Legacy Data Business', '00000000-0000-0000-0000-000000000000')
 ON CONFLICT (id) DO NOTHING;
 
 -- Backfill existing rows with the default business_id
