@@ -19,56 +19,138 @@ CREATE TABLE IF NOT EXISTS profiles (
     created_at timestamptz DEFAULT now()
 );
 
--- 3. Add business_id and timestamps to tenant tables
+-- 3. Create tenant tables if they don't exist, then add business_id and timestamps
 -- Customers table
-ALTER TABLE customers ADD COLUMN IF NOT EXISTS business_id uuid;
-ALTER TABLE customers ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
-ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+CREATE TABLE IF NOT EXISTS customers (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    external_id text,
+    first_name text,
+    last_name text,
+    full_name text,
+    email text,
+    phone text,
+    service_date date,
+    notes text,
+    tags text[],
+    source text DEFAULT 'manual',
+    status text DEFAULT 'active',
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
 
 -- Reviews table
-ALTER TABLE reviews ADD COLUMN IF NOT EXISTS business_id uuid;
-ALTER TABLE reviews ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
-ALTER TABLE reviews ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+CREATE TABLE IF NOT EXISTS reviews (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id uuid,
+    platform text,
+    rating integer,
+    content text,
+    url text,
+    status text DEFAULT 'pending',
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
 
 -- Messages table
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS business_id uuid;
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+CREATE TABLE IF NOT EXISTS messages (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id uuid,
+    customer_email text,
+    customer_phone text,
+    customer_name text,
+    subject text,
+    content text,
+    type text DEFAULT 'email',
+    status text DEFAULT 'pending',
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
 
 -- AI drafts table
-ALTER TABLE ai_drafts ADD COLUMN IF NOT EXISTS business_id uuid;
-ALTER TABLE ai_drafts ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
-ALTER TABLE ai_drafts ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+CREATE TABLE IF NOT EXISTS ai_drafts (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id uuid,
+    content text,
+    type text DEFAULT 'review_response',
+    status text DEFAULT 'draft',
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
 
 -- Sequences table
-ALTER TABLE sequences ADD COLUMN IF NOT EXISTS business_id uuid;
-ALTER TABLE sequences ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
-ALTER TABLE sequences ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+CREATE TABLE IF NOT EXISTS sequences (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name text NOT NULL,
+    description text,
+    steps jsonb,
+    status text DEFAULT 'active',
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
 
 -- Scheduled jobs table
-ALTER TABLE scheduled_jobs ADD COLUMN IF NOT EXISTS business_id uuid;
-ALTER TABLE scheduled_jobs ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
-ALTER TABLE scheduled_jobs ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+CREATE TABLE IF NOT EXISTS scheduled_jobs (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id uuid,
+    job_type text,
+    scheduled_for timestamptz,
+    status text DEFAULT 'pending',
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
 
 -- CSV imports table
-ALTER TABLE csv_imports ADD COLUMN IF NOT EXISTS business_id uuid;
-ALTER TABLE csv_imports ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
-ALTER TABLE csv_imports ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+CREATE TABLE IF NOT EXISTS csv_imports (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    filename text,
+    status text DEFAULT 'pending',
+    imported_count integer DEFAULT 0,
+    error_count integer DEFAULT 0,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
 
 -- Competitors table
-ALTER TABLE competitors ADD COLUMN IF NOT EXISTS business_id uuid;
-ALTER TABLE competitors ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
-ALTER TABLE competitors ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+CREATE TABLE IF NOT EXISTS competitors (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name text NOT NULL,
+    platform text,
+    url text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
 
 -- Alerts table
-ALTER TABLE alerts ADD COLUMN IF NOT EXISTS business_id uuid;
-ALTER TABLE alerts ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
-ALTER TABLE alerts ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+CREATE TABLE IF NOT EXISTS alerts (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    type text NOT NULL,
+    message text,
+    status text DEFAULT 'active',
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
 
 -- Audit log table
+CREATE TABLE IF NOT EXISTS audit_log (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    actor text NOT NULL,
+    action text NOT NULL,
+    payload_hash text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- Now add business_id columns to existing tables
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS business_id uuid;
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS business_id uuid;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS business_id uuid;
+ALTER TABLE ai_drafts ADD COLUMN IF NOT EXISTS business_id uuid;
+ALTER TABLE sequences ADD COLUMN IF NOT EXISTS business_id uuid;
+ALTER TABLE scheduled_jobs ADD COLUMN IF NOT EXISTS business_id uuid;
+ALTER TABLE csv_imports ADD COLUMN IF NOT EXISTS business_id uuid;
+ALTER TABLE competitors ADD COLUMN IF NOT EXISTS business_id uuid;
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS business_id uuid;
 ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS business_id uuid;
-ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
-ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
 -- 4. Backfill existing data with placeholder business
 -- Create a default business for existing data
