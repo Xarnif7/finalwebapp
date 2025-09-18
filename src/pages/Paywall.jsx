@@ -209,11 +209,27 @@ export default function Paywall() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          const text = await response.text();
+          console.error('[PAYWALL] Non-JSON error response:', text);
+          throw new Error(`Server error (${response.status}): ${text.substring(0, 100)}`);
+        }
         throw new Error(errorData.error || 'Failed to create checkout session');
       }
 
-      const { url } = await response.json();
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (parseError) {
+        const text = await response.text();
+        console.error('[PAYWALL] Non-JSON success response:', text);
+        throw new Error('Invalid response format from server');
+      }
+
+      const { url } = responseData;
       console.log('[PAYWALL] Got checkout URL:', url);
       
       if (url) {

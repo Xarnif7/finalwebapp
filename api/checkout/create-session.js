@@ -8,11 +8,31 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
+    // Check if required environment variables are present
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('[CHECKOUT] Missing STRIPE_SECRET_KEY');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('[CHECKOUT] Missing Supabase credentials');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+
     const { priceId } = req.body;
 
     if (!priceId) {
