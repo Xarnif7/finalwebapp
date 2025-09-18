@@ -19,6 +19,12 @@ CREATE TABLE IF NOT EXISTS profiles (
     created_at timestamptz DEFAULT now()
 );
 
+-- Add user_id column if it doesn't exist (for existing profiles tables)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS user_id uuid;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS business_id uuid;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+
 -- 3. Create tenant tables if they don't exist
 CREATE TABLE IF NOT EXISTS customers (
     id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -243,9 +249,19 @@ CREATE INDEX IF NOT EXISTS idx_competitors_business_id ON competitors(business_i
 CREATE INDEX IF NOT EXISTS idx_alerts_business_id ON alerts(business_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_business_id ON audit_log(business_id);
 
--- 9. Create indexes for profiles table
-CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id);
-CREATE INDEX IF NOT EXISTS idx_profiles_business_id ON profiles(business_id);
+-- 9. Create indexes for profiles table (only if columns exist)
+DO $$
+BEGIN
+    -- Check if user_id column exists before creating index
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'user_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id);
+    END IF;
+    
+    -- Check if business_id column exists before creating index
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'business_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_profiles_business_id ON profiles(business_id);
+    END IF;
+END $$;
 
 -- Migration completed successfully
 SELECT 'Simple multi-tenant schema migration completed successfully' as status;
