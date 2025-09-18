@@ -8,7 +8,7 @@ function getPublicEnv() {
 
 // Centralized OAuth sign-in handler
 export async function signInWithGoogle(): Promise<void> {
-  const siteUrl = 'http://localhost:5173';
+  const siteUrl = getPublicEnv().SITE_URL;
   const supabaseUrl = getSupabaseUrl();
   const redirectTo = `${siteUrl}/auth/callback?next=/`;
 
