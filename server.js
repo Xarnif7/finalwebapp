@@ -317,14 +317,14 @@ app.get('/api/subscription/status', async (req, res) => {
     
     console.log('[API] All subscriptions for user:', { allSubscriptions, allSubError });
     
-    // Query for active subscription - get the most recent one
+    // Query for candidate subscriptions - we'll enforce date window in code
     const { data: subscriptions, error: subError } = await supabase
       .from('subscriptions')
       .select('status, plan_tier, current_period_end, created_at')
       .eq('user_id', user.id)
-      .in('status', ['active', 'trialing'])
+      .in('status', ['active', 'trialing', 'past_due'])
       .order('created_at', { ascending: false })
-      .limit(1);
+      .limit(3);
     
     console.log('[API] Active subscription query result:', { subscriptions, subError });
     
@@ -333,7 +333,14 @@ app.get('/api/subscription/status', async (req, res) => {
       return res.status(500).json({ error: 'Database error' });
     }
     
-    const subscription = subscriptions && subscriptions.length > 0 ? subscriptions[0] : null;
+    // Determine active using both status and period end
+    const nowIso = new Date().toISOString();
+    const subscription = (subscriptions || []).find((s) => {
+      if (!s) return false;
+      const statusOk = ['active', 'trialing', 'past_due'].includes(s.status);
+      const endOk = s.current_period_end ? s.current_period_end > nowIso : false;
+      return statusOk && endOk;
+    }) || null;
     
     // Get profile data
     const { data: profile, error: profileError } = await supabase
@@ -367,6 +374,155 @@ app.get('/api/subscription/status', async (req, res) => {
   } catch (error) {
     console.error('[API] Subscription status error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Dev-only: expire the latest subscription for the authenticated user (testing)
+// WARNING: This is only for local development. It requires SERVICE ROLE and Bearer token.
+app.post('/api/dev/subscriptions/expire', async (req, res) => {
+  try {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ error: 'Disabled in production' });
+    }
+
+    const { authorization } = req.headers;
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization header required' });
+    }
+    if (!supabase) {
+      return res.status(500).json({ error: 'Supabase not available' });
+    }
+
+    const token = authorization.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    // Find the most recent subscription for the user
+    const { data: subs, error: listErr } = await supabase
+      .from('subscriptions')
+      .select('id, current_period_end, status, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (listErr) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    const sub = subs && subs[0];
+    if (!sub) {
+      return res.status(404).json({ error: 'No subscription found' });
+    }
+
+    // Set current_period_end to now - 1 second and status to canceled
+    const expiredIso = new Date(Date.now() - 1000).toISOString();
+    const { error: updErr } = await supabase
+      .from('subscriptions')
+      .update({ current_period_end: expiredIso, status: 'canceled' })
+      .eq('id', sub.id);
+
+    if (updErr) {
+      return res.status(500).json({ error: 'Update failed' });
+    }
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[API] dev expire error:', e);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Zapier API endpoints
+app.get('/api/zapier/ping', (req, res) => {
+  // Only allow GET method
+  if (req.method !== 'GET') {
+    return res.status(405).json({ ok: false, error: 'Method not allowed' });
+  }
+
+  // Validate Zapier token
+  const zapierToken = req.headers['x-zapier-token'];
+  if (!zapierToken || zapierToken !== process.env.ZAPIER_TOKEN) {
+    return res.status(401).json({ ok: false, error: 'unauthorized' });
+  }
+
+  // Return success
+  return res.status(200).json({ ok: true });
+});
+
+app.post('/api/zapier/upsert-customer', async (req, res) => {
+  try {
+    // Validate Zapier token
+    const zapierToken = req.headers['x-zapier-token'];
+    if (!zapierToken || zapierToken !== process.env.ZAPIER_TOKEN) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Parse and validate payload
+    const { external_id, first_name, last_name, email, phone, tags, source, event_ts } = req.body;
+    
+    if (!email && !phone) {
+      return res.status(400).json({ error: 'Either email or phone is required' });
+    }
+
+    // Log the payload for debugging
+    console.log('[ZAPIER] Upsert customer payload:', {
+      external_id,
+      first_name,
+      last_name,
+      email,
+      phone,
+      tags,
+      source,
+      event_ts
+    });
+
+    // TODO: Call internal service to upsert customer
+    // await upsertCustomer({ external_id, first_name, last_name, email, phone, tags, source, event_ts });
+
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error('[ZAPIER] Upsert customer error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/zapier/review-request', async (req, res) => {
+  try {
+    // Validate Zapier token
+    const zapierToken = req.headers['x-zapier-token'];
+    if (!zapierToken || zapierToken !== process.env.ZAPIER_TOKEN) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Parse and validate payload
+    const { external_id, email, phone, first_name, last_name, job_id, job_type, invoice_id, invoice_total, event_ts } = req.body;
+    
+    if (!email && !phone) {
+      return res.status(400).json({ error: 'Either email or phone is required' });
+    }
+
+    // Log the payload for debugging
+    console.log('[ZAPIER] Review request payload:', {
+      external_id,
+      email,
+      phone,
+      first_name,
+      last_name,
+      job_id,
+      job_type,
+      invoice_id,
+      invoice_total,
+      event_ts
+    });
+
+    // TODO: Call internal service to enqueue review request job
+    // await enqueueReviewRequest({ external_id, email, phone, first_name, last_name, job_id, job_type, invoice_id, invoice_total, event_ts });
+
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error('[ZAPIER] Review request error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 

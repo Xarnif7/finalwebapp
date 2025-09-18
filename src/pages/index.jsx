@@ -34,6 +34,8 @@ import Paywall from "./Paywall";
 import PostCheckout from "./PostCheckout";
 import QRRedirect from "./QRRedirect";
 import PrivateFeedback from "./PrivateFeedback";
+import Feedback from "./Feedback";
+import DashboardOverview from "./DashboardOverview";
 import DevOAuthTest from "./DevOAuthTest";
 import EnvTest from "./EnvTest";
 import RequireOnboardingAccess from "../components/RequireOnboardingAccess";
@@ -123,6 +125,8 @@ const PAGES = {
   PostCheckout: PostCheckout,
   QRRedirect: QRRedirect,
   PrivateFeedback: PrivateFeedback,
+  Feedback: Feedback,
+  DashboardOverview: DashboardOverview,
   NotFound: NotFound,
 };
 
@@ -232,10 +236,10 @@ function PagesContent() {
 
   // Determine if this is a dashboard route that needs auth
   const isDashboardRoute = [
-    'Onboarding', 'Dashboard', 'Clients', 'Settings', 'Reviews', 'ReviewTracking', 
+    'Onboarding', 'Dashboard', 'DashboardOverview', 'Clients', 'Settings', 'Reviews', 'ReviewTracking', 
     'ReviewLanding', 'AutomatedRequests', 'ReviewInbox', 'SendRequests', 'SocialPosts', 
     'Sequences', 'Competitors', 'TeamRoles', 'AuditLog', 'CsvImport', 'Notifications', 
-    'Integrations', 'RevenueImpact', 'Conversations', 'ReviewPerformance', 'PrivateFeedback'
+    'Integrations', 'RevenueImpact', 'Conversations', 'ReviewPerformance', 'PrivateFeedback', 'Feedback'
   ].includes(currentPage);
 
   if (isDashboardRoute) {
@@ -257,40 +261,41 @@ function PagesContent() {
 const DashboardRoutes = () => (
   <ErrorBoundary>
     <Routes>
+      {/* Dashboard Tab */}
+      <Route path="/dashboard" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={DashboardOverview} name="DashboardOverview" /></ProtectedRoute>} />
+      
       {/* Customers Tab */}
       <Route path="/customers" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Clients} name="Clients" /></ProtectedRoute>} />
       <Route path="/customers/import" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={CsvImport} name="CsvImport" /></ProtectedRoute>} />
       
       {/* Automations Tab */}
       <Route path="/automations" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={SendRequests} name="SendRequests" /></ProtectedRoute>} />
-      <Route path="/automations/send-requests" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={SendRequests} name="SendRequests" /></ProtectedRoute>} />
-      <Route path="/automations/automated-requests" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={AutomatedRequests} name="AutomatedRequests" /></ProtectedRoute>} />
-      <Route path="/automations/sequences" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Sequences} name="Sequences" /></ProtectedRoute>} />
-      <Route path="/automations/social-posts" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={SocialPosts} name="SocialPosts" /></ProtectedRoute>} />
       
       {/* Reviews Tab */}
-      <Route path="/reviews" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reviews} name="Reviews" /></ProtectedRoute>} />
+      <Route path="/reviews" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={ReviewInbox} name="ReviewInbox" /></ProtectedRoute>} />
       <Route path="/reviews/inbox" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={ReviewInbox} name="ReviewInbox" /></ProtectedRoute>} />
-      <Route path="/reviews/performance" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={ReviewPerformance} name="ReviewPerformance" /></ProtectedRoute>} />
-      <Route path="/reviews/tracking" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={ReviewTracking} name="ReviewTracking" /></ProtectedRoute>} />
+      <Route path="/reviews/ai-suggestions" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reviews} name="Reviews" /></ProtectedRoute>} />
+      <Route path="/reviews/sentiment-alerts" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reviews} name="Reviews" /></ProtectedRoute>} />
       
-      {/* Reporting Tab (Main Dashboard) */}
+      {/* Reporting Tab */}
       <Route path="/reporting" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Dashboard} name="Dashboard" /></ProtectedRoute>} />
-      <Route path="/reporting/revenue-impact" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={RevenueImpact} name="RevenueImpact" /></ProtectedRoute>} />
+      <Route path="/reporting/performance" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Dashboard} name="Dashboard" /></ProtectedRoute>} />
+      <Route path="/reporting/trends" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Dashboard} name="Dashboard" /></ProtectedRoute>} />
       <Route path="/reporting/competitors" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Competitors} name="Competitors" /></ProtectedRoute>} />
-      <Route path="/reporting/conversations" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Conversations} name="Conversations" /></ProtectedRoute>} />
+      
+      {/* Feedback Tab */}
+      <Route path="/feedback" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Feedback} name="Feedback" /></ProtectedRoute>} />
+      <Route path="/feedback/form-setup" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Feedback} name="Feedback" /></ProtectedRoute>} />
+      <Route path="/feedback/collected" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Feedback} name="Feedback" /></ProtectedRoute>} />
+      <Route path="/feedback/widget" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Feedback} name="Feedback" /></ProtectedRoute>} />
       
       {/* Settings Tab */}
       <Route path="/settings" element={<ProtectedRoute><TrackedComponent component={Settings} name="Settings" /></ProtectedRoute>} />
+      <Route path="/settings/business-profile" element={<ProtectedRoute><TrackedComponent component={Settings} name="Settings" /></ProtectedRoute>} />
       <Route path="/settings/integrations" element={<ProtectedRoute><TrackedComponent component={Integrations} name="Integrations" /></ProtectedRoute>} />
       <Route path="/settings/team-roles" element={<ProtectedRoute><TrackedComponent component={TeamRoles} name="TeamRoles" /></ProtectedRoute>} />
+      <Route path="/settings/billing" element={<ProtectedRoute><TrackedComponent component={Settings} name="Settings" /></ProtectedRoute>} />
       <Route path="/settings/audit-log" element={<ProtectedRoute><TrackedComponent component={AuditLog} name="AuditLog" /></ProtectedRoute>} />
-      <Route path="/settings/notifications" element={<ProtectedRoute><TrackedComponent component={Notifications} name="Notifications" /></ProtectedRoute>} />
-      
-      {/* Public Feedback Tab (Feature Flagged) */}
-      {isFeatureEnabled(FEATURE_FLAGS.PUBLIC_FEEDBACK_ENABLED) && (
-        <Route path="/public-feedback" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={PrivateFeedback} name="PrivateFeedback" /></ProtectedRoute>} />
-      )}
       
       {/* Onboarding */}
       <Route path="/onboarding" element={<RequireOnboardingAccess><TrackedComponent component={Onboarding} name="Onboarding" /></RequireOnboardingAccess>} />

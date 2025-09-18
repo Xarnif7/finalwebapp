@@ -15,7 +15,7 @@ export function ProtectedRoute({
   fallbackPath 
 }: ProtectedRouteProps) {
   const { status: authStatus } = useAuth();
-  const { hasActive, loading: subLoading } = useSubscriptionStatus();
+  const { active: hasActive, loading: subLoading } = useSubscriptionStatus();
   const location = useLocation();
 
   // Show loading state

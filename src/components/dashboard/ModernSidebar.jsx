@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import {
   Users, Star, BarChart3, Settings, Zap, MessageCircle,
-  ChevronRight, ChevronsLeft, Send, Activity, Repeat, FileText, Compass, Instagram, LayoutDashboard
+  ChevronsLeft, Send, Activity, Repeat, FileText, Compass, Instagram, LayoutDashboard
 } from 'lucide-react';
 import { navigationGroups } from '@/config/nav';
 import { isFeatureEnabled } from '@/lib/featureFlags';
@@ -62,75 +62,27 @@ const BlippLogo = ({ collapsed }) => (
     </div>
 );
 
-const NavItem = ({ item, expandedGroups, toggleGroup, collapsed }) => {
+const NavItem = ({ item, collapsed }) => {
     const location = useLocation();
     const isParentActive = item.subItems?.some(sub => location.pathname.includes(sub.url));
     const isActive = !item.subItems && location.pathname.includes(item.url);
-    const isGroupOpen = expandedGroups.includes(item.title);
 
-    if (item.subItems) {
-        return (
-            <div>
-                <div
-                    className={cn(
-                        "group flex items-center justify-between gap-3.5 text-sm font-medium rounded-lg px-4 py-2.5 cursor-pointer transition-all duration-200 relative",
-                        isParentActive ? "text-slate-900 bg-slate-100" : "text-slate-600 hover:text-slate-900 hover:bg-slate-50",
-                        collapsed && "justify-center"
-                    )}
-                    onClick={() => toggleGroup(item.title)}
-                    title={collapsed ? item.title : ''}
-                >
-                    {isParentActive && <div className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b from-[#1A73E8] to-[#7C3AED]" />}
-                    <div className="flex items-center gap-3.5">
-                        {React.createElement(iconMap[item.icon] || Users, { className: "w-6 h-6 shrink-0" })}
-                        {!collapsed && <span className="relative">
-                            {item.title}
-                            <div className="absolute -bottom-1 left-0 h-[2px] w-0 group-hover:w-full transition-[width] duration-250 ease-out rounded-full bg-gradient-to-r from-[#1A73E8] to-[#7C3AED]" />
-                        </span>}
-                    </div>
-                    {!collapsed && <ChevronRight className={cn("w-4 h-4 transition-transform", isGroupOpen && "rotate-90")} />}
-                </div>
-                {!collapsed && isGroupOpen && (
-                    <div className="pl-6 mt-1 space-y-1">
-                        {item.subItems.map(subItem => (
-                            <Link key={subItem.title} to={`/${subItem.url}`}>
-                                <div className={cn(
-                                    "group px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 relative",
-                                    location.pathname.includes(subItem.url)
-                                        ? "bg-blue-100 text-blue-700 font-semibold"
-                                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                                )}>
-                                    <span className="relative">
-                                        {subItem.title}
-                                        {!location.pathname.includes(subItem.url) && (
-                                            <div className="absolute -bottom-1 left-0 h-[2px] w-0 group-hover:w-full transition-[width] duration-250 ease-out rounded-full bg-gradient-to-r from-[#1A73E8] to-[#7C3AED]" />
-                                        )}
-                                    </span>
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
-                )}
-            </div>
-        );
-    }
-    
     return (
         <Link to={`/${item.url}`} title={collapsed ? item.title : ''}>
             <motion.div
                 className={cn(
                     "group flex items-center gap-3.5 text-sm font-medium rounded-lg px-4 py-2.5 transition-all duration-200 relative",
-                    isActive 
+                    (isActive || isParentActive)
                         ? "text-slate-900 bg-slate-100 font-semibold"
                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-50",
                     collapsed && "justify-center"
                 )}
             >
-                {isActive && <div className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b from-[#1A73E8] to-[#7C3AED]" />}
+                {(isActive || isParentActive) && <div className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b from-[#1A73E8] to-[#7C3AED]" />}
                 {React.createElement(iconMap[item.icon] || Users, { className: "w-6 h-6 shrink-0" })}
                 {!collapsed && <span className="relative">
                     {item.title}
-                    {!isActive && (
+                    {!(isActive || isParentActive) && (
                         <div className="absolute -bottom-1 left-0 h-[2px] w-0 group-hover:w-full transition-[width] duration-250 ease-out rounded-full bg-gradient-to-r from-[#1A73E8] to-[#7C3AED]" />
                     )}
                 </span>}
@@ -140,24 +92,12 @@ const NavItem = ({ item, expandedGroups, toggleGroup, collapsed }) => {
 };
 
 export default function ModernSidebar() {
-    const [expandedGroups, setExpandedGroups] = useState(['Reviews', 'Automations', 'Reporting', 'Settings']);
     const [collapsed, setCollapsed] = useState(false);
 
     useEffect(() => {
-        const storedState = localStorage.getItem('sidebarExpandedGroups');
-        if (storedState) setExpandedGroups(JSON.parse(storedState));
-        
         const collapseState = localStorage.getItem('blipp.sidebarCollapsed');
         if (collapseState) setCollapsed(JSON.parse(collapseState));
     }, []);
-
-    const toggleGroup = (title) => {
-        const newExpanded = expandedGroups.includes(title)
-            ? expandedGroups.filter(g => g !== title)
-            : [...expandedGroups, title];
-        setExpandedGroups(newExpanded);
-        localStorage.setItem('sidebarExpandedGroups', JSON.stringify(newExpanded));
-    };
 
     const toggleCollapse = () => {
         const newCollapsedState = !collapsed;
@@ -180,7 +120,7 @@ export default function ModernSidebar() {
                             {group.items
                                 .filter(item => !item.featureFlag || isFeatureEnabled(item.featureFlag))
                                 .map((item) => (
-                                <NavItem key={item.title} item={item} expandedGroups={expandedGroups} toggleGroup={toggleGroup} collapsed={collapsed} />
+                                <NavItem key={item.title} item={item} collapsed={collapsed} />
                             ))}
                         </div>
                     </div>

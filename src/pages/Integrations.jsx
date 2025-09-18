@@ -2,7 +2,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, Calendar, Users, ShoppingCart, MessageSquare, CheckCircle, Clock } from 'lucide-react';
+import { ArrowRight, Calendar, Users, ShoppingCart, MessageSquare, CheckCircle, Clock, Zap } from 'lucide-react';
+import ZapierCrmCard from '../components/zapier/ZapierCrmCard';
+import { useAuth } from '../components/auth/AuthProvider';
 import { motion } from 'framer-motion';
 
 // FIX: Restyled Integrations page with clean cards, proper alignment, and category headers.
@@ -21,6 +23,7 @@ const integrationCategories = [
         name: 'CRM',
         icon: Users,
         integrations: [
+            { name: 'Zapier', logo: 'https://cdn.zapier.com/storage/photos/9a0c4b8b8b8b8b8b8b8b8b8b8b8b8b8b.png', connected: false, description: 'Connect any CRM via Zapier automation.' },
             { name: 'HubSpot', logo: 'https://cdn.icon-icons.com/icons2/2699/PNG/512/hubspot_logo_icon_169922.png', connected: false, description: 'Sync contacts and company data.' },
             { name: 'Salesforce', logo: 'https://cdn.iconscout.com/icon/free/png-256/free-salesforce-282591.png', connected: false, description: 'Trigger requests based on opportunity stages.' },
         ],
@@ -68,12 +71,17 @@ const IntegrationCard = ({ integration }) => {
 };
 
 export default function IntegrationsPage() {
+    const { user } = useAuth();
+    
     return (
         <div className="space-y-8">
             <div className="page-header">
                 <h1 className="page-title">Integrations Hub</h1>
                 <p className="page-subtitle">Connect your tools to automate your workflow and streamline data.</p>
             </div>
+
+            {/* Zapier CRM Connection Card */}
+            <ZapierCrmCard userId={user?.id} />
 
             <div className="space-y-12">
                 {integrationCategories.map((category, catIndex) => (

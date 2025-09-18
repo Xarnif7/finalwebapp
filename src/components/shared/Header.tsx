@@ -133,7 +133,7 @@ export function Header() {
 
   return (
     <header key={refreshKey} className={`fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-md border-b border-black/5 transition-shadow duration-200 ${isScrolled ? 'sticky-header-shadow' : ''}`}>
-      <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+      <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
         <Link to="/" className="flex-shrink-0" style={{ background: 'transparent', border: 'none', outline: 'none' }}>
           <img
             src="/images/blipp-logo-transparent-clean.png"

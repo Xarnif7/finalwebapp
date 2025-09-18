@@ -66,11 +66,12 @@ export function getPageNameFromPath(pathname: string): string {
     'login': 'Landing', // Login shows landing page
     'pricing': 'Paywall',
     'auth': 'Landing', // Auth callback shows landing
-    'dashboard': 'Dashboard',
+    'dashboard': 'DashboardOverview',
     'reporting': 'Dashboard',
     'customers': 'Clients',
     'automations': 'SendRequests',
     'reviews': 'Reviews',
+    'feedback': 'Feedback',
     'settings': 'Settings',
     'onboarding': 'Onboarding',
   };
@@ -116,6 +117,7 @@ export function getPageNameFromPath(pathname: string): string {
     'RevenueImpact': 'RevenueImpact',
     'Conversations': 'Conversations',
     'PrivateFeedback': 'PrivateFeedback',
+    'Feedback': 'Feedback',
   };
   
   // Check if it's a known page name

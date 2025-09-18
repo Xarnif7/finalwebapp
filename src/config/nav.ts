@@ -23,29 +23,28 @@ export const navigationGroups: NavGroup[] = [
     title: 'Main',
     items: [
       { 
+        title: 'Dashboard', 
+        url: 'dashboard', 
+        icon: 'LayoutDashboard'
+      },
+      { 
         title: 'Customers', 
         url: 'customers', 
-        icon: 'Users' // Will be imported from lucide-react
+        icon: 'Users'
       },
       { 
         title: 'Automations', 
         url: 'automations', 
-        icon: 'Zap',
-        subItems: [
-          { title: 'Send Requests', url: 'automations/send-requests' },
-          { title: 'Automated Requests', url: 'automations/automated-requests' },
-          { title: 'Sequences', url: 'automations/sequences' },
-          { title: 'Social Posts', url: 'automations/social-posts' }
-        ]
+        icon: 'Zap'
       },
       { 
         title: 'Reviews', 
         url: 'reviews', 
         icon: 'Star',
         subItems: [
-          { title: 'Review Inbox', url: 'reviews/inbox' },
-          { title: 'Performance', url: 'reviews/performance' },
-          { title: 'Tracking', url: 'reviews/tracking' }
+          { title: 'Inbox', url: 'reviews/inbox' },
+          { title: 'AI Suggestions', url: 'reviews/ai-suggestions' },
+          { title: 'Sentiment Alerts', url: 'reviews/sentiment-alerts' }
         ]
       },
       { 
@@ -53,9 +52,19 @@ export const navigationGroups: NavGroup[] = [
         url: 'reporting', 
         icon: 'BarChart3',
         subItems: [
-          { title: 'Revenue Impact', url: 'reporting/revenue-impact' },
-          { title: 'Competitors', url: 'reporting/competitors' },
-          { title: 'Conversations', url: 'reporting/conversations' }
+          { title: 'Performance', url: 'reporting/performance' },
+          { title: 'Trends', url: 'reporting/trends' },
+          { title: 'Competitors', url: 'reporting/competitors' }
+        ]
+      },
+      { 
+        title: 'Feedback', 
+        url: 'feedback', 
+        icon: 'MessageCircle',
+        subItems: [
+          { title: 'Form Setup', url: 'feedback/form-setup' },
+          { title: 'Collected Feedback', url: 'feedback/collected' },
+          { title: 'Widget', url: 'feedback/widget' }
         ]
       },
       { 
@@ -63,80 +72,73 @@ export const navigationGroups: NavGroup[] = [
         url: 'settings', 
         icon: 'Settings',
         subItems: [
+          { title: 'Business Profile', url: 'settings/business-profile' },
           { title: 'Integrations', url: 'settings/integrations' },
           { title: 'Team & Roles', url: 'settings/team-roles' },
-          { title: 'Audit Log', url: 'settings/audit-log' },
-          { title: 'Notifications', url: 'settings/notifications' }
+          { title: 'Billing', url: 'settings/billing' },
+          { title: 'Audit Log', url: 'settings/audit-log' }
         ]
       }
     ]
   }
 ];
 
-// Add Public Feedback if feature flag is enabled (enabled by default)
-if (isFeatureEnabled(FEATURE_FLAGS.PUBLIC_FEEDBACK_ENABLED) || true) {
-  navigationGroups[0].items.push({
-    title: 'Public Feedback',
-    url: 'public-feedback',
-    icon: 'MessageCircle',
-    featureFlag: FEATURE_FLAGS.PUBLIC_FEEDBACK_ENABLED
-  });
-}
+// Public Feedback is now integrated into the main Feedback tab
 
 // Legacy URL mappings for redirects
 export const legacyUrlMappings: Record<string, string> = {
   // Dashboard redirects
-  '/dashboard': '/reporting',
-  '/home': '/reporting',
-  '/overview': '/reporting',
+  '/home': '/dashboard',
+  '/overview': '/dashboard',
   
   // Automation redirects
-  '/send-requests': '/automations/send-requests',
-  '/automated-requests': '/automations/automated-requests',
-  '/sequences': '/automations/sequences',
-  '/social-posts': '/automations/social-posts',
+  '/send-requests': '/automations',
+  '/automated-requests': '/automations',
+  '/sequences': '/automations',
+  '/social-posts': '/automations',
   
   // Review redirects
   '/review-inbox': '/reviews/inbox',
-  '/review-performance': '/reviews/performance',
-  '/review-tracking': '/reviews/tracking',
+  '/review-performance': '/reviews/ai-suggestions',
+  '/review-tracking': '/reviews/sentiment-alerts',
   
   // Reporting redirects
-  '/revenue-impact': '/reporting/revenue-impact',
+  '/revenue-impact': '/reporting/performance',
   '/competitors': '/reporting/competitors',
-  '/conversations': '/reporting/conversations',
+  '/conversations': '/reporting/trends',
   '/reports': '/reporting',
   '/analytics': '/reporting',
   '/insights': '/reporting',
   '/kpis': '/reporting',
   '/nps': '/reporting',
   '/keywords': '/reporting',
-  '/trends': '/reporting',
+  '/trends': '/reporting/trends',
   '/reply-rate': '/reporting',
   '/response-time': '/reporting',
-  '/social-metrics': '/reporting/social-metrics',
+  '/social-metrics': '/reporting/trends',
   
   // Settings redirects
   '/integrations': '/settings/integrations',
   '/team-roles': '/settings/team-roles',
   '/audit-log': '/settings/audit-log',
-  '/notifications': '/settings/notifications',
+  '/notifications': '/settings/business-profile',
   '/billing': '/settings/billing',
-  '/branding': '/settings/branding',
-  '/templates': '/settings/templates',
-  '/domains': '/settings/domains',
-  '/auth': '/settings/auth',
-  '/api-keys': '/settings/api-keys',
-  '/webhooks': '/settings/webhooks',
+  '/branding': '/settings/business-profile',
+  '/templates': '/settings/business-profile',
+  '/domains': '/settings/business-profile',
+  '/auth': '/settings/business-profile',
+  '/api-keys': '/settings/integrations',
+  '/webhooks': '/settings/integrations',
   
-  // Public Feedback redirects
-  '/private-feedback': '/public-feedback',
-  '/public-page': '/public-feedback',
-  '/embed': '/public-feedback',
-  '/widget': '/public-feedback',
-  '/public-feedback-form': '/public-feedback',
-  '/review-widget': '/public-feedback',
-  '/landing-badge': '/public-feedback',
+  // Feedback redirects (now integrated into main Feedback tab)
+  '/private-feedback': '/feedback/collected',
+  '/public-feedback': '/feedback/form-setup',
+  '/public-page': '/feedback/form-setup',
+  '/embed': '/feedback/widget',
+  '/widget': '/feedback/widget',
+  '/public-feedback-form': '/feedback/form-setup',
+  '/review-widget': '/feedback/widget',
+  '/landing-badge': '/feedback/widget',
   
   // Keep existing customers route
   '/clients': '/customers',

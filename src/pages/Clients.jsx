@@ -11,8 +11,12 @@ import CsvImportDialog from "../components/clients/CsvImportDialog";
 import PageHeader from "@/components/ui/PageHeader";
 import { isFeatureEnabled } from "@/lib/featureFlags";
 import { toast } from "react-hot-toast";
+import ZapierCrmCard from "../components/zapier/ZapierCrmCard";
+import IntegrationActivityPanel from "../components/zapier/IntegrationActivityPanel";
+import { useAuth } from "../components/auth/AuthProvider";
 
 export default function ClientsPage() {
+  const { user } = useAuth();
   const [showAddForm, setShowAddForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -247,6 +251,9 @@ export default function ClientsPage() {
         title="Customers"
         description="Manage your customer relationships and track their information"
       />
+      
+      {/* Zapier CRM Connection Card */}
+      <ZapierCrmCard userId={user?.id} />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -550,6 +557,9 @@ export default function ClientsPage() {
         onImport={handleImportCsv}
         loading={loading}
       />
+
+      {/* Integration Activity Panel */}
+      <IntegrationActivityPanel />
     </div>
   );
 }
