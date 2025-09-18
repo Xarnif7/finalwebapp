@@ -158,12 +158,13 @@ ALTER TABLE alerts ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now()
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
 
--- 6. Create a default business for existing data if none exists
+-- 6. Create a default business and backfill ALL existing data
 DO $$
 DECLARE
     first_business_id uuid;
     business_count integer;
     default_business_id uuid := '00000000-0000-0000-0000-000000000001';
+    invalid_business_ids uuid[];
 BEGIN
     -- Check if businesses table has any data
     SELECT COUNT(*) INTO business_count FROM businesses;
@@ -182,19 +183,47 @@ BEGIN
         RAISE NOTICE 'Using existing business with ID: %', first_business_id;
     END IF;
     
-    -- Backfill existing data
-    UPDATE customers SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE reviews SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE messages SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE ai_drafts SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE sequences SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE scheduled_jobs SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE csv_imports SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE competitors SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE alerts SET business_id = first_business_id WHERE business_id IS NULL;
-    UPDATE audit_log SET business_id = first_business_id WHERE business_id IS NULL;
+    -- Find all invalid business_ids (those that don't exist in businesses table)
+    SELECT ARRAY_AGG(DISTINCT business_id) INTO invalid_business_ids
+    FROM (
+        SELECT business_id FROM customers WHERE business_id IS NOT NULL
+        UNION
+        SELECT business_id FROM reviews WHERE business_id IS NOT NULL
+        UNION
+        SELECT business_id FROM messages WHERE business_id IS NOT NULL
+        UNION
+        SELECT business_id FROM ai_drafts WHERE business_id IS NOT NULL
+        UNION
+        SELECT business_id FROM sequences WHERE business_id IS NOT NULL
+        UNION
+        SELECT business_id FROM scheduled_jobs WHERE business_id IS NOT NULL
+        UNION
+        SELECT business_id FROM csv_imports WHERE business_id IS NOT NULL
+        UNION
+        SELECT business_id FROM competitors WHERE business_id IS NOT NULL
+        UNION
+        SELECT business_id FROM alerts WHERE business_id IS NOT NULL
+        UNION
+        SELECT business_id FROM audit_log WHERE business_id IS NOT NULL
+    ) AS all_business_ids
+    WHERE business_id NOT IN (SELECT id FROM businesses);
+    
+    -- Update ALL existing data to use the valid business_id
+    UPDATE customers SET business_id = first_business_id WHERE business_id IS NULL OR business_id = ANY(invalid_business_ids);
+    UPDATE reviews SET business_id = first_business_id WHERE business_id IS NULL OR business_id = ANY(invalid_business_ids);
+    UPDATE messages SET business_id = first_business_id WHERE business_id IS NULL OR business_id = ANY(invalid_business_ids);
+    UPDATE ai_drafts SET business_id = first_business_id WHERE business_id IS NULL OR business_id = ANY(invalid_business_ids);
+    UPDATE sequences SET business_id = first_business_id WHERE business_id IS NULL OR business_id = ANY(invalid_business_ids);
+    UPDATE scheduled_jobs SET business_id = first_business_id WHERE business_id IS NULL OR business_id = ANY(invalid_business_ids);
+    UPDATE csv_imports SET business_id = first_business_id WHERE business_id IS NULL OR business_id = ANY(invalid_business_ids);
+    UPDATE competitors SET business_id = first_business_id WHERE business_id IS NULL OR business_id = ANY(invalid_business_ids);
+    UPDATE alerts SET business_id = first_business_id WHERE business_id IS NULL OR business_id = ANY(invalid_business_ids);
+    UPDATE audit_log SET business_id = first_business_id WHERE business_id IS NULL OR business_id = ANY(invalid_business_ids);
     
     RAISE NOTICE 'Backfilled existing data with business_id: %', first_business_id;
+    IF invalid_business_ids IS NOT NULL AND array_length(invalid_business_ids, 1) > 0 THEN
+        RAISE NOTICE 'Fixed invalid business_ids: %', invalid_business_ids;
+    END IF;
 END $$;
 
 -- 7. Set NOT NULL constraints and foreign keys after backfill
