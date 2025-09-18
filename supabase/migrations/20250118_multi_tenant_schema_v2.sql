@@ -158,80 +158,69 @@ ALTER TABLE alerts ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now()
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
 
--- 6. Backfill existing data with existing business ID
--- This will only work if there are existing businesses
+-- 6. Create a default business for existing data if none exists
 DO $$
 DECLARE
     first_business_id uuid;
     business_count integer;
+    default_business_id uuid := '00000000-0000-0000-0000-000000000001';
 BEGIN
     -- Check if businesses table has any data
     SELECT COUNT(*) INTO business_count FROM businesses;
     
-    IF business_count > 0 THEN
+    IF business_count = 0 THEN
+        -- Create a default business for existing data
+        INSERT INTO businesses (id, name, created_at) 
+        VALUES (default_business_id, 'Default Business', now())
+        ON CONFLICT (id) DO NOTHING;
+        
+        first_business_id := default_business_id;
+        RAISE NOTICE 'Created default business with ID: %', first_business_id;
+    ELSE
         -- Get the first business ID
         SELECT id INTO first_business_id FROM businesses LIMIT 1;
-        
-        -- Backfill existing data
-        UPDATE customers SET business_id = first_business_id WHERE business_id IS NULL;
-        UPDATE reviews SET business_id = first_business_id WHERE business_id IS NULL;
-        UPDATE messages SET business_id = first_business_id WHERE business_id IS NULL;
-        UPDATE ai_drafts SET business_id = first_business_id WHERE business_id IS NULL;
-        UPDATE sequences SET business_id = first_business_id WHERE business_id IS NULL;
-        UPDATE scheduled_jobs SET business_id = first_business_id WHERE business_id IS NULL;
-        UPDATE csv_imports SET business_id = first_business_id WHERE business_id IS NULL;
-        UPDATE competitors SET business_id = first_business_id WHERE business_id IS NULL;
-        UPDATE alerts SET business_id = first_business_id WHERE business_id IS NULL;
-        UPDATE audit_log SET business_id = first_business_id WHERE business_id IS NULL;
-        
-        RAISE NOTICE 'Backfilled existing data with business_id: %', first_business_id;
-    ELSE
-        RAISE NOTICE 'No businesses found, skipping data backfill';
+        RAISE NOTICE 'Using existing business with ID: %', first_business_id;
     END IF;
+    
+    -- Backfill existing data
+    UPDATE customers SET business_id = first_business_id WHERE business_id IS NULL;
+    UPDATE reviews SET business_id = first_business_id WHERE business_id IS NULL;
+    UPDATE messages SET business_id = first_business_id WHERE business_id IS NULL;
+    UPDATE ai_drafts SET business_id = first_business_id WHERE business_id IS NULL;
+    UPDATE sequences SET business_id = first_business_id WHERE business_id IS NULL;
+    UPDATE scheduled_jobs SET business_id = first_business_id WHERE business_id IS NULL;
+    UPDATE csv_imports SET business_id = first_business_id WHERE business_id IS NULL;
+    UPDATE competitors SET business_id = first_business_id WHERE business_id IS NULL;
+    UPDATE alerts SET business_id = first_business_id WHERE business_id IS NULL;
+    UPDATE audit_log SET business_id = first_business_id WHERE business_id IS NULL;
+    
+    RAISE NOTICE 'Backfilled existing data with business_id: %', first_business_id;
 END $$;
 
--- 7. Set NOT NULL constraints after backfill (only if we have data)
-DO $$
-DECLARE
-    first_business_id uuid;
-    business_count integer;
-BEGIN
-    -- Check if we have businesses
-    SELECT COUNT(*) INTO business_count FROM businesses;
-    
-    IF business_count > 0 THEN
-        -- Get the first business ID
-        SELECT id INTO first_business_id FROM businesses LIMIT 1;
-        
-        -- Only set NOT NULL if we have data to backfill
-        ALTER TABLE customers ALTER COLUMN business_id SET NOT NULL;
-        ALTER TABLE reviews ALTER COLUMN business_id SET NOT NULL;
-        ALTER TABLE messages ALTER COLUMN business_id SET NOT NULL;
-        ALTER TABLE ai_drafts ALTER COLUMN business_id SET NOT NULL;
-        ALTER TABLE sequences ALTER COLUMN business_id SET NOT NULL;
-        ALTER TABLE scheduled_jobs ALTER COLUMN business_id SET NOT NULL;
-        ALTER TABLE csv_imports ALTER COLUMN business_id SET NOT NULL;
-        ALTER TABLE competitors ALTER COLUMN business_id SET NOT NULL;
-        ALTER TABLE alerts ALTER COLUMN business_id SET NOT NULL;
-        ALTER TABLE audit_log ALTER COLUMN business_id SET NOT NULL;
-        
-        -- Add foreign key constraints
-        ALTER TABLE customers ADD CONSTRAINT fk_customers_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
-        ALTER TABLE reviews ADD CONSTRAINT fk_reviews_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
-        ALTER TABLE messages ADD CONSTRAINT fk_messages_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
-        ALTER TABLE ai_drafts ADD CONSTRAINT fk_ai_drafts_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
-        ALTER TABLE sequences ADD CONSTRAINT fk_sequences_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
-        ALTER TABLE scheduled_jobs ADD CONSTRAINT fk_scheduled_jobs_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
-        ALTER TABLE csv_imports ADD CONSTRAINT fk_csv_imports_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
-        ALTER TABLE competitors ADD CONSTRAINT fk_competitors_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
-        ALTER TABLE alerts ADD CONSTRAINT fk_alerts_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
-        ALTER TABLE audit_log ADD CONSTRAINT fk_audit_log_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
-        
-        RAISE NOTICE 'Set NOT NULL constraints and foreign keys';
-    ELSE
-        RAISE NOTICE 'No businesses found, skipping NOT NULL constraints';
-    END IF;
-END $$;
+-- 7. Set NOT NULL constraints and foreign keys after backfill
+-- We're guaranteed to have a business at this point
+ALTER TABLE customers ALTER COLUMN business_id SET NOT NULL;
+ALTER TABLE reviews ALTER COLUMN business_id SET NOT NULL;
+ALTER TABLE messages ALTER COLUMN business_id SET NOT NULL;
+ALTER TABLE ai_drafts ALTER COLUMN business_id SET NOT NULL;
+ALTER TABLE sequences ALTER COLUMN business_id SET NOT NULL;
+ALTER TABLE scheduled_jobs ALTER COLUMN business_id SET NOT NULL;
+ALTER TABLE csv_imports ALTER COLUMN business_id SET NOT NULL;
+ALTER TABLE competitors ALTER COLUMN business_id SET NOT NULL;
+ALTER TABLE alerts ALTER COLUMN business_id SET NOT NULL;
+ALTER TABLE audit_log ALTER COLUMN business_id SET NOT NULL;
+
+-- Add foreign key constraints
+ALTER TABLE customers ADD CONSTRAINT fk_customers_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
+ALTER TABLE reviews ADD CONSTRAINT fk_reviews_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
+ALTER TABLE messages ADD CONSTRAINT fk_messages_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
+ALTER TABLE ai_drafts ADD CONSTRAINT fk_ai_drafts_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
+ALTER TABLE sequences ADD CONSTRAINT fk_sequences_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
+ALTER TABLE scheduled_jobs ADD CONSTRAINT fk_scheduled_jobs_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
+ALTER TABLE csv_imports ADD CONSTRAINT fk_csv_imports_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
+ALTER TABLE competitors ADD CONSTRAINT fk_competitors_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
+ALTER TABLE alerts ADD CONSTRAINT fk_alerts_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
+ALTER TABLE audit_log ADD CONSTRAINT fk_audit_log_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
 
 -- 8. Enable RLS on all tenant tables
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
