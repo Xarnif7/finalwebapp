@@ -140,8 +140,6 @@ export default function Landing() {
   const { scrollYProgress } = useScroll();
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
-
-
   return (
     <MotionConfig
       transition={{
