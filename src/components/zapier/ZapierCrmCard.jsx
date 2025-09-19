@@ -70,7 +70,7 @@ const ZapierCrmCard = ({ userId }) => {
 
   return (
     <>
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] rounded-lg">

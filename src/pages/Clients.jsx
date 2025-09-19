@@ -279,7 +279,7 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-20">
+    <div className="px-6 py-6">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-slate-900">Customers</h1>
@@ -292,8 +292,8 @@ export default function ClientsPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 mb-6">
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-slate-600">Total Customers</h3>
             <Users className="h-4 w-4 text-slate-400" />
@@ -312,7 +312,7 @@ export default function ClientsPage() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-slate-600">New This Month</h3>
             <TrendingUp className="h-4 w-4 text-slate-400" />
@@ -331,7 +331,7 @@ export default function ClientsPage() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-slate-600">Conversion Rate</h3>
             <UserCheck className="h-4 w-4 text-slate-400" />
@@ -354,8 +354,8 @@ export default function ClientsPage() {
       </div>
 
       {/* Filters/Tool Row */}
-      <div className="flex flex-col sm:flex-row gap-3 lg:gap-4 justify-between items-start sm:items-center mb-6">
-        <div className="flex flex-col sm:flex-row gap-3 lg:gap-4 flex-1">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
+        <div className="flex flex-col sm:flex-row gap-4 flex-1">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
@@ -423,10 +423,10 @@ export default function ClientsPage() {
 
       {/* Customers Table */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="p-5 border-b border-slate-200">
+        <div className="p-6 border-b border-slate-200">
           <h3 className="text-lg font-semibold text-slate-900">Customers ({total})</h3>
         </div>
-        <div className="p-5">
+        <div className="p-6">
           {customersError && (
             <div className="text-red-500 mb-4 p-4 bg-red-50 rounded-lg">
               <div className="font-medium">Error loading customers</div>
