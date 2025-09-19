@@ -135,6 +135,13 @@ export function useCustomersData(initialParams = {}) {
         }
       }
 
+      console.log('📋 Loaded customers from database:', {
+        count: list?.length || 0,
+        total: count || 0,
+        business_id: profile.business_id,
+        customers: list?.map(c => ({ id: c.id, name: c.full_name, email: c.email })) || []
+      });
+
       setCustomers(list);
       setTotal(count || 0);
 
@@ -220,6 +227,14 @@ export function useCustomersData(initialParams = {}) {
         console.error('Create customer error:', error);
         throw new Error(error.message);
       }
+
+      console.log('✅ Customer saved to database:', {
+        id: newCustomer.id,
+        name: newCustomer.full_name,
+        email: newCustomer.email,
+        business_id: newCustomer.business_id,
+        created_at: newCustomer.created_at
+      });
 
       // Log to audit
       try {
