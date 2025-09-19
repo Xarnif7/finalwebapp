@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Users, TrendingUp, UserCheck, Search, Upload, Edit, Archive, Trash2, Calendar, Mail, Phone } from "lucide-react";
+import { Plus, Users, TrendingUp, UserCheck, Search, Upload, Edit, Archive, Trash2, Calendar, Mail, Phone, MoreVertical, Send, Copy, FileText, Eye } from "lucide-react";
 import { useCustomersData } from "@/hooks/useCustomersData";
 import CustomerFormModal from "../components/clients/CustomerFormModal";
 import { supabase } from "@/lib/supabase/browser";
@@ -207,8 +207,69 @@ export default function ClientsPage() {
   const [segment, setSegment] = useState('all');
   const [bulkSelection, setBulkSelection] = useState([]);
   const [bulkPreview, setBulkPreview] = useState(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [selectedCustomers, setSelectedCustomers] = useState([]);
+  const [showBulkActions, setShowBulkActions] = useState(false);
 
   const segmentsEnabled = isFeatureEnabled('customersSegments');
+
+  // Multi-select handlers
+  const handleSelectAll = () => {
+    if (selectedCustomers.length === customers.length) {
+      setSelectedCustomers([]);
+    } else {
+      setSelectedCustomers(customers.map(c => c.id));
+    }
+  };
+
+  const handleSelectCustomer = (customerId) => {
+    setSelectedCustomers(prev => 
+      prev.includes(customerId) 
+        ? prev.filter(id => id !== customerId)
+        : [...prev, customerId]
+    );
+  };
+
+  const handleBulkArchive = async () => {
+    // Implementation for bulk archive
+    console.log('Bulk archive customers:', selectedCustomers);
+  };
+
+  const handleBulkDelete = async () => {
+    // Implementation for bulk delete
+    console.log('Bulk delete customers:', selectedCustomers);
+  };
+
+  const handleBulkSendReview = async () => {
+    // Implementation for bulk send review request
+    console.log('Bulk send review request to customers:', selectedCustomers);
+  };
+
+  const handleDuplicateCustomer = async (customer) => {
+    // Implementation for duplicating a customer
+    console.log('Duplicate customer:', customer);
+  };
+
+  const handleExportCustomer = async (customer) => {
+    // Implementation for exporting customer data
+    console.log('Export customer:', customer);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (activeDropdown && !event.target.closest('.dropdown-container')) {
+        setActiveDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [activeDropdown]);
+
+  // Show bulk actions when customers are selected
+  useEffect(() => {
+    setShowBulkActions(selectedCustomers.length > 0);
+  }, [selectedCustomers]);
 
   async function previewBulkMagic() {
     if (!businessId) return;
@@ -467,6 +528,14 @@ export default function ClientsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b bg-white sticky top-0 z-10">
+                    <th className="text-left py-3 px-4 font-medium text-slate-600 w-12">
+                      <input
+                        type="checkbox"
+                        checked={selectedCustomers.length === customers.length && customers.length > 0}
+                        onChange={handleSelectAll}
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Name</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Contact</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Service Date</th>
@@ -478,6 +547,14 @@ export default function ClientsPage() {
                 <tbody>
                   {customers.map((customer) => (
                     <tr key={customer.id} className="border-b hover:bg-slate-50">
+                      <td className="py-3 px-4 w-12">
+                        <input
+                          type="checkbox"
+                          checked={selectedCustomers.includes(customer.id)}
+                          onChange={() => handleSelectCustomer(customer.id)}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </td>
                       <td className="py-3 px-4">
                         <div>
                           <div className="font-medium">{customer.full_name}</div>
@@ -523,38 +600,147 @@ export default function ClientsPage() {
                         {getStatusBadge(customer.status)}
                       </td>
                       <td className="py-3 px-4">
-                        <div className="flex gap-2">
+                        <div className="relative dropdown-container">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setEditingCustomer(customer)}
-                            disabled={loading}
+                            onClick={() => setActiveDropdown(activeDropdown === customer.id ? null : customer.id)}
+                            className="p-1"
                           >
-                            <Edit className="h-4 w-4" />
+                            <MoreVertical className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleArchiveCustomer(customer.id)}
-                            disabled={loading || customer.status === 'archived'}
-                          >
-                            <Archive className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteCustomer(customer.id)}
-                            disabled={loading}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          
+                          {activeDropdown === customer.id && (
+                            <div className="absolute right-0 top-8 z-50 w-48 bg-white rounded-md shadow-lg border border-slate-200 py-1">
+                              <button
+                                onClick={() => {
+                                  setEditingCustomer(customer);
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                              >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit Customer
+                              </button>
+                              <button
+                                onClick={() => {
+                                  // View details functionality
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Details
+                              </button>
+                              <button
+                                onClick={() => {
+                                  // Send review request functionality
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                              >
+                                <Send className="h-4 w-4 mr-2" />
+                                Send Review Request
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleDuplicateCustomer(customer);
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                              >
+                                <Copy className="h-4 w-4 mr-2" />
+                                Duplicate
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleExportCustomer(customer);
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                              >
+                                <FileText className="h-4 w-4 mr-2" />
+                                Export
+                              </button>
+                              <hr className="my-1" />
+                              <button
+                                onClick={() => {
+                                  handleArchiveCustomer(customer.id);
+                                  setActiveDropdown(null);
+                                }}
+                                disabled={loading || customer.status === 'archived'}
+                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <Archive className="h-4 w-4 mr-2" />
+                                {customer.status === 'archived' ? 'Unarchive' : 'Archive'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleDeleteCustomer(customer.id);
+                                  setActiveDropdown(null);
+                                }}
+                                disabled={loading}
+                                className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          
+          {/* Bulk Actions Bar */}
+          {showBulkActions && (
+            <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white border border-slate-200 rounded-lg shadow-lg px-4 py-3 z-50">
+              <div className="flex items-center space-x-4">
+                <span className="text-sm font-medium text-slate-700">
+                  {selectedCustomers.length} customer{selectedCustomers.length !== 1 ? 's' : ''} selected
+                </span>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleBulkSendReview}
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                  >
+                    <Send className="h-4 w-4 mr-1" />
+                    Send Review Request
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleBulkArchive}
+                    className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                  >
+                    <Archive className="h-4 w-4 mr-1" />
+                    Archive
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleBulkDelete}
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedCustomers([])}
+                    className="text-slate-600"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>
