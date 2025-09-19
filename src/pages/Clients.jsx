@@ -33,6 +33,7 @@ export default function ClientsPage() {
     createCustomer,
     updateCustomer,
     archiveCustomer,
+    unarchiveCustomer,
     deleteCustomer,
     importCsv,
     refresh,
@@ -138,6 +139,16 @@ export default function ClientsPage() {
     }
   };
 
+  const handleUnarchiveCustomer = async (customerId) => {
+    try {
+      await unarchiveCustomer(customerId);
+      toast.success('Customer unarchived successfully');
+      await fetchStats(); // Refresh stats
+    } catch (error) {
+      toast.error(error.message || 'Failed to unarchive customer');
+    }
+  };
+
   const handleImportCsv = async (processedRows, progressCallback) => {
     setLoading(true);
     try {
@@ -231,13 +242,41 @@ export default function ClientsPage() {
   };
 
   const handleBulkArchive = async () => {
-    // Implementation for bulk archive
-    console.log('Bulk archive customers:', selectedCustomers);
+    if (window.confirm(`Are you sure you want to archive ${selectedCustomers.length} customer(s)? This action can be undone later.`)) {
+      try {
+        setLoading(true);
+        for (const customerId of selectedCustomers) {
+          await archiveCustomer(customerId);
+        }
+        toast.success(`${selectedCustomers.length} customer(s) archived successfully`);
+        setSelectedCustomers([]);
+        await fetchStats(); // Refresh stats
+      } catch (error) {
+        console.error('Error bulk archiving customers:', error);
+        toast.error('Failed to archive some customers');
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const handleBulkDelete = async () => {
-    // Implementation for bulk delete
-    console.log('Bulk delete customers:', selectedCustomers);
+    if (window.confirm(`Are you sure you want to permanently delete ${selectedCustomers.length} customer(s)? This action cannot be undone.`)) {
+      try {
+        setLoading(true);
+        for (const customerId of selectedCustomers) {
+          await deleteCustomer(customerId);
+        }
+        toast.success(`${selectedCustomers.length} customer(s) deleted successfully`);
+        setSelectedCustomers([]);
+        await fetchStats(); // Refresh stats
+      } catch (error) {
+        console.error('Error bulk deleting customers:', error);
+        toast.error('Failed to delete some customers');
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const handleBulkSendReview = async () => {
@@ -640,11 +679,14 @@ export default function ClientsPage() {
                               <hr className="my-1" />
                               <button
                                 onClick={() => {
-                                  handleArchiveCustomer(customer.id);
+                                  if (customer.status === 'archived') {
+                                    handleUnarchiveCustomer(customer.id);
+                                  } else {
+                                    handleArchiveCustomer(customer.id);
+                                  }
                                   setActiveDropdown(null);
                                 }}
-                                disabled={loading || customer.status === 'archived'}
-                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
                               >
                                 <Archive className="h-4 w-4 mr-2" />
                                 {customer.status === 'archived' ? 'Unarchive' : 'Archive'}

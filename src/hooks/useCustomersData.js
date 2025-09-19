@@ -399,6 +399,69 @@ export function useCustomersData(initialParams = {}) {
     }
   };
 
+  const unarchiveCustomer = async (id) => {
+    if (!user) throw new Error('No user');
+
+    try {
+      // Get user's business_id
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        throw new Error('Unable to load user profile. Please try logging out and back in.');
+      }
+
+      if (!profile?.business_id) {
+        throw new Error('Business not found. Please complete onboarding first.');
+      }
+
+      const { data: unarchivedCustomer, error } = await supabase
+        .from('customers')
+        .update({ status: 'active' })
+        .eq('id', id)
+        .eq('business_id', profile.business_id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Unarchive customer error:', error);
+        throw new Error(error.message);
+      }
+
+      // Log to audit
+      try {
+        await supabase
+          .from('audit_log')
+          .insert({
+            business_id: profile.business_id,
+            user_id: user.id,
+            entity: 'customers',
+            entity_id: id,
+            action: 'unarchive',
+            details: { previous_status: 'archived' },
+          });
+      } catch (auditError) {
+        console.error('Audit log error:', auditError);
+        // Don't fail the operation if audit logging fails
+      }
+
+      // Optimistic update
+      setCustomers(prev => 
+        prev.map(customer => 
+          customer.id === id ? unarchivedCustomer : customer
+        )
+      );
+      
+      return unarchivedCustomer;
+    } catch (err) {
+      console.error('Error unarchiving customer:', err);
+      throw err;
+    }
+  };
+
   const deleteCustomer = async (id) => {
     if (!user) throw new Error('No user');
 
@@ -607,6 +670,7 @@ export function useCustomersData(initialParams = {}) {
     createCustomer,
     updateCustomer,
     archiveCustomer,
+    unarchiveCustomer,
     deleteCustomer,
     importCsv,
     refresh,
