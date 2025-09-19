@@ -243,3 +243,31 @@ header img[alt="Blipp"] svg {
   background: transparent !important;
   background-color: transparent !important;
 }
+
+/* Static table card - no hover animations */
+.table-card-static {
+  background: white !important;
+  border: 1px solid hsl(210, 40%, 88%) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
+  transition: none !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+.table-card-static:hover {
+  background: white !important;
+  border: 1px solid hsl(210, 40%, 88%) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+.table-card-static:focus {
+  background: white !important;
+  border: 1px solid hsl(210, 40%, 88%) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+}

@@ -285,72 +285,72 @@ export default function ClientsPage() {
       {/* Zapier CRM Connection Card */}
       <ZapierCrmCard userId={user?.id} />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
+      {/* KPI Cards - Even spacing */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="card-subtle rounded-card bg-white border border-slate-200 shadow-sm">
+          <div className="flex flex-row items-center justify-between space-y-0 pb-3 p-6">
+            <h3 className="text-section font-semibold">Total Customers</h3>
+            <Users className="h-4 w-4 text-slate-400" />
+          </div>
+          <div className="p-6 pt-0">
             {statsLoading ? (
               <div className="animate-pulse">
-                <div className="h-8 bg-muted rounded w-16"></div>
+                <div className="h-8 bg-slate-200 rounded w-16"></div>
               </div>
             ) : (
               <>
-                <div className="text-2xl font-bold">{stats.total_customers}</div>
-                <p className="text-xs text-muted-foreground">
+                <div className="text-3xl font-bold text-slate-900">{stats.total_customers}</div>
+                <p className="text-body mt-1">
                   Active customers in your database
                 </p>
               </>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New This Month</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
+        <div className="card-subtle rounded-card bg-white border border-slate-200 shadow-sm">
+          <div className="flex flex-row items-center justify-between space-y-0 pb-3 p-6">
+            <h3 className="text-section font-semibold">New This Month</h3>
+            <TrendingUp className="h-4 w-4 text-slate-400" />
+          </div>
+          <div className="p-6 pt-0">
             {statsLoading ? (
               <div className="animate-pulse">
-                <div className="h-8 bg-muted rounded w-16"></div>
+                <div className="h-8 bg-slate-200 rounded w-16"></div>
               </div>
             ) : (
               <>
-                <div className="text-2xl font-bold">{stats.new_this_month}</div>
-                <p className="text-xs text-muted-foreground">
+                <div className="text-3xl font-bold text-slate-900">{stats.new_this_month}</div>
+                <p className="text-body mt-1">
                   Customers added this month
                 </p>
               </>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
-            <UserCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
+        <div className="card-subtle rounded-card bg-white border border-slate-200 shadow-sm">
+          <div className="flex flex-row items-center justify-between space-y-0 pb-3 p-6">
+            <h3 className="text-section font-semibold">Conversion Rate</h3>
+            <UserCheck className="h-4 w-4 text-slate-400" />
+          </div>
+          <div className="p-6 pt-0">
             {statsLoading ? (
               <div className="animate-pulse">
-                <div className="h-8 bg-muted rounded w-16"></div>
+                <div className="h-8 bg-slate-200 rounded w-16"></div>
               </div>
             ) : (
               <>
-                <div className="text-2xl font-bold">
+                <div className="text-3xl font-bold text-slate-900">
                   {stats.conversion_rate ? `${stats.conversion_rate}%` : 'N/A'}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-body mt-1">
                   Lead to customer conversion
                 </p>
               </>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       {/* Actions Bar */}
@@ -420,12 +420,12 @@ export default function ClientsPage() {
         </Card>
       )}
 
-      {/* Customers Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Customers ({total})</CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* Customers Table - Clean */}
+      <div className="table-card-static rounded-card">
+        <div className="p-6 border-b border-slate-200">
+          <h3 className="text-section">Customers ({total})</h3>
+        </div>
+        <div className="p-6">
           {customersError && (
             <div className="text-red-500 mb-4 p-4 bg-red-50 rounded-lg">
               <div className="font-medium">Error loading customers</div>
@@ -562,8 +562,8 @@ export default function ClientsPage() {
               </table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Modals */}
       <CustomerFormModal
