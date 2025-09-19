@@ -169,16 +169,34 @@ export function useCustomersData(initialParams = {}) {
 
       console.log('Using business_id:', profile.business_id);
 
-      // Verify business exists
-      const { data: business, error: businessError } = await supabase
+      // Verify business exists, create if missing
+      let { data: business, error: businessError } = await supabase
         .from('businesses')
         .select('id')
         .eq('id', profile.business_id)
         .single();
 
       if (businessError || !business) {
-        console.error('Business not found:', businessError);
-        throw new Error('Business not found in database. Please contact support.');
+        console.log('Business not found, creating new business for user:', user.id);
+        
+        // Create the missing business
+        const { data: newBusiness, error: createError } = await supabase
+          .from('businesses')
+          .insert({
+            id: profile.business_id, // Use the existing business_id from profile
+            name: `${user.email?.split('@')[0] || 'User'}'s Business`,
+            created_by: user.id
+          })
+          .select('id')
+          .single();
+
+        if (createError) {
+          console.error('Error creating business:', createError);
+          throw new Error('Failed to create business. Please contact support.');
+        }
+
+        business = newBusiness;
+        console.log('Created business:', business);
       }
 
       // Normalize data
