@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Users, TrendingUp, UserCheck, Search, Upload, Edit, Archive, Trash2, Calendar, Mail, Phone, MoreVertical, Send, Copy, FileText, Eye } from "lucide-react";
+import { Plus, Users, TrendingUp, UserCheck, Search, Upload, Edit, Archive, Trash2, Calendar, Mail, Phone, MoreVertical, Send, PlayCircle } from "lucide-react";
 import { useCustomersData } from "@/hooks/useCustomersData";
 import CustomerFormModal from "../components/clients/CustomerFormModal";
 import { supabase } from "@/lib/supabase/browser";
@@ -245,14 +245,9 @@ export default function ClientsPage() {
     console.log('Bulk send review request to customers:', selectedCustomers);
   };
 
-  const handleDuplicateCustomer = async (customer) => {
-    // Implementation for duplicating a customer
-    console.log('Duplicate customer:', customer);
-  };
-
-  const handleExportCustomer = async (customer) => {
-    // Implementation for exporting customer data
-    console.log('Export customer:', customer);
+  const handleAddToSequence = async (customer) => {
+    // Implementation for adding customer to a sequence
+    console.log('Add customer to sequence:', customer);
   };
 
   // Close dropdown when clicking outside
@@ -624,13 +619,13 @@ export default function ClientsPage() {
                               </button>
                               <button
                                 onClick={() => {
-                                  // View details functionality
+                                  handleAddToSequence(customer);
                                   setActiveDropdown(null);
                                 }}
                                 className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
                               >
-                                <Eye className="h-4 w-4 mr-2" />
-                                View Details
+                                <PlayCircle className="h-4 w-4 mr-2 text-blue-600" />
+                                Add to Sequence
                               </button>
                               <button
                                 onClick={() => {
@@ -641,26 +636,6 @@ export default function ClientsPage() {
                               >
                                 <Send className="h-4 w-4 mr-2" />
                                 Send Review Request
-                              </button>
-                              <button
-                                onClick={() => {
-                                  handleDuplicateCustomer(customer);
-                                  setActiveDropdown(null);
-                                }}
-                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                              >
-                                <Copy className="h-4 w-4 mr-2" />
-                                Duplicate
-                              </button>
-                              <button
-                                onClick={() => {
-                                  handleExportCustomer(customer);
-                                  setActiveDropdown(null);
-                                }}
-                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                              >
-                                <FileText className="h-4 w-4 mr-2" />
-                                Export
                               </button>
                               <hr className="my-1" />
                               <button
