@@ -73,8 +73,8 @@ const ZapierCrmCard = ({ userId }) => {
       <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <Zap className="h-6 w-6 text-orange-600" />
+            <div className="p-2 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] rounded-lg">
+              <Zap className="h-6 w-6 text-white" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Connect CRM (Zapier)</h3>
@@ -92,7 +92,7 @@ const ZapierCrmCard = ({ userId }) => {
         <div className="flex items-center space-x-4">
           <button
             onClick={handleConnect}
-            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2"
+            className="px-4 py-2 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-white rounded-lg hover:from-[#1557B0] hover:to-[#6D28D9] transition-all duration-200 flex items-center space-x-2"
           >
             <Zap className="h-4 w-4" />
             <span>Connect via Zapier</span>
