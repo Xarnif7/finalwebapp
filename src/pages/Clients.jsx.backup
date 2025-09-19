@@ -3,19 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Users, TrendingUp, UserCheck, Search, Upload, Edit, Archive, Trash2, Calendar, Mail, Phone, MoreVertical, Send, PlayCircle, Eye } from "lucide-react";
+import { Plus, Users, TrendingUp, UserCheck, Search, Upload, Edit, Archive, Trash2, Calendar, Mail, Phone, MoreVertical, Send, PlayCircle } from "lucide-react";
 import { useCustomersData } from "@/hooks/useCustomersData";
 import CustomerFormModal from "../components/clients/CustomerFormModal";
-import CustomerDetailsDrawer from "../components/clients/CustomerDetailsDrawer";
-import SavedViews from "../components/clients/SavedViews";
-import EnhancedFilters from "../components/clients/EnhancedFilters";
 import { supabase } from "@/lib/supabase/browser";
 import CsvImportDialog from "../components/clients/CsvImportDialog";
 import PageHeader from "@/components/ui/PageHeader";
 import { isFeatureEnabled } from "@/lib/featureFlags";
 import { toast } from "react-hot-toast";
 import ZapierCrmCard from "../components/zapier/ZapierCrmCard";
-import ZapierStatusPill from "../components/zapier/ZapierStatusPill";
 import { useAuth } from "../components/auth/AuthProvider";
 import { useCurrentBusinessId } from "../lib/tenancy";
 
@@ -225,16 +221,6 @@ export default function ClientsPage() {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [showDetailsDrawer, setShowDetailsDrawer] = useState(false);
-  const [activeView, setActiveView] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [sourceFilter, setSourceFilter] = useState('all');
-  const [tagFilter, setTagFilter] = useState('all');
-  const [dateRange, setDateRange] = useState({ from: '', to: '' });
-  const [zapStatus, setZapStatus] = useState('connected');
-  const [lastSync, setLastSync] = useState(new Date().toISOString());
 
   const segmentsEnabled = isFeatureEnabled('customersSegments');
 
@@ -301,62 +287,6 @@ export default function ClientsPage() {
   const handleAddToSequence = async (customer) => {
     // Implementation for adding customer to a sequence
     console.log('Add customer to sequence:', customer);
-  };
-
-  const handleRowClick = (customer) => {
-    setSelectedCustomer(customer);
-    setShowDetailsDrawer(true);
-  };
-
-  const handleViewChange = (viewId) => {
-    setActiveView(viewId);
-    // Apply view-specific filters
-    switch (viewId) {
-      case 'new-this-week':
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        setDateRange({ from: weekAgo.toISOString().split('T')[0], to: '' });
-        break;
-      case 'needs-review':
-        // Filter for customers without reviews
-        break;
-      case 'imported-csv':
-        setSourceFilter('csv');
-        break;
-      case 'bounced-invalid':
-        // Filter for bounced/invalid customers
-        break;
-      case 'vip':
-        setTagFilter('vip');
-        break;
-      default:
-        setDateRange({ from: '', to: '' });
-        setSourceFilter('all');
-        setTagFilter('all');
-    }
-  };
-
-  const handleClearFilters = () => {
-    setSearchQuery('');
-    setStatusFilter('all');
-    setSourceFilter('all');
-    setTagFilter('all');
-    setDateRange({ from: '', to: '' });
-    setActiveView('all');
-  };
-
-  const handleKpiClick = (kpiType) => {
-    switch (kpiType) {
-      case 'total':
-        setActiveView('all');
-        break;
-      case 'new':
-        setActiveView('new-this-week');
-        break;
-      case 'response':
-        setActiveView('needs-review');
-        break;
-    }
   };
 
   // Close dropdown when clicking outside
@@ -455,28 +385,17 @@ export default function ClientsPage() {
         <p className="text-slate-600 mt-2">Manage your customer relationships and track their information</p>
       </div>
       
-      {/* Zapier Connection Status */}
+      {/* Zapier CRM Connection Card */}
       <div className="mb-6">
-        {zapStatus === 'connected' ? (
-          <ZapierStatusPill 
-            onViewZaps={() => console.log('View Zaps clicked')}
-            lastSync={lastSync}
-          />
-        ) : (
-          <ZapierCrmCard userId={user?.id} />
-        )}
+        <ZapierCrmCard userId={user?.id} />
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 mb-8">
-        <div 
-          className="relative overflow-visible rounded-2xl border border-slate-200 bg-white p-5 shadow-sm motion-safe:transition motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-[0_12px_35px_rgba(59,130,246,0.25),0_6px_20px_rgba(139,92,246,0.15),0_2px_8px_rgba(59,130,246,0.1)] motion-reduce:transform-none motion-reduce:shadow-sm cursor-pointer group"
-          onClick={() => handleKpiClick('total')}
-          title="Click to view all customers"
-        >
+        <div className="relative overflow-visible rounded-2xl border border-slate-200 bg-white p-5 shadow-sm motion-safe:transition motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-[0_12px_35px_rgba(59,130,246,0.25),0_6px_20px_rgba(139,92,246,0.15),0_2px_8px_rgba(59,130,246,0.1)] motion-reduce:transform-none motion-reduce:shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-slate-600">Total Customers</h3>
-            <Users className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+            <Users className="h-4 w-4 text-slate-400" />
           </div>
           {statsLoading ? (
             <div className="animate-pulse">
@@ -492,14 +411,10 @@ export default function ClientsPage() {
           )}
         </div>
 
-        <div 
-          className="relative overflow-visible rounded-2xl border border-slate-200 bg-white p-5 shadow-sm motion-safe:transition motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-[0_12px_35px_rgba(59,130,246,0.25),0_6px_20px_rgba(139,92,246,0.15),0_2px_8px_rgba(59,130,246,0.1)] motion-reduce:transform-none motion-reduce:shadow-sm cursor-pointer group"
-          onClick={() => handleKpiClick('new')}
-          title="Click to view new customers from this week"
-        >
+        <div className="relative overflow-visible rounded-2xl border border-slate-200 bg-white p-5 shadow-sm motion-safe:transition motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-[0_12px_35px_rgba(59,130,246,0.25),0_6px_20px_rgba(139,92,246,0.15),0_2px_8px_rgba(59,130,246,0.1)] motion-reduce:transform-none motion-reduce:shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-slate-600">New This Month</h3>
-            <TrendingUp className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+            <TrendingUp className="h-4 w-4 text-slate-400" />
           </div>
           {statsLoading ? (
             <div className="animate-pulse">
@@ -515,14 +430,10 @@ export default function ClientsPage() {
           )}
         </div>
 
-        <div 
-          className="relative overflow-visible rounded-2xl border border-slate-200 bg-white p-5 shadow-sm motion-safe:transition motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-[0_12px_35px_rgba(59,130,246,0.25),0_6px_20px_rgba(139,92,246,0.15),0_2px_8px_rgba(59,130,246,0.1)] motion-reduce:transform-none motion-reduce:shadow-sm cursor-pointer group"
-          onClick={() => handleKpiClick('response')}
-          title="Click to view customers who need review requests"
-        >
+        <div className="relative overflow-visible rounded-2xl border border-slate-200 bg-white p-5 shadow-sm motion-safe:transition motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-[0_12px_35px_rgba(59,130,246,0.25),0_6px_20px_rgba(139,92,246,0.15),0_2px_8px_rgba(59,130,246,0.1)] motion-reduce:transform-none motion-reduce:shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-slate-600">Conversion Rate</h3>
-            <UserCheck className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+            <UserCheck className="h-4 w-4 text-slate-400" />
           </div>
           {statsLoading ? (
             <div className="animate-pulse">
@@ -542,42 +453,48 @@ export default function ClientsPage() {
       </div>
 
       {/* Filters/Tool Row */}
-      {/* Saved Views */}
-      <SavedViews activeView={activeView} onViewChange={handleViewChange} />
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
+        <div className="flex flex-col sm:flex-row gap-4 flex-1">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search customers..."
+              value={queryParams.search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
 
-      {/* Enhanced Filters */}
-      <EnhancedFilters
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
-        sourceFilter={sourceFilter}
-        onSourceChange={setSourceFilter}
-        tagFilter={tagFilter}
-        onTagChange={setTagFilter}
-        dateRange={dateRange}
-        onDateRangeChange={setDateRange}
-        onClearFilters={handleClearFilters}
-      />
+          <select
+            value={queryParams.status}
+            onChange={(e) => handleStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-input rounded-md bg-background"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
 
-      {/* Actions */}
-      <div className="flex justify-end gap-2 mb-6">
-        <Button
-          onClick={() => setShowImport(true)}
-          variant="outline"
-          disabled={loading}
-        >
-          <Upload className="h-4 w-4 mr-2" />
-          Import CSV
-        </Button>
-        <Button
-          onClick={() => setShowAddForm(true)}
-          disabled={loading}
-          className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white border-0"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Customer
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowImport(true)}
+            variant="outline"
+            disabled={loading}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Import CSV
+          </Button>
+          <Button
+            onClick={() => setShowAddForm(true)}
+            disabled={loading}
+            className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white border-0"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Customer
+          </Button>
+        </div>
       </div>
 
       {/* Segments & Bulk Magic */}
@@ -663,11 +580,7 @@ export default function ClientsPage() {
                 </thead>
                 <tbody>
                   {customers.map((customer) => (
-                    <tr 
-                      key={customer.id} 
-                      className="border-b hover:bg-slate-50 cursor-pointer"
-                      onClick={() => handleRowClick(customer)}
-                    >
+                    <tr key={customer.id} className="border-b hover:bg-slate-50">
                       <td className="py-3 px-4 w-12">
                         <input
                           type="checkbox"
@@ -734,8 +647,27 @@ export default function ClientsPage() {
                           {activeDropdown === customer.id && (
                             <div className="absolute right-0 top-8 z-50 w-48 bg-white rounded-md shadow-lg border border-slate-200 py-1">
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation(); // Prevent row click
+                                onClick={() => {
+                                  setEditingCustomer(customer);
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                              >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit Customer
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleAddToSequence(customer);
+                                  setActiveDropdown(null);
+                                }}
+                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                              >
+                                <PlayCircle className="h-4 w-4 mr-2 text-blue-600" />
+                                Add to Sequence
+                              </button>
+                              <button
+                                onClick={() => {
                                   // Send review request functionality
                                   setActiveDropdown(null);
                                 }}
@@ -744,9 +676,9 @@ export default function ClientsPage() {
                                 <Send className="h-4 w-4 mr-2" />
                                 Send Review Request
                               </button>
+                              <hr className="my-1" />
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation(); // Prevent row click
+                                onClick={() => {
                                   if (customer.status === 'archived') {
                                     handleUnarchiveCustomer(customer.id);
                                   } else {
@@ -759,10 +691,8 @@ export default function ClientsPage() {
                                 <Archive className="h-4 w-4 mr-2" />
                                 {customer.status === 'archived' ? 'Unarchive' : 'Archive'}
                               </button>
-                              <hr className="my-1" />
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation(); // Prevent row click
+                                onClick={() => {
                                   handleDeleteCustomer(customer.id);
                                   setActiveDropdown(null);
                                 }}
@@ -854,23 +784,6 @@ export default function ClientsPage() {
         onOpenChange={setShowImport}
         onImport={handleImportCsv}
         loading={loading}
-      />
-
-      {/* Customer Details Drawer */}
-      <CustomerDetailsDrawer
-        customer={selectedCustomer}
-        isOpen={showDetailsDrawer}
-        onClose={() => setShowDetailsDrawer(false)}
-        onEdit={(customer) => {
-          setEditingCustomer(customer);
-          setShowAddForm(true);
-        }}
-        onArchive={handleArchiveCustomer}
-        onUnarchive={handleUnarchiveCustomer}
-        onSendReview={(customer) => {
-          // Send review request functionality
-          console.log('Send review request to:', customer);
-        }}
       />
     </div>
   );
