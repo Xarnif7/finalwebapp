@@ -64,27 +64,26 @@ const BlippLogo = ({ collapsed }) => (
 
 const NavItem = ({ item, collapsed }) => {
     const location = useLocation();
-    const isParentActive = item.subItems?.some(sub => location.pathname.includes(sub.url));
-    const isActive = !item.subItems && location.pathname.includes(item.url);
+    
+    // Unified active state detection - check if current path matches the item URL
+    const isActive = location.pathname === `/${item.url}` || location.pathname.startsWith(`/${item.url}/`);
 
     return (
         <Link to={`/${item.url}`} title={collapsed ? item.title : ''}>
             <motion.div
                 className={cn(
                     "group flex items-center gap-3.5 text-sm font-medium rounded-lg px-4 py-2.5 transition-all duration-200 relative",
-                    (isActive || isParentActive)
+                    isActive
                         ? "text-slate-900 bg-slate-100 font-semibold"
                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-50",
                     collapsed && "justify-center"
                 )}
             >
-                {(isActive || isParentActive) && <div className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b from-[#1A73E8] to-[#7C3AED]" />}
+                {isActive && <div className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-gradient-to-b from-[#1A73E8] to-[#7C3AED]" />}
                 {React.createElement(iconMap[item.icon] || Users, { className: "w-6 h-6 shrink-0" })}
                 {!collapsed && <span className="relative">
                     {item.title}
-                    {!(isActive || isParentActive) && (
-                        <div className="absolute -bottom-1 left-0 h-[2px] w-0 group-hover:w-full transition-[width] duration-250 ease-out rounded-full bg-gradient-to-r from-[#1A73E8] to-[#7C3AED]" />
-                    )}
+                    <div className="sidebar-hover-bar absolute -bottom-1 left-0 h-0.5 w-0 group-hover:w-full bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] opacity-0 group-hover:opacity-100 transition-all duration-300 ease-out" />
                 </span>}
             </motion.div>
         </Link>

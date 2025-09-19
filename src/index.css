@@ -209,6 +209,11 @@ progress {
   transition: width 0.3s ease-out !important;
 }
 
+/* Sidebar hover bar animation */
+.sidebar-hover-bar {
+  transition: width 0.3s ease-out, opacity 0.3s ease-out !important;
+}
+
 /* Logo transparency - ensure no background or box around logo */
 header img[alt="Blipp"] {
   background: transparent !important;
