@@ -1,274 +1,409 @@
-import React, { useState } from 'react';
-import { X, Play, Pause, Copy, Archive, Edit, Mail, MessageSquare, Users, CheckCircle, Clock, TrendingUp } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React from 'react';
+import { 
+  X, 
+  Play, 
+  Pause, 
+  Copy, 
+  Edit, 
+  Archive,
+  Mail,
+  MessageSquare,
+  Clock,
+  Users,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  TrendingUp,
+  Calendar,
+  Settings,
+  BarChart3,
+  Activity,
+  Zap
+} from 'lucide-react';
+import { useSequenceAnalytics } from '../../hooks/useSequenceAnalytics';
+import { toast } from 'sonner';
 
 const SequenceDetailsDrawer = ({ 
   sequence, 
   isOpen, 
   onClose, 
-  onEdit, 
   onPause, 
   onResume, 
   onDuplicate, 
   onArchive, 
-  onDelete 
+  onEdit 
 }) => {
-  const [activeMetric, setActiveMetric] = useState('overview');
+  const { analytics, loading, error } = useSequenceAnalytics(sequence?.id);
 
   if (!isOpen || !sequence) return null;
 
-  const metrics = [
-    { id: 'overview', label: 'Overview', icon: Users },
-    { id: 'steps', label: 'Step Metrics', icon: TrendingUp },
-    { id: 'rules', label: 'Rules & Settings', icon: Clock }
-  ];
-
-  const mockMetrics = {
-    enrolled: 45,
-    completed: 38,
-    converted: 9,
-    unsubscribed: 2,
-    bounced: 1,
-    stepMetrics: [
-      { step: 'Send Email', sent: 45, delivered: 43, opened: 28, clicked: 12, converted: 9 },
-      { step: 'Wait 5h', sent: 45, delivered: 45, opened: 0, clicked: 0, converted: 0 },
-      { step: 'Send SMS', sent: 38, delivered: 37, opened: 25, clicked: 8, converted: 3 }
-    ]
+  const handleAction = async (action) => {
+    try {
+      switch (action) {
+        case 'pause':
+          await onPause(sequence.id);
+          break;
+        case 'resume':
+          await onResume(sequence.id);
+          break;
+        case 'duplicate':
+          await onDuplicate(sequence.id);
+          break;
+        case 'archive':
+          await onArchive(sequence.id);
+          break;
+        case 'edit':
+          onEdit(sequence);
+          break;
+        default:
+          break;
+      }
+    } catch (error) {
+      toast.error(`Failed to ${action} sequence: ${error.message}`);
+    }
   };
 
-  const renderOverview = () => (
-    <div className="space-y-6">
-      {/* Key Metrics */}
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Key Metrics</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-slate-50 p-4 rounded-lg">
-            <div className="text-2xl font-bold text-slate-900">{mockMetrics.enrolled}</div>
-            <div className="text-sm text-slate-600">Enrolled</div>
-          </div>
-          <div className="bg-slate-50 p-4 rounded-lg">
-            <div className="text-2xl font-bold text-slate-900">{mockMetrics.completed}</div>
-            <div className="text-sm text-slate-600">Completed</div>
-          </div>
-          <div className="bg-slate-50 p-4 rounded-lg">
-            <div className="text-2xl font-bold text-green-600">{mockMetrics.converted}</div>
-            <div className="text-sm text-slate-600">Converted</div>
-          </div>
-          <div className="bg-slate-50 p-4 rounded-lg">
-            <div className="text-2xl font-bold text-slate-900">{sequence.conversionRate}%</div>
-            <div className="text-sm text-slate-600">Conversion Rate</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Exit Rules */}
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Exit Rules</h3>
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2 text-sm">
-            <CheckCircle className="h-4 w-4 text-green-500" />
-            <span>Stop if review left</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm">
-            <CheckCircle className="h-4 w-4 text-green-500" />
-            <span>Stop if unsubscribed</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm">
-            <CheckCircle className="h-4 w-4 text-green-500" />
-            <span>Stop if customer archived</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Quiet Hours */}
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Quiet Hours</h3>
-        <div className="text-sm text-slate-600">
-          <p>No sends between 10 PM - 8 AM (EST)</p>
-          <p>Weekends: 9 AM - 6 PM only</p>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderStepMetrics = () => (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-slate-900 mb-4">Step-by-Step Performance</h3>
-      {mockMetrics.stepMetrics.map((step, index) => (
-        <Card key={index}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">{step.step}</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-5 gap-4 text-sm">
-              <div>
-                <div className="font-medium text-slate-900">{step.sent}</div>
-                <div className="text-slate-500">Sent</div>
-              </div>
-              <div>
-                <div className="font-medium text-slate-900">{step.delivered}</div>
-                <div className="text-slate-500">Delivered</div>
-              </div>
-              <div>
-                <div className="font-medium text-slate-900">{step.opened}</div>
-                <div className="text-slate-500">Opened</div>
-              </div>
-              <div>
-                <div className="font-medium text-slate-900">{step.clicked}</div>
-                <div className="text-slate-500">Clicked</div>
-              </div>
-              <div>
-                <div className="font-medium text-green-600">{step.converted}</div>
-                <div className="text-slate-500">Converted</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-
-  const renderRules = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Enrollment Settings</h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-            <span className="text-sm font-medium">Zapier Trigger</span>
-            <Badge variant="outline">Job Completed</Badge>
-          </div>
-          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-            <span className="text-sm font-medium">Manual Enrollment</span>
-            <Badge variant="outline">Enabled</Badge>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Rate Limits</h3>
-        <div className="space-y-2 text-sm">
-          <p>Max 10 sends per hour per customer</p>
-          <p>Max 50 sends per day per customer</p>
-          <p>Respects customer timezone</p>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderTabContent = () => {
-    switch (activeMetric) {
-      case 'overview':
-        return renderOverview();
-      case 'steps':
-        return renderStepMetrics();
-      case 'rules':
-        return renderRules();
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'paused':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'draft':
+        return 'bg-gray-100 text-gray-800';
+      case 'archived':
+        return 'bg-red-100 text-red-800';
       default:
-        return renderOverview();
+        return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'active':
+        return <CheckCircle className="w-4 h-4" />;
+      case 'paused':
+        return <Pause className="w-4 h-4" />;
+      case 'draft':
+        return <Edit className="w-4 h-4" />;
+      case 'archived':
+        return <Archive className="w-4 h-4" />;
+      default:
+        return <AlertCircle className="w-4 h-4" />;
+    }
+  };
+
+  const getStepIcon = (kind) => {
+    switch (kind) {
+      case 'send_email':
+        return <Mail className="w-4 h-4" />;
+      case 'send_sms':
+        return <MessageSquare className="w-4 h-4" />;
+      case 'wait':
+        return <Clock className="w-4 h-4" />;
+      default:
+        return <AlertCircle className="w-4 h-4" />;
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Never';
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  };
+
+  const formatTimeAgo = (dateString) => {
+    if (!dateString) return 'Never';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const formatWaitTime = (waitMs) => {
+    if (!waitMs) return '0m';
+    const minutes = Math.round(waitMs / 1000 / 60);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black bg-opacity-50" 
+        className="absolute inset-0 bg-black bg-opacity-50 transition-opacity"
         onClick={onClose}
       />
       
       {/* Drawer */}
-      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-white shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900">{sequence.name}</h2>
-            <p className="text-sm text-slate-500">{sequence.enrollmentRule}</p>
+      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-white shadow-xl transform transition-transform">
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Zap className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">{sequence.name}</h2>
+                <div className="flex items-center space-x-2 mt-1">
+                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(sequence.status)}`}>
+                    {getStatusIcon(sequence.status)}
+                    {sequence.status}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    {sequence.trigger_event_type?.replace('_', ' ') || 'Manual'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
 
-        {/* Quick Actions */}
-        <div className="p-6 border-b border-slate-200">
-          <div className="flex space-x-3">
-            <Button
-              size="sm"
-              onClick={() => {
-                if (sequence.status === 'active') {
-                  onPause(sequence.id);
-                } else {
-                  onResume(sequence.id);
-                }
-                onClose();
-              }}
-              className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white"
-            >
-              {sequence.status === 'active' ? (
-                <>
-                  <Pause className="h-4 w-4 mr-2" />
-                  Pause
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Resume
-                </>
-              )}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                onDuplicate(sequence.id);
-                onClose();
-              }}
-            >
-              <Copy className="h-4 w-4 mr-2" />
-              Duplicate
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                onEdit(sequence);
-                onClose();
-              }}
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {loading ? (
+              <div className="space-y-4">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  </div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className="text-center py-8">
+                <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                <p className="text-red-600">Error loading analytics: {error}</p>
+              </div>
+            ) : analytics ? (
+              <>
+                {/* Quick Stats */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Users className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-900">Total Enrolled</span>
+                    </div>
+                    <div className="text-2xl font-bold text-blue-900">
+                      {analytics.enrollment_totals.total}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-green-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-900">Completed</span>
+                    </div>
+                    <div className="text-2xl font-bold text-green-900">
+                      {analytics.enrollment_totals.completed}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-yellow-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Activity className="w-4 h-4 text-yellow-600" />
+                      <span className="text-sm font-medium text-yellow-900">Active</span>
+                    </div>
+                    <div className="text-2xl font-bold text-yellow-900">
+                      {analytics.enrollment_totals.active}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-purple-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <TrendingUp className="w-4 h-4 text-purple-600" />
+                      <span className="text-sm font-medium text-purple-900">Conversion</span>
+                    </div>
+                    <div className="text-2xl font-bold text-purple-900">
+                      {analytics.conversion_rate}%
+                    </div>
+                  </div>
+                </div>
+
+                {/* Message Analytics */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <BarChart3 className="w-5 h-5 mr-2" />
+                    Message Analytics
+                  </h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">
+                        {analytics.message_totals.total}
+                      </div>
+                      <div className="text-sm text-gray-600">Total Sent</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">
+                        {analytics.message_totals.last_7_days}
+                      </div>
+                      <div className="text-sm text-gray-600">Last 7 Days</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">
+                        {analytics.message_totals.last_30_days}
+                      </div>
+                      <div className="text-sm text-gray-600">Last 30 Days</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step Analytics */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Settings className="w-5 h-5 mr-2" />
+                    Step Performance
+                  </h3>
+                  <div className="space-y-3">
+                    {analytics.step_analytics.map((step, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                            {getStepIcon(step.kind)}
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {step.kind === 'wait' ? 'Wait' : step.kind.replace('send_', 'Send ')}
+                            </div>
+                            {step.kind === 'wait' && (
+                              <div className="text-sm text-gray-500">
+                                {formatWaitTime(step.wait_ms)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-gray-900">
+                            {step.messages_sent}
+                          </div>
+                          <div className="text-sm text-gray-500">sent</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Settings Summary */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Settings className="w-5 h-5 mr-2" />
+                    Settings
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Manual Enrollment</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        analytics.sequence.allow_manual_enroll 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {analytics.sequence.allow_manual_enroll ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Quiet Hours</span>
+                      <span className="text-sm text-gray-900">
+                        {analytics.quiet_hours.enabled 
+                          ? `${analytics.quiet_hours.start} - ${analytics.quiet_hours.end}`
+                          : 'Disabled'
+                        }
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Rate Limit (Hour)</span>
+                      <span className="text-sm text-gray-900">
+                        {analytics.rate_limits.per_hour}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Rate Limit (Day)</span>
+                      <span className="text-sm text-gray-900">
+                        {analytics.rate_limits.per_day}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Last Activity */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
+                    <Activity className="w-5 h-5 mr-2" />
+                    Last Activity
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {formatTimeAgo(analytics.last_activity)}
+                  </p>
+                </div>
+              </>
+            ) : null}
           </div>
-        </div>
 
-        {/* Tabs */}
-        <div className="border-b border-slate-200">
-          <nav className="flex space-x-8 px-6">
-            {metrics.map((metric) => {
-              const Icon = metric.icon;
-              return (
+          {/* Footer Actions */}
+          <div className="border-t border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex space-x-2">
                 <button
-                  key={metric.id}
-                  onClick={() => setActiveMetric(metric.id)}
-                  className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeMetric === metric.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  onClick={() => handleAction(sequence.status === 'active' ? 'pause' : 'resume')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    sequence.status === 'active'
+                      ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                      : 'bg-green-100 text-green-800 hover:bg-green-200'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
-                  <span>{metric.label}</span>
+                  {sequence.status === 'active' ? (
+                    <>
+                      <Pause className="w-4 h-4 mr-2 inline" />
+                      Pause
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2 inline" />
+                      Resume
+                    </>
+                  )}
                 </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {renderTabContent()}
+                
+                <button
+                  onClick={() => handleAction('duplicate')}
+                  className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors"
+                >
+                  <Copy className="w-4 h-4 mr-2 inline" />
+                  Duplicate
+                </button>
+                
+                <button
+                  onClick={() => handleAction('edit')}
+                  className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                >
+                  <Edit className="w-4 h-4 mr-2 inline" />
+                  Edit
+                </button>
+              </div>
+              
+              <button
+                onClick={() => handleAction('archive')}
+                className="px-4 py-2 bg-red-100 text-red-800 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
+              >
+                <Archive className="w-4 h-4 mr-2 inline" />
+                Archive
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

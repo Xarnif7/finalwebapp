@@ -1,0 +1,371 @@
+{
+  "templates": [
+    {
+      "id": "job-completed-review-request",
+      "name": "Job Completed → Review Request",
+      "description": "Automatically request a review when a job is marked complete",
+      "url": "https://zapier.com/app/editor/123456789/step-1",
+      "trigger": {
+        "type": "crm_trigger",
+        "name": "Job Completed",
+        "description": "Triggers when a job is marked complete in your CRM",
+        "fields": [
+          {
+            "key": "job_id",
+            "label": "Job ID",
+            "type": "string",
+            "required": true
+          },
+          {
+            "key": "customer_email",
+            "label": "Customer Email",
+            "type": "string",
+            "required": true
+          },
+          {
+            "key": "customer_phone",
+            "label": "Customer Phone",
+            "type": "string",
+            "required": false
+          },
+          {
+            "key": "customer_name",
+            "label": "Customer Name",
+            "type": "string",
+            "required": true
+          },
+          {
+            "key": "service_date",
+            "label": "Service Date",
+            "type": "date",
+            "required": true
+          },
+          {
+            "key": "service_type",
+            "label": "Service Type",
+            "type": "string",
+            "required": false
+          }
+        ]
+      },
+      "actions": [
+        {
+          "step": 1,
+          "name": "Upsert Customer",
+          "type": "blipp_upsert_customer",
+          "endpoint": "https://myblipp.com/api/zapier/upsert-customer",
+          "method": "POST",
+          "headers": {
+            "X-Zapier-Token": "{{zapier_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "email": "{{customer_email}}",
+            "phone": "{{customer_phone}}",
+            "first_name": "{{customer_name}}",
+            "last_name": "",
+            "external_id": "{{job_id}}",
+            "tags": ["job-completed", "{{service_type}}"],
+            "source": "zapier",
+            "event_ts": "{{zap_meta_timestamp}}"
+          }
+        },
+        {
+          "step": 2,
+          "name": "Trigger Review Request",
+          "type": "blipp_trigger_event",
+          "endpoint": "https://myblipp.com/api/zapier/event",
+          "method": "POST",
+          "headers": {
+            "X-Zapier-Token": "{{zapier_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "event_type": "job_completed",
+            "email": "{{customer_email}}",
+            "external_id": "{{job_id}}",
+            "service_date": "{{service_date}}",
+            "payload": {
+              "job_id": "{{job_id}}",
+              "service_type": "{{service_type}}",
+              "customer_name": "{{customer_name}}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "invoice-paid-review-request",
+      "name": "Invoice Paid → Review Request",
+      "description": "Request a review when an invoice payment is received",
+      "url": "https://zapier.com/app/editor/123456790/step-1",
+      "trigger": {
+        "type": "payment_trigger",
+        "name": "Invoice Paid",
+        "description": "Triggers when an invoice payment is received",
+        "fields": [
+          {
+            "key": "invoice_id",
+            "label": "Invoice ID",
+            "type": "string",
+            "required": true
+          },
+          {
+            "key": "customer_email",
+            "label": "Customer Email",
+            "type": "string",
+            "required": true
+          },
+          {
+            "key": "customer_phone",
+            "label": "Customer Phone",
+            "type": "string",
+            "required": false
+          },
+          {
+            "key": "customer_name",
+            "label": "Customer Name",
+            "type": "string",
+            "required": true
+          },
+          {
+            "key": "payment_date",
+            "label": "Payment Date",
+            "type": "date",
+            "required": true
+          },
+          {
+            "key": "amount",
+            "label": "Amount",
+            "type": "number",
+            "required": true
+          }
+        ]
+      },
+      "actions": [
+        {
+          "step": 1,
+          "name": "Upsert Customer",
+          "type": "blipp_upsert_customer",
+          "endpoint": "https://myblipp.com/api/zapier/upsert-customer",
+          "method": "POST",
+          "headers": {
+            "X-Zapier-Token": "{{zapier_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "email": "{{customer_email}}",
+            "phone": "{{customer_phone}}",
+            "first_name": "{{customer_name}}",
+            "last_name": "",
+            "external_id": "{{invoice_id}}",
+            "tags": ["invoice-paid", "payment-received"],
+            "source": "zapier",
+            "event_ts": "{{zap_meta_timestamp}}"
+          }
+        },
+        {
+          "step": 2,
+          "name": "Trigger Review Request",
+          "type": "blipp_trigger_event",
+          "endpoint": "https://myblipp.com/api/zapier/event",
+          "method": "POST",
+          "headers": {
+            "X-Zapier-Token": "{{zapier_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "event_type": "invoice_paid",
+            "email": "{{customer_email}}",
+            "external_id": "{{invoice_id}}",
+            "service_date": "{{payment_date}}",
+            "payload": {
+              "invoice_id": "{{invoice_id}}",
+              "amount": "{{amount}}",
+              "customer_name": "{{customer_name}}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "service-scheduled-review-request",
+      "name": "Service Scheduled → Review Request",
+      "description": "Request a review when a service appointment is scheduled",
+      "url": "https://zapier.com/app/editor/123456791/step-1",
+      "trigger": {
+        "type": "scheduling_trigger",
+        "name": "Service Scheduled",
+        "description": "Triggers when a service appointment is scheduled",
+        "fields": [
+          {
+            "key": "appointment_id",
+            "label": "Appointment ID",
+            "type": "string",
+            "required": true
+          },
+          {
+            "key": "customer_email",
+            "label": "Customer Email",
+            "type": "string",
+            "required": true
+          },
+          {
+            "key": "customer_phone",
+            "label": "Customer Phone",
+            "type": "string",
+            "required": false
+          },
+          {
+            "key": "customer_name",
+            "label": "Customer Name",
+            "type": "string",
+            "required": true
+          },
+          {
+            "key": "appointment_date",
+            "label": "Appointment Date",
+            "type": "date",
+            "required": true
+          },
+          {
+            "key": "service_type",
+            "label": "Service Type",
+            "type": "string",
+            "required": false
+          }
+        ]
+      },
+      "actions": [
+        {
+          "step": 1,
+          "name": "Upsert Customer",
+          "type": "blipp_upsert_customer",
+          "endpoint": "https://myblipp.com/api/zapier/upsert-customer",
+          "method": "POST",
+          "headers": {
+            "X-Zapier-Token": "{{zapier_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "email": "{{customer_email}}",
+            "phone": "{{customer_phone}}",
+            "first_name": "{{customer_name}}",
+            "last_name": "",
+            "external_id": "{{appointment_id}}",
+            "tags": ["service-scheduled", "{{service_type}}"],
+            "source": "zapier",
+            "event_ts": "{{zap_meta_timestamp}}"
+          }
+        },
+        {
+          "step": 2,
+          "name": "Trigger Review Request",
+          "type": "blipp_trigger_event",
+          "endpoint": "https://myblipp.com/api/zapier/event",
+          "method": "POST",
+          "headers": {
+            "X-Zapier-Token": "{{zapier_token}}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "event_type": "service_scheduled",
+            "email": "{{customer_email}}",
+            "external_id": "{{appointment_id}}",
+            "service_date": "{{appointment_date}}",
+            "payload": {
+              "appointment_id": "{{appointment_id}}",
+              "service_type": "{{service_type}}",
+              "customer_name": "{{customer_name}}"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "field_mapping_guide": {
+    "required_fields": [
+      {
+        "field": "email",
+        "description": "Customer email address",
+        "type": "string",
+        "required": true,
+        "alternative": "phone"
+      },
+      {
+        "field": "phone",
+        "description": "Customer phone number",
+        "type": "string",
+        "required": false,
+        "alternative": "email"
+      },
+      {
+        "field": "external_id",
+        "description": "Your CRM's customer/record ID",
+        "type": "string",
+        "required": true,
+        "alternative": null
+      }
+    ],
+    "recommended_fields": [
+      {
+        "field": "first_name",
+        "description": "Customer first name",
+        "type": "string",
+        "required": false,
+        "alternative": null
+      },
+      {
+        "field": "last_name",
+        "description": "Customer last name",
+        "type": "string",
+        "required": false,
+        "alternative": null
+      },
+      {
+        "field": "tags",
+        "description": "Array of customer tags",
+        "type": "array",
+        "required": false,
+        "alternative": null
+      },
+      {
+        "field": "source",
+        "description": "Source of the customer data",
+        "type": "string",
+        "required": false,
+        "alternative": null
+      }
+    ]
+  },
+  "authentication": {
+    "header_name": "X-Zapier-Token",
+    "description": "Your Blipp Zapier integration token",
+    "where_to_find": "Blipp Dashboard → Settings → Integrations → Zapier",
+    "example": "blipp_zap_1234567890abcdef"
+  },
+  "troubleshooting": {
+    "common_errors": [
+      {
+        "error": "401 Unauthorized",
+        "cause": "Invalid or missing X-Zapier-Token header",
+        "solution": "Check your token in Blipp dashboard and ensure it's correctly set in Zapier"
+      },
+      {
+        "error": "400 Bad Request",
+        "cause": "Missing required fields (email OR phone)",
+        "solution": "Ensure at least one contact method is mapped in your Zap"
+      },
+      {
+        "error": "Customer not appearing",
+        "cause": "Business ID mapping issue",
+        "solution": "Verify your account has proper business setup in Blipp"
+      },
+      {
+        "error": "Sequence not triggering",
+        "cause": "Event type doesn't match sequence trigger",
+        "solution": "Check that event_type matches your sequence's trigger_event_type"
+      }
+    ]
+  }
+}

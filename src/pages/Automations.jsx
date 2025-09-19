@@ -23,11 +23,25 @@ import {
   ExternalLink,
   Zap,
   FileText,
-  BarChart3
+  BarChart3,
+  Settings,
+  Eye,
+  Send
 } from 'lucide-react';
 import { useAuth } from '../components/auth/AuthProvider';
+import { useSequencesData } from '../hooks/useSequencesData';
+import { useZapierStatus } from '../hooks/useZapierStatus';
 import SequenceDetailsDrawer from '../components/automations/SequenceDetailsDrawer';
 import SequenceDesigner from '../components/automations/SequenceDesigner';
+import SequencesList from '../components/automations/SequencesList';
+import RecipeCards from '../components/automations/RecipeCards';
+import TriggersTab from '../components/automations/TriggersTab';
+import TemplatesTab from '../components/automations/TemplatesTab';
+import LogsTab from '../components/automations/LogsTab';
+import AutomationKPIs from '../components/automations/AutomationKPIs';
+import AlertBanner from '../components/automations/AlertBanner';
+import OnboardingChecklist from '../components/automations/OnboardingChecklist';
+import { useAutomationMetrics } from '../hooks/useAutomationMetrics';
 
 export default function AutomationsPage() {
   const { user } = useAuth();
@@ -37,38 +51,26 @@ export default function AutomationsPage() {
   const [showDetailsDrawer, setShowDetailsDrawer] = useState(false);
   const [showSequenceDesigner, setShowSequenceDesigner] = useState(false);
   const [editingSequence, setEditingSequence] = useState(null);
+  const [filters, setFilters] = useState({
+    status: 'all',
+    channel: 'all',
+    manualEnroll: 'all'
+  });
+  const [savedView, setSavedView] = useState('all');
 
-  // Mock data
-  const sequences = [
-    {
-      id: 1,
-      name: 'Job Completion Follow-up',
-      channel: 'email',
-      enrollmentRule: 'Zapier: Job Completed',
-      steps: ['Send Email', 'Wait 5h', 'Send SMS'],
-      status: 'active',
-      customersInFlow: 12,
-      conversionRate: 23.5,
-      lastSent: '2h ago'
-    },
-    {
-      id: 2,
-      name: 'Service Reminder',
-      channel: 'sms',
-      enrollmentRule: 'Manual + Zapier: Service Scheduled',
-      steps: ['Send SMS', 'Wait 1d', 'Send Email'],
-      status: 'paused',
-      customersInFlow: 8,
-      conversionRate: 18.2,
-      lastSent: '1d ago'
-    }
-  ];
+  // Use real data from API
+  const { sequences, loading, error } = useSequencesData();
+  const { isConnected: isZapierConnected } = useZapierStatus();
+  const { metrics, loading: metricsLoading } = useAutomationMetrics();
+  const [dismissedAlerts, setDismissedAlerts] = useState(new Set());
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
+  // Calculate KPI data from real sequences
   const kpiData = {
-    activeSequences: 3,
-    customersInSequences: 20,
-    requestsSent7d: 156,
-    conversionRate: 21.3
+    activeSequences: sequences.filter(s => s.status === 'active').length,
+    customersInSequences: sequences.reduce((sum, s) => sum + s.active_enrollments, 0),
+    requestsSent7d: 156, // TODO: Calculate from real data
+    conversionRate: 21.3 // TODO: Calculate from real data
   };
 
   const tabs = [
@@ -78,10 +80,59 @@ export default function AutomationsPage() {
     { id: 'logs', label: 'Logs', icon: BarChart3 }
   ];
 
+  const savedViews = [
+    { id: 'all', label: 'All Sequences' },
+    { id: 'active', label: 'Active' },
+    { id: 'paused', label: 'Paused' },
+    { id: 'drafts', label: 'Drafts' }
+  ];
+
   // Handler functions
+  const handleCreateSequence = () => {
+    setEditingSequence(null);
+    setShowSequenceDesigner(true);
+  };
+
   const handleEditSequence = (sequence) => {
     setEditingSequence(sequence);
     setShowSequenceDesigner(true);
+  };
+
+  const handleCloseDesigner = () => {
+    setShowSequenceDesigner(false);
+    setEditingSequence(null);
+  };
+
+  const handleSaveSequence = (sequence) => {
+    // Refresh sequences list
+    // The useSequencesData hook will automatically refetch
+    setShowSequenceDesigner(false);
+    setEditingSequence(null);
+  };
+
+  const handleRecipeSequenceCreated = (sequence) => {
+    // Refresh sequences list when a recipe creates a new sequence
+    // The useSequencesData hook will automatically refetch
+    console.log('Recipe created sequence:', sequence);
+  };
+
+  const handleKpiClick = (filterType, filterValue) => {
+    console.log('KPI clicked:', filterType, filterValue);
+    
+    // Apply filter to sequences list
+    if (filterType === 'status' && filterValue === 'active') {
+      // Filter to show only active sequences
+      setSearchQuery('status:active');
+    } else if (filterType === 'enrollment' && filterValue === 'active') {
+      // Filter to show sequences with active enrollments
+      setSearchQuery('enrollment:active');
+    } else if (filterType === 'conversion' && filterValue === '7d') {
+      // Filter to show sequences with recent activity
+      setSearchQuery('conversion:7d');
+    }
+    
+    // Switch to sequences tab to show filtered results
+    setActiveTab('sequences');
   };
 
   const handlePauseSequence = (sequenceId) => {
@@ -109,11 +160,27 @@ export default function AutomationsPage() {
     // Implementation for deleting sequence
   };
 
-  const handleSaveSequence = (sequenceData) => {
-    console.log('Save sequence:', sequenceData);
-    // Implementation for saving sequence
-    setShowSequenceDesigner(false);
-    setEditingSequence(null);
+
+
+  const handleFilterChange = (filterType, value) => {
+    setFilters(prev => ({ ...prev, [filterType]: value }));
+  };
+
+  const handleSavedViewChange = (viewId) => {
+    setSavedView(viewId);
+    switch (viewId) {
+      case 'active':
+        setFilters(prev => ({ ...prev, status: 'active' }));
+        break;
+      case 'paused':
+        setFilters(prev => ({ ...prev, status: 'paused' }));
+        break;
+      case 'drafts':
+        setFilters(prev => ({ ...prev, status: 'draft' }));
+        break;
+      default:
+        setFilters(prev => ({ ...prev, status: 'all' }));
+    }
   };
 
   const getChannelIcon = (channel) => {
@@ -133,40 +200,58 @@ export default function AutomationsPage() {
     );
   };
 
+  const getChannelBadge = (channel) => {
+    const variants = {
+      email: 'bg-blue-100 text-blue-800',
+      sms: 'bg-green-100 text-green-800'
+    };
+    return (
+      <Badge className={variants[channel] || variants.email}>
+        {channel.toUpperCase()}
+      </Badge>
+    );
+  };
+
   const renderHeader = () => (
     <div className="flex items-center justify-between mb-6">
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Automations</h1>
-        <p className="text-slate-600 mt-2">Create and manage your review request sequences</p>
+        <p className="text-slate-600 mt-2">Create and manage review-request sequences</p>
       </div>
       
       <div className="flex items-center space-x-4">
-        {/* Integration Pill */}
-        <div className="flex items-center space-x-3 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+        {/* Zapier Connection Pill */}
+        <div className="flex items-center space-x-3 bg-green-50 border border-green-200 rounded-lg px-4 py-2">
           <div className="flex items-center space-x-2">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            <span className="text-sm font-medium text-green-800">Connected to Zapier</span>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <span className="text-sm font-medium text-green-800">✓ Connected</span>
           </div>
           
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-1 text-sm text-green-700">
-              <Clock className="h-4 w-4" />
-              <span>Last sync 2h ago</span>
-            </div>
-            
+          <div className="flex items-center space-x-3">
             <Button
               variant="ghost"
               size="sm"
-              className="text-green-700 hover:text-green-800 hover:bg-green-100 h-8 px-3"
+              className="text-green-700 hover:text-green-800 hover:bg-green-100 h-7 px-2 text-xs"
             >
-              <ExternalLink className="h-4 w-4 mr-1" />
               View Zaps
             </Button>
+            
+            <div className="flex items-center space-x-1 text-xs text-green-600">
+              <Clock className="h-3 w-3" />
+              <span>Last sync 2h ago</span>
+            </div>
           </div>
         </div>
 
         <Button
-          onClick={() => setShowSequenceDesigner(true)}
+          variant="outline"
+          onClick={() => setShowOnboarding(true)}
+          className="text-blue-600 hover:text-blue-700"
+        >
+          Setup Guide
+        </Button>
+        <Button
+          onClick={handleCreateSequence}
           className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -233,6 +318,15 @@ export default function AutomationsPage() {
 
   const renderSequencesList = () => (
     <div className="space-y-6">
+      {/* KPI Cards */}
+      <AutomationKPIs onKpiClick={handleKpiClick} />
+
+      {/* Recipe Cards */}
+      <RecipeCards 
+        isZapierConnected={isZapierConnected}
+        onRecipeSequenceCreated={handleRecipeSequenceCreated}
+      />
+
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div className="flex flex-col sm:flex-row gap-4 flex-1">
@@ -261,96 +355,8 @@ export default function AutomationsPage() {
         </div>
       </div>
 
-      {/* Sequences Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="border-b bg-slate-50">
-                <tr>
-                  <th className="text-left py-3 px-4 font-medium text-slate-600">Sequence</th>
-                  <th className="text-left py-3 px-4 font-medium text-slate-600">Enrollment Rule</th>
-                  <th className="text-left py-3 px-4 font-medium text-slate-600">Steps</th>
-                  <th className="text-left py-3 px-4 font-medium text-slate-600">Status</th>
-                  <th className="text-left py-3 px-4 font-medium text-slate-600">Performance</th>
-                  <th className="text-left py-3 px-4 font-medium text-slate-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sequences.map((sequence) => {
-                  const ChannelIcon = getChannelIcon(sequence.channel);
-                  return (
-                    <tr 
-                      key={sequence.id} 
-                      className="border-b hover:bg-slate-50 cursor-pointer"
-                      onClick={() => {
-                        setSelectedSequence(sequence);
-                        setShowDetailsDrawer(true);
-                      }}
-                    >
-                      <td className="py-4 px-4">
-                        <div className="flex items-center space-x-3">
-                          <ChannelIcon className="h-5 w-5 text-slate-400" />
-                          <div>
-                            <div className="font-semibold text-slate-900">{sequence.name}</div>
-                            <Badge variant="outline" className="text-xs mt-1">
-                              {sequence.channel.toUpperCase()}
-                            </Badge>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-sm text-slate-600">
-                        {sequence.enrollmentRule}
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center space-x-1 text-sm text-slate-600">
-                          {sequence.steps.map((step, index) => (
-                            <React.Fragment key={index}>
-                              <span>{step}</span>
-                              {index < sequence.steps.length - 1 && (
-                                <span className="text-slate-400">→</span>
-                              )}
-                            </React.Fragment>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center space-x-2">
-                          {getStatusBadge(sequence.status)}
-                          <span className="text-sm text-slate-600">
-                            {sequence.customersInFlow} customers
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="text-sm">
-                          <div className="font-medium text-slate-900">{sequence.conversionRate}%</div>
-                          <div className="text-slate-500">Last sent {sequence.lastSent}</div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="relative dropdown-container">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Handle dropdown
-                            }}
-                            className="p-1"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Sequences List Component */}
+      <SequencesList onEdit={handleEditSequence} />
     </div>
   );
 
@@ -372,22 +378,47 @@ export default function AutomationsPage() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'sequences':
-        return sequences.length > 0 ? renderSequencesList() : renderEmptyState();
+        return renderSequencesList();
       case 'triggers':
-        return <div className="text-center py-12 text-slate-500">Triggers section coming soon</div>;
+        return <TriggersTab />;
       case 'templates':
-        return <div className="text-center py-12 text-slate-500">Templates section coming soon</div>;
+        return <TemplatesTab />;
       case 'logs':
-        return <div className="text-center py-12 text-slate-500">Logs section coming soon</div>;
+        return <LogsTab />;
       default:
         return renderSequencesList();
     }
+  };
+
+  const handleDismissAlert = () => {
+    setDismissedAlerts(prev => new Set([...prev, 'failure-rate']));
   };
 
   return (
     <div className="px-6 py-6">
       {renderHeader()}
       {renderKPI()}
+      
+      {/* Alert Banner */}
+      {metrics.hasAlert && !dismissedAlerts.has('failure-rate') && (
+        <AlertBanner 
+          metrics={metrics} 
+          onDismiss={handleDismissAlert}
+        />
+      )}
+      
+      {/* Quick Start Recipe Cards */}
+      <div className="mb-8">
+        <div className="mb-4">
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">Quick Start Recipes</h2>
+          <p className="text-slate-600">Get started with pre-built automation sequences</p>
+        </div>
+        <RecipeCards 
+          isZapierConnected={isZapierConnected}
+          onSequenceCreated={handleRecipeSequenceCreated}
+        />
+      </div>
+      
       {renderTabs()}
       {renderTabContent()}
 
@@ -405,14 +436,20 @@ export default function AutomationsPage() {
       />
 
       {/* Sequence Designer */}
-      <SequenceDesigner
-        sequence={editingSequence}
-        isOpen={showSequenceDesigner}
-        onClose={() => {
-          setShowSequenceDesigner(false);
-          setEditingSequence(null);
-        }}
-        onSave={handleSaveSequence}
+      {showSequenceDesigner && (
+        <div className="fixed inset-0 z-50 bg-white">
+          <SequenceDesigner
+            sequenceId={editingSequence?.id || null}
+            onClose={handleCloseDesigner}
+            onSave={handleSaveSequence}
+          />
+        </div>
+      )}
+
+      {/* Onboarding Checklist Modal */}
+      <OnboardingChecklist
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
       />
     </div>
   );

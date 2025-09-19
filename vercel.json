@@ -1,47 +1,8 @@
 {
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/((?!api).*)", "destination": "/" }
-  ],
   "crons": [
     {
-      "path": "/api/reviews/sync/all?key=INTERNAL_API_KEY_VALUE",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/_cron/magic-send-dispatcher",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/_cron/missed-review-recovery",
-      "schedule": "0 * * * *"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/((?!assets/).*)",
-      "headers": [
-        {
-          "key": "Content-Security-Policy",
-              "value": "default-src 'self'; script-src 'self' https://*.supabase.co https://*.supabase.in https://accounts.google.com https://www.gstatic.com https://www.google.com https://vercel.live https://va.vercel-scripts.com https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co https://api.stripe.com https://accounts.google.com https://www.googleapis.com https://vercel.live https://va.vercel-scripts.com; frame-src 'self' https://js.stripe.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=()"
-        }
-      ]
+      "path": "/api/cron/automation-runner",
+      "schedule": "*/1 * * * *"
     }
   ]
 }

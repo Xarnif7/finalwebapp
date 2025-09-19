@@ -1,419 +1,572 @@
-import React, { useState } from 'react';
-import { X, Save, Play, Plus, Trash2, Settings, Mail, MessageSquare, Clock, Users, Zap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Save, 
+  Play, 
+  Settings, 
+  Plus, 
+  Trash2, 
+  GripVertical,
+  Mail,
+  MessageSquare,
+  Clock,
+  Eye,
+  Send,
+  AlertCircle,
+  CheckCircle
+} from 'lucide-react';
+import { useSequenceDesigner } from '../../hooks/useSequenceDesigner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
-const SequenceDesigner = ({ 
-  sequence, 
-  isOpen, 
-  onClose, 
-  onSave 
-}) => {
+const SequenceDesigner = ({ sequenceId, onClose, onSave }) => {
+  const {
+    sequence,
+    steps,
+    templates,
+    loading,
+    saving,
+    error,
+    createSequence,
+    updateSequence,
+    createStep,
+    updateStep,
+    deleteStep,
+    reorderSteps,
+    testSendMessage,
+    validateSequence
+  } = useSequenceDesigner(sequenceId);
+
   const [activePanel, setActivePanel] = useState('settings');
-  const [sequenceData, setSequenceData] = useState({
-    name: sequence?.name || '',
-    trigger: sequence?.trigger || 'zapier',
-    triggerEvent: sequence?.triggerEvent || 'job_completed',
-    allowManualEnroll: sequence?.allowManualEnroll || false,
-    exitConditions: {
-      reviewLeft: true,
-      unsubscribed: true,
-      archived: true
-    },
-    quietHours: {
-      enabled: true,
-      start: '22:00',
-      end: '08:00',
-      timezone: 'EST'
-    },
-    rateLimits: {
-      maxPerHour: 10,
-      maxPerDay: 50
-    },
-    steps: sequence?.steps || []
+  const [selectedStep, setSelectedStep] = useState(null);
+  const [showTestModal, setShowTestModal] = useState(false);
+  const [testData, setTestData] = useState({ email: '', phone: '' });
+
+  // Form state for sequence settings
+  const [formData, setFormData] = useState({
+    name: '',
+    trigger_event_type: '',
+    allow_manual_enroll: false,
+    quiet_hours_start: '',
+    quiet_hours_end: '',
+    rate_per_hour: '',
+    rate_per_day: ''
   });
 
-  const [draggedStep, setDraggedStep] = useState(null);
+  // Update form data when sequence loads
+  useEffect(() => {
+    if (sequence) {
+      setFormData({
+        name: sequence.name || '',
+        trigger_event_type: sequence.trigger_event_type || '',
+        allow_manual_enroll: sequence.allow_manual_enroll || false,
+        quiet_hours_start: sequence.quiet_hours_start || '',
+        quiet_hours_end: sequence.quiet_hours_end || '',
+        rate_per_hour: sequence.rate_per_hour || '',
+        rate_per_day: sequence.rate_per_day || ''
+      });
+    }
+  }, [sequence]);
 
-  const panels = [
-    { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'canvas', label: 'Canvas', icon: Play },
-    { id: 'step', label: 'Step Config', icon: Mail }
-  ];
-
-  const stepTypes = [
-    { id: 'email', label: 'Send Email', icon: Mail, color: 'bg-blue-100 text-blue-800' },
-    { id: 'sms', label: 'Send SMS', icon: MessageSquare, color: 'bg-green-100 text-green-800' },
-    { id: 'wait', label: 'Wait', icon: Clock, color: 'bg-yellow-100 text-yellow-800' },
-    { id: 'branch', label: 'Branch', icon: Users, color: 'bg-purple-100 text-purple-800' }
-  ];
-
-  const addStep = (stepType) => {
-    const newStep = {
-      id: Date.now(),
-      type: stepType,
-      name: stepTypes.find(s => s.id === stepType)?.label || 'New Step',
-      config: {}
-    };
-    setSequenceData(prev => ({
-      ...prev,
-      steps: [...prev.steps, newStep]
-    }));
-  };
-
-  const removeStep = (stepId) => {
-    setSequenceData(prev => ({
-      ...prev,
-      steps: prev.steps.filter(step => step.id !== stepId)
-    }));
-  };
-
-  const updateStep = (stepId, updates) => {
-    setSequenceData(prev => ({
-      ...prev,
-      steps: prev.steps.map(step => 
-        step.id === stepId ? { ...step, ...updates } : step
-      )
-    }));
-  };
-
-  const renderSettings = () => (
-    <div className="space-y-6">
-      {/* Basic Info */}
-      <div>
-        <Label htmlFor="sequence-name">Sequence Name</Label>
-        <Input
-          id="sequence-name"
-          value={sequenceData.name}
-          onChange={(e) => setSequenceData(prev => ({ ...prev, name: e.target.value }))}
-          placeholder="e.g., Job Completion Follow-up"
-          className="mt-1"
-        />
-      </div>
-
-      {/* Enrollment */}
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Enrollment</h3>
-        <div className="space-y-4">
-          <div>
-            <Label>Trigger</Label>
-            <select 
-              value={sequenceData.trigger}
-              onChange={(e) => setSequenceData(prev => ({ ...prev, trigger: e.target.value }))}
-              className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md"
-            >
-              <option value="zapier">Zapier Event</option>
-              <option value="webhook">Webhook</option>
-              <option value="manual">Manual Only</option>
-            </select>
-          </div>
-
-          {sequenceData.trigger === 'zapier' && (
-            <div>
-              <Label>Zapier Event</Label>
-              <select 
-                value={sequenceData.triggerEvent}
-                onChange={(e) => setSequenceData(prev => ({ ...prev, triggerEvent: e.target.value }))}
-                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md"
-              >
-                <option value="job_completed">Job Completed</option>
-                <option value="service_scheduled">Service Scheduled</option>
-                <option value="payment_received">Payment Received</option>
-              </select>
-            </div>
-          )}
-
-          <div className="flex items-center space-x-2">
-            <Switch
-              checked={sequenceData.allowManualEnroll}
-              onCheckedChange={(checked) => setSequenceData(prev => ({ ...prev, allowManualEnroll: checked }))}
-            />
-            <Label>Allow manual enrollment</Label>
-          </div>
-        </div>
-      </div>
-
-      {/* Exit Conditions */}
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Exit Conditions</h3>
-        <div className="space-y-3">
-          {Object.entries(sequenceData.exitConditions).map(([key, value]) => (
-            <div key={key} className="flex items-center space-x-2">
-              <Switch
-                checked={value}
-                onCheckedChange={(checked) => setSequenceData(prev => ({
-                  ...prev,
-                  exitConditions: { ...prev.exitConditions, [key]: checked }
-                }))}
-              />
-              <Label className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</Label>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Quiet Hours */}
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Quiet Hours</h3>
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <Switch
-              checked={sequenceData.quietHours.enabled}
-              onCheckedChange={(checked) => setSequenceData(prev => ({
-                ...prev,
-                quietHours: { ...prev.quietHours, enabled: checked }
-              }))}
-            />
-            <Label>Enable quiet hours</Label>
-          </div>
-
-          {sequenceData.quietHours.enabled && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Start Time</Label>
-                <Input
-                  type="time"
-                  value={sequenceData.quietHours.start}
-                  onChange={(e) => setSequenceData(prev => ({
-                    ...prev,
-                    quietHours: { ...prev.quietHours, start: e.target.value }
-                  }))}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>End Time</Label>
-                <Input
-                  type="time"
-                  value={sequenceData.quietHours.end}
-                  onChange={(e) => setSequenceData(prev => ({
-                    ...prev,
-                    quietHours: { ...prev.quietHours, end: e.target.value }
-                  }))}
-                  className="mt-1"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Rate Limits */}
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Rate Limits</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>Max per hour</Label>
-            <Input
-              type="number"
-              value={sequenceData.rateLimits.maxPerHour}
-              onChange={(e) => setSequenceData(prev => ({
-                ...prev,
-                rateLimits: { ...prev.rateLimits, maxPerHour: parseInt(e.target.value) }
-              }))}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label>Max per day</Label>
-            <Input
-              type="number"
-              value={sequenceData.rateLimits.maxPerDay}
-              onChange={(e) => setSequenceData(prev => ({
-                ...prev,
-                rateLimits: { ...prev.rateLimits, maxPerDay: parseInt(e.target.value) }
-              }))}
-              className="mt-1"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderCanvas = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-slate-900">Sequence Steps</h3>
-        <div className="flex space-x-2">
-          {stepTypes.map(stepType => {
-            const Icon = stepType.icon;
-            return (
-              <Button
-                key={stepType.id}
-                variant="outline"
-                size="sm"
-                onClick={() => addStep(stepType.id)}
-                className="flex items-center space-x-2"
-              >
-                <Icon className="h-4 w-4" />
-                <span>{stepType.label}</span>
-              </Button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {sequenceData.steps.map((step, index) => {
-          const stepType = stepTypes.find(s => s.id === step.type);
-          const Icon = stepType?.icon || Settings;
-          return (
-            <Card key={step.id} className="relative group">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-2 rounded-lg ${stepType?.color || 'bg-gray-100'}`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <div className="font-medium">{step.name}</div>
-                      <div className="text-sm text-slate-500">
-                        {step.type === 'wait' ? 'Wait 5 hours' : 'Configure step settings'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setActivePanel('step')}
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeStep(step.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {sequenceData.steps.length === 0 && (
-        <div className="text-center py-12 border-2 border-dashed border-slate-300 rounded-lg">
-          <Play className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-          <p className="text-slate-500">Add steps to build your sequence</p>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderStepConfig = () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-slate-900">Step Configuration</h3>
-      
-      <div className="text-center py-12 text-slate-500">
-        <Settings className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-        <p>Select a step from the canvas to configure it</p>
-      </div>
-    </div>
-  );
-
-  const renderTabContent = () => {
-    switch (activePanel) {
-      case 'settings':
-        return renderSettings();
-      case 'canvas':
-        return renderCanvas();
-      case 'step':
-        return renderStepConfig();
-      default:
-        return renderSettings();
+  const handleSave = async () => {
+    try {
+      if (sequenceId) {
+        await updateSequence(formData);
+      } else {
+        const newSequence = await createSequence(formData);
+        if (onSave) {
+          onSave(newSequence);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving sequence:', error);
     }
   };
 
-  if (!isOpen) return null;
+  const handleActivate = async () => {
+    const errors = validateSequence();
+    if (errors.length > 0) {
+      toast.error(`Cannot activate sequence: ${errors.join(', ')}`);
+      return;
+    }
+
+    try {
+      await updateSequence({ ...formData, status: 'active' });
+      toast.success('Sequence activated successfully');
+      if (onClose) {
+        onClose();
+      }
+    } catch (error) {
+      console.error('Error activating sequence:', error);
+    }
+  };
+
+  const handleAddStep = async (kind) => {
+    try {
+      const stepIndex = steps.length;
+      await createStep({
+        kind,
+        step_index: stepIndex,
+        wait_ms: kind === 'wait' ? 3600000 : null, // Default 1 hour for wait steps
+        template_id: null
+      });
+    } catch (error) {
+      console.error('Error adding step:', error);
+    }
+  };
+
+  const handleUpdateStep = async (stepId, updateData) => {
+    try {
+      await updateStep(stepId, updateData);
+    } catch (error) {
+      console.error('Error updating step:', error);
+    }
+  };
+
+  const handleDeleteStep = async (stepId) => {
+    try {
+      await deleteStep(stepId);
+      if (selectedStep?.id === stepId) {
+        setSelectedStep(null);
+      }
+    } catch (error) {
+      console.error('Error deleting step:', error);
+    }
+  };
+
+  const handleReorderSteps = async (newSteps) => {
+    try {
+      await reorderSteps(newSteps);
+    } catch (error) {
+      console.error('Error reordering steps:', error);
+    }
+  };
+
+  const handleTestSend = async () => {
+    if (!selectedStep || !testData.email && !testData.phone) {
+      toast.error('Please provide email or phone for test');
+      return;
+    }
+
+    try {
+      await testSendMessage({
+        ...testData,
+        template_id: selectedStep.template_id,
+        step_index: selectedStep.step_index
+      });
+      setShowTestModal(false);
+    } catch (error) {
+      console.error('Error sending test:', error);
+    }
+  };
+
+  const getStepIcon = (kind) => {
+    switch (kind) {
+      case 'send_email':
+        return <Mail className="w-4 h-4" />;
+      case 'send_sms':
+        return <MessageSquare className="w-4 h-4" />;
+      case 'wait':
+        return <Clock className="w-4 h-4" />;
+      default:
+        return <Eye className="w-4 h-4" />;
+    }
+  };
+
+  const getStepName = (kind) => {
+    switch (kind) {
+      case 'send_email':
+        return 'Send Email';
+      case 'send_sms':
+        return 'Send SMS';
+      case 'wait':
+        return 'Wait';
+      default:
+        return 'Unknown';
+    }
+  };
+
+  const formatWaitTime = (waitMs) => {
+    if (!waitMs) return '0m';
+    const minutes = Math.round(waitMs / 1000 / 60);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  };
+
+  const getTemplateName = (templateId) => {
+    const template = templates.find(t => t.id === templateId);
+    return template ? template.name : 'No template selected';
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black bg-opacity-50" 
-        onClick={onClose}
-      />
-      
-      {/* Designer */}
-      <div className="absolute inset-0 bg-white">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900">
-              {sequence ? 'Edit Sequence' : 'Create New Sequence'}
-            </h2>
-            <p className="text-sm text-slate-500">Design your review request automation</p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <Button variant="outline" size="sm">
-              <Play className="h-4 w-4 mr-2" />
-              Test
-            </Button>
-            <Button 
-              size="sm"
-              onClick={() => onSave(sequenceData)}
-              className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              Save
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between p-6 border-b">
+        <div>
+          <h2 className="text-xl font-semibold">
+            {sequenceId ? 'Edit Sequence' : 'Create Sequence'}
+          </h2>
+          <p className="text-sm text-gray-600">
+            Design your review request automation
+          </p>
         </div>
-
-        {/* Tabs */}
-        <div className="border-b border-slate-200">
-          <nav className="flex space-x-8 px-6">
-            {panels.map((panel) => {
-              const Icon = panel.icon;
-              return (
-                <button
-                  key={panel.id}
-                  onClick={() => setActivePanel(panel.id)}
-                  className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
-                    activePanel === panel.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span>{panel.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Content */}
-        <div className="flex h-full">
-          {/* Left Panel - Settings */}
-          <div className="w-1/3 border-r border-slate-200 p-6 overflow-y-auto">
-            {renderSettings()}
-          </div>
-
-          {/* Middle Panel - Canvas */}
-          <div className="w-1/3 border-r border-slate-200 p-6 overflow-y-auto">
-            {renderCanvas()}
-          </div>
-
-          {/* Right Panel - Step Config */}
-          <div className="w-1/3 p-6 overflow-y-auto">
-            {renderStepConfig()}
-          </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+          <Button
+            onClick={handleActivate}
+            disabled={saving || !sequence}
+            className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white"
+          >
+            <Play className="w-4 h-4 mr-2" />
+            Activate
+          </Button>
         </div>
       </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Panel - Settings */}
+        <div className="w-80 border-r bg-gray-50 p-6">
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <Settings className="w-5 h-5 mr-2" />
+                Settings
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Sequence Name</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g., Job Completion Follow-up"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="trigger">Trigger Event</Label>
+                  <Select
+                    value={formData.trigger_event_type}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, trigger_event_type: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select trigger event" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="job_completed">Job Completed</SelectItem>
+                      <SelectItem value="service_delivered">Service Delivered</SelectItem>
+                      <SelectItem value="invoice_paid">Invoice Paid</SelectItem>
+                      <SelectItem value="manual">Manual Trigger</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="manual_enroll"
+                    checked={formData.allow_manual_enroll}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, allow_manual_enroll: checked }))}
+                  />
+                  <Label htmlFor="manual_enroll">Allow Manual Enrollment</Label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="quiet_start">Quiet Hours Start</Label>
+                    <Input
+                      id="quiet_start"
+                      type="time"
+                      value={formData.quiet_hours_start}
+                      onChange={(e) => setFormData(prev => ({ ...prev, quiet_hours_start: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="quiet_end">Quiet Hours End</Label>
+                    <Input
+                      id="quiet_end"
+                      type="time"
+                      value={formData.quiet_hours_end}
+                      onChange={(e) => setFormData(prev => ({ ...prev, quiet_hours_end: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="rate_hour">Rate Limit (Hour)</Label>
+                    <Input
+                      id="rate_hour"
+                      type="number"
+                      value={formData.rate_per_hour}
+                      onChange={(e) => setFormData(prev => ({ ...prev, rate_per_hour: e.target.value }))}
+                      placeholder="Unlimited"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="rate_day">Rate Limit (Day)</Label>
+                    <Input
+                      id="rate_day"
+                      type="number"
+                      value={formData.rate_per_day}
+                      onChange={(e) => setFormData(prev => ({ ...prev, rate_per_day: e.target.value }))}
+                      placeholder="Unlimited"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Middle Panel - Canvas */}
+        <div className="flex-1 p-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Sequence Steps</h3>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAddStep('send_email')}
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Add Email
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAddStep('send_sms')}
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Add SMS
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAddStep('wait')}
+                >
+                  <Clock className="w-4 h-4 mr-2" />
+                  Add Wait
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {steps.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                  <p>No steps added yet. Add your first step to get started.</p>
+                </div>
+              ) : (
+                steps.map((step, index) => (
+                  <Card
+                    key={step.id}
+                    className={`cursor-pointer transition-colors ${
+                      selectedStep?.id === step.id ? 'ring-2 ring-blue-500' : 'hover:bg-gray-50'
+                    }`}
+                    onClick={() => setSelectedStep(step)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            {getStepIcon(step.kind)}
+                          </div>
+                          <div>
+                            <div className="font-medium">{getStepName(step.kind)}</div>
+                            <div className="text-sm text-gray-600">
+                              {step.kind === 'wait' 
+                                ? `Wait ${formatWaitTime(step.wait_ms)}`
+                                : getTemplateName(step.template_id)
+                              }
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline">Step {index + 1}</Badge>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteStep(step.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Panel - Step Config */}
+        <div className="w-80 border-l bg-gray-50 p-6">
+          {selectedStep ? (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Step Configuration</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <Label>Step Type</Label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      {getStepIcon(selectedStep.kind)}
+                      <span className="font-medium">{getStepName(selectedStep.kind)}</span>
+                    </div>
+                  </div>
+
+                  {selectedStep.kind === 'wait' && (
+                    <div>
+                      <Label htmlFor="wait_time">Wait Time (minutes)</Label>
+                      <Input
+                        id="wait_time"
+                        type="number"
+                        value={selectedStep.wait_ms ? Math.round(selectedStep.wait_ms / 1000 / 60) : ''}
+                        onChange={(e) => {
+                          const minutes = parseInt(e.target.value) || 0;
+                          handleUpdateStep(selectedStep.id, { wait_ms: minutes * 60 * 1000 });
+                        }}
+                        placeholder="60"
+                      />
+                    </div>
+                  )}
+
+                  {(selectedStep.kind === 'send_email' || selectedStep.kind === 'send_sms') && (
+                    <div>
+                      <Label htmlFor="template">Message Template</Label>
+                      <Select
+                        value={selectedStep.template_id || ''}
+                        onValueChange={(value) => handleUpdateStep(selectedStep.id, { template_id: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select template" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {templates
+                            .filter(t => t.channel === selectedStep.kind.replace('send_', ''))
+                            .map(template => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {(selectedStep.kind === 'send_email' || selectedStep.kind === 'send_sms') && selectedStep.template_id && (
+                    <div>
+                      <Label>Template Preview</Label>
+                      <div className="mt-1 p-3 bg-white border rounded-lg">
+                        <div className="text-sm text-gray-600 mb-2">
+                          {templates.find(t => t.id === selectedStep.template_id)?.subject}
+                        </div>
+                        <div className="text-sm">
+                          {templates.find(t => t.id === selectedStep.template_id)?.content}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(selectedStep.kind === 'send_email' || selectedStep.kind === 'send_sms') && selectedStep.template_id && (
+                    <div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowTestModal(true)}
+                        className="w-full"
+                      >
+                        <Send className="w-4 h-4 mr-2" />
+                        Test Send
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <Eye className="w-8 h-8 mx-auto mb-2" />
+              <p>Select a step to configure it</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Test Send Modal */}
+      {showTestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">Test Send Message</h3>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="test_email">Email</Label>
+                <Input
+                  id="test_email"
+                  type="email"
+                  value={testData.email}
+                  onChange={(e) => setTestData(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="test@example.com"
+                />
+              </div>
+              <div>
+                <Label htmlFor="test_phone">Phone</Label>
+                <Input
+                  id="test_phone"
+                  type="tel"
+                  value={testData.phone}
+                  onChange={(e) => setTestData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+1234567890"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowTestModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleTestSend}
+                disabled={!testData.email && !testData.phone}
+              >
+                Send Test
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

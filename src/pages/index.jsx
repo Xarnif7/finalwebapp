@@ -17,6 +17,7 @@ import ReviewInbox from "./ReviewInbox";
 import SendRequests from "./SendRequests";
 import SocialPosts from "./SocialPosts";
 import Sequences from "./Sequences";
+import Automations from "./Automations";
 import Competitors from "./Competitors";
 import TeamRoles from "./TeamRoles";
 import AuditLog from "./AuditLog";
@@ -269,7 +270,7 @@ const DashboardRoutes = () => (
       <Route path="/customers/import" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={CsvImport} name="CsvImport" /></ProtectedRoute>} />
       
       {/* Automations Tab */}
-      <Route path="/automations" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={SendRequests} name="SendRequests" /></ProtectedRoute>} />
+      <Route path="/automations" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Automations} name="Automations" /></ProtectedRoute>} />
       
       {/* Reviews Tab */}
       <Route path="/reviews" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={ReviewInbox} name="ReviewInbox" /></ProtectedRoute>} />
