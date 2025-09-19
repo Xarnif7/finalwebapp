@@ -158,11 +158,27 @@ export function useCustomersData(initialParams = {}) {
         .single();
 
       if (profileError) {
+        console.error('Profile error:', profileError);
         throw new Error('Unable to load user profile. Please try logging out and back in.');
       }
 
       if (!profile?.business_id) {
+        console.error('No business_id found for user:', user.id);
         throw new Error('Business not found. Please complete onboarding first.');
+      }
+
+      console.log('Using business_id:', profile.business_id);
+
+      // Verify business exists
+      const { data: business, error: businessError } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('id', profile.business_id)
+        .single();
+
+      if (businessError || !business) {
+        console.error('Business not found:', businessError);
+        throw new Error('Business not found in database. Please contact support.');
       }
 
       // Normalize data
