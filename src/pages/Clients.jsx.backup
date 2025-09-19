@@ -379,10 +379,11 @@ export default function ClientsPage() {
 
   return (
     <div className="px-6 py-6">
-      <PageHeader
-        title="Customers"
-        subtitle="Manage your customer relationships and track their information"
-      />
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-slate-900">Customers</h1>
+        <p className="text-slate-600 mt-2">Manage your customer relationships and track their information</p>
+      </div>
       
       {/* Zapier CRM Connection Card */}
       <div className="mb-6">
@@ -451,6 +452,7 @@ export default function ClientsPage() {
         </div>
       </div>
 
+      {/* Filters/Tool Row */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
         <div className="flex flex-col sm:flex-row gap-4 flex-1">
           <div className="relative flex-1 max-w-sm">
@@ -783,7 +785,6 @@ export default function ClientsPage() {
         onImport={handleImportCsv}
         loading={loading}
       />
-
     </div>
   );
 }
