@@ -181,6 +181,14 @@ export function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 z-50">
+                {user?.email && (
+                  <>
+                    <div className="px-2 py-1.5 text-sm text-gray-600 font-medium">
+                      {user.email}
+                    </div>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuItem onClick={handleSwitchAccount} className="cursor-pointer font-sans">
                   <Repeat className="mr-2 h-4 w-4" />
                   Switch Account
