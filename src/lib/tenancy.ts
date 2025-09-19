@@ -32,13 +32,61 @@ export function useCurrentBusinessId() {
         const { data, error: profileError } = await supabase
           .from('profiles')
           .select('business_id')
-          .eq('user_id', user.id)
+          .eq('id', user.id)
           .single();
 
         if (profileError) {
           console.error('[tenancy] Error fetching business_id:', profileError);
-          setError('Failed to load business information');
-          setBusinessId(null);
+          
+          // If no profile exists, create one with a business
+          if (profileError.code === 'PGRST116') {
+            console.log('[tenancy] No profile found, creating business and profile for new user');
+            
+            try {
+              // Create a business first
+              const { data: businessData, error: businessError } = await supabase
+                .from('businesses')
+                .insert({
+                  name: `${user.email?.split('@')[0] || 'User'}'s Business`
+                })
+                .select('id')
+                .single();
+
+              if (businessError) {
+                console.error('[tenancy] Error creating business:', businessError);
+                setError('Failed to create business');
+                setBusinessId(null);
+                return;
+              }
+
+              // Create profile linking user to business
+              const { error: profileCreateError } = await supabase
+                .from('profiles')
+                .insert({
+                  id: user.id,
+                  business_id: businessData.id,
+                  role: 'owner'
+                });
+
+              if (profileCreateError) {
+                console.error('[tenancy] Error creating profile:', profileCreateError);
+                setError('Failed to create user profile');
+                setBusinessId(null);
+                return;
+              }
+
+              setBusinessId(businessData.id);
+              setError(null);
+              console.log('[tenancy] Successfully created business and profile for new user');
+            } catch (createErr) {
+              console.error('[tenancy] Error during business/profile creation:', createErr);
+              setError('Failed to set up account');
+              setBusinessId(null);
+            }
+          } else {
+            setError('Failed to load business information');
+            setBusinessId(null);
+          }
         } else if (data?.business_id) {
           setBusinessId(data.business_id);
         } else {

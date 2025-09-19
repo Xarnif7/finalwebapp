@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 
 import { User } from "@/api/entities";
 import { getPageNameFromPath, derivePathname, DEFAULT_PAGE_NAME } from "../lib/routing/pageName";
+import { useAuth } from "../hooks/useAuth";
 
 import ModernSidebar from "../components/dashboard/ModernSidebar";
 import ModernTopNav from "../components/dashboard/ModernTopNav";
@@ -24,6 +25,7 @@ const LandingFooter = React.memo(() => {
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Derive page name from pathname as single source of truth
   const pathname = derivePathname(location.pathname);
@@ -65,7 +67,7 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <ThemeProvider>
-        <DashboardProvider value={{ user: null }}>
+        <DashboardProvider value={{ user }}>
           <ErrorBoundary>
             <div className="flex h-screen bg-[var(--bg)]">
             <ModernSidebar />
