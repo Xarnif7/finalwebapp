@@ -12,7 +12,6 @@ import PageHeader from "@/components/ui/PageHeader";
 import { isFeatureEnabled } from "@/lib/featureFlags";
 import { toast } from "react-hot-toast";
 import ZapierCrmCard from "../components/zapier/ZapierCrmCard";
-import IntegrationActivityPanel from "../components/zapier/IntegrationActivityPanel";
 import { useAuth } from "../components/auth/AuthProvider";
 import { useCurrentBusinessId } from "../lib/tenancy";
 
@@ -190,11 +189,15 @@ export default function ClientsPage() {
 
   const getStatusBadge = (status) => {
     const variants = {
-      active: 'default',
-      inactive: 'secondary',
-      archived: 'destructive',
+      active: 'bg-green-100 text-green-800',
+      inactive: 'bg-slate-100 text-slate-800',
+      archived: 'bg-slate-100 text-slate-600',
     };
-    return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${variants[status] || 'bg-slate-100 text-slate-800'}`}>
+        {status}
+      </span>
+    );
   };
 
   const [segment, setSegment] = useState('all');
@@ -276,86 +279,83 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Customers"
-        description="Manage your customer relationships and track their information"
-      />
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-20">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-slate-900">Customers</h1>
+        <p className="text-slate-600 mt-2">Manage your customer relationships and track their information</p>
+      </div>
       
       {/* Zapier CRM Connection Card */}
-      <ZapierCrmCard userId={user?.id} />
+      <div className="mb-6">
+        <ZapierCrmCard userId={user?.id} />
+      </div>
 
-      {/* KPI Cards - Even spacing */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="card-subtle rounded-card bg-white border border-slate-200 shadow-sm">
-          <div className="flex flex-row items-center justify-between space-y-0 pb-3 p-6">
-            <h3 className="text-section font-semibold">Total Customers</h3>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 mb-6">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-slate-600">Total Customers</h3>
             <Users className="h-4 w-4 text-slate-400" />
           </div>
-          <div className="p-6 pt-0">
-            {statsLoading ? (
-              <div className="animate-pulse">
-                <div className="h-8 bg-slate-200 rounded w-16"></div>
-              </div>
-            ) : (
-              <>
-                <div className="text-3xl font-bold text-slate-900">{stats.total_customers}</div>
-                <p className="text-body mt-1">
-                  Active customers in your database
-                </p>
-              </>
-            )}
-          </div>
+          {statsLoading ? (
+            <div className="animate-pulse">
+              <div className="h-8 bg-slate-200 rounded w-16"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-3xl font-bold text-slate-900 mb-1">{stats.total_customers}</div>
+              <p className="text-sm text-slate-500">
+                Active customers in your database
+              </p>
+            </>
+          )}
         </div>
 
-        <div className="card-subtle rounded-card bg-white border border-slate-200 shadow-sm">
-          <div className="flex flex-row items-center justify-between space-y-0 pb-3 p-6">
-            <h3 className="text-section font-semibold">New This Month</h3>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-slate-600">New This Month</h3>
             <TrendingUp className="h-4 w-4 text-slate-400" />
           </div>
-          <div className="p-6 pt-0">
-            {statsLoading ? (
-              <div className="animate-pulse">
-                <div className="h-8 bg-slate-200 rounded w-16"></div>
-              </div>
-            ) : (
-              <>
-                <div className="text-3xl font-bold text-slate-900">{stats.new_this_month}</div>
-                <p className="text-body mt-1">
-                  Customers added this month
-                </p>
-              </>
-            )}
-          </div>
+          {statsLoading ? (
+            <div className="animate-pulse">
+              <div className="h-8 bg-slate-200 rounded w-16"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-3xl font-bold text-slate-900 mb-1">{stats.new_this_month}</div>
+              <p className="text-sm text-slate-500">
+                Customers added this month
+              </p>
+            </>
+          )}
         </div>
 
-        <div className="card-subtle rounded-card bg-white border border-slate-200 shadow-sm">
-          <div className="flex flex-row items-center justify-between space-y-0 pb-3 p-6">
-            <h3 className="text-section font-semibold">Conversion Rate</h3>
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-slate-600">Conversion Rate</h3>
             <UserCheck className="h-4 w-4 text-slate-400" />
           </div>
-          <div className="p-6 pt-0">
-            {statsLoading ? (
-              <div className="animate-pulse">
-                <div className="h-8 bg-slate-200 rounded w-16"></div>
+          {statsLoading ? (
+            <div className="animate-pulse">
+              <div className="h-8 bg-slate-200 rounded w-16"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-3xl font-bold text-slate-900 mb-1">
+                {stats.conversion_rate ? `${stats.conversion_rate}%` : 'N/A'}
               </div>
-            ) : (
-              <>
-                <div className="text-3xl font-bold text-slate-900">
-                  {stats.conversion_rate ? `${stats.conversion_rate}%` : 'N/A'}
-                </div>
-                <p className="text-body mt-1">
-                  Lead to customer conversion
-                </p>
-              </>
-            )}
-          </div>
+              <p className="text-sm text-slate-500">
+                Lead to customer conversion
+              </p>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Actions Bar */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div className="flex flex-col sm:flex-row gap-4 flex-1">
+      {/* Filters/Tool Row */}
+      <div className="flex flex-col sm:flex-row gap-3 lg:gap-4 justify-between items-start sm:items-center mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 lg:gap-4 flex-1">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
@@ -390,6 +390,7 @@ export default function ClientsPage() {
           <Button
             onClick={() => setShowAddForm(true)}
             disabled={loading}
+            className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white border-0"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Customer
@@ -420,12 +421,12 @@ export default function ClientsPage() {
         </Card>
       )}
 
-      {/* Customers Table - Clean */}
-      <div className="table-card-static rounded-card">
-        <div className="p-6 border-b border-slate-200">
-          <h3 className="text-section">Customers ({total})</h3>
+      {/* Customers Table */}
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="p-5 border-b border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-900">Customers ({total})</h3>
         </div>
-        <div className="p-6">
+        <div className="p-5">
           {customersError && (
             <div className="text-red-500 mb-4 p-4 bg-red-50 rounded-lg">
               <div className="font-medium">Error loading customers</div>
@@ -471,18 +472,18 @@ export default function ClientsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium">Name</th>
-                    <th className="text-left py-3 px-4 font-medium">Contact</th>
-                    <th className="text-left py-3 px-4 font-medium">Service Date</th>
-                    <th className="text-left py-3 px-4 font-medium">Tags</th>
-                    <th className="text-left py-3 px-4 font-medium">Status</th>
-                    <th className="text-left py-3 px-4 font-medium">Actions</th>
+                  <tr className="border-b bg-white sticky top-0 z-10">
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Name</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Contact</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Service Date</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Tags</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Status</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {customers.map((customer) => (
-                    <tr key={customer.id} className="border-b hover:bg-muted/50">
+                    <tr key={customer.id} className="border-b hover:bg-slate-50">
                       <td className="py-3 px-4">
                         <div>
                           <div className="font-medium">{customer.full_name}</div>
@@ -518,9 +519,9 @@ export default function ClientsPage() {
                       <td className="py-3 px-4">
                         <div className="flex flex-wrap gap-1">
                           {customer.tags?.map((tag, index) => (
-                            <Badge key={index} variant="secondary" className="text-xs">
+                            <span key={index} className="px-2 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-medium">
                               {tag}
-                            </Badge>
+                            </span>
                           ))}
                         </div>
                       </td>
@@ -587,9 +588,6 @@ export default function ClientsPage() {
         onImport={handleImportCsv}
         loading={loading}
       />
-
-      {/* Integration Activity Panel */}
-      <IntegrationActivityPanel />
     </div>
   );
 }

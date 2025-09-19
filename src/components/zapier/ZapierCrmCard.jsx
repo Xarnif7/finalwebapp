@@ -70,8 +70,8 @@ const ZapierCrmCard = ({ userId }) => {
 
   return (
     <>
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <div className="flex items-start justify-between mb-4">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] rounded-lg">
               <Zap className="h-6 w-6 text-white" />
@@ -81,39 +81,32 @@ const ZapierCrmCard = ({ userId }) => {
               <p className="text-sm text-gray-600">Sync customers automatically from your CRM</p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <StatusIcon className="h-4 w-4 text-gray-400" />
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
-              {statusInfo.text}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={handleConnect}
-            className="px-4 py-2 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-white rounded-lg hover:from-[#1557B0] hover:to-[#6D28D9] transition-all duration-200 flex items-center space-x-2"
-          >
-            <Zap className="h-4 w-4" />
-            <span>Connect via Zapier</span>
-          </button>
           
-          <button
-            onClick={handleViewZaps}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors flex items-center space-x-2"
-          >
-            <ExternalLink className="h-4 w-4" />
-            <span>View My Zaps</span>
-          </button>
-        </div>
-
-        {/* Info Alert */}
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-start space-x-2">
-            <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-blue-800">
-              <strong>Tip:</strong> Use the 'Invoice Paid' or 'Job Completed' Zap to auto-send review requests.
-            </p>
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
+              <StatusIcon className="h-4 w-4 text-gray-400" />
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
+                {statusInfo.text}
+              </span>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleConnect}
+                className="px-4 py-2 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-white rounded-lg hover:from-[#1557B0] hover:to-[#6D28D9] transition-all duration-200 flex items-center space-x-2"
+              >
+                <Zap className="h-4 w-4" />
+                <span>Connect via Zapier</span>
+              </button>
+              
+              <button
+                onClick={handleViewZaps}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors flex items-center space-x-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+                <span>View My Zaps</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
