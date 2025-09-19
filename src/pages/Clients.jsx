@@ -97,13 +97,16 @@ export default function ClientsPage() {
   };
 
   const handleCreateCustomer = async (customerData) => {
+    console.log('Creating customer with data:', customerData);
     setLoading(true);
     try {
-      await createCustomer(customerData);
+      const result = await createCustomer(customerData);
+      console.log('Customer created successfully:', result);
       toast.success('Customer created successfully');
       await fetchStats(); // Refresh stats
       await refresh(); // Refresh customer list
     } catch (error) {
+      console.error('Error creating customer:', error);
       toast.error(error.message || 'Failed to create customer');
     } finally {
       setLoading(false);
@@ -456,25 +459,6 @@ export default function ClientsPage() {
                   <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
                   <div className="text-lg font-medium mb-2">No customers found</div>
                   <div className="text-sm mb-4">Get started by adding your first customer or importing a CSV file.</div>
-                  <div className="flex gap-2 justify-center">
-                    <Button 
-                      onClick={() => setShowAddForm(true)} 
-                      size="sm"
-                      className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white border-0"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Customer
-                    </Button>
-                    <Button 
-                      onClick={() => setShowImport(true)} 
-                      variant="outline" 
-                      size="sm"
-                      className="border-slate-300 hover:border-slate-400"
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Import CSV
-                    </Button>
-                  </div>
                 </>
               )}
             </div>
