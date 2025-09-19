@@ -292,8 +292,8 @@ export default function ClientsPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 mb-8">
+        <div className="relative overflow-visible rounded-2xl border border-slate-200 bg-white p-5 shadow-sm motion-safe:transition motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 [--glow-from:#3B82F6] [--glow-to:#8B5CF6] after:pointer-events-none after:absolute after:-inset-1 after:rounded-[inherit] after:bg-[linear-gradient(90deg,var(--glow-from),var(--glow-to))] after:opacity-0 after:blur-xl after:transition-all after:duration-200 after:-z-10 hover:after:opacity-60 motion-reduce:transform-none motion-reduce:shadow-sm motion-reduce:hover:after:opacity-0">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-slate-600">Total Customers</h3>
             <Users className="h-4 w-4 text-slate-400" />
@@ -312,7 +312,7 @@ export default function ClientsPage() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+        <div className="relative overflow-visible rounded-2xl border border-slate-200 bg-white p-5 shadow-sm motion-safe:transition motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 [--glow-from:#3B82F6] [--glow-to:#8B5CF6] after:pointer-events-none after:absolute after:-inset-1 after:rounded-[inherit] after:bg-[linear-gradient(90deg,var(--glow-from),var(--glow-to))] after:opacity-0 after:blur-xl after:transition-all after:duration-200 after:-z-10 hover:after:opacity-60 motion-reduce:transform-none motion-reduce:shadow-sm motion-reduce:hover:after:opacity-0">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-slate-600">New This Month</h3>
             <TrendingUp className="h-4 w-4 text-slate-400" />
@@ -331,7 +331,7 @@ export default function ClientsPage() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+        <div className="relative overflow-visible rounded-2xl border border-slate-200 bg-white p-5 shadow-sm motion-safe:transition motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 [--glow-from:#3B82F6] [--glow-to:#8B5CF6] after:pointer-events-none after:absolute after:-inset-1 after:rounded-[inherit] after:bg-[linear-gradient(90deg,var(--glow-from),var(--glow-to))] after:opacity-0 after:blur-xl after:transition-all after:duration-200 after:-z-10 hover:after:opacity-60 motion-reduce:transform-none motion-reduce:shadow-sm motion-reduce:hover:after:opacity-0">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-slate-600">Conversion Rate</h3>
             <UserCheck className="h-4 w-4 text-slate-400" />
