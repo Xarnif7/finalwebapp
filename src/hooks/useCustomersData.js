@@ -172,6 +172,7 @@ export function useCustomersData(initialParams = {}) {
         created_by: user.id,
         email: customerData.email?.toLowerCase().trim() || null,
         phone: customerData.phone?.replace(/\D/g, '') || null, // digits only
+        service_date: customerData.service_date?.trim() || null, // Convert empty string to null
         tags: Array.isArray(customerData.tags) ? customerData.tags : [],
       };
 
@@ -238,6 +239,7 @@ export function useCustomersData(initialParams = {}) {
         ...updateData,
         email: updateData.email?.toLowerCase().trim() || null,
         phone: updateData.phone?.replace(/\D/g, '') || null, // digits only
+        service_date: updateData.service_date?.trim() || null, // Convert empty string to null
         tags: Array.isArray(updateData.tags) ? updateData.tags : [],
       };
 
@@ -449,6 +451,7 @@ export function useCustomersData(initialParams = {}) {
             ...rowData,
             business_id: profile.business_id,
             created_by: user.id,
+            service_date: rowData.service_date?.trim() || null, // Convert empty string to null
           };
 
           // Check if customer exists (by email or full_name + phone)
