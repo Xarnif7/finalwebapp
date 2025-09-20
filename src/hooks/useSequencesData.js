@@ -197,6 +197,42 @@ export const useSequencesData = () => {
     }
   }, [fetchSequences]);
 
+  const createSequence = useCallback(async (sequenceData) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No session found');
+      }
+
+      const response = await fetch('http://localhost:3001/api/sequences', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(sequenceData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.ok) {
+        throw new Error(result.error || 'Failed to create sequence');
+      }
+
+      // Refresh data to show the new sequence
+      await fetchSequences();
+      
+      return result.sequence;
+    } catch (err) {
+      console.error('Error creating sequence:', err);
+      setError(err.message);
+      throw err;
+    }
+  }, [fetchSequences]);
+
   useEffect(() => {
     fetchSequences();
   }, [fetchSequences]);
@@ -209,6 +245,7 @@ export const useSequencesData = () => {
     pauseSequence,
     resumeSequence,
     duplicateSequence,
-    archiveSequence
+    archiveSequence,
+    createSequence
   };
 };

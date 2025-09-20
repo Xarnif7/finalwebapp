@@ -21,6 +21,8 @@ import {
   Zap
 } from 'lucide-react';
 import { useSequenceAnalytics } from '../../hooks/useSequenceAnalytics';
+import { useSafetyRules } from '../../hooks/useSafetyRules';
+import SafetyRulesSummary from './SafetyRulesSummary';
 import { toast } from 'sonner';
 
 const SequenceDetailsDrawer = ({ 
@@ -34,6 +36,7 @@ const SequenceDetailsDrawer = ({
   onEdit 
 }) => {
   const { analytics, loading, error } = useSequenceAnalytics(sequence?.id);
+  const { safetyRules, loading: safetyLoading, error: safetyError } = useSafetyRules();
 
   if (!isOpen || !sequence) return null;
 
@@ -349,6 +352,13 @@ const SequenceDetailsDrawer = ({
                     {formatTimeAgo(analytics.last_activity)}
                   </p>
                 </div>
+
+                {/* Safety Rules Summary */}
+                <SafetyRulesSummary 
+                  safetyRules={safetyRules}
+                  loading={safetyLoading}
+                  error={safetyError}
+                />
               </>
             ) : null}
           </div>

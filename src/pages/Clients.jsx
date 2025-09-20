@@ -149,11 +149,18 @@ export default function ClientsPage() {
     }
   };
 
-  const handleImportCsv = async (processedRows, progressCallback) => {
+  const handleImportCsv = async (processedRows, progressCallback, autoEnrollParams) => {
     setLoading(true);
     try {
-      const results = await importCsv(processedRows, progressCallback);
-      toast.success(`Import completed: ${results.inserted} inserted, ${results.updated} updated, ${results.skipped} skipped`);
+      const results = await importCsv(processedRows, progressCallback, autoEnrollParams);
+      let message = `Import completed: ${results.inserted} inserted, ${results.updated} updated, ${results.skipped} skipped`;
+      
+      if (results.enrollmentSummary) {
+        const { enrolled, skipped } = results.enrollmentSummary;
+        message += ` | Auto-enrollment: ${enrolled} enrolled, ${skipped} skipped`;
+      }
+      
+      toast.success(message);
       await fetchStats(); // Refresh stats
     } catch (error) {
       toast.error(error.message || 'Failed to import CSV');

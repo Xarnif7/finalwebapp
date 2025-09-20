@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
-export const useAutomationLogs = () => {
-  const [logs, setLogs] = useState([]);
+export const useSafetyRules = () => {
+  const [safetyRules, setSafetyRules] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchLogs = useCallback(async () => {
+  const fetchSafetyRules = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -16,7 +16,7 @@ export const useAutomationLogs = () => {
         throw new Error('No session found');
       }
 
-      const response = await fetch('http://localhost:3001/api/automation-logs', {
+      const response = await fetch('http://localhost:3001/api/safety-rules', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -30,12 +30,12 @@ export const useAutomationLogs = () => {
 
       const result = await response.json();
       if (result.ok) {
-        setLogs(result.logs || []);
+        setSafetyRules(result.safetyRules);
       } else {
-        throw new Error(result.error || 'Failed to fetch automation logs');
+        throw new Error(result.error || 'Failed to fetch safety rules');
       }
     } catch (err) {
-      console.error('Error fetching automation logs:', err);
+      console.error('Error fetching safety rules:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -43,13 +43,13 @@ export const useAutomationLogs = () => {
   }, []);
 
   useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+    fetchSafetyRules();
+  }, [fetchSafetyRules]);
 
   return {
-    logs,
+    safetyRules,
     loading,
     error,
-    refetch: fetchLogs,
+    refetch: fetchSafetyRules
   };
 };

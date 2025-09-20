@@ -561,6 +561,14 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       business_id: business.id
     });
 
+    // Initialize defaults for this business if not already done
+    try {
+      await initializeDefaultsForBusiness(business.id);
+    } catch (defaultsError) {
+      console.error('[ZAPIER] Defaults initialization error:', defaultsError);
+      // Don't fail the request if defaults initialization fails
+    }
+
     return res.status(200).json({ 
       ok: true, 
       customer_id: customer.id,
@@ -947,6 +955,238 @@ function checkFailureThreshold(businessId) {
   return false;
 }
 
+// Defaults initialization function
+async function initializeDefaultsForBusiness(businessId) {
+  try {
+    console.log(`[DEFAULTS] Initializing defaults for business ${businessId}`);
+    
+    // Check if defaults are already initialized
+    const { data: settings, error: settingsError } = await supabase
+      .from('business_settings')
+      .select('defaults_initialized')
+      .eq('business_id', businessId)
+      .single();
+    
+    if (settingsError && settingsError.code !== 'PGRST116') {
+      console.error('[DEFAULTS] Error checking settings:', settingsError);
+      return false;
+    }
+    
+    if (settings && settings.defaults_initialized) {
+      console.log(`[DEFAULTS] Defaults already initialized for business ${businessId}`);
+      return true;
+    }
+    
+    // Create default message templates first
+    const { data: templates, error: templatesError } = await supabase
+      .from('message_templates')
+      .insert([
+        {
+          business_id: businessId,
+          name: 'Review Request Email',
+          channel: 'email',
+          subject: 'How was your experience?',
+          body: 'Hi {{customer_name}}, we hope you enjoyed our service! Could you please leave us a review?'
+        },
+        {
+          business_id: businessId,
+          name: 'Review Request SMS',
+          channel: 'sms',
+          body: 'Hi {{customer_name}}! How was your experience? Please leave us a review: {{review_url}}'
+        },
+        {
+          business_id: businessId,
+          name: 'Service Reminder SMS',
+          channel: 'sms',
+          body: 'Hi {{customer_name}}, your service is scheduled for {{service_date}}. Please leave us a review after your visit!'
+        }
+      ])
+      .select();
+    
+    if (templatesError) {
+      console.error('[DEFAULTS] Error creating templates:', templatesError);
+      return false;
+    }
+    
+    console.log(`[DEFAULTS] Created ${templates.length} message templates`);
+    
+    // Create default sequences
+    const { data: sequences, error: sequencesError } = await supabase
+      .from('sequences')
+      .insert([
+        {
+          business_id: businessId,
+          name: 'Job Completed Review Request',
+          status: 'active',
+          trigger_event_type: 'job_completed',
+          allow_manual_enroll: false,
+          quiet_hours_start: '22:00',
+          quiet_hours_end: '08:00',
+          rate_per_hour: 50,
+          rate_per_day: 500
+        },
+        {
+          business_id: businessId,
+          name: 'Invoice Paid Follow-up',
+          status: 'active',
+          trigger_event_type: 'invoice_paid',
+          allow_manual_enroll: false,
+          quiet_hours_start: '22:00',
+          quiet_hours_end: '08:00',
+          rate_per_hour: 50,
+          rate_per_day: 500
+        },
+        {
+          business_id: businessId,
+          name: 'Service Reminder',
+          status: 'active',
+          trigger_event_type: 'service_scheduled',
+          allow_manual_enroll: true,
+          quiet_hours_start: '22:00',
+          quiet_hours_end: '08:00',
+          rate_per_hour: 25,
+          rate_per_day: 250
+        }
+      ])
+      .select();
+    
+    if (sequencesError) {
+      console.error('[DEFAULTS] Error creating sequences:', sequencesError);
+      return false;
+    }
+    
+    console.log(`[DEFAULTS] Created ${sequences.length} sequences`);
+    
+    // Create sequence steps for each sequence
+    const stepsToCreate = [];
+    
+    // Job Completed sequence: Email (5h delay) → SMS (48h delay if no review)
+    stepsToCreate.push(
+      {
+        sequence_id: sequences[0].id,
+        business_id: businessId,
+        step_order: 1,
+        step_type: 'wait',
+        step_config: { hours: 5 }
+      },
+      {
+        sequence_id: sequences[0].id,
+        business_id: businessId,
+        step_order: 2,
+        step_type: 'send_email',
+        step_config: { 
+          template_id: templates[0].id,
+          subject: 'How was your experience?'
+        }
+      },
+      {
+        sequence_id: sequences[0].id,
+        business_id: businessId,
+        step_order: 3,
+        step_type: 'wait',
+        step_config: { hours: 48 }
+      },
+      {
+        sequence_id: sequences[0].id,
+        business_id: businessId,
+        step_order: 4,
+        step_type: 'send_sms',
+        step_config: { 
+          template_id: templates[1].id,
+          condition: 'no_review_left'
+        }
+      }
+    );
+    
+    // Invoice Paid sequence: Email (3h delay)
+    stepsToCreate.push(
+      {
+        sequence_id: sequences[1].id,
+        business_id: businessId,
+        step_order: 1,
+        step_type: 'wait',
+        step_config: { hours: 3 }
+      },
+      {
+        sequence_id: sequences[1].id,
+        business_id: businessId,
+        step_order: 2,
+        step_type: 'send_email',
+        step_config: { 
+          template_id: templates[0].id,
+          subject: 'Thank you for your payment!'
+        }
+      }
+    );
+    
+    // Service Reminder sequence: SMS (24h before service)
+    stepsToCreate.push(
+      {
+        sequence_id: sequences[2].id,
+        business_id: businessId,
+        step_order: 1,
+        step_type: 'wait',
+        step_config: { hours: -24, condition: 'before_service_date' }
+      },
+      {
+        sequence_id: sequences[2].id,
+        business_id: businessId,
+        step_order: 2,
+        step_type: 'send_sms',
+        step_config: { 
+          template_id: templates[2].id
+        }
+      }
+    );
+    
+    const { data: steps, error: stepsError } = await supabase
+      .from('sequence_steps')
+      .insert(stepsToCreate)
+      .select();
+    
+    if (stepsError) {
+      console.error('[DEFAULTS] Error creating steps:', stepsError);
+      return false;
+    }
+    
+    console.log(`[DEFAULTS] Created ${steps.length} sequence steps`);
+    
+    // Update or create business_settings record
+    const { error: updateError } = await supabase
+      .from('business_settings')
+      .upsert({
+        business_id: businessId,
+        defaults_initialized: true,
+        defaults_initialized_at: new Date().toISOString()
+      });
+    
+    if (updateError) {
+      console.error('[DEFAULTS] Error updating settings:', updateError);
+      return false;
+    }
+    
+    // Log the initialization
+    await logAutomationEvent(
+      businessId,
+      'info',
+      'trigger',
+      'Default sequences and templates initialized',
+      {
+        sequences_created: sequences.length,
+        templates_created: templates.length,
+        steps_created: steps.length
+      }
+    );
+    
+    console.log(`[DEFAULTS] Successfully initialized defaults for business ${businessId}`);
+    return true;
+    
+  } catch (error) {
+    console.error('[DEFAULTS] Error initializing defaults:', error);
+    return false;
+  }
+}
+
 function getRateLimitKey(businessId, type) {
   const now = new Date();
   const hourKey = `${businessId}_${type}_${now.getFullYear()}_${now.getMonth()}_${now.getDate()}_${now.getHours()}`;
@@ -960,15 +1200,35 @@ function checkRateLimit(businessId, ratePerHour, ratePerDay) {
   const hourCount = rateLimitCache.get(hourKey) || 0;
   const dayCount = rateLimitCache.get(dayKey) || 0;
   
-  if (ratePerHour && hourCount >= ratePerHour) {
-    return { allowed: false, reason: 'hourly_rate_limit', current: hourCount, limit: ratePerHour };
+  // Default rate limits if not specified
+  const effectiveRatePerHour = ratePerHour || 1000; // Default 1000 per hour
+  const effectiveRatePerDay = ratePerDay || 10000; // Default 10000 per day
+  
+  if (hourCount >= effectiveRatePerHour) {
+    return { 
+      allowed: false, 
+      reason: 'hourly_rate_limit', 
+      current: hourCount, 
+      limit: effectiveRatePerHour,
+      resetTime: new Date(Date.now() + (60 - new Date().getMinutes()) * 60 * 1000).toISOString()
+    };
   }
   
-  if (ratePerDay && dayCount >= ratePerDay) {
-    return { allowed: false, reason: 'daily_rate_limit', current: dayCount, limit: ratePerDay };
+  if (dayCount >= effectiveRatePerDay) {
+    return { 
+      allowed: false, 
+      reason: 'daily_rate_limit', 
+      current: dayCount, 
+      limit: effectiveRatePerDay,
+      resetTime: new Date(Date.now() + (24 - new Date().getHours()) * 60 * 60 * 1000).toISOString()
+    };
   }
   
-  return { allowed: true };
+  return { 
+    allowed: true, 
+    current: { hour: hourCount, day: dayCount },
+    limits: { hour: effectiveRatePerHour, day: effectiveRatePerDay }
+  };
 }
 
 function incrementRateLimit(businessId) {
@@ -989,37 +1249,107 @@ function incrementRateLimit(businessId) {
   }
 }
 
+// Get safety rules summary for a business
+async function getSafetyRulesSummary(businessId) {
+  try {
+    const { data: business, error } = await supabase
+      .from('businesses')
+      .select('rate_per_hour, rate_per_day, timezone')
+      .eq('id', businessId)
+      .single();
+
+    if (error || !business) {
+      return {
+        rateLimits: { hourly: 'Not configured', daily: 'Not configured' },
+        cooldown: { days: parseInt(process.env.COOLDOWN_DAYS || '7') },
+        timezone: 'UTC',
+        quietHours: { enabled: false }
+      };
+    }
+
+    return {
+      rateLimits: {
+        hourly: business.rate_per_hour || 'Unlimited',
+        daily: business.rate_per_day || 'Unlimited'
+      },
+      cooldown: {
+        days: parseInt(process.env.COOLDOWN_DAYS || '7')
+      },
+      timezone: business.timezone || 'UTC',
+      quietHours: {
+        enabled: false // Will be overridden by sequence-specific settings
+      }
+    };
+  } catch (error) {
+    console.error('[SAFETY] Error getting safety rules summary:', error);
+    return {
+      rateLimits: { hourly: 'Error', daily: 'Error' },
+      cooldown: { days: 7 },
+      timezone: 'UTC',
+      quietHours: { enabled: false }
+    };
+  }
+}
+
 // Helper function to check if customer can receive messages
 async function canSendToCustomer(customerId, businessId) {
   try {
     const { data: customer, error } = await supabase
       .from('customers')
-      .select('unsubscribed, dnc, hard_bounced, last_review_request_at')
+      .select('unsubscribed, dnc, hard_bounced, last_review_request_at, full_name, email')
       .eq('id', customerId)
       .eq('business_id', businessId)
       .single();
 
     if (error || !customer) {
-      console.log('[SAFETY] Customer not found:', customerId);
-      return { canSend: false, reason: 'Customer not found' };
+      console.log('[SAFETY] Customer not found:', customerId, 'Error:', error?.message);
+      return { 
+        canSend: false, 
+        reason: 'Customer not found',
+        details: { customer_id: customerId, error: error?.message }
+      };
     }
 
     // Check if customer is unsubscribed
     if (customer.unsubscribed) {
-      console.log('[SAFETY] Customer unsubscribed:', customerId);
-      return { canSend: false, reason: 'Customer unsubscribed' };
+      console.log('[SAFETY] Customer unsubscribed:', customerId, 'Name:', customer.full_name);
+      return { 
+        canSend: false, 
+        reason: 'Customer unsubscribed',
+        details: { 
+          customer_id: customerId, 
+          customer_name: customer.full_name,
+          customer_email: customer.email
+        }
+      };
     }
 
     // Check if customer is on DNC list
     if (customer.dnc) {
-      console.log('[SAFETY] Customer on DNC list:', customerId);
-      return { canSend: false, reason: 'Customer on DNC list' };
+      console.log('[SAFETY] Customer on DNC list:', customerId, 'Name:', customer.full_name);
+      return { 
+        canSend: false, 
+        reason: 'Customer on DNC list',
+        details: { 
+          customer_id: customerId, 
+          customer_name: customer.full_name,
+          customer_email: customer.email
+        }
+      };
     }
 
     // Check if customer has hard bounced
     if (customer.hard_bounced) {
-      console.log('[SAFETY] Customer hard bounced:', customerId);
-      return { canSend: false, reason: 'Customer hard bounced' };
+      console.log('[SAFETY] Customer hard bounced:', customerId, 'Name:', customer.full_name);
+      return { 
+        canSend: false, 
+        reason: 'Customer hard bounced',
+        details: { 
+          customer_id: customerId, 
+          customer_name: customer.full_name,
+          customer_email: customer.email
+        }
+      };
     }
 
     // Check cooldown period
@@ -1030,15 +1360,40 @@ async function canSendToCustomer(customerId, businessId) {
       const daysSinceLastRequest = (now - lastRequest) / (1000 * 60 * 60 * 24);
       
       if (daysSinceLastRequest < cooldownDays) {
-        console.log('[SAFETY] Customer in cooldown period:', customerId, 'days since last request:', daysSinceLastRequest);
-        return { canSend: false, reason: `Customer in cooldown period (${Math.ceil(cooldownDays - daysSinceLastRequest)} days remaining)` };
+        const remainingDays = Math.ceil(cooldownDays - daysSinceLastRequest);
+        console.log('[SAFETY] Customer in cooldown period:', customerId, 'Name:', customer.full_name, 'Days since last request:', daysSinceLastRequest.toFixed(2));
+        return { 
+          canSend: false, 
+          reason: `Customer in cooldown period (${remainingDays} days remaining)`,
+          details: { 
+            customer_id: customerId, 
+            customer_name: customer.full_name,
+            customer_email: customer.email,
+            last_request_at: customer.last_review_request_at,
+            days_since_last_request: daysSinceLastRequest.toFixed(2),
+            cooldown_days: cooldownDays,
+            remaining_days: remainingDays
+          }
+        };
       }
     }
 
-    return { canSend: true };
+    return { 
+      canSend: true,
+      details: { 
+        customer_id: customerId, 
+        customer_name: customer.full_name,
+        customer_email: customer.email,
+        cooldown_days: cooldownDays
+      }
+    };
   } catch (error) {
     console.error('[SAFETY] Error checking customer safety:', error);
-    return { canSend: false, reason: 'Error checking customer status' };
+    return { 
+      canSend: false, 
+      reason: 'Safety check failed',
+      details: { customer_id: customerId, error: error.message }
+    };
   }
 }
 
@@ -1049,8 +1404,13 @@ async function sendMessage(messageData, dryRun = false) {
     if (messageData.customer_id && messageData.business_id) {
       const safetyCheck = await canSendToCustomer(messageData.customer_id, messageData.business_id);
       if (!safetyCheck.canSend) {
-        console.log('[SAFETY] Blocked message send:', safetyCheck.reason);
-        return { success: false, blocked: true, reason: safetyCheck.reason };
+        console.log('[SAFETY] Blocked message send:', safetyCheck.reason, 'Details:', safetyCheck.details);
+        return { 
+          success: false, 
+          blocked: true, 
+          reason: safetyCheck.reason,
+          details: safetyCheck.details
+        };
       }
     }
 
@@ -1096,7 +1456,7 @@ async function sendMessage(messageData, dryRun = false) {
   }
 }
 
-// Calculate next allowed time considering quiet hours and timezone
+// Calculate next allowed time considering quiet hours and business timezone
 function nextAllowedTime(now, quietHoursStart, quietHoursEnd, timezone = 'UTC') {
   const currentTime = new Date(now);
   
@@ -1105,32 +1465,39 @@ function nextAllowedTime(now, quietHoursStart, quietHoursEnd, timezone = 'UTC') 
     return currentTime;
   }
 
+  // Convert current time to business timezone
+  const businessTime = new Date(currentTime.toLocaleString("en-US", { timeZone: timezone }));
+  
   // Parse quiet hours
   const [startHour, startMin] = quietHoursStart.split(':').map(Number);
   const [endHour, endMin] = quietHoursEnd.split(':').map(Number);
   
-  // Create today's quiet hours boundaries
-  const todayStart = new Date(currentTime);
+  // Create today's quiet hours boundaries in business timezone
+  const todayStart = new Date(businessTime);
   todayStart.setHours(startHour, startMin, 0, 0);
   
-  const todayEnd = new Date(currentTime);
+  const todayEnd = new Date(businessTime);
   todayEnd.setHours(endHour, endMin, 0, 0);
   
   // Handle case where quiet hours span midnight (e.g., 22:00 to 08:00)
   if (todayStart > todayEnd) {
     // Quiet hours span midnight
-    if (currentTime >= todayStart || currentTime <= todayEnd) {
+    if (businessTime >= todayStart || businessTime <= todayEnd) {
       // Currently in quiet hours, return end of quiet hours
-      return todayEnd;
+      // Convert back to UTC
+      const endTimeUTC = new Date(todayEnd.toLocaleString("en-US", { timeZone: timezone }));
+      return endTimeUTC;
     } else {
       // Not in quiet hours, return current time
       return currentTime;
     }
   } else {
     // Quiet hours within same day
-    if (currentTime >= todayStart && currentTime <= todayEnd) {
+    if (businessTime >= todayStart && businessTime <= todayEnd) {
       // Currently in quiet hours, return end of quiet hours
-      return todayEnd;
+      // Convert back to UTC
+      const endTimeUTC = new Date(todayEnd.toLocaleString("en-US", { timeZone: timezone }));
+      return endTimeUTC;
     } else {
       // Not in quiet hours, return current time
       return currentTime;
@@ -1394,7 +1761,7 @@ async function processMessageStep(enrollment, sequence, business, currentStep, c
         })
         .eq('id', enrollment.id);
 
-      console.log(`[PROCESS] Message blocked for enrollment ${enrollment.id}: ${sendResult.reason}. Enrollment stopped.`);
+      console.log(`[PROCESS] Message blocked for enrollment ${enrollment.id}: ${sendResult.reason}. Enrollment stopped. Details:`, sendResult.details);
       
       await logAutomationEvent(
         business.id,
@@ -1406,7 +1773,8 @@ async function processMessageStep(enrollment, sequence, business, currentStep, c
           message_id: message.id,
           channel: channel,
           step_index: enrollment.current_step_index,
-          reason: sendResult.reason
+          reason: sendResult.reason,
+          safety_details: sendResult.details
         }
       );
       
@@ -3041,8 +3409,7 @@ app.get('/api/automation-logs', async (req, res) => {
         ),
         customers:customer_id (
           id,
-          first_name,
-          last_name,
+          full_name,
           email,
           phone
         )
@@ -3071,7 +3438,7 @@ app.get('/api/automation-logs', async (req, res) => {
       business_id: log.business_id,
       // Include related data
       sequence_name: log.sequences?.name || 'Unknown Sequence',
-      customer_name: log.customers ? `${log.customers.first_name} ${log.customers.last_name}` : 'Unknown Customer',
+      customer_name: log.customers ? log.customers.full_name : 'Unknown Customer',
       customer_email: log.customers?.email || null,
       customer_phone: log.customers?.phone || null
     }));
@@ -3224,6 +3591,41 @@ app.get('/api/automation-metrics', async (req, res) => {
   }
 });
 
+// Get safety rules summary
+app.get('/api/safety-rules', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({ ok: false, error: 'Invalid token' });
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(400).json({ ok: false, error: 'User not found' });
+    }
+
+    const safetyRules = await getSafetyRulesSummary(profile.business_id);
+
+    res.json({
+      ok: true,
+      safetyRules
+    });
+  } catch (error) {
+    console.error('[SAFETY_RULES] Error:', error);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
 // Generate Zapier token endpoint
 app.post('/api/zapier/generate-token', async (req, res) => {
   try {
@@ -3250,6 +3652,313 @@ app.post('/api/zapier/generate-token', async (req, res) => {
   } catch (error) {
     console.error('[ZAPIER_TOKEN] Error:', error);
     res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// Auto-enrollment helper function
+async function handleAutoEnrollment(businessId, customers, autoEnrollParams, userId) {
+  const { sequenceId, backfillWindow, requireServiceDate } = autoEnrollParams;
+  
+  // Get the sequence details
+  const { data: sequence, error: sequenceError } = await supabase
+    .from('sequences')
+    .select('*')
+    .eq('id', sequenceId)
+    .eq('business_id', businessId)
+    .single();
+
+  if (sequenceError || !sequence) {
+    throw new Error('Sequence not found or not accessible');
+  }
+
+  // Calculate the backfill cutoff date
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - backfillWindow);
+
+  const enrollmentSummary = {
+    enrolled: 0,
+    skipped: 0,
+    skippedReasons: {},
+    nextRuns: []
+  };
+
+  // Process each customer for enrollment
+  for (const customer of customers) {
+    try {
+      // Check if customer meets enrollment criteria
+      const enrollmentCheck = await checkEnrollmentEligibility(
+        businessId,
+        customer,
+        sequenceId,
+        cutoffDate,
+        requireServiceDate
+      );
+
+      if (!enrollmentCheck.eligible) {
+        enrollmentSummary.skipped++;
+        const reason = enrollmentCheck.reason;
+        enrollmentSummary.skippedReasons[reason] = (enrollmentSummary.skippedReasons[reason] || 0) + 1;
+        continue;
+      }
+
+      // Create enrollment
+      const { data: enrollment, error: enrollmentError } = await supabase
+        .from('sequence_enrollments')
+        .insert({
+          business_id: businessId,
+          sequence_id: sequenceId,
+          customer_id: customer.id,
+          status: 'active',
+          enrolled_at: new Date().toISOString(),
+          next_run_at: calculateNextRunTime(sequence),
+          created_by: userId
+        })
+        .select()
+        .single();
+
+      if (enrollmentError) {
+        console.error(`[AUTO_ENROLL] Error creating enrollment for customer ${customer.id}:`, enrollmentError);
+        enrollmentSummary.skipped++;
+        enrollmentSummary.skippedReasons['Enrollment creation failed'] = (enrollmentSummary.skippedReasons['Enrollment creation failed'] || 0) + 1;
+        continue;
+      }
+
+      enrollmentSummary.enrolled++;
+      
+      // Add to next runs preview (limit to first 10)
+      if (enrollmentSummary.nextRuns.length < 10) {
+        enrollmentSummary.nextRuns.push({
+          customer_name: customer.full_name || customer.email,
+          next_run_at: enrollment.next_run_at
+        });
+      }
+
+      // Log the enrollment
+      await logAutomationEvent(
+        businessId,
+        'info',
+        'enrollment',
+        'Customer auto-enrolled from CSV import',
+        {
+          customer_id: customer.id,
+          sequence_id: sequenceId,
+          enrollment_id: enrollment.id
+        }
+      );
+
+    } catch (error) {
+      console.error(`[AUTO_ENROLL] Error processing customer ${customer.id}:`, error);
+      enrollmentSummary.skipped++;
+      enrollmentSummary.skippedReasons['Processing error'] = (enrollmentSummary.skippedReasons['Processing error'] || 0) + 1;
+    }
+  }
+
+  return enrollmentSummary;
+}
+
+// Check if a customer is eligible for enrollment
+async function checkEnrollmentEligibility(businessId, customer, sequenceId, cutoffDate, requireServiceDate) {
+  // Check if customer has valid email
+  if (!customer.email || !/^\S+@\S+\.\S+$/.test(customer.email)) {
+    return { eligible: false, reason: 'Invalid or missing email' };
+  }
+
+  // Check service date requirement
+  if (requireServiceDate && (!customer.service_date || new Date(customer.service_date) < cutoffDate)) {
+    return { eligible: false, reason: 'Service date not within backfill window' };
+  }
+
+  // Check if customer is already enrolled in this sequence
+  const { data: existingEnrollment } = await supabase
+    .from('sequence_enrollments')
+    .select('id')
+    .eq('business_id', businessId)
+    .eq('sequence_id', sequenceId)
+    .eq('customer_id', customer.id)
+    .single();
+
+  if (existingEnrollment) {
+    return { eligible: false, reason: 'Already enrolled in this sequence' };
+  }
+
+  // Check if customer is unsubscribed or DNC
+  const { data: customerData } = await supabase
+    .from('customers')
+    .select('unsubscribed, dnc, hard_bounced, last_review_request_at')
+    .eq('id', customer.id)
+    .single();
+
+  if (customerData) {
+    if (customerData.unsubscribed) {
+      return { eligible: false, reason: 'Customer unsubscribed' };
+    }
+    if (customerData.dnc) {
+      return { eligible: false, reason: 'Customer on DNC list' };
+    }
+    if (customerData.hard_bounced) {
+      return { eligible: false, reason: 'Customer email hard bounced' };
+    }
+    
+    // Check cooldown period (if last review request was within cooldown days)
+    const cooldownDays = parseInt(process.env.COOLDOWN_DAYS) || 7;
+    if (customerData.last_review_request_at) {
+      const lastRequestDate = new Date(customerData.last_review_request_at);
+      const cooldownDate = new Date();
+      cooldownDate.setDate(cooldownDate.getDate() - cooldownDays);
+      
+      if (lastRequestDate > cooldownDate) {
+        return { eligible: false, reason: 'Within cooldown period' };
+      }
+    }
+  }
+
+  return { eligible: true };
+}
+
+// Calculate next run time for a sequence
+function calculateNextRunTime(sequence) {
+  const now = new Date();
+  const quietHoursStart = sequence.quiet_hours_start || '22:00';
+  const quietHoursEnd = sequence.quiet_hours_end || '08:00';
+  
+  // Parse quiet hours
+  const [startHour, startMin] = quietHoursStart.split(':').map(Number);
+  const [endHour, endMin] = quietHoursEnd.split(':').map(Number);
+  
+  const quietStart = new Date(now);
+  quietStart.setHours(startHour, startMin, 0, 0);
+  
+  const quietEnd = new Date(now);
+  quietEnd.setHours(endHour, endMin, 0, 0);
+  
+  // If we're in quiet hours, schedule for after quiet hours end
+  if (now >= quietStart || now <= quietEnd) {
+    if (now <= quietEnd) {
+      // We're in the morning quiet hours, schedule for end of quiet hours today
+      return quietEnd.toISOString();
+    } else {
+      // We're in evening quiet hours, schedule for end of quiet hours tomorrow
+      quietEnd.setDate(quietEnd.getDate() + 1);
+      return quietEnd.toISOString();
+    }
+  }
+  
+  // We're outside quiet hours, schedule for immediate execution
+  return now.toISOString();
+}
+
+// CSV Import endpoint
+app.post('/api/csv/import', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({ ok: false, error: 'Invalid token' });
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(400).json({ ok: false, error: 'User not found' });
+    }
+
+    const { customers, filename, autoEnroll } = req.body;
+    
+    if (!customers || !Array.isArray(customers)) {
+      return res.status(400).json({ ok: false, error: 'Customers array is required' });
+    }
+
+    console.log(`[CSV_IMPORT] Importing ${customers.length} customers for business ${profile.business_id}`);
+
+    // Process customers
+    const customerData = customers.map(customer => ({
+      business_id: profile.business_id,
+      full_name: customer.full_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim(),
+      email: customer.email,
+      phone: customer.phone,
+      service_date: customer.service_date,
+      tags: customer.tags || [],
+      status: 'active',
+      created_by: user.id
+    }));
+
+    // Insert customers
+    const { data: insertedCustomers, error: insertError } = await supabase
+      .from('customers')
+      .insert(customerData)
+      .select('id');
+
+    if (insertError) {
+      console.error('[CSV_IMPORT] Error inserting customers:', insertError);
+      return res.status(500).json({ ok: false, error: 'Failed to import customers' });
+    }
+
+    // Log to audit_log
+    try {
+      await supabase
+        .from('audit_log')
+        .insert({
+          business_id: profile.business_id,
+          user_id: user.id,
+          entity: 'customers',
+          entity_id: null,
+          action: 'csv_import',
+          payload_hash: require('crypto').createHash('sha256').update(JSON.stringify(req.body)).digest('hex'),
+          details: {
+            source: 'csv_import',
+            filename: filename,
+            customers_imported: insertedCustomers.length
+          }
+        });
+    } catch (auditError) {
+      console.error('[CSV_IMPORT] Audit log error:', auditError);
+    }
+
+    // Initialize defaults for this business if not already done
+    try {
+      await initializeDefaultsForBusiness(profile.business_id);
+    } catch (defaultsError) {
+      console.error('[CSV_IMPORT] Defaults initialization error:', defaultsError);
+      // Don't fail the request if defaults initialization fails
+    }
+
+    console.log(`[CSV_IMPORT] ✅ Successfully imported ${insertedCustomers.length} customers`);
+
+    // Handle auto-enrollment if enabled
+    let enrollmentSummary = null;
+    if (autoEnroll && autoEnroll.enabled && autoEnroll.sequenceId) {
+      try {
+        console.log(`[CSV_IMPORT] Starting auto-enrollment for sequence ${autoEnroll.sequenceId}`);
+        enrollmentSummary = await handleAutoEnrollment(
+          profile.business_id,
+          insertedCustomers,
+          autoEnroll,
+          user.id
+        );
+        console.log(`[CSV_IMPORT] Auto-enrollment completed: ${enrollmentSummary.enrolled} enrolled, ${enrollmentSummary.skipped} skipped`);
+      } catch (enrollmentError) {
+        console.error('[CSV_IMPORT] Auto-enrollment error:', enrollmentError);
+        // Don't fail the import if enrollment fails
+      }
+    }
+
+    return res.status(200).json({ 
+      ok: true, 
+      customers_imported: insertedCustomers.length,
+      business_id: profile.business_id,
+      enrollmentSummary: enrollmentSummary
+    });
+  } catch (error) {
+    console.error('[CSV_IMPORT] Error:', error);
+    return res.status(500).json({ ok: false, error: 'Internal server error' });
   }
 });
 

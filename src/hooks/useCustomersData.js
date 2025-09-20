@@ -520,7 +520,7 @@ export function useCustomersData(initialParams = {}) {
     }
   };
 
-  const importCsv = async (processedRows, progressCallback = null) => {
+  const importCsv = async (processedRows, progressCallback = null, autoEnrollParams = null) => {
     if (!user) throw new Error('No user');
 
     try {
@@ -539,109 +539,42 @@ export function useCustomersData(initialParams = {}) {
         throw new Error('Business not found. Please complete onboarding first.');
       }
 
-      const results = {
-        inserted: 0,
-        updated: 0,
-        skipped: 0,
-        errors: []
-      };
+      // Use the new API endpoint that handles auto-enrollment
+      const response = await fetch('/api/csv/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({
+          customers: processedRows,
+          filename: 'import.csv',
+          autoEnroll: autoEnrollParams
+        })
+      });
 
-      const totalRows = processedRows.length;
-
-      // Process each row with progress updates
-      for (let i = 0; i < processedRows.length; i++) {
-        const rowData = processedRows[i];
-        
-        try {
-          // Validate required field
-          if (!rowData.full_name) {
-            throw new Error('Full name is required');
-          }
-
-          // Data is already normalized from the UI, just ensure business_id and created_by
-          const customerData = {
-            ...rowData,
-            business_id: profile.business_id,
-            created_by: user.id,
-            service_date: rowData.service_date?.trim() || null, // Convert empty string to null
-          };
-
-          // Check if customer exists (by email or full_name + phone)
-          let existingCustomer = null;
-          if (customerData.email) {
-            const { data } = await supabase
-              .from('customers')
-              .select('id')
-              .eq('business_id', profile.business_id)
-              .eq('email', customerData.email)
-              .single();
-            existingCustomer = data;
-          }
-
-          if (!existingCustomer && customerData.phone) {
-            const { data } = await supabase
-              .from('customers')
-              .select('id')
-              .eq('business_id', profile.business_id)
-              .eq('full_name', customerData.full_name)
-              .eq('phone', customerData.phone)
-              .single();
-            existingCustomer = data;
-          }
-
-          if (existingCustomer) {
-            // Update existing customer
-            await supabase
-              .from('customers')
-              .update(customerData)
-              .eq('id', existingCustomer.id);
-            
-            results.updated++;
-          } else {
-            // Insert new customer
-            await supabase
-              .from('customers')
-              .insert(customerData);
-            
-            results.inserted++;
-          }
-
-        } catch (error) {
-          results.errors.push({
-            row: i + 1,
-            error: error.message,
-            data: rowData
-          });
-          results.skipped++;
-        }
-
-        // Update progress
-        if (progressCallback) {
-          const progress = ((i + 1) / totalRows) * 100;
-          progressCallback(progress);
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Import failed');
       }
 
-      // Log import to audit
-      try {
-        await supabase
-          .from('audit_log')
-          .insert({
-            business_id: profile.business_id,
-            user_id: user.id,
-            entity: 'customers',
-            action: 'import_csv',
-            details: { results, row_count: totalRows },
-          });
-      } catch (auditError) {
-        console.error('Audit log error:', auditError);
-        // Don't fail the operation if audit logging fails
+      const result = await response.json();
+      
+      // Update progress to 100% if callback provided
+      if (progressCallback) {
+        progressCallback(100);
       }
 
       // Refresh the customers list
       await fetchCustomers();
       
-      return results;
+      return {
+        inserted: result.customers_imported,
+        updated: 0, // API doesn't return updated count
+        skipped: 0, // API doesn't return skipped count
+        errors: [],
+        enrollmentSummary: result.enrollmentSummary
+      };
     } catch (err) {
       console.error('Error importing CSV:', err);
       throw err;

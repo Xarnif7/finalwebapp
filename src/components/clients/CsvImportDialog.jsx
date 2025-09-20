@@ -24,6 +24,41 @@ const CsvImportDialog = ({ open, onOpenChange, onImport, loading = false }) => {
   const [columnMapping, setColumnMapping] = useState({});
   const [previewData, setPreviewData] = useState([]);
   const [importProgress, setImportProgress] = useState(0);
+  
+  // Auto-enroll states
+  const [autoEnrollEnabled, setAutoEnrollEnabled] = useState(false);
+  const [selectedSequence, setSelectedSequence] = useState('');
+  const [backfillWindow, setBackfillWindow] = useState('30');
+  const [requireServiceDate, setRequireServiceDate] = useState(false);
+  const [availableSequences, setAvailableSequences] = useState([]);
+  const [enrollmentSummary, setEnrollmentSummary] = useState(null);
+
+  // Fetch available sequences for auto-enroll
+  useEffect(() => {
+    const fetchSequences = async () => {
+      try {
+        const response = await fetch('/api/sequences', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableSequences(data.sequences || []);
+          // Set default to first sequence if available
+          if (data.sequences && data.sequences.length > 0) {
+            setSelectedSequence(data.sequences[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching sequences:', error);
+      }
+    };
+
+    if (autoEnrollEnabled) {
+      fetchSequences();
+    }
+  }, [autoEnrollEnabled]);
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -207,9 +242,17 @@ const CsvImportDialog = ({ open, onOpenChange, onImport, loading = false }) => {
       const totalRows = processedRows.length;
       let processed = 0;
       
+      // Prepare auto-enroll parameters if enabled
+      const autoEnrollParams = autoEnrollEnabled ? {
+        enabled: true,
+        sequenceId: selectedSequence,
+        backfillWindow: parseInt(backfillWindow),
+        requireServiceDate: requireServiceDate
+      } : null;
+
       const result = await onImport(processedRows, (progress) => {
         setImportProgress(progress);
-      });
+      }, autoEnrollParams);
       
       setImportResult(result);
       setMappingStep('complete');
@@ -369,6 +412,81 @@ const CsvImportDialog = ({ open, onOpenChange, onImport, loading = false }) => {
         ))}
       </div>
 
+      {/* Auto-enroll Section */}
+      <div className="space-y-4 border-t pt-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium">Auto-enroll in Automation</h3>
+            <Switch
+              checked={autoEnrollEnabled}
+              onCheckedChange={setAutoEnrollEnabled}
+            />
+          </div>
+        </div>
+
+        {autoEnrollEnabled && (
+          <div className="space-y-4 pl-6 border-l-2 border-blue-200 bg-blue-50/30 p-4 rounded-r-lg">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Choose Sequence</Label>
+                <Select
+                  value={selectedSequence}
+                  onValueChange={setSelectedSequence}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select sequence">
+                      {availableSequences.find(s => s.id === selectedSequence)?.name || "Select sequence"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSequences.map(sequence => (
+                      <SelectItem key={sequence.id} value={sequence.id}>
+                        {sequence.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Backfill Window</Label>
+                <Select
+                  value={backfillWindow}
+                  onValueChange={setBackfillWindow}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">Last 7 days</SelectItem>
+                    <SelectItem value="30">Last 30 days</SelectItem>
+                    <SelectItem value="90">Last 90 days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={requireServiceDate}
+                onCheckedChange={setRequireServiceDate}
+              />
+              <Label className="text-sm">Require service_date for enrollment</Label>
+            </div>
+
+            <div className="text-xs text-gray-600 bg-white p-3 rounded border">
+              <strong>Note:</strong> Customers will be automatically enrolled in the selected sequence if they meet the criteria:
+              <ul className="mt-1 ml-4 list-disc">
+                <li>Have a valid email address</li>
+                <li>Service date within the backfill window</li>
+                <li>Not already enrolled in this sequence</li>
+                <li>Respect quiet hours and rate limits</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+
       {previewData.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
@@ -428,6 +546,57 @@ const CsvImportDialog = ({ open, onOpenChange, onImport, loading = false }) => {
               <div className="text-blue-500">Skipped</div>
             </div>
           </div>
+
+          {/* Enrollment Summary */}
+          {enrollmentSummary && (
+            <div className="space-y-3 border-t pt-4">
+              <h4 className="font-medium text-gray-900">Auto-enrollment Summary</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="text-center p-3 bg-green-50 rounded-lg">
+                  <div className="font-bold text-green-600 text-lg">{enrollmentSummary.enrolled}</div>
+                  <div className="text-green-500">Enrolled</div>
+                </div>
+                <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                  <div className="font-bold text-yellow-600 text-lg">{enrollmentSummary.skipped}</div>
+                  <div className="text-yellow-500">Skipped</div>
+                </div>
+              </div>
+              
+              {enrollmentSummary.skippedReasons && enrollmentSummary.skippedReasons.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Skip reasons:</p>
+                  <div className="text-xs space-y-1 max-h-24 overflow-y-auto bg-gray-50 p-2 rounded">
+                    {Object.entries(enrollmentSummary.skippedReasons).map(([reason, count]) => (
+                      <div key={reason} className="flex justify-between">
+                        <span className="text-gray-600">{reason}:</span>
+                        <span className="font-medium">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {enrollmentSummary.nextRuns && enrollmentSummary.nextRuns.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Next scheduled runs:</p>
+                  <div className="text-xs space-y-1 bg-blue-50 p-2 rounded">
+                    {enrollmentSummary.nextRuns.slice(0, 3).map((run, index) => (
+                      <div key={index} className="flex justify-between">
+                        <span className="text-gray-600">{run.customer_name}:</span>
+                        <span className="font-medium">{new Date(run.next_run_at).toLocaleString()}</span>
+                      </div>
+                    ))}
+                    {enrollmentSummary.nextRuns.length > 3 && (
+                      <div className="text-gray-500 text-center">
+                        +{enrollmentSummary.nextRuns.length - 3} more...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {importResult.errors && importResult.errors.length > 0 && (
             <div className="p-3 bg-yellow-50 text-yellow-700 rounded-lg">
               <p className="text-sm font-medium mb-2">Import completed with {importResult.errors.length} errors:</p>
