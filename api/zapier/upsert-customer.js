@@ -1,6 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req, res) {
+  console.log('[zapier:upsert-customer] Request received:', {
+    method: req.method,
+    headers: req.headers,
+    query: req.query,
+    body_keys: req.body ? Object.keys(req.body) : 'no_body'
+  });
+
   // Handle OPTIONS for CORS preflight
   if (req.method === 'OPTIONS') {
     res.status(204).end();
@@ -25,7 +32,18 @@ export default async function handler(req, res) {
   const isZapierAuth = zapierToken && zapierToken === process.env.ZAPIER_TOKEN;
   const isBlippAuth = blippBusiness && (authBearer || blippSignature);
   
+  console.log('[zapier:upsert-customer] Authentication check:', {
+    zapierTokenHeader: !!zapierTokenHeader,
+    zapierTokenQuery: !!zapierTokenQuery,
+    zapierToken: zapierToken ? 'present' : 'missing',
+    expectedToken: process.env.ZAPIER_TOKEN ? 'present' : 'missing',
+    isZapierAuth,
+    blippBusiness,
+    isBlippAuth
+  });
+  
   if (!isZapierAuth && !isBlippAuth) {
+    console.log('[zapier:upsert-customer] Authentication failed');
     res.setHeader('Content-Type', 'application/json');
     res.status(401).send(JSON.stringify({ 
       ok: false, 
@@ -45,12 +63,16 @@ export default async function handler(req, res) {
   let data;
   try {
     data = req.body;
+    console.log('[zapier:upsert-customer] Parsed data:', data);
+    
     if (!data) {
+      console.log('[zapier:upsert-customer] No data in request body');
       res.setHeader('Content-Type', 'application/json');
       res.status(400).send(JSON.stringify({ ok: false, error: "No JSON body provided" }));
       return;
     }
   } catch (e) {
+    console.log('[zapier:upsert-customer] JSON parsing error:', e);
     res.setHeader('Content-Type', 'application/json');
     res.status(400).send(JSON.stringify({ ok: false, error: `Invalid JSON: ${e.message}` }));
     return;
@@ -300,12 +322,22 @@ export default async function handler(req, res) {
     }));
 
   } catch (error) {
-    console.error('[zapier:upsert-customer] Unexpected error:', error);
+    console.error('[zapier:upsert-customer] Unexpected error:', {
+      error: error.message,
+      stack: error.stack,
+      request: {
+        method: req.method,
+        headers: req.headers,
+        query: req.query,
+        body: req.body
+      }
+    });
     res.setHeader('Content-Type', 'application/json');
     res.status(500).send(JSON.stringify({ 
       ok: false, 
       error: 'Internal server error',
-      details: error.message 
+      details: error.message,
+      stack: error.stack
     }));
   }
 }
