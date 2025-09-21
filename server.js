@@ -685,6 +685,8 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
         phone: customer.phone
       },
       business_id: business.id,
+      business_name: business.name,
+      created_by: business.created_by,
       message: 'Customer upserted successfully'
     });
   } catch (error) {
