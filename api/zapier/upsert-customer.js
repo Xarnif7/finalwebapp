@@ -13,11 +13,19 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Check Zapier token
-  const token = req.headers['x-zapier-token'] || req.headers['X-Zapier-Token'];
-  if (!token || token !== process.env.ZAPIER_TOKEN) {
+  // Check authentication - support both Zapier and Blipp 1.0 formats
+  const zapierToken = req.headers['x-zapier-token'] || req.headers['X-Zapier-Token'];
+  const blippBusiness = req.headers['x-blipp-business'] || req.headers['X-Blipp-Business'];
+  const authBearer = req.headers['authorization'];
+  const blippSignature = req.headers['x-blipp-signature'] || req.headers['X-Blipp-Signature'];
+  
+  // Accept either Zapier token or Blipp 1.0 authentication
+  const isZapierAuth = zapierToken && zapierToken === process.env.ZAPIER_TOKEN;
+  const isBlippAuth = blippBusiness && (authBearer || blippSignature);
+  
+  if (!isZapierAuth && !isBlippAuth) {
     res.setHeader('Content-Type', 'application/json');
-    res.status(401).send(JSON.stringify({ ok: false, error: "unauthorized" }));
+    res.status(401).send(JSON.stringify({ ok: false, error: "unauthorized - missing valid authentication" }));
     return;
   }
 
@@ -67,11 +75,13 @@ export default async function handler(req, res) {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Resolve business_id from payload or fallback
+    // Resolve business_id from payload, headers, or fallback
     let resolvedBusinessId;
     
     if (business_id) {
       resolvedBusinessId = business_id;
+    } else if (blippBusiness) {
+      resolvedBusinessId = blippBusiness;
     } else {
       // Fallback: use Demo Business
       let { data: business, error: businessError } = await supabase
@@ -105,14 +115,21 @@ export default async function handler(req, res) {
       resolvedBusinessId = business.id;
     }
 
-    // Log the payload
+    // Log the payload and headers for debugging
     console.log('[zapier:upsert-customer]', {
       external_id,
       email,
       phone,
       first_name,
       last_name,
-      business_id: resolvedBusinessId
+      business_id: resolvedBusinessId,
+      auth_type: isZapierAuth ? 'zapier' : 'blipp_1_0',
+      headers: {
+        zapier_token: !!zapierToken,
+        blipp_business: blippBusiness,
+        auth_bearer: !!authBearer,
+        blipp_signature: !!blippSignature
+      }
     });
 
     // Prepare customer data
