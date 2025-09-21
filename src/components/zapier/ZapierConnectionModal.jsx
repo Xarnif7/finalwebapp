@@ -9,9 +9,8 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
   const handleConnect = async () => {
     setIsConnecting(true);
     
-    // Open the first Zap template in a new tab (most common use case)
-    const firstTemplate = zapTemplates[0];
-    window.open(firstTemplate.href, '_blank');
+    // Open the Blipp 1.0 CRM connection template in Zapier
+    window.open('https://zapier.com/app/editor/create-zap?template=blipp-crm-connection', '_blank');
     
     // Show success state immediately since user will complete setup in Zapier
     setTimeout(() => {
@@ -46,57 +45,97 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
         <div className="p-6">
           {!connected ? (
             <>
-              {/* Explainer */}
+              {/* Simple CRM Connection Instructions */}
               <div className="mb-6">
                 <p className="text-gray-600 mb-4">
-                  Connect your CRM to Blipp using Zapier. For testing, we'll use Google Sheets as your "CRM".
+                  Connect your CRM to Blipp in just a few clicks using our pre-built Zapier integration.
                 </p>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-medium text-blue-900 mb-2">Quick Setup Steps:</h4>
-                  <ol className="text-sm text-blue-800 space-y-1">
-                    <li>1. Create a Google Sheet with columns: full_name, email, phone, event_type</li>
-                    <li>2. Set up a Zap: Google Sheets → Webhooks by Zapier</li>
-                    <li>3. Use webhook URL: <code className="bg-blue-100 px-1 rounded">https://myblipp.com/api/zapier/automation-webhook</code></li>
-                    <li>4. Add your business ID to the payload</li>
+                
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <h4 className="font-medium text-green-900 mb-3">🚀 Super Simple Setup:</h4>
+                  <ol className="text-sm text-green-800 space-y-2">
+                    <li className="flex items-start">
+                      <span className="bg-green-200 text-green-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
+                      <div>
+                        <strong>Click the link below</strong> to open Zapier
+                      </div>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="bg-green-200 text-green-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
+                      <div>
+                        <strong>Search for your CRM</strong> (Jobber, HouseCall Pro, Google Sheets, etc.)
+                      </div>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="bg-green-200 text-green-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
+                      <div>
+                        <strong>Connect your CRM</strong> and authorize the connection
+                      </div>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="bg-green-200 text-green-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">4</span>
+                      <div>
+                        <strong>Turn on your Zap</strong> and you're done!
+                      </div>
+                    </li>
                   </ol>
                 </div>
-              </div>
 
-              {/* Zap Templates */}
-              <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Available Zap Templates</h3>
-                <div className="space-y-3">
-                  {zapTemplates.map((template, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleTemplateClick(template)}
-                      className="w-full p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-left group"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 group-hover:text-blue-900">
-                            {template.title}
-                          </h4>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {template.description}
-                          </p>
-                        </div>
-                        <ExternalLink className="h-5 w-5 text-gray-400 group-hover:text-blue-600 ml-3 flex-shrink-0" />
-                      </div>
-                    </button>
-                  ))}
+                <div className="text-center">
+                  <a
+                    href="https://zapier.com/app/editor/create-zap?template=blipp-crm-connection"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-white rounded-lg hover:from-[#1557B0] hover:to-[#6D28D9] transition-all duration-200 font-medium"
+                  >
+                    <ExternalLink className="h-5 w-5 mr-2" />
+                    Connect Your CRM in Zapier
+                  </a>
                 </div>
               </div>
 
-              {/* Connect Button */}
-              <div className="flex justify-end">
-                <button
-                  onClick={handleConnect}
-                  disabled={isConnecting}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isConnecting ? 'Connecting...' : 'Connect via Zapier'}
-                </button>
+              {/* Supported CRMs */}
+              <div className="mb-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Supported CRM Systems:</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                    Jobber
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                    HouseCall Pro
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                    Google Sheets
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                    Airtable
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                    HubSpot
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                    Pipedrive
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                    Salesforce
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                    + 1000+ more
+                  </div>
+                </div>
+              </div>
+
+              {/* Help Text */}
+              <div className="text-center text-sm text-gray-500">
+                <p>Need help? Our template will guide you through each step!</p>
               </div>
             </>
           ) : (
