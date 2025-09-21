@@ -110,8 +110,8 @@ app.post('/api/checkout/create-session', async (req, res) => {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.SITE_URL || 'http://localhost:5173'}/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.SITE_URL || 'http://localhost:5173'}/pricing`,
+      success_url: `${process.env.VITE_SITE_URL || process.env.SITE_URL || 'https://myblipp.com'}/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.VITE_SITE_URL || process.env.SITE_URL || 'https://myblipp.com'}/pricing`,
       metadata: {
         // Add any metadata you need
         source: 'blipp_checkout'
