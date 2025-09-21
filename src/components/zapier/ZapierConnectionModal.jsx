@@ -101,13 +101,13 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
                       <div className="flex-1">
                         <div className="font-medium text-blue-900 flex items-center">
                           <span className="bg-blue-200 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-2">3</span>
-                          Blipp is Already Selected!
+                          Search for "Blipp" in Actions
                         </div>
                         <div className="text-sm text-blue-800 mt-1">
-                          The "Action" step will already have Blipp selected for you - no searching needed!
+                          In the "Action" step, search for "Blipp" and select "Blipp (1.0.0)" from the results
                         </div>
-                        <div className="bg-green-100 rounded p-2 mt-2 text-xs text-green-700">
-                          ✅ <strong>Already done:</strong> Blipp action is pre-selected when you click our button
+                        <div className="bg-blue-100 rounded p-2 mt-2 text-xs text-blue-700">
+                          🔍 <strong>Look for:</strong> "Blipp (1.0.0)" or "Blipp" in the app search results
                         </div>
                       </div>
                     </div>
@@ -134,19 +134,24 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
                   </div>
                 </div>
 
-                <div className="text-center">
+                <div className="text-center space-y-3">
                   <a
-                    href="https://zapier.com/app/editor/create-zap?action=blipp"
+                    href="https://zapier.com/app/editor/create-zap"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-white rounded-lg hover:from-[#1557B0] hover:to-[#6D28D9] transition-all duration-200 font-medium text-lg"
                   >
                     <ExternalLink className="h-6 w-6 mr-3" />
-                    Connect Your CRM (Blipp Pre-Selected!)
+                    Connect Your CRM in Zapier
                   </a>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Opens Zapier with Blipp already selected - just pick your CRM trigger
+                  <p className="text-sm text-gray-500">
+                    Opens Zapier - search for "Blipp" in the Action step
                   </p>
+                  
+                  {/* Alternative with specific search */}
+                  <div className="text-xs text-gray-400">
+                    or try: <a href="https://zapier.com/app/editor/create-zap?search=blipp" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Direct Blipp Search</a>
+                  </div>
                 </div>
               </div>
 
