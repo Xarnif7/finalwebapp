@@ -1,13 +1,7 @@
 ﻿import React, { useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-import { Button } from "@/components/ui/button";
 import { motion, useInView } from "framer-motion";
-import { useAuth } from "@/components/auth/AuthProvider";
-import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
 import {
-  Settings, Zap, BarChart3, ArrowRight, CheckCircle, MessageSquare,
-  Users, Clock, Shield, Star
+  CheckCircle, Clock, Shield, Star, BarChart3
 } from "lucide-react";
 
 const AnimatedSection = ({ children, className = "", id }) => {
@@ -29,39 +23,6 @@ const AnimatedSection = ({ children, className = "", id }) => {
 };
 
 export default function HowItWorks() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const subscriptionStatus = useSubscriptionStatus();
-  const { active: hasSubscription } = subscriptionStatus;
-  
-  console.log('[HOWITWORKS] Component rendering with props:', { 
-    user: !!user, 
-    hasSubscription,
-    pathname: window.location.pathname 
-  });
-  
-  const handleGetStarted = async () => {
-    if (user) {
-      if (hasSubscription) {
-        navigate(createPageUrl("Dashboard"));
-      } else {
-        navigate("/paywall"); // Redirect to paywall if no subscription
-      }
-    } else {
-      // Import supabase for OAuth
-      const { signInWithGoogle } = await import('../lib/auth-utils');
-      
-      try {
-        // Store the current path as redirect destination
-        localStorage.setItem('postLoginRedirect', window.location.pathname);
-        
-        // Initiate Google OAuth
-        await signInWithGoogle();
-      } catch (error) {
-        console.error('Sign in error:', error);
-      }
-    }
-  };
 
   const steps = [
     {
@@ -212,21 +173,6 @@ export default function HowItWorks() {
           </div>
         </AnimatedSection>
 
-        {/* CTA Section */}
-        <AnimatedSection className="py-24 lg:py-28 px-6">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Ready to Get Started?</h2>
-            <p className="text-xl text-gray-600 mb-8">Join thousands of businesses already growing with Blipp</p>
-            <Button
-              size="lg"
-              onClick={handleGetStarted}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-xl px-12 py-6 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
-            >
-              Start Your Free Trial
-              <ArrowRight className="w-6 h-6 ml-3" />
-            </Button>
-          </div>
-        </AnimatedSection>
       </main>
     </div>
   );

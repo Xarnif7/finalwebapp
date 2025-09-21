@@ -1,72 +1,63 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import { useAuth } from '../components/auth/AuthProvider';
-import { toast } from 'sonner';
+import { useState, useEffect } from 'react';
+import { apiClient } from '../lib/apiClient';
 
-export function useAutomationKPIs() {
-  const { user } = useAuth();
+export const useAutomationKPIs = (businessId) => {
   const [kpis, setKpis] = useState({
     activeSequences: 0,
-    customersInSequences: 0,
-    conversionRate7d: 0
+    sendSuccessRate: 0,
+    failureRate: 0,
+    totalRecipients: 0,
+    totalSends: 0,
+    successfulSends: 0,
+    failedSends: 0,
+    hasData: false
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchKPIs = useCallback(async () => {
-    if (!user) {
+  const fetchKPIs = async () => {
+    if (!businessId) {
       setKpis({
         activeSequences: 0,
-        customersInSequences: 0,
-        conversionRate7d: 0
+        sendSuccessRate: 0,
+        failureRate: 0,
+        totalRecipients: 0,
+        totalSends: 0,
+        successfulSends: 0,
+        failedSends: 0,
+        hasData: false
       });
       setLoading(false);
       return;
     }
 
-    setLoading(true);
-    setError(null);
-
     try {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      if (!token) {
-        throw new Error('No access token found');
+      setLoading(true);
+      setError(null);
+      
+      const response = await apiClient.get(`/api/automation/kpis/${businessId}`);
+      
+      if (response.success) {
+        setKpis(response.kpis);
+      } else {
+        setError('Failed to fetch automation KPIs');
       }
-
-      const response = await fetch('/api/automation-kpis', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch KPIs');
-      }
-
-      const data = await response.json();
-      setKpis(data.kpis || {
-        activeSequences: 0,
-        customersInSequences: 0,
-        conversionRate7d: 0
-      });
     } catch (err) {
       console.error('Error fetching automation KPIs:', err);
-      setError(err.message);
-      toast.error(`Error: ${err.message}`);
+      setError('Failed to fetch automation KPIs');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  };
 
   useEffect(() => {
     fetchKPIs();
-  }, [fetchKPIs]);
+  }, [businessId]);
 
   return {
     kpis,
     loading,
     error,
-    refetch: fetchKPIs,
+    fetchKPIs
   };
-}
+};

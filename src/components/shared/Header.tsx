@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { LogOut, Repeat } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { useSubscriptionStatus } from '../../hooks/useSubscriptionStatus';
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { signInWithGoogle, switchAccount } from '../../lib/auth-utils';
 import { supabase } from '../../lib/supabase/browser';
 
@@ -37,7 +37,7 @@ const UserAvatar = ({ user, size = "40px" }) => {
 export function Header() {
   const { status: authStatus, user } = useAuth();
   const subscriptionStatus = useSubscriptionStatus();
-  const { active: hasActive, loading: subLoading } = subscriptionStatus;
+  const { hasActive, loading: subLoading } = subscriptionStatus;
   const navigate = useNavigate();
   const [refreshKey, setRefreshKey] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);

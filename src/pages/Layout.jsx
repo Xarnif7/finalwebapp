@@ -11,6 +11,7 @@ import { Header as SharedHeader } from "../components/shared/Header";
 import { ThemeProvider } from "../components/providers/ThemeProvider";
 import { DashboardProvider } from "../components/providers/DashboardProvider";
 import ErrorBoundary from "../components/ui/error-boundary";
+import QuickSetupWizard from "../components/onboarding/QuickSetupWizard";
 import { supabase } from "../lib/supabase/browser";
 // Simplified layout - no auth dependencies
 
@@ -26,6 +27,14 @@ export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [showQuickSetup, setShowQuickSetup] = useState(false);
+
+  // Listen for Quick Setup events from Dashboard
+  useEffect(() => {
+    const handleOpenQuickSetup = () => setShowQuickSetup(true);
+    window.addEventListener('openQuickSetup', handleOpenQuickSetup);
+    return () => window.removeEventListener('openQuickSetup', handleOpenQuickSetup);
+  }, []);
 
   // Derive page name from pathname as single source of truth
   const pathname = derivePathname(location.pathname);
@@ -73,7 +82,7 @@ export default function Layout({ children, currentPageName }) {
             <ModernSidebar />
 
             <div className="flex-1 flex flex-col min-w-0">
-                <ModernTopNav onLogout={handleLogout} />
+                <ModernTopNav onLogout={handleLogout} onQuickSetup={() => setShowQuickSetup(true)} />
 
                 <main className="flex-1 overflow-y-auto">
                     <div className="h-full">
@@ -82,6 +91,13 @@ export default function Layout({ children, currentPageName }) {
                 </main>
             </div>
             </div>
+            
+            {/* Quick Setup Wizard */}
+            <QuickSetupWizard
+              isOpen={showQuickSetup}
+              onClose={() => setShowQuickSetup(false)}
+              onComplete={() => setShowQuickSetup(false)}
+            />
           </ErrorBoundary>
         </DashboardProvider>
     </ThemeProvider>

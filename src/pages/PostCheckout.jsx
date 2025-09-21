@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiClient } from '../lib/apiClient';
-import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 
 export default function PostCheckout() {
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ export default function PostCheckout() {
   console.log('[POSTCHECKOUT] Component mounted with sessionId:', sessionId);
 
   // Force refresh subscription status to avoid stale cache
-  const { active: hasSubscription } = useSubscriptionStatus({ force: true });
+  const { hasActive: hasSubscription } = useSubscriptionStatus();
 
   useEffect(() => {
     if (!sessionId) {

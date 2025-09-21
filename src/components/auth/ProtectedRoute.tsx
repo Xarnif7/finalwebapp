@@ -15,11 +15,11 @@ export function ProtectedRoute({
   fallbackPath 
 }: ProtectedRouteProps) {
   const { status: authStatus } = useAuth();
-  const { active: hasActive, loading: subLoading } = useSubscriptionStatus();
+  const { hasActive, loading: subLoading } = useSubscriptionStatus();
   const location = useLocation();
 
-  // Show loading state
-  if (authStatus === 'loading' || subLoading) {
+  // Show loading state while auth or subscription status is loading
+  if (authStatus === 'loading' || (authStatus === 'signedIn' && subLoading)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -32,8 +32,8 @@ export function ProtectedRoute({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Require active subscription but doesn't have it
-  if (requireActiveSubscription && !hasActive) {
+  // Require active subscription but doesn't have it (only check after loading is complete)
+  if (requireActiveSubscription && !subLoading && !hasActive) {
     const redirectPath = fallbackPath || '/pricing';
     return <Navigate to={redirectPath} state={{ from: location }} replace />;
   }

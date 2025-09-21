@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useAutomationLogs } from '../../hooks/useAutomationLogs';
 
-const ActivityFeed = ({ onViewSequence, onViewCustomer }) => {
+const ActivityFeed = ({ onViewSequence, onViewCustomer, onViewAll }) => {
   const [filter, setFilter] = useState('all');
   const { logs, loading, error, refetch } = useAutomationLogs();
 

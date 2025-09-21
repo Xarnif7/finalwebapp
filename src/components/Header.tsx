@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { PrimaryCTA } from './marketing/ctas';
 import { UserMenu } from './auth/UserMenu';
 

@@ -7,9 +7,9 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, useScroll, useTransform, MotionConfig, useInView } from "framer-motion";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
+import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 import { useRevealOnce } from "../hooks/useRevealOnce";
-import { PrimaryCTA } from "../components/marketing/ctas";
+// import { PrimaryCTA } from "../components/marketing/ctas"; // Removed - component doesn't exist
 import {
   Star, MessageSquare, TrendingUp, Clock, Shield, Zap, Target, Rocket, Heart, CheckCircle,
   BarChart3, Repeat, Compass, Brain, MessageCircle as ConversationsIcon, ArrowRight,
@@ -136,7 +136,11 @@ const CountUpNumber = ({ end, duration = 2000 }) => {
 export default function Landing() {
   const { user } = useAuth();
   const subscriptionStatus = useSubscriptionStatus();
-  const { active: hasSubscription, onboarding_completed } = subscriptionStatus;
+  const { hasActive: hasSubscription, loading: subLoading } = subscriptionStatus;
+  
+  console.log('[LANDING] User:', user);
+  console.log('[LANDING] Subscription status:', subscriptionStatus);
+  console.log('[LANDING] Has subscription:', hasSubscription, 'Loading:', subLoading);
   const { scrollYProgress } = useScroll();
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
@@ -238,6 +242,60 @@ export default function Landing() {
                   </div>
                 </div>
               </div>
+            </motion.div>
+
+            {/* Main CTA Section - Original Logic */}
+            <motion.div
+              className="text-center mt-16"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, delay: 0.8, ease: [0.6, 0.01, 0.05, 0.95] }}
+            >
+              {user ? (
+                subLoading ? (
+                  <Button 
+                    size="lg" 
+                    disabled
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 text-lg font-semibold shadow-xl transition-all duration-300"
+                  >
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Loading...
+                  </Button>
+                ) : hasSubscription ? (
+                  <Link to="/dashboard">
+                    <Button 
+                      size="lg" 
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 text-lg font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                    >
+                      View Dashboard <ArrowRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <Link to="/pricing">
+                    <Button 
+                      size="lg" 
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 text-lg font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                    >
+                      Get Started <ArrowRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  </Link>
+                )
+              ) : (
+                <Button 
+                  size="lg" 
+                  onClick={async () => {
+                    try {
+                      const { signInWithGoogle } = await import('../lib/auth-utils');
+                      await signInWithGoogle();
+                    } catch (error) {
+                      console.error('Sign in error:', error);
+                    }
+                  }}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 text-lg font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                >
+                  Sign In <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              )}
             </motion.div>
 
           </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../lib/supabase/browser';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { apiClient } from '@/lib/apiClient';
 
 export type SubscriptionStatus = 
   | 'none' 
@@ -68,56 +68,26 @@ export function useSubscriptionStatus(): SubscriptionState {
         setLoading(true);
         setError(undefined);
 
-        // Check for active subscription in subscriptions table
-        const { data: subscriptions, error: subError } = await supabase
-          .from('subscriptions')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('deleted', false)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (subError) {
-          console.error('[useSubscriptionStatus] Error fetching subscriptions:', subError);
-          setError(subError.message);
-          setSubscription(null);
-          return;
-        }
-
-        // If no subscriptions found, also check profiles table for legacy data
-        if (!subscriptions || subscriptions.length === 0) {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('subscription_status, plan_name')
-            .eq('id', user.id)
-            .single();
-
-          if (profileError && profileError.code !== 'PGRST116') { // Not found is OK
-            console.error('[useSubscriptionStatus] Error fetching profile:', profileError);
-            setError(profileError.message);
-          }
-
-          if (profile) {
-            setSubscription({
-              status: profile.subscription_status,
-              plan: profile.plan_name,
-              // Legacy: treat any profile with subscription_status as active
-              hasActive: !!profile.subscription_status && profile.subscription_status !== 'none'
-            });
-          } else {
-            setSubscription(null);
-          }
-        } else {
-          // Use the latest subscription
-          const latestSub = subscriptions[0];
+        console.log('[useSubscriptionStatus] Fetching subscription status...');
+        
+        // Use the API endpoint that we know is working correctly
+        const response = await apiClient.get('/api/subscription/status');
+        
+        console.log('[useSubscriptionStatus] API response:', response);
+        
+        if (response.active) {
+          console.log('[useSubscriptionStatus] Setting active subscription:', response);
           setSubscription({
-            status: latestSub.status,
-            plan: latestSub.plan_name || latestSub.plan_id,
-            hasActive: ['active', 'trialing'].includes(latestSub.status)
+            status: response.status,
+            plan: response.plan_tier,
+            hasActive: response.active
           });
+        } else {
+          console.log('[useSubscriptionStatus] No active subscription found');
+          setSubscription(null);
         }
       } catch (err) {
-        console.error('[useSubscriptionStatus] Unexpected error:', err);
+        console.error('[useSubscriptionStatus] Error fetching subscription:', err);
         setError(err instanceof Error ? err.message : 'Unknown error');
         setSubscription(null);
       } finally {
@@ -129,6 +99,8 @@ export function useSubscriptionStatus(): SubscriptionState {
   }, [user, authStatus]);
 
   const result = useMemo((): SubscriptionState => {
+    console.log('[useSubscriptionStatus] Computing result:', { loading, subscription, error });
+    
     if (loading) {
       return {
         subStatus: 'none',
@@ -138,6 +110,7 @@ export function useSubscriptionStatus(): SubscriptionState {
     }
 
     if (!subscription) {
+      console.log('[useSubscriptionStatus] No subscription, returning none');
       return {
         subStatus: 'none',
         hasActive: false,
@@ -148,6 +121,8 @@ export function useSubscriptionStatus(): SubscriptionState {
 
     const subStatus = normalizeSubscriptionStatus(subscription.status);
     const hasActive = ['active', 'trialing'].includes(subStatus);
+
+    console.log('[useSubscriptionStatus] Final result:', { subStatus, hasActive, plan: subscription.plan });
 
     return {
       subStatus,

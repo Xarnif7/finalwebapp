@@ -28,13 +28,21 @@ import {
   Eye,
   Send,
   HelpCircle,
+  Activity,
   ArrowRight,
-  ArrowDown
+  ArrowDown,
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../components/auth/AuthProvider';
 import { useSequencesData } from '../hooks/useSequencesData';
 import { useZapierStatus } from '../hooks/useZapierStatus';
 import { useAutomationKPIs } from '../hooks/useAutomationKPIs';
+import { useTemplates } from '../hooks/useTemplates';
+import { useActiveSequences } from '../hooks/useActiveSequences';
+import { useCustomers } from '../hooks/useCustomers';
+import { useBusinessIntegrations } from '../hooks/useBusinessIntegrations';
+import { useHealth } from '../hooks/useHealth';
 import SequenceDetailsDrawer from '../components/automations/SequenceDetailsDrawer';
 import SequenceDesigner from '../components/automations/SequenceDesigner';
 import SequencesList from '../components/automations/SequencesList';
@@ -43,20 +51,18 @@ import TriggersTab from '../components/automations/TriggersTab';
 import TemplatesTab from '../components/automations/TemplatesTab';
 import LogsTab from '../components/automations/LogsTab';
 import AutomationKPIs from '../components/automations/AutomationKPIs';
-import AlertBanner from '../components/automations/AlertBanner';
 import OnboardingChecklist from '../components/automations/OnboardingChecklist';
 import SetupGuideDrawer from '../components/automations/SetupGuideDrawer';
 import MyActiveSequences from '../components/automations/MyActiveSequences';
 import ActivityFeed from '../components/automations/ActivityFeed';
 import AutomationWizard from '../components/automations/AutomationWizard';
-import { useAutomationMetrics } from '../hooks/useAutomationMetrics';
 import { useToast } from '../hooks/useToast';
 import ToastContainer from '../components/ui/ToastContainer';
 import { Skeleton } from '../components/ui/skeleton';
 
 export default function AutomationsPage() {
   const { user } = useAuth();
-  const [mainTab, setMainTab] = useState('overview'); // New main tab switcher
+  const [mainTab, setMainTab] = useState('templates'); // New main tab switcher
   const [activeTab, setActiveTab] = useState('sequences');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSequence, setSelectedSequence] = useState(null);
@@ -69,22 +75,54 @@ export default function AutomationsPage() {
     manualEnroll: 'all'
   });
   const [savedView, setSavedView] = useState('all');
-
-  // Use real data from API
-  const { sequences, loading, error } = useSequencesData();
-  const { isConnected: isZapierConnected, loading: zapierLoading } = useZapierStatus();
-  const { metrics, loading: metricsLoading } = useAutomationMetrics();
-  const { kpis, loading: kpisLoading, error: kpisError } = useAutomationKPIs();
-  const [dismissedAlerts, setDismissedAlerts] = useState(new Set());
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const { toasts, toastSuccess, toastError, removeToast } = useToast();
 
+  // Use real data from API - always call hooks consistently
+  const { sequences, loading, error } = useSequencesData();
+  const { isConnected: isZapierConnected, loading: zapierLoading } = useZapierStatus();
+  const { kpis, loading: kpisLoading, error: kpisError } = useAutomationKPIs(user?.business_id);
+  const { 
+    templates, 
+    loading: templatesLoading, 
+    error: templatesError, 
+    updateTemplateStatus, 
+    provisionDefaultTemplates 
+  } = useTemplates(user?.business_id);
+  const { 
+    sequences: activeSequences, 
+    loading: activeSequencesLoading, 
+    error: activeSequencesError, 
+    updateSequenceStatus: updateActiveSequenceStatus 
+  } = useActiveSequences(user?.business_id);
+  const { hasCustomers } = useCustomers(user?.business_id);
+  const { hasActiveIntegration } = useBusinessIntegrations(user?.business_id);
+  const { health, loading: healthLoading } = useHealth();
+
+  // Auto-provision templates if customers exist but no templates
+  useEffect(() => {
+    const autoProvisionTemplates = async () => {
+      if (hasCustomers && templates && templates.length === 0 && !templatesLoading) {
+        console.log('[TEMPLATES] Auto-provisioning templates for business with customers');
+        try {
+          await provisionDefaultTemplates();
+          // Templates will be refetched automatically by the hook
+        } catch (error) {
+          console.error('[TEMPLATES] Error auto-provisioning templates:', error);
+        }
+      }
+    };
+
+    autoProvisionTemplates();
+  }, [hasCustomers, templates, templatesLoading, provisionDefaultTemplates]);
 
   const mainTabs = [
+    { id: 'templates', label: 'Templates', icon: FileText },
+    { id: 'sequences', label: 'Active Sequences', icon: Play },
     { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'manage', label: 'Manage', icon: Settings }
+    { id: 'activity', label: 'Activity', icon: Activity }
   ];
 
   const tabs = [
@@ -187,6 +225,7 @@ export default function AutomationsPage() {
     console.log('Delete sequence:', sequenceId);
     // Implementation for deleting sequence
   };
+
 
   const handleViewSequence = (sequenceId) => {
     console.log('View sequence:', sequenceId);
@@ -317,48 +356,14 @@ export default function AutomationsPage() {
         <p className="text-slate-600">Create and manage review-request sequences</p>
       </div>
       
-      <div className="flex items-center space-x-3">
-        {/* Zapier Connection Pill */}
-        <div className="flex items-center space-x-3 bg-green-50 border border-green-200 rounded-lg px-4 py-2">
-          <div className="flex items-center space-x-2">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <span className="text-sm font-medium text-green-800">✓ Connected</span>
-          </div>
-          
-          <div className="flex items-center space-x-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-green-700 hover:text-green-800 hover:bg-green-100 h-7 px-2 text-xs"
-              aria-label="View Zapier integrations"
-            >
-              View Zaps
-            </Button>
-            
-            <div className="flex items-center space-x-1 text-xs text-green-600">
-              <Clock className="h-3 w-3" />
-              <span>Last sync 2h ago</span>
-            </div>
-          </div>
-        </div>
-
-        <Button
-          variant="outline"
-          onClick={() => setShowSetupGuide(true)}
-          className="text-blue-600 hover:text-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          aria-label="Open setup guide"
-        >
-          Setup Guide
-        </Button>
-        <Button
-          onClick={handleCreateSequence}
-          className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          aria-label="Create new automation sequence"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Create Sequence
-        </Button>
-      </div>
+      <Button
+        onClick={() => setShowWizard(true)}
+        className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        aria-label="Quick setup automation"
+      >
+        <Plus className="h-4 w-4 mr-2" />
+        Quick Setup
+      </Button>
     </div>
   );
 
@@ -477,81 +482,6 @@ export default function AutomationsPage() {
     </div>
   );
 
-  const renderOverviewTab = () => (
-    <div className="space-y-10" role="tabpanel" id="overview-panel" aria-labelledby="overview-tab">
-      {/* OnboardingBanner */}
-      <section aria-labelledby="onboarding-heading">
-        {renderOnboardingBanner()}
-      </section>
-
-      {/* KPIBar */}
-      <section aria-labelledby="kpi-heading">
-        <h2 id="kpi-heading" className="sr-only">Key Performance Indicators</h2>
-        {renderKPIBar()}
-      </section>
-
-      {/* QuickStartRecipeGrid */}
-      <section aria-labelledby="recipes-heading">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 id="recipes-heading" className="text-2xl font-semibold text-slate-900">Quick Start Recipes</h2>
-            <p className="text-sm text-slate-600">Pre-built automation templates to get you started</p>
-          </div>
-          <Button
-            onClick={handleOpenWizard}
-            variant="outline"
-            className="flex items-center space-x-2 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create Custom</span>
-          </Button>
-        </div>
-        <RecipeCards 
-          isZapierConnected={isZapierConnected}
-          onSequenceCreated={handleRecipeSequenceCreated}
-          onConnectZapier={handleConnectZapier}
-        />
-      </section>
-
-      {/* MyActiveSequences */}
-      <section id="my-active-sequences" aria-labelledby="active-sequences-heading">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 id="active-sequences-heading" className="text-2xl font-semibold text-slate-900">My Active Sequences</h2>
-            <p className="text-sm text-slate-600 mt-1">Currently running automation sequences</p>
-          </div>
-          <Button
-            onClick={() => setMainTab('manage')}
-            variant="outline"
-            size="sm"
-            className="focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            View All
-          </Button>
-        </div>
-        <MyActiveSequences
-          onViewAll={() => setMainTab('manage')}
-          onEdit={handleEditSequence}
-          onPause={handlePauseSequence}
-          onResume={handleResumeSequence}
-        />
-      </section>
-
-      {/* ActivityFeed */}
-      <section id="activity-feed" aria-labelledby="activity-heading">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 id="activity-heading" className="text-2xl font-semibold text-slate-900">Recent Activity</h2>
-            <p className="text-sm text-slate-600 mt-1">Latest automation events and messages</p>
-          </div>
-        </div>
-        <ActivityFeed
-          onViewSequence={handleViewSequence}
-          onViewCustomer={handleViewCustomer}
-        />
-      </section>
-    </div>
-  );
 
   const renderEmptyState = () => (
     <div className="text-center py-12">
@@ -584,22 +514,732 @@ export default function AutomationsPage() {
   };
 
   const renderMainContent = () => {
-    if (mainTab === 'overview') {
-      return renderOverviewTab();
-    } else {
-      // Manage tab - show the original content
-      return (
-        <div>
-          {renderTabs()}
-          {renderTabContent()}
-        </div>
-      );
+    switch (mainTab) {
+      case 'overview':
+        return renderOverviewTab();
+      case 'sequences':
+        return renderSequencesTab();
+      case 'templates':
+        return renderTemplatesTab();
+      case 'activity':
+        return renderActivityTab();
+      default:
+        return renderOverviewTab();
     }
   };
 
-  const handleDismissAlert = () => {
-    setDismissedAlerts(prev => new Set([...prev, 'failure-rate']));
+  const renderOverviewTab = () => {
+    if (kpisLoading) {
+      return (
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-white rounded-lg border border-slate-200 p-6">
+                <Skeleton className="h-16 w-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (kpisError) {
+      return (
+        <div className="text-center py-12">
+          <AlertTriangle className="h-16 w-16 text-red-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">Error loading KPIs</h3>
+          <p className="text-slate-600 mb-6">{kpisError}</p>
+          <Button onClick={() => window.location.reload()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-8">
+        {/* High-Level KPIs */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Active Sequences Count */}
+          <div className="bg-white rounded-lg border border-slate-200 p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Play className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-600">Active Sequences</p>
+                <p className="text-2xl font-bold text-slate-900">{kpis.activeSequences}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Send Success Rate */}
+          <div className="bg-white rounded-lg border border-slate-200 p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-600">Send Success Rate</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {kpis.hasData ? `${kpis.sendSuccessRate}%` : 'No data yet'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Total Recipients */}
+          <div className="bg-white rounded-lg border border-slate-200 p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Users className="h-6 w-6 text-purple-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-600">Total Recipients</p>
+                <p className="text-2xl font-bold text-slate-900">{kpis.totalRecipients}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Failure Rate */}
+          <div className="bg-white rounded-lg border border-slate-200 p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-600">Failure Rate</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {kpis.hasData ? `${kpis.failureRate}%` : 'No data yet'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Additional Stats (only show if there's data) */}
+        {kpis.hasData && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Send className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-slate-600">Total Sends (7d)</p>
+                  <p className="text-2xl font-bold text-slate-900">{kpis.totalSends}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-slate-600">Successful Sends</p>
+                  <p className="text-2xl font-bold text-slate-900">{kpis.successfulSends}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <AlertTriangle className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-slate-600">Failed Sends</p>
+                  <p className="text-2xl font-bold text-slate-900">{kpis.failedSends}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* System Health Card */}
+        {health && (
+          <div className="bg-white rounded-lg border border-slate-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">System Health</h3>
+              <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                health.status === 'healthy' 
+                  ? 'bg-green-100 text-green-800' 
+                  : health.status === 'warning'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-red-100 text-red-800'
+              }`}>
+                {health.status}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <p className="text-slate-600">Pending Jobs</p>
+                <p className="font-semibold text-slate-900">{health.pending_jobs_due || 0}</p>
+              </div>
+              <div>
+                <p className="text-slate-600">Queue Depth</p>
+                <p className="font-semibold text-slate-900">{health.queue_depth || 0}</p>
+              </div>
+              <div>
+                <p className="text-slate-600">Last Worker Run</p>
+                <p className="font-semibold text-slate-900">
+                  {health.last_worker_run_at 
+                    ? new Date(health.last_worker_run_at).toLocaleTimeString()
+                    : 'Never'
+                  }
+                </p>
+              </div>
+              <div>
+                <p className="text-slate-600">Last Webhook</p>
+                <p className="font-semibold text-slate-900">
+                  {health.last_webhook_at 
+                    ? new Date(health.last_webhook_at).toLocaleTimeString()
+                    : 'Never'
+                  }
+                </p>
+              </div>
+            </div>
+            
+            {health.warnings && health.warnings.length > 0 && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-800">Warning</p>
+                    <p className="text-sm text-yellow-700">{health.warnings[0]}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Quick Setup CTA */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-8 text-center">
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">Ready to automate your reviews?</h2>
+          <p className="text-slate-600 mb-6">
+            Set up automated review requests in under 2 minutes. Choose from our pre-built templates or create your own custom sequences.
+          </p>
+          <Button
+            onClick={() => setShowWizard(true)}
+            size="lg"
+            className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Quick Setup
+          </Button>
+        </div>
+      </div>
+    );
   };
+
+  const renderSequencesTab = () => {
+    // Handle sequence status updates
+    const handleSequenceAction = async (sequence) => {
+      try {
+        if (sequence.status === 'active') {
+          // Pause sequence
+          await updateActiveSequenceStatus(sequence.id, 'paused');
+          toastSuccess(`${sequence.name} sequence paused successfully!`);
+        } else if (sequence.status === 'paused') {
+          // Resume sequence
+          await updateActiveSequenceStatus(sequence.id, 'active');
+          toastSuccess(`${sequence.name} sequence resumed successfully!`);
+        }
+      } catch (error) {
+        console.error('Error updating sequence status:', error);
+        toastError('Failed to update sequence status');
+      }
+    };
+
+    // Handle customizing sequence
+    const handleCustomizeSequence = (sequence) => {
+      // TODO: Open sequence customization modal/drawer
+      console.log('Customizing sequence:', sequence);
+      toastSuccess(`Opening ${sequence.name} customization...`);
+    };
+
+    if (activeSequencesLoading) {
+      return (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-lg border border-slate-200 p-6">
+              <div className="animate-pulse">
+                <div className="h-4 bg-slate-200 rounded w-1/4 mb-4"></div>
+                <div className="h-3 bg-slate-200 rounded w-1/2 mb-2"></div>
+                <div className="h-3 bg-slate-200 rounded w-1/3"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (activeSequencesError) {
+      return (
+        <div className="text-center py-12">
+          <AlertTriangle className="h-16 w-16 text-red-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">Error loading sequences</h3>
+          <p className="text-slate-600 mb-6">{activeSequencesError}</p>
+          <Button
+            onClick={() => window.location.reload()}
+            variant="outline"
+            className="text-blue-600 hover:text-blue-700"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {/* Header with Create Sequence button */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">Active Sequences</h2>
+            <p className="text-sm text-slate-600">Manage your automation sequences</p>
+          </div>
+          <Button
+            onClick={() => setShowWizard(true)}
+            className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Sequence
+          </Button>
+        </div>
+
+        {/* Sequences content */}
+        {activeSequences.length === 0 ? (
+          <div className="text-center py-12">
+            <Play className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">No sequences yet — enable a template</h3>
+            <p className="text-slate-600 mb-6">Enable templates from the Templates tab to create active sequences</p>
+            <Button
+              onClick={() => setMainTab('templates')}
+              className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Go to Templates
+            </Button>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Sequence Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Trigger
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Channels
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Next Run
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-200">
+                  {activeSequences.map((sequence) => (
+                    <tr key={sequence.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-slate-900">{sequence.name}</div>
+                          <div className="text-sm text-slate-500">{sequence.key}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                        {sequence.trigger_type === 'event' ? 'Event-based' : 'Date-based'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                        {sequence.channels?.join(', ') || 'SMS, Email'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                        {sequence.trigger_type === 'date_based' 
+                          ? 'Next service date' 
+                          : 'On event trigger'
+                        }
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge className="bg-green-100 text-green-800">
+                          Active
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCustomizeSequence(sequence)}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Customize
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSequenceAction(sequence)}
+                            className="text-yellow-600 hover:text-yellow-700"
+                          >
+                            <Pause className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderTemplatesTab = () => {
+    // Determine template status based on database state
+    const getTemplateStatus = (template) => {
+      if (!hasCustomers) {
+        return 'connect_required';
+      }
+      return template.status; // 'ready', 'active', 'paused'
+    };
+    
+    // Handle template status updates
+    const handleTemplateAction = async (template) => {
+      try {
+        if (template.status === 'ready') {
+          // Enable template
+          await updateTemplateStatus(template.id, 'active');
+          toastSuccess(`${template.name} template enabled successfully!`);
+        } else if (template.status === 'active') {
+          // Pause template
+          await updateTemplateStatus(template.id, 'paused');
+          toastSuccess(`${template.name} template paused successfully!`);
+        } else if (template.status === 'paused') {
+          // Resume template
+          await updateTemplateStatus(template.id, 'active');
+          toastSuccess(`${template.name} template resumed successfully!`);
+        }
+        
+        // Templates will be refetched automatically by the hook after status update
+      } catch (error) {
+        console.error('Error updating template status:', error);
+        toastError('Failed to update template status');
+      }
+    };
+
+    // Handle customizing template
+    const handleCustomizeTemplate = (template) => {
+      // TODO: Open template customization modal/drawer
+      console.log('Customizing template:', template);
+      toastSuccess(`Opening ${template.name} customization...`);
+    };
+
+    // If no templates exist but customers exist, provision defaults
+    const handleProvisionDefaults = async () => {
+      try {
+        await provisionDefaultTemplates();
+        toastSuccess('Default templates created successfully!');
+      } catch (error) {
+        console.error('Error provisioning default templates:', error);
+        toastError('Failed to create default templates');
+      }
+    };
+
+    if (templatesLoading) {
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white rounded-lg border border-slate-200 p-6">
+                <Skeleton className="h-6 w-32 mb-4" />
+                <Skeleton className="h-4 w-full mb-2" />
+                <Skeleton className="h-4 w-3/4 mb-4" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (templatesError) {
+      return (
+        <div className="text-center py-12">
+          <AlertTriangle className="h-16 w-16 text-red-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">Error loading templates</h3>
+          <p className="text-slate-600 mb-6">{templatesError}</p>
+          <Button onClick={() => window.location.reload()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
+        </div>
+      );
+    }
+
+    // If no templates exist and not loading
+    if (!templatesLoading && (!templates || templates.length === 0)) {
+      return (
+        <div className="text-center py-12">
+          <FileText className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">No templates found</h3>
+          <p className="text-slate-600 mb-6">
+            {hasCustomers 
+              ? "Default templates are being created automatically. If this persists, try refreshing the page."
+              : "Connect your customer data first, then we'll create default templates for you."
+            }
+          </p>
+          {hasCustomers ? (
+            <div className="space-y-2">
+              <Button onClick={handleProvisionDefaults} className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Default Templates
+              </Button>
+              <Button onClick={() => window.location.reload()} variant="outline">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Page
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={() => window.location.href = '/customers'} variant="outline">
+              <Users className="h-4 w-4 mr-2" />
+              Connect via Customers Tab
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {templates.map((template) => {
+            const templateStatus = getTemplateStatus(template);
+            const isConnectRequired = templateStatus === 'connect_required';
+            const isReady = templateStatus === 'ready';
+            const isActive = templateStatus === 'active';
+            const isPaused = templateStatus === 'paused';
+            
+            return (
+              <div key={template.id} className="bg-white rounded-lg border border-slate-200 p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-slate-900">{template.name}</h3>
+                  <Badge className={
+                    isConnectRequired ? "bg-red-100 text-red-800" :
+                    isReady ? "bg-orange-100 text-orange-800" :
+                    isActive ? "bg-green-100 text-green-800" :
+                    "bg-yellow-100 text-yellow-800"
+                  }>
+                    {isConnectRequired ? "Connect Required" : 
+                     isReady ? "Connected & Ready" : 
+                     isActive ? "Active" : "Paused"}
+                  </Badge>
+                </div>
+                
+                <p className="text-sm text-slate-600 mb-4">
+                  {template.key === 'job_completed' && "Send review requests when jobs are marked complete. Perfect for contractors and service providers."}
+                  {template.key === 'invoice_paid' && "Request reviews after payment is received. Great for B2B services and recurring clients."}
+                  {template.key === 'service_reminder' && "Follow up with customers after service appointments. Ideal for maintenance and recurring services."}
+                </p>
+                
+                <div className="space-y-2 mb-4">
+                  <div className="text-xs text-slate-500">
+                    Triggers: {template.trigger_type === 'event' ? 'Event-based' : 'Date-based'}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Channels: {template.channels?.join(', ') || 'SMS, Email'}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {isConnectRequired && (
+                    <Button 
+                      className="w-full" 
+                      variant="outline"
+                      onClick={() => window.location.href = '/customers'}
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Connect via Customers Tab
+                    </Button>
+                  )}
+                  
+                  {isReady && (
+                    <Button 
+                      className="w-full" 
+                      onClick={() => handleTemplateAction(template)}
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Enable Template
+                    </Button>
+                  )}
+                  
+                  {isActive && (
+                    <div className="space-y-2">
+                      <Button 
+                        className="w-full" 
+                        variant="outline"
+                        onClick={() => handleTemplateAction(template)}
+                      >
+                        <Pause className="h-4 w-4 mr-2" />
+                        Pause
+                      </Button>
+                      <Button 
+                        className="w-full" 
+                        variant="outline"
+                        onClick={() => handleCustomizeTemplate(template)}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Customize
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {isPaused && (
+                    <div className="space-y-2">
+                      <Button 
+                        className="w-full" 
+                        onClick={() => handleTemplateAction(template)}
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        Resume
+                      </Button>
+                      <Button 
+                        className="w-full" 
+                        variant="outline"
+                        onClick={() => handleCustomizeTemplate(template)}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Customize
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderActivityTab = () => {
+    // Mock activity data - in a real app, this would come from an API
+    const activityData = [
+      // Empty for now to show empty state
+    ];
+
+    return (
+      <div className="space-y-6">
+        {/* Filters */}
+        <div className="bg-white rounded-lg border border-slate-200 p-4">
+          <div className="flex flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-slate-700">Date Range:</label>
+              <select className="text-sm border border-slate-300 rounded-md px-3 py-1">
+                <option>Last 24 hours</option>
+                <option>Last 7 days</option>
+                <option>Last 30 days</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-slate-700">Template:</label>
+              <select className="text-sm border border-slate-300 rounded-md px-3 py-1">
+                <option>All Templates</option>
+                <option>Job Completed</option>
+                <option>Invoice Paid</option>
+                <option>Service Reminder</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-slate-700">Status:</label>
+              <select className="text-sm border border-slate-300 rounded-md px-3 py-1">
+                <option>All Status</option>
+                <option>Success</option>
+                <option>Failed</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Activity Log */}
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200">
+            <h3 className="text-lg font-semibold text-slate-900">Recent Activity</h3>
+            <p className="text-sm text-slate-600">Chronological log of automation sends and failures</p>
+          </div>
+          
+          {activityData.length === 0 ? (
+            <div className="text-center py-12">
+              <Activity className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">No activity yet — enable a template</h3>
+              <p className="text-slate-600 mb-6">Once you enable templates and they start sending, activity will appear here</p>
+              <Button
+                onClick={() => setMainTab('templates')}
+                className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Go to Templates
+              </Button>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-200">
+              {activityData.map((activity) => (
+                <div key={activity.id} className="px-6 py-4 hover:bg-slate-50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-full ${
+                        activity.status === 'success' 
+                          ? 'bg-green-100' 
+                          : 'bg-red-100'
+                      }`}>
+                        {activity.status === 'success' ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 text-red-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">
+                          {activity.sequence} → {activity.customer}
+                        </p>
+                        <p className="text-sm text-slate-600">{activity.message}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-slate-500">
+                        {new Date(activity.timestamp).toLocaleDateString()}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
 
   const handleConnectZapier = async () => {
     try {
@@ -855,19 +1495,10 @@ export default function AutomationsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/30">
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="px-6 py-6">
         {renderHeader()}
         {renderMainTabs()}
         
-        {/* Alert Banner - only show on Overview tab */}
-        {mainTab === 'overview' && metrics.hasAlert && !dismissedAlerts.has('failure-rate') && (
-          <div className="mb-8">
-            <AlertBanner 
-              metrics={metrics} 
-              onDismiss={handleDismissAlert}
-            />
-          </div>
-        )}
         
         {renderMainContent()}
       </div>

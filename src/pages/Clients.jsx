@@ -97,12 +97,44 @@ export default function ClientsPage() {
     }
   };
 
+  const createDefaultSequences = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const response = await fetch('/api/sequences/create-defaults', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: user.id }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.sequences && data.sequences.length > 0) {
+          console.log('Default sequences created:', data.sequences);
+          toast.success(`Created ${data.sequences.length} default automation sequences! Check the Automations tab to review and enable them.`);
+        }
+      } else {
+        console.error('Failed to create default sequences:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error creating default sequences:', error);
+    }
+  };
+
   const handleCreateCustomer = async (customerData) => {
     console.log('Creating customer with data:', customerData);
     setLoading(true);
     try {
       const result = await createCustomer(customerData);
       console.log('Customer created successfully:', result);
+      
+      // Auto-create default sequences if this is the first customer
+      if (customers.length === 0) {
+        await createDefaultSequences();
+      }
+      
       toast.success('Customer created successfully');
       await fetchStats(); // Refresh stats
       await refresh(); // Refresh customer list
@@ -160,6 +192,11 @@ export default function ClientsPage() {
         message += ` | Auto-enrollment: ${enrolled} enrolled, ${skipped} skipped`;
       }
       
+      // Auto-create default sequences if this is the first customer import
+      if (results.inserted > 0) {
+        await createDefaultSequences();
+      }
+      
       toast.success(message);
       await fetchStats(); // Refresh stats
     } catch (error) {
@@ -177,6 +214,12 @@ export default function ClientsPage() {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => {
           updateQueryParams({ search: value });
+          // Auto-expand when searching to show all results, collapse when search is cleared
+          if (value.trim()) {
+            setShowAllCustomers(true);
+          } else {
+            setShowAllCustomers(false);
+          }
         }, 200);
       };
     })(),
@@ -228,8 +271,15 @@ export default function ClientsPage() {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [showAllCustomers, setShowAllCustomers] = useState(false);
 
   const segmentsEnabled = isFeatureEnabled('customersSegments');
+
+  // Customer list display logic
+  const DISPLAY_LIMIT = 10;
+  const displayedCustomers = showAllCustomers ? customers : customers.slice(0, DISPLAY_LIMIT);
+  const remainingCount = Math.max(0, customers.length - DISPLAY_LIMIT);
+  const hasMoreCustomers = customers.length > DISPLAY_LIMIT;
 
   // Multi-select handlers
   const handleSelectAll = () => {
@@ -584,7 +634,7 @@ export default function ClientsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {customers.map((customer) => (
+                  {displayedCustomers.map((customer) => (
                     <tr key={customer.id} className="border-b hover:bg-slate-50">
                       <td className="py-3 px-4 w-12">
                         <input
@@ -715,6 +765,30 @@ export default function ClientsPage() {
                   ))}
                 </tbody>
               </table>
+              
+              {/* Expand/Collapse Button */}
+              {hasMoreCustomers && (
+                <div className="mt-4 pt-4 border-t border-slate-200">
+                  <div className="flex justify-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAllCustomers(!showAllCustomers)}
+                      className="flex items-center gap-2"
+                    >
+                      {showAllCustomers ? (
+                        <>
+                          <span>Show Less</span>
+                          <span className="text-slate-500">({DISPLAY_LIMIT} shown)</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Show {remainingCount} Remaining Customers</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           

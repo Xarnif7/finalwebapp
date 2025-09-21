@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, LogOut, Repeat, User as UserIcon } from 'lucide-react';
+import { Bell, LogOut, Repeat, User as UserIcon, Zap } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,7 +41,7 @@ const UserAvatar = ({ user, size = "40px" }) => {
   );
 };
 
-export default function ModernTopNav({ onLogout }) {
+export default function ModernTopNav({ onLogout, onQuickSetup }) {
   const navigate = useNavigate();
   const { user } = useDashboard();
 
@@ -51,7 +51,17 @@ export default function ModernTopNav({ onLogout }) {
   const viewAllNotifications = () => navigate(createPageUrl('AuditLog'));
     
   return (
-    <header className="h-20 bg-white border-b border-slate-200 px-6 flex items-center justify-end z-40">
+    <header className="h-20 bg-white border-b border-slate-200 px-6 flex items-center justify-between z-40">
+      <div className="flex items-center gap-3">
+        <Button
+          onClick={onQuickSetup}
+          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+          size="sm"
+        >
+          <Zap className="w-4 h-4 mr-2" />
+          Quick Setup
+        </Button>
+      </div>
       <div className="flex items-center gap-3">
         <DropdownMenu>
             <DropdownMenuTrigger asChild>

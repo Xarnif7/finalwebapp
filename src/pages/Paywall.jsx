@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
+import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 import { signInWithGoogle } from "../lib/auth-utils";
 import { supabase } from "../lib/supabase/browser";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { apiClient } from "../lib/apiClient";
 export default function Paywall() {
   const navigate = useNavigate();
   const { user, status: authStatus } = useAuth();
-  const { active: hasSubscription, loading: subLoading } = useSubscriptionStatus();
+  const { hasActive: hasSubscription, loading: subLoading } = useSubscriptionStatus();
   const loading = authStatus === 'loading';
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(null);

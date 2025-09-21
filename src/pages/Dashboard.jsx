@@ -9,6 +9,9 @@ import StatDelta from "@/components/ui/StatDelta";
 import { Users, Star, TrendingUp, MessageSquare, Plus, ArrowRight, Zap, Shield, BarChart3, Send, Clock, Settings, Instagram, Compass } from "lucide-react";
 
 import { useDashboard } from "@/components/providers/DashboardProvider";
+import SetupChecklist from "@/components/dashboard/SetupChecklist";
+import { supabase } from "@/lib/supabase/browser";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const kpiData = [
   { 
@@ -86,9 +89,37 @@ const StarRating = ({ rating }) => (
 export default function Dashboard() {
   const navigate = useNavigate();
   const { business } = useDashboard();
+  const { user } = useAuth();
   const businessName = business?.name || "Your Business";
   const [isVisible, setIsVisible] = useState(false);
   const [showLoading, setShowLoading] = useState(true);
+  const [showSetupChecklist, setShowSetupChecklist] = useState(true);
+
+  // Check if this is a first-time user and auto-launch Quick Setup
+  useEffect(() => {
+    const checkFirstTimeUser = async () => {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('quick_setup_completed')
+          .eq('id', user.id)
+          .single();
+
+        // If user hasn't completed quick setup, auto-launch it
+        if (!profile?.quick_setup_completed) {
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('openQuickSetup'));
+          }, 2000); // Wait 2 seconds after dashboard loads
+        }
+      } catch (error) {
+        console.error('Error checking first-time user status:', error);
+      }
+    };
+
+    if (user) {
+      checkFirstTimeUser();
+    }
+  }, [user]);
 
   // Show branded loading screen first, then transition to dashboard
   useEffect(() => {
@@ -167,6 +198,10 @@ export default function Dashboard() {
     );
   }
 
+  const handleDismissChecklist = () => {
+    setShowSetupChecklist(false);
+  };
+
   return (
     <div className={`p-8 space-y-8 transition-enabled transform ${
       isVisible 
@@ -177,6 +212,14 @@ export default function Dashboard() {
         <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">Welcome back, {businessName}!</h1>
         <p className="mt-1 text-slate-500">Here's your business performance overview.</p>
       </div>
+
+      {/* Setup Checklist */}
+      {showSetupChecklist && (
+        <SetupChecklist 
+          onQuickSetup={() => window.dispatchEvent(new CustomEvent('openQuickSetup'))}
+          onDismiss={handleDismissChecklist}
+        />
+      )}
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {kpiData.map((kpi, i) => {
           const parseDelta = (txt) => {
@@ -316,8 +359,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-         </div>
-   );
- }
+
+    </div>
+  );
+}
 
 

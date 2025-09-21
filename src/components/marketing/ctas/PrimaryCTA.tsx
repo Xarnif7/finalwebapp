@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { useSubscriptionStatus } from '../../../hooks/useSubscriptionStatus';
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { getCTADecision } from '../../../lib/cta-utils';
 import { signInWithGoogle } from '../../../lib/auth-utils';
 
@@ -13,7 +13,7 @@ interface PrimaryCTAProps {
 export function PrimaryCTA({ className = '' }: PrimaryCTAProps) {
   const navigate = useNavigate();
   const { status: authStatus, user } = useAuth();
-  const { active: hasActive, loading: subLoading } = useSubscriptionStatus();
+  const { hasActive, loading: subLoading } = useSubscriptionStatus();
   
   const ctaDecision = getCTADecision({
     status: authStatus === 'loading' || subLoading ? 'loading' : authStatus,
