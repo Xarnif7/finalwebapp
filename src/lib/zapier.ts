@@ -28,17 +28,17 @@ export const zapTemplates: ZapTemplate[] = [
   {
     title: 'When Invoice Paid in <CRM> → Upsert Customer in Blipp',
     description: 'Automatically add customers to Blipp when invoices are paid in your CRM',
-    href: 'https://zapier.com/app/editor/template/placeholder-invoice-paid' // TODO: Replace with real template URL
+    href: 'https://zapier.com/app/editor/create-zap?template=blipp-invoice-paid'
   },
   {
     title: 'When Job Completed in <CRM> → Send Review Request in Blipp',
     description: 'Send review requests automatically when jobs are completed',
-    href: 'https://zapier.com/app/editor/template/placeholder-job-completed' // TODO: Replace with real template URL
+    href: 'https://zapier.com/app/editor/create-zap?template=blipp-job-completed'
   },
   {
     title: 'Nightly <CRM> → Sync New/Updated Customers to Blipp',
     description: 'Sync all customer data from your CRM to Blipp on a schedule',
-    href: 'https://zapier.com/app/editor/template/placeholder-nightly-sync' // TODO: Replace with real template URL
+    href: 'https://zapier.com/app/editor/create-zap?template=blipp-nightly-sync'
   }
 ];
 

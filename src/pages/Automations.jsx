@@ -96,7 +96,7 @@ export default function AutomationsPage() {
     loading: activeSequencesLoading, 
     error: activeSequencesError, 
     updateSequenceStatus: updateActiveSequenceStatus 
-  } = useActiveSequences(user?.business_id);
+  } = useActiveSequences();
   const { hasCustomers } = useCustomers(user?.business_id);
   const { hasActiveIntegration } = useBusinessIntegrations();
   const { health, loading: healthLoading } = useHealth();

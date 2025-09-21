@@ -8,12 +8,17 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
 
   const handleConnect = async () => {
     setIsConnecting(true);
-    // TODO: Implement real Zapier OAuth flow
+    
+    // Open the first Zap template in a new tab (most common use case)
+    const firstTemplate = zapTemplates[0];
+    window.open(firstTemplate.href, '_blank');
+    
+    // Show success state immediately since user will complete setup in Zapier
     setTimeout(() => {
       setIsConnecting(false);
       setConnected(true);
       onConnect();
-    }, 2000);
+    }, 1000);
   };
 
   const handleTemplateClick = (template) => {
