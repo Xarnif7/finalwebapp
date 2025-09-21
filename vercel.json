@@ -19,6 +19,10 @@
       "dest": "/server.js"
     },
     {
+      "src": "/auth/callback",
+      "dest": "/dist/index.html"
+    },
+    {
       "src": "/(.*)",
       "dest": "/dist/index.html"
     }
