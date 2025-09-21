@@ -537,20 +537,45 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       event_ts
     });
 
-    // Get the first available business (use existing business instead of creating default)
-    let { data: business, error: businessError } = await supabase
-      .from('businesses')
-      .select('id, name, created_by')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .single();
+    // Check for business_id in headers (X-Blipp-Business)
+    const businessId = req.headers['x-blipp-business'];
+    
+    let business;
+    if (businessId) {
+      // Use the specific business_id from headers
+      const { data: businessData, error: businessError } = await supabase
+        .from('businesses')
+        .select('id, name, created_by')
+        .eq('id', businessId)
+        .single();
 
-    if (businessError) {
-      console.error('[ZAPIER] Error getting business:', businessError);
-      return res.status(500).json({ 
-        ok: false, 
-        error: 'No business found. Please create a business first in the dashboard.' 
-      });
+      if (businessError) {
+        console.error('[ZAPIER] Error getting specified business:', businessError);
+        return res.status(400).json({ 
+          ok: false, 
+          error: `Business ${businessId} not found. Please check your business ID.` 
+        });
+      }
+      business = businessData;
+      console.log('[ZAPIER] Using specified business:', { id: business.id, name: business.name });
+    } else {
+      // Fallback: Get the first available business (for backward compatibility)
+      const { data: businessData, error: businessError } = await supabase
+        .from('businesses')
+        .select('id, name, created_by')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single();
+
+      if (businessError) {
+        console.error('[ZAPIER] Error getting business:', businessError);
+        return res.status(500).json({ 
+          ok: false, 
+          error: 'No business found. Please create a business first in the dashboard.' 
+        });
+      }
+      business = businessData;
+      console.log('[ZAPIER] Using first available business (fallback):', { id: business.id, name: business.name });
     }
 
     console.log('[ZAPIER] Using business:', {
