@@ -641,6 +641,10 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       event_ts
     });
 
+    // Log all headers for debugging
+    console.log('[ZAPIER] All headers:', req.headers);
+    console.log('[ZAPIER] Request body:', req.body);
+
     // Try to get business_id from multiple sources (in order of preference)
     let business;
     
