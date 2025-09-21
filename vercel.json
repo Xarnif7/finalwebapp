@@ -23,6 +23,14 @@
       "dest": "/server.js"
     },
     {
+      "src": "/assets/(.*)",
+      "dest": "/dist/assets/$1"
+    },
+    {
+      "src": "/favicon-16.png",
+      "dest": "/dist/favicon-16.png"
+    },
+    {
       "src": "/(.*)",
       "dest": "/api/index.js"
     }
