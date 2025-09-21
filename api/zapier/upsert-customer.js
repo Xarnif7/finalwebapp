@@ -172,15 +172,49 @@ export default async function handler(req, res) {
       console.error('[zapier:upsert-customer] Upsert error:', {
         error: upsertError,
         customerData: customerData,
-        business_id: resolvedBusinessId
+        business_id: resolvedBusinessId,
+        original_payload: data
       });
+      
+      // Check if business exists
+      const { data: businessCheck, error: businessCheckError } = await supabase
+        .from('businesses')
+        .select('id, name')
+        .eq('id', resolvedBusinessId)
+        .single();
+      
+      console.error('[zapier:upsert-customer] Business check:', {
+        business_exists: !!businessCheck,
+        business_error: businessCheckError,
+        business_data: businessCheck
+      });
+      
+      // Check if customer already exists
+      if (customerData.email) {
+        const { data: existingCustomer, error: customerCheckError } = await supabase
+          .from('customers')
+          .select('id, email, full_name')
+          .eq('business_id', resolvedBusinessId)
+          .eq('email', customerData.email)
+          .single();
+        
+        console.error('[zapier:upsert-customer] Customer check:', {
+          customer_exists: !!existingCustomer,
+          customer_error: customerCheckError,
+          existing_customer: existingCustomer
+        });
+      }
+      
       res.setHeader('Content-Type', 'application/json');
       res.status(500).send(JSON.stringify({ 
         ok: false, 
         error: 'Failed to upsert customer',
         details: upsertError.message,
         code: upsertError.code,
-        hint: upsertError.hint
+        hint: upsertError.hint,
+        business_id: resolvedBusinessId,
+        business_exists: !!businessCheck,
+        customer_data: customerData
       }));
       return;
     }
