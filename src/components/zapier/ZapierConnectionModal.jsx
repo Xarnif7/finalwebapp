@@ -141,12 +141,35 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
                             .eq('id', session.user.id)
                             .single();
 
-                          if (profileError || !profile?.business_id) {
-                            alert('Business not found. Please complete onboarding first.');
+                          console.log('Profile data:', profile);
+                          console.log('Profile error:', profileError);
+                          console.log('User ID:', session.user.id);
+
+                          if (profileError) {
+                            alert(`Profile error: ${profileError.message}`);
                             return;
                           }
 
-                          const response = await fetch(`/api/zapier/token/${profile.business_id}`);
+                          let businessId = profile?.business_id;
+
+                          // Fallback: Try to find business by user email
+                          if (!businessId) {
+                            console.log('No business_id in profile, trying to find by email...');
+                            const { data: business, error: businessError } = await supabase
+                              .from('businesses')
+                              .select('id')
+                              .eq('created_by', session.user.email)
+                              .single();
+
+                            if (businessError || !business) {
+                              alert('Business not found. Please complete onboarding first.');
+                              return;
+                            }
+                            businessId = business.id;
+                            console.log('Found business by email:', businessId);
+                          }
+
+                          const response = await fetch(`/api/zapier/token/${businessId}`);
                           const data = await response.json();
                           if (data.ok) {
                             alert(`Your Zapier Token: ${data.zapier_token}\n\nCopy this token and use it in your Zap setup!`);
