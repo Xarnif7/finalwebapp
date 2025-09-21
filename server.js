@@ -607,9 +607,12 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
         console.log('[ZAPIER] Looking for business by Zapier account email:', zapierAccountEmail);
         
         // Simple email-to-business mapping for seamless integration
+        // This will be expanded as more users sign up
         const emailToBusinessMap = {
           'shirley.xane@gmail.com': '5fcd7b0d-aa61-4b72-bba7-0709e0d2fba2', // Your main business
-          // Add more mappings as needed
+          // TODO: Add more mappings as users sign up
+          // 'john@example.com': 'business-id-here',
+          // 'sarah@example.com': 'business-id-here',
         };
         
         const mappedBusinessId = emailToBusinessMap[zapierAccountEmail];
@@ -645,6 +648,16 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
             business = businessData;
             console.log('[ZAPIER] Using business by name match:', { id: business.id, name: business.name });
           }
+        }
+        
+        // If still no business found, create a helpful error message
+        if (!business) {
+          console.log('[ZAPIER] No business found for email:', zapierAccountEmail);
+          return res.status(400).json({ 
+            ok: false, 
+            error: `No business found for email ${zapierAccountEmail}. Please ensure you have created a business in your Blipp dashboard first.`,
+            hint: 'Make sure your business name contains part of your email address, or contact support to map your email to your business.'
+          });
         }
       }
       
