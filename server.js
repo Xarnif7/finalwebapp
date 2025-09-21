@@ -533,30 +533,68 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       updated_at: new Date().toISOString()
     };
 
-    // Upsert customer
-    const { data: customer, error: upsertError } = await supabase
-      .from('customers')
-      .upsert(customerData, {
-        onConflict: 'business_id,email',
-        ignoreDuplicates: false
-      })
-      .select('id, full_name, email, phone')
-      .single();
-
-    if (upsertError) {
-      console.error('[ZAPIER] Customer upsert error:', {
-        error: upsertError,
-        customerData: customerData,
-        business_id: business.id
-      });
-      return res.status(500).json({ 
-        ok: false, 
-        error: 'Failed to upsert customer',
-        details: upsertError.message,
-        code: upsertError.code,
-        hint: upsertError.hint
-      });
+    // First check if customer already exists
+    let existingCustomer = null;
+    if (customerData.email) {
+      const { data: existing, error: existingError } = await supabase
+        .from('customers')
+        .select('id, full_name, email, phone')
+        .eq('business_id', customerData.business_id)
+        .eq('email', customerData.email)
+        .single();
+      
+      if (!existingError && existing) {
+        existingCustomer = existing;
+      }
     }
+
+    let customer;
+    if (existingCustomer) {
+      // Update existing customer
+      const { data: updatedCustomer, error: updateError } = await supabase
+        .from('customers')
+        .update({
+          full_name: customerData.full_name,
+          phone: customerData.phone,
+          external_id: customerData.external_id,
+          source: customerData.source,
+          tags: customerData.tags,
+          updated_at: customerData.updated_at
+        })
+        .eq('id', existingCustomer.id)
+        .select('id, full_name, email, phone')
+        .single();
+
+      if (updateError) {
+        console.error('[ZAPIER] Customer update error:', updateError);
+        return res.status(500).json({ 
+          ok: false, 
+          error: 'Failed to update customer',
+          details: updateError.message,
+          code: updateError.code
+        });
+      }
+      customer = updatedCustomer;
+    } else {
+      // Insert new customer
+      const { data: newCustomer, error: insertError } = await supabase
+        .from('customers')
+        .insert(customerData)
+        .select('id, full_name, email, phone')
+        .single();
+
+      if (insertError) {
+        console.error('[ZAPIER] Customer insert error:', insertError);
+        return res.status(500).json({ 
+          ok: false, 
+          error: 'Failed to insert customer',
+          details: insertError.message,
+          code: insertError.code
+        });
+      }
+      customer = newCustomer;
+    }
+
 
     // Log to audit_log
     try {
