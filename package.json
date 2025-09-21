@@ -8,6 +8,7 @@
     "dev:full": "concurrently \"npm run dev:api\" \"npm run dev\"",
     "dev:api": "node server.js",
     "build": "vite build",
+    "vercel-build": "vite build && echo 'Build completed at' $(date)",
     "lint": "eslint .",
     "preview": "vite preview"
   },
