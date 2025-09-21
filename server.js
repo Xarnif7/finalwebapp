@@ -492,6 +492,68 @@ app.get('/api/debug-templates', async (req, res) => {
   }
 });
 
+// Debug endpoint to check business and customer mapping
+app.get('/api/debug-business-mapping', async (req, res) => {
+  try {
+    const { email } = req.query;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email parameter required' });
+    }
+
+    console.log('[DEBUG] Checking business mapping for email:', email);
+
+    // Check all businesses
+    const { data: allBusinesses, error: businessesError } = await supabase
+      .from('businesses')
+      .select('id, name, created_at, created_by')
+      .order('created_at', { ascending: true });
+
+    if (businessesError) {
+      return res.status(500).json({ error: businessesError.message });
+    }
+
+    // Check for name match
+    const username = email.split('@')[0];
+    const nameMatches = allBusinesses.filter(b => 
+      b.name.toLowerCase().includes(username.toLowerCase())
+    );
+
+    // Check customers for each business
+    const businessDetails = await Promise.all(
+      allBusinesses.map(async (business) => {
+        const { data: customers, error: customersError } = await supabase
+          .from('customers')
+          .select('id, full_name, email, source')
+          .eq('business_id', business.id)
+          .limit(5);
+
+        return {
+          ...business,
+          customer_count: customers?.length || 0,
+          recent_customers: customers || [],
+          customers_error: customersError?.message
+        };
+      })
+    );
+
+    res.json({
+      email,
+      username,
+      total_businesses: allBusinesses.length,
+      businesses: businessDetails,
+      name_matches: nameMatches,
+      email_to_business_map: {
+        'shirley.xane@gmail.com': '5fcd7b0d-aa61-4b72-bba7-0709e0d2fba2'
+      }
+    });
+
+  } catch (error) {
+    console.error('[DEBUG] Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Debug endpoint to check customers and businesses
 app.get('/api/debug-customers', async (req, res) => {
   try {
@@ -609,9 +671,9 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
         // Simple email-to-business mapping for seamless integration
         // This will be expanded as more users sign up
         const emailToBusinessMap = {
-          // TODO: Add user mappings as they sign up
-          // 'john@example.com': 'business-id-here',
-          // 'sarah@example.com': 'business-id-here',
+          // Add your email mapping here for testing
+          'shirley.xane@gmail.com': '5fcd7b0d-aa61-4b72-bba7-0709e0d2fba2', // Your business ID
+          // Add more mappings as needed
         };
         
         const mappedBusinessId = emailToBusinessMap[zapierAccountEmail];
