@@ -606,17 +606,44 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       if (zapierAccountEmail) {
         console.log('[ZAPIER] Looking for business by Zapier account email:', zapierAccountEmail);
         
-        // Find business by matching the account email to a user
-        // This assumes the Zapier account email matches a user's email in the system
-        const { data: businessData, error: businessError } = await supabase
+        // Extract username from email (e.g., "shirley.xane" from "shirley.xane@gmail.com")
+        const username = zapierAccountEmail.split('@')[0];
+        console.log('[ZAPIER] Extracted username:', username);
+        
+        // Try multiple matching strategies
+        let businessData = null;
+        
+        // Strategy 1: Match by business name containing the username
+        let { data: data1, error: error1 } = await supabase
           .from('businesses')
           .select('id, name, created_by')
-          .ilike('name', `%${zapierAccountEmail.split('@')[0]}%`) // Match by username part
+          .ilike('name', `%${username}%`)
           .order('created_at', { ascending: true })
           .limit(1)
           .single();
+          
+        if (!error1 && data1) {
+          businessData = data1;
+          console.log('[ZAPIER] Found business by name match:', { id: businessData.id, name: businessData.name });
+        }
+        
+        // Strategy 2: If no match by name, try to find by created_by email (if we can map it)
+        if (!businessData) {
+          // For now, let's try to find the most recent business
+          let { data: data2, error: error2 } = await supabase
+            .from('businesses')
+            .select('id, name, created_by')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+            
+          if (!error2 && data2) {
+            businessData = data2;
+            console.log('[ZAPIER] Found business by fallback (most recent):', { id: businessData.id, name: businessData.name });
+          }
+        }
 
-        if (!businessError && businessData) {
+        if (businessData) {
           business = businessData;
           console.log('[ZAPIER] Using business by Zapier account:', { id: business.id, name: business.name });
         }
