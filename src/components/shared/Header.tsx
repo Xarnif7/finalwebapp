@@ -136,7 +136,7 @@ export function Header() {
       <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
         <Link to="/" className="flex-shrink-0" style={{ background: 'transparent', border: 'none', outline: 'none' }}>
           <img
-            src="/images/blipp-logo-transparent-clean.png"
+            src="/images/blipp-logo-simple.svg"
             alt="Blipp"
             className="h-6 sm:h-8 w-auto hover:opacity-80 transition-opacity duration-300"
             style={{
@@ -151,7 +151,18 @@ export function Header() {
               backgroundColor: 'transparent !important',
               backgroundImage: 'none !important'
             }}
+            onError={(e) => {
+              console.error('[HEADER] Logo failed to load:', e.target.src);
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'block';
+            }}
           />
+          <span 
+            className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+            style={{ display: 'none' }}
+          >
+            Blipp
+          </span>
         </Link>
         <nav className="hidden md:flex items-center gap-7">
           <Link to="/features" className="text-[#0F172A] font-sans font-semibold text-base relative group pb-2 transition-colors duration-200">
