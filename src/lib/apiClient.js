@@ -132,5 +132,60 @@ export const apiClient = {
       }
       throw error;
     }
+  },
+
+  async put(endpoint, data, options = {}) {
+    const url = getBaseUrl() + endpoint;
+    console.log('[API] PUT:', url, data);
+
+    try {
+      // Get fresh access token
+      const token = await getAccessToken();
+      const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const fetchPromise = fetch(url, {
+        method: 'PUT',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify(data),
+        ...options,
+      });
+
+      // Add timeout to the fetch request
+      const timeoutPromise = createTimeoutPromise(5000); // 5 second timeout for PUT
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+      if (!response.ok) {
+        // Handle 401 specifically
+        if (response.status === 401) {
+          const errorData = await response.json().catch(() => ({ error: 'auth_required' }));
+          if (errorData.error === 'auth_required') {
+            throw new Error('auth_required');
+          }
+        }
+        
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('[API] PUT error:', error);
+      // Add network error handling
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('network_error');
+      }
+      if (error.message === 'Request timeout') {
+        throw new Error('timeout_error');
+      }
+      throw error;
+    }
   }
 };

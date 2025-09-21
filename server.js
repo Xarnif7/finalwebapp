@@ -1985,6 +1985,84 @@ app.put('/api/templates/:template_id/status', async (req, res) => {
 });
 
 // API endpoint to fetch active sequences
+// Add alias for the frontend hook
+app.get('/api/active-sequences/:businessId', async (req, res) => {
+  try {
+    const { businessId } = req.params;
+
+    if (!businessId) {
+      return res.status(400).json({ error: 'businessId is required' });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Fetch active sequences for the business
+    const { data: sequences, error } = await supabase
+      .from('automation_sequences')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching active sequences:', error);
+      return res.status(500).json({ error: 'Failed to fetch active sequences' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      sequences: sequences || []
+    });
+
+  } catch (error) {
+    console.error('Error in active sequences API:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// API endpoint to update sequence status
+app.put('/api/active-sequences/:sequenceId/status', async (req, res) => {
+  try {
+    const { sequenceId } = req.params;
+    const { status } = req.body;
+
+    if (!sequenceId || !status) {
+      return res.status(400).json({ error: 'Sequence ID and status are required' });
+    }
+
+    if (!['active', 'paused', 'completed', 'failed'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be active, paused, completed, or failed' });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Update sequence status
+    const { data: sequence, error } = await supabase
+      .from('automation_sequences')
+      .update({ 
+        status: status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', sequenceId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating sequence status:', error);
+      return res.status(500).json({ error: 'Failed to update sequence status' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      sequence: sequence
+    });
+
+  } catch (error) {
+    console.error('Error in sequence status API:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.get('/api/sequences/active/:business_id', async (req, res) => {
   try {
     const { business_id } = req.params;

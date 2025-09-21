@@ -58,6 +58,7 @@ import ActivityFeed from '../components/automations/ActivityFeed';
 import AutomationWizard from '../components/automations/AutomationWizard';
 import { useToast } from '../hooks/useToast';
 import ToastContainer from '../components/ui/ToastContainer';
+import { ToastProvider } from '../components/ui/toast';
 import { Skeleton } from '../components/ui/skeleton';
 
 export default function AutomationsPage() {
@@ -1561,7 +1562,9 @@ export default function AutomationsPage() {
       />
 
       {/* Toast Container */}
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <ToastProvider>
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+      </ToastProvider>
     </div>
   );
 }
