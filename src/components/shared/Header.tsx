@@ -136,7 +136,7 @@ export function Header() {
       <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
         <Link to="/" className="flex-shrink-0" style={{ background: 'transparent', border: 'none', outline: 'none' }}>
           <img
-            src="/images/blipp-logo-simple.svg"
+            src="/images/blipp-logo-transparent-clean.png"
             alt="Blipp"
             className="h-6 sm:h-8 w-auto hover:opacity-80 transition-opacity duration-300"
             style={{
