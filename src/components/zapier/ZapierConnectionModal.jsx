@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ExternalLink, CheckCircle } from 'lucide-react';
+import { X, ExternalLink, CheckCircle, Zap, Search, Settings, Play } from 'lucide-react';
 import { zapTemplates } from '../../lib/zapier';
 
 const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
@@ -51,60 +51,102 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
                   Connect your CRM to Blipp in just a few clicks using our pre-built Zapier integration.
                 </p>
                 
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                  <h4 className="font-medium text-green-900 mb-3">🚀 Super Simple Setup:</h4>
-                  <ol className="text-sm text-green-800 space-y-2">
-                    <li className="flex items-start">
-                      <span className="bg-green-200 text-green-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
-                      <div>
-                        <strong>Click a link below</strong> - You'll need to sign in to Zapier first
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <h4 className="font-medium text-blue-900 mb-3">📋 Complete Setup Guide:</h4>
+                  <div className="space-y-4">
+                    
+                    {/* Step 1 */}
+                    <div className="flex items-start space-x-3">
+                      <div className="bg-blue-200 text-blue-800 rounded-full w-8 h-8 flex items-center justify-center mt-0.5">
+                        <Zap className="h-4 w-4" />
                       </div>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="bg-green-200 text-green-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
-                      <div>
-                        <strong>Choose your trigger</strong> (Google Sheets, Jobber, etc.)
+                      <div className="flex-1">
+                        <div className="font-medium text-blue-900 flex items-center">
+                          <span className="bg-blue-200 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-2">1</span>
+                          Sign in to Zapier
+                        </div>
+                        <div className="text-sm text-blue-800 mt-1">
+                          Click the button below - you'll be taken to Zapier where you'll need to sign in (free account)
+                        </div>
+                        <div className="bg-blue-100 rounded p-2 mt-2 text-xs text-blue-700">
+                          💡 <strong>Tip:</strong> Don't have a Zapier account? Sign up for free at zapier.com first
+                        </div>
                       </div>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="bg-green-200 text-green-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
-                      <div>
-                        <strong>Search for "Blipp"</strong> in the action step and select it
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="flex items-start space-x-3">
+                      <div className="bg-blue-200 text-blue-800 rounded-full w-8 h-8 flex items-center justify-center mt-0.5">
+                        <Search className="h-4 w-4" />
                       </div>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="bg-green-200 text-green-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">4</span>
-                      <div>
-                        <strong>Connect and test</strong> your Zap, then turn it on!
+                      <div className="flex-1">
+                        <div className="font-medium text-blue-900 flex items-center">
+                          <span className="bg-blue-200 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-2">2</span>
+                          Choose Your CRM Trigger
+                        </div>
+                        <div className="text-sm text-blue-800 mt-1">
+                          In the "Trigger" step, search for your CRM (Google Sheets, Jobber, HouseCall Pro, etc.)
+                        </div>
+                        <div className="bg-blue-100 rounded p-2 mt-2 text-xs text-blue-700">
+                          🔍 <strong>Popular choices:</strong> Google Sheets, Jobber, HouseCall Pro, HubSpot, Airtable
+                        </div>
                       </div>
-                    </li>
-                  </ol>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="flex items-start space-x-3">
+                      <div className="bg-green-200 text-green-800 rounded-full w-8 h-8 flex items-center justify-center mt-0.5">
+                        <CheckCircle className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-blue-900 flex items-center">
+                          <span className="bg-blue-200 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-2">3</span>
+                          Blipp is Already Selected!
+                        </div>
+                        <div className="text-sm text-blue-800 mt-1">
+                          The "Action" step will already have Blipp selected for you - no searching needed!
+                        </div>
+                        <div className="bg-green-100 rounded p-2 mt-2 text-xs text-green-700">
+                          ✅ <strong>Already done:</strong> Blipp action is pre-selected when you click our button
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 4 */}
+                    <div className="flex items-start space-x-3">
+                      <div className="bg-blue-200 text-blue-800 rounded-full w-8 h-8 flex items-center justify-center mt-0.5">
+                        <Play className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-blue-900 flex items-center">
+                          <span className="bg-blue-200 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-2">4</span>
+                          Connect & Test Your Zap
+                        </div>
+                        <div className="text-sm text-blue-800 mt-1">
+                          Connect your CRM account, authorize Blipp, test the connection, and turn on your Zap!
+                        </div>
+                        <div className="bg-blue-100 rounded p-2 mt-2 text-xs text-blue-700">
+                          🎯 <strong>Result:</strong> New customers in your CRM will automatically trigger Blipp automations
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
                 </div>
 
-                <div className="text-center space-y-3">
-                  <a
-                    href="https://zapier.com/app/editor/create-zap?template=blipp-google-sheets"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-white rounded-lg hover:from-[#1557B0] hover:to-[#6D28D9] transition-all duration-200 font-medium"
-                  >
-                    <ExternalLink className="h-5 w-5 mr-2" />
-                    Start with Google Sheets (Recommended)
-                  </a>
-                  
-                  <div className="text-sm text-gray-500">
-                    or
-                  </div>
-                  
+                <div className="text-center">
                   <a
                     href="https://zapier.com/app/editor/create-zap?action=blipp"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                    className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-white rounded-lg hover:from-[#1557B0] hover:to-[#6D28D9] transition-all duration-200 font-medium text-lg"
                   >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Choose Your Own CRM
+                    <ExternalLink className="h-6 w-6 mr-3" />
+                    Connect Your CRM (Blipp Pre-Selected!)
                   </a>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Opens Zapier with Blipp already selected - just pick your CRM trigger
+                  </p>
                 </div>
               </div>
 
