@@ -520,6 +520,18 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       return res.status(500).json({ ok: false, error: 'Failed to get business' });
     }
 
+    // Get the business owner's user_id for created_by
+    const { data: businessOwner, error: ownerError } = await supabase
+      .from('businesses')
+      .select('created_by')
+      .eq('id', business.id)
+      .single();
+
+    if (ownerError) {
+      console.error('[ZAPIER] Error getting business owner:', ownerError);
+      return res.status(500).json({ ok: false, error: 'Failed to get business owner' });
+    }
+
     // Prepare customer data for upsert
     const customerData = {
       business_id: business.id,
@@ -529,6 +541,7 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       external_id: external_id || null,
       source: source || 'zapier',
       tags: tags || [],
+      created_by: businessOwner.created_by,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
