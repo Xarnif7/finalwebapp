@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, ExternalLink, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { supabase } from '../../lib/supabase/browser';
 
 const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
   const [isConnecting, setIsConnecting] = useState(false);
@@ -127,12 +128,33 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
                     <button
                       onClick={async () => {
                         try {
-                          const response = await fetch(`/api/zapier/token/${user?.business_id}`);
+                          // Get business ID from user profile
+                          const { data: { session } } = await supabase.auth.getSession();
+                          if (!session) {
+                            alert('Please sign in first');
+                            return;
+                          }
+
+                          const { data: profile, error: profileError } = await supabase
+                            .from('profiles')
+                            .select('business_id')
+                            .eq('id', session.user.id)
+                            .single();
+
+                          if (profileError || !profile?.business_id) {
+                            alert('Business not found. Please complete onboarding first.');
+                            return;
+                          }
+
+                          const response = await fetch(`/api/zapier/token/${profile.business_id}`);
                           const data = await response.json();
                           if (data.ok) {
                             alert(`Your Zapier Token: ${data.zapier_token}\n\nCopy this token and use it in your Zap setup!`);
+                          } else {
+                            alert(`Error: ${data.error || 'Failed to generate token'}`);
                           }
                         } catch (error) {
+                          console.error('Token generation error:', error);
                           alert('Error generating token. Please try again.');
                         }
                       }}
