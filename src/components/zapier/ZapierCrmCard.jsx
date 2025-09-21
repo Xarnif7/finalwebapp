@@ -88,10 +88,6 @@ const ZapierCrmCard = ({ userId }) => {
     }
   };
 
-  const handleViewZaps = () => {
-    // TODO: Open Zapier dashboard or user's Zaps
-    window.open('https://zapier.com/app/dashboard', '_blank');
-  };
 
   const handleCopySecret = async () => {
     try {
@@ -155,23 +151,13 @@ const ZapierCrmCard = ({ userId }) => {
               </span>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleConnect}
-                className="px-4 py-2 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-white rounded-lg hover:from-[#1557B0] hover:to-[#6D28D9] transition-all duration-200 flex items-center space-x-2"
-              >
-                <Zap className="h-4 w-4" />
-                <span>Connect via Zapier</span>
-              </button>
-              
-              <button
-                onClick={handleViewZaps}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors flex items-center space-x-2"
-              >
-                <ExternalLink className="h-4 w-4" />
-                <span>View My Zaps</span>
-              </button>
-            </div>
+            <button
+              onClick={handleConnect}
+              className="px-4 py-2 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-white rounded-lg hover:from-[#1557B0] hover:to-[#6D28D9] transition-all duration-200 flex items-center space-x-2"
+            >
+              <Zap className="h-4 w-4" />
+              <span>Connect via Zapier</span>
+            </button>
           </div>
         </div>
 

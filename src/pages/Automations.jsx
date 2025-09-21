@@ -98,7 +98,7 @@ export default function AutomationsPage() {
     updateSequenceStatus: updateActiveSequenceStatus 
   } = useActiveSequences(user?.business_id);
   const { hasCustomers } = useCustomers(user?.business_id);
-  const { hasActiveIntegration } = useBusinessIntegrations(user?.business_id);
+  const { hasActiveIntegration } = useBusinessIntegrations();
   const { health, loading: healthLoading } = useHealth();
 
   // Auto-provision templates if customers exist but no templates
@@ -1030,8 +1030,8 @@ export default function AutomationsPage() {
             </div>
           ) : (
             <Button onClick={() => window.location.href = '/customers'} variant="outline">
-              <Users className="h-4 w-4 mr-2" />
-              Connect via Customers Tab
+              <Zap className="h-4 w-4 mr-2" />
+              Connect Your CRM
             </Button>
           )}
         </div>
@@ -1086,8 +1086,8 @@ export default function AutomationsPage() {
                       variant="outline"
                       onClick={() => window.location.href = '/customers'}
                     >
-                      <Users className="h-4 w-4 mr-2" />
-                      Connect via Customers Tab
+                      <Zap className="h-4 w-4 mr-2" />
+                      Connect Your CRM
                     </Button>
                   )}
                   
