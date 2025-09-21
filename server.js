@@ -2792,6 +2792,175 @@ async function sendEmail(email, message, businessId) {
 }
 
 // API endpoint to get webhook secret for Zapier integration
+// Real webhook endpoint for Zapier automation processing
+app.post('/api/zapier/automation-webhook', async (req, res) => {
+  try {
+    console.log('[WEBHOOK] Received automation webhook:', req.body);
+    
+    const { customer_data, event_type, business_id } = req.body;
+    
+    if (!customer_data || !event_type) {
+      return res.status(400).json({ error: 'Missing customer_data or event_type' });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // 1. Save/update customer in database
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .upsert({
+        business_id: business_id,
+        full_name: customer_data.full_name || customer_data.name,
+        email: customer_data.email,
+        phone: customer_data.phone,
+        source: 'zapier',
+        external_id: customer_data.external_id || customer_data.id,
+        tags: customer_data.tags || [],
+        created_by: business_id // This should be the business owner's user_id
+      }, {
+        onConflict: 'business_id,email'
+      })
+      .select()
+      .single();
+
+    if (customerError) {
+      console.error('[WEBHOOK] Error saving customer:', customerError);
+      return res.status(500).json({ error: 'Failed to save customer' });
+    }
+
+    console.log('[WEBHOOK] Customer saved:', customer.id);
+
+    // 2. Find active automation sequences for this business and event type
+    const { data: sequences, error: sequencesError } = await supabase
+      .from('automation_sequences')
+      .select('*')
+      .eq('business_id', business_id)
+      .eq('status', 'active')
+      .contains('config_json->trigger_events', [event_type]);
+
+    if (sequencesError) {
+      console.error('[WEBHOOK] Error fetching sequences:', sequencesError);
+      return res.status(500).json({ error: 'Failed to fetch sequences' });
+    }
+
+    console.log('[WEBHOOK] Found active sequences:', sequences?.length || 0);
+
+    // 3. Process each active sequence
+    for (const sequence of sequences || []) {
+      try {
+        await processAutomationSequence(customer, sequence, supabase);
+      } catch (error) {
+        console.error('[WEBHOOK] Error processing sequence:', sequence.id, error);
+        // Continue with other sequences even if one fails
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      customer_id: customer.id,
+      sequences_processed: sequences?.length || 0
+    });
+
+  } catch (error) {
+    console.error('[WEBHOOK] Error processing webhook:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Helper function to process automation sequences
+async function processAutomationSequence(customer, sequence, supabase) {
+  console.log('[AUTOMATION] Processing sequence:', sequence.name, 'for customer:', customer.full_name);
+  
+  // Import Resend
+  const { Resend } = await import('resend');
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  
+  // Create email template
+  const emailTemplate = createAutomationEmailTemplate(customer, sequence);
+  
+  // Send email via Resend
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Blipp <noreply@myblipp.com>',
+      to: [customer.email],
+      subject: emailTemplate.subject,
+      html: emailTemplate.html,
+    });
+
+    if (error) {
+      throw new Error(`Resend error: ${error.message}`);
+    }
+
+    console.log('[AUTOMATION] Email sent successfully:', data.id);
+
+    // Log the automation execution
+    await supabase
+      .from('automation_logs')
+      .insert({
+        business_id: customer.business_id,
+        customer_id: customer.id,
+        sequence_id: sequence.id,
+        event_type: 'email_sent',
+        status: 'success',
+        message_id: data.id,
+        recipient_email: customer.email
+      });
+
+  } catch (error) {
+    console.error('[AUTOMATION] Email failed:', error);
+    
+    // Log the failed execution
+    await supabase
+      .from('automation_logs')
+      .insert({
+        business_id: customer.business_id,
+        customer_id: customer.id,
+        sequence_id: sequence.id,
+        event_type: 'email_failed',
+        status: 'failed',
+        error_message: error.message,
+        recipient_email: customer.email
+      });
+    
+    throw error;
+  }
+}
+
+// Helper function to create email templates
+function createAutomationEmailTemplate(customer, sequence) {
+  const { full_name, email } = customer;
+  const { name, config_json } = sequence;
+  
+  // Default template
+  const defaultTemplate = {
+    subject: `Thank you for your business, ${full_name}!`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1A73E8;">Thank you for your business!</h2>
+        <p>Hi ${full_name},</p>
+        <p>We hope you're satisfied with our service! We'd love to hear about your experience.</p>
+        <p>Could you take a moment to leave us a review? It really helps our business grow.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="https://g.page/r/your-review-link" 
+             style="background: #1A73E8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            Leave a Review
+          </a>
+        </div>
+        <p>Thank you for choosing us!</p>
+        <p>Best regards,<br>The Team</p>
+      </div>
+    `
+  };
+
+  // Use custom template if available
+  const emailConfig = config_json?.email_template || defaultTemplate;
+  
+  return {
+    subject: emailConfig.subject,
+    html: emailConfig.html
+  };
+}
+
 app.get('/api/zapier/webhook-secret', async (req, res) => {
   try {
     // Get user from auth header or session

@@ -48,10 +48,18 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
             <>
               {/* Explainer */}
               <div className="mb-6">
-                <p className="text-gray-600">
-                  Connect your CRM to Blipp using Zapier. Pick your CRM, authorize, and we'll start 
-                  syncing customers and triggering review requests after jobs/invoices.
+                <p className="text-gray-600 mb-4">
+                  Connect your CRM to Blipp using Zapier. For testing, we'll use Google Sheets as your "CRM".
                 </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-900 mb-2">Quick Setup Steps:</h4>
+                  <ol className="text-sm text-blue-800 space-y-1">
+                    <li>1. Create a Google Sheet with columns: full_name, email, phone, event_type</li>
+                    <li>2. Set up a Zap: Google Sheets → Webhooks by Zapier</li>
+                    <li>3. Use webhook URL: <code className="bg-blue-100 px-1 rounded">https://myblipp.com/api/zapier/automation-webhook</code></li>
+                    <li>4. Add your business ID to the payload</li>
+                  </ol>
+                </div>
               </div>
 
               {/* Zap Templates */}

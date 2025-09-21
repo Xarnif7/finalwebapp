@@ -26,6 +26,11 @@ export const getZapStatus = async (userId: string): Promise<ZapStatus> => {
  */
 export const zapTemplates: ZapTemplate[] = [
   {
+    title: 'Google Sheets → Blipp Automation (Testing)',
+    description: 'Add customers to Google Sheets and trigger Blipp automation sequences',
+    href: 'https://zapier.com/app/editor/create-zap?template=blipp-google-sheets-automation'
+  },
+  {
     title: 'When Invoice Paid in <CRM> → Upsert Customer in Blipp',
     description: 'Automatically add customers to Blipp when invoices are paid in your CRM',
     href: 'https://zapier.com/app/editor/create-zap?template=blipp-invoice-paid'
