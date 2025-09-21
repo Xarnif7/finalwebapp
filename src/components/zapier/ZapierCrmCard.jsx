@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, ExternalLink, CheckCircle, AlertCircle, Copy, Eye, EyeOff } from 'lucide-react';
 import { getZapStatus } from '../../lib/zapier';
+import { apiClient } from '../../lib/apiClient';
 import ZapierConnectionModal from './ZapierConnectionModal';
 
 const ZapierCrmCard = ({ userId }) => {
@@ -50,6 +51,25 @@ const ZapierCrmCard = ({ userId }) => {
 
   const handleConnect = () => {
     setIsModalOpen(true);
+  };
+
+  const handleZapierConnected = async (zapConfig) => {
+    try {
+      // Save the Zapier integration to the database
+      const response = await apiClient.post(`/api/zapier-integrations/${businessId}`, {
+        zapier_account_email: user?.email,
+        zap_config: zapConfig,
+        status: 'pending'
+      });
+
+      if (response.success) {
+        console.log('Zapier integration saved:', response.integration);
+        // Refresh the integration status
+        await fetchIntegrationStatus();
+      }
+    } catch (error) {
+      console.error('Error saving Zapier integration:', error);
+    }
   };
 
   const handleModalClose = async () => {
