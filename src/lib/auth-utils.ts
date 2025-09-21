@@ -10,7 +10,7 @@ function getPublicEnv() {
 export async function signInWithGoogle(): Promise<void> {
   const siteUrl = getPublicEnv().SITE_URL;
   const supabaseUrl = getSupabaseUrl();
-  const redirectTo = `${siteUrl}/auth/callback?next=/`;
+  const redirectTo = `${siteUrl}/auth/callback`;
 
   // Debug logging for both dev and production
   console.log(`[OAUTH] Environment: ${import.meta.env.MODE}`);
