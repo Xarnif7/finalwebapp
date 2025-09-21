@@ -14,18 +14,30 @@ export default async function handler(req, res) {
   }
 
   // Check authentication - support both Zapier and Blipp 1.0 formats
-  const zapierToken = req.headers['x-zapier-token'] || req.headers['X-Zapier-Token'];
+  const zapierTokenHeader = req.headers['x-zapier-token'] || req.headers['X-Zapier-Token'];
+  const zapierTokenQuery = req.query.zapier_token;
   const blippBusiness = req.headers['x-blipp-business'] || req.headers['X-Blipp-Business'];
   const authBearer = req.headers['authorization'];
   const blippSignature = req.headers['x-blipp-signature'] || req.headers['X-Blipp-Signature'];
   
-  // Accept either Zapier token or Blipp 1.0 authentication
+  // Accept either Zapier token (header or query) or Blipp 1.0 authentication
+  const zapierToken = zapierTokenHeader || zapierTokenQuery;
   const isZapierAuth = zapierToken && zapierToken === process.env.ZAPIER_TOKEN;
   const isBlippAuth = blippBusiness && (authBearer || blippSignature);
   
   if (!isZapierAuth && !isBlippAuth) {
     res.setHeader('Content-Type', 'application/json');
-    res.status(401).send(JSON.stringify({ ok: false, error: "unauthorized - missing valid authentication" }));
+    res.status(401).send(JSON.stringify({ 
+      ok: false, 
+      error: "unauthorized - missing valid authentication",
+      debug: {
+        has_zapier_header: !!zapierTokenHeader,
+        has_zapier_query: !!zapierTokenQuery,
+        has_blipp_business: !!blippBusiness,
+        has_auth_bearer: !!authBearer,
+        has_blipp_signature: !!blippSignature
+      }
+    }));
     return;
   }
 
@@ -124,8 +136,9 @@ export default async function handler(req, res) {
       last_name,
       business_id: resolvedBusinessId,
       auth_type: isZapierAuth ? 'zapier' : 'blipp_1_0',
-      headers: {
-        zapier_token: !!zapierToken,
+      auth_method: {
+        zapier_header: !!zapierTokenHeader,
+        zapier_query: !!zapierTokenQuery,
         blipp_business: blippBusiness,
         auth_bearer: !!authBearer,
         blipp_signature: !!blippSignature
