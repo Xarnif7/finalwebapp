@@ -20,15 +20,15 @@
     },
     {
       "source": "/auth/callback",
-      "destination": "/dist/index.html"
+      "destination": "/index.html"
     },
     {
       "source": "/post-checkout",
-      "destination": "/dist/index.html"
+      "destination": "/index.html"
     },
     {
       "source": "/(.*)",
-      "destination": "/dist/index.html"
+      "destination": "/index.html"
     }
   ],
   "headers": [
