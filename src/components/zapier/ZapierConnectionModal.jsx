@@ -116,6 +116,32 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
                   <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold mr-3">2</span>
                   Add Blipp (1.0.0) Action
                 </h3>
+                
+                {/* Token Generation Step */}
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-blue-900">Get Your Unique Zapier Token</div>
+                      <div className="text-sm text-blue-700">Each business gets its own secure token</div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(`/api/zapier/token/${user?.business_id}`);
+                          const data = await response.json();
+                          if (data.ok) {
+                            alert(`Your Zapier Token: ${data.zapier_token}\n\nCopy this token and use it in your Zap setup!`);
+                          }
+                        } catch (error) {
+                          alert('Error generating token. Please try again.');
+                        }
+                      }}
+                      className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                    >
+                      Get Token
+                    </button>
+                  </div>
+                </div>
                 <ul className="space-y-2 text-sm text-gray-700">
                   <li className="flex items-start">
                     <span className="text-blue-600 mr-2">•</span>
@@ -127,7 +153,11 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
                   </li>
                   <li className="flex items-start">
                     <span className="text-blue-600 mr-2">•</span>
-                    Choose "Blipp Account" connection (authorize if prompted).
+                    Click "Get Token" above and copy your unique token.
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-blue-600 mr-2">•</span>
+                    In the "Account" field, paste your token (replaces "Blipp Account").
                   </li>
                   <li className="flex items-start">
                     <span className="text-blue-600 mr-2">•</span>

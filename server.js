@@ -6071,6 +6071,64 @@ app.get('/api/safety-rules', async (req, res) => {
   }
 });
 
+// Get or generate Zapier token for business
+app.get('/api/zapier/token/:businessId', async (req, res) => {
+  try {
+    const { businessId } = req.params;
+    
+    if (!supabase) {
+      return res.status(500).json({ error: 'Database not available' });
+    }
+
+    // Get business and check if token exists
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('id, name, zapier_token')
+      .eq('id', businessId)
+      .single();
+
+    if (businessError) {
+      console.error('[ZAPIER_TOKEN] Business not found:', businessError);
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // If no token exists, generate one
+    if (!business.zapier_token) {
+      const newToken = 'blipp_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
+      const { error: updateError } = await supabase
+        .from('businesses')
+        .update({ zapier_token: newToken })
+        .eq('id', businessId);
+
+      if (updateError) {
+        console.error('[ZAPIER_TOKEN] Error updating token:', updateError);
+        return res.status(500).json({ error: 'Failed to generate token' });
+      }
+
+      return res.json({
+        ok: true,
+        business_id: businessId,
+        business_name: business.name,
+        zapier_token: newToken,
+        message: 'New token generated successfully'
+      });
+    }
+
+    return res.json({
+      ok: true,
+      business_id: businessId,
+      business_name: business.name,
+      zapier_token: business.zapier_token,
+      message: 'Existing token retrieved'
+    });
+
+  } catch (error) {
+    console.error('[ZAPIER_TOKEN] Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Test Zapier connection endpoint
 app.get('/api/zapier/test', async (req, res) => {
   try {
