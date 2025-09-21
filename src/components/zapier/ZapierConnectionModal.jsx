@@ -57,39 +57,53 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
                     <li className="flex items-start">
                       <span className="bg-green-200 text-green-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
                       <div>
-                        <strong>Click the link below</strong> to open Zapier
+                        <strong>Click a link below</strong> - You'll need to sign in to Zapier first
                       </div>
                     </li>
                     <li className="flex items-start">
                       <span className="bg-green-200 text-green-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
                       <div>
-                        <strong>Search for your CRM</strong> (Jobber, HouseCall Pro, Google Sheets, etc.)
+                        <strong>Choose your trigger</strong> (Google Sheets, Jobber, etc.)
                       </div>
                     </li>
                     <li className="flex items-start">
                       <span className="bg-green-200 text-green-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
                       <div>
-                        <strong>Connect your CRM</strong> and authorize the connection
+                        <strong>Search for "Blipp"</strong> in the action step and select it
                       </div>
                     </li>
                     <li className="flex items-start">
                       <span className="bg-green-200 text-green-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">4</span>
                       <div>
-                        <strong>Turn on your Zap</strong> and you're done!
+                        <strong>Connect and test</strong> your Zap, then turn it on!
                       </div>
                     </li>
                   </ol>
                 </div>
 
-                <div className="text-center">
+                <div className="text-center space-y-3">
                   <a
-                    href="https://zapier.com/app/editor/create-zap?template=blipp-crm-connection"
+                    href="https://zapier.com/app/editor/create-zap?template=blipp-google-sheets"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-white rounded-lg hover:from-[#1557B0] hover:to-[#6D28D9] transition-all duration-200 font-medium"
                   >
                     <ExternalLink className="h-5 w-5 mr-2" />
-                    Connect Your CRM in Zapier
+                    Start with Google Sheets (Recommended)
+                  </a>
+                  
+                  <div className="text-sm text-gray-500">
+                    or
+                  </div>
+                  
+                  <a
+                    href="https://zapier.com/app/editor/create-zap?action=blipp"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Choose Your Own CRM
                   </a>
                 </div>
               </div>
@@ -134,8 +148,14 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
               </div>
 
               {/* Help Text */}
-              <div className="text-center text-sm text-gray-500">
+              <div className="text-center text-sm text-gray-500 space-y-2">
                 <p>Need help? Our template will guide you through each step!</p>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-yellow-800 text-xs">
+                    <strong>Note:</strong> You'll need a Zapier account to connect your CRM. 
+                    Don't have one? It's free to sign up at zapier.com
+                  </p>
+                </div>
               </div>
             </>
           ) : (
