@@ -673,6 +673,7 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
         const emailToBusinessMap = {
           // Add your email mapping here for testing
           'shirley.xane@gmail.com': '5fcd7b0d-aa61-4b72-bba7-0709e0d2fba2', // Your business ID
+          'xarnif9@gmail.com': 'e54bc051-f100-4bcc-b363-43b7351da8af', // New test account business ID
           // Add more mappings as needed
         };
         
@@ -708,6 +709,22 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
           if (!businessError && businessData) {
             business = businessData;
             console.log('[ZAPIER] Using business by name match:', { id: business.id, name: business.name });
+          }
+        }
+
+        // NEW: Try to find business by user email (check businesses.created_by field)
+        if (!business) {
+          console.log('[ZAPIER] Trying to find business by created_by email:', zapierAccountEmail);
+          
+          const { data: businessData, error: businessError } = await supabase
+            .from('businesses')
+            .select('id, name, created_by')
+            .eq('created_by', zapierAccountEmail)
+            .single();
+
+          if (!businessError && businessData) {
+            business = businessData;
+            console.log('[ZAPIER] Found business via created_by email match:', { id: business.id, name: business.name });
           }
         }
         
