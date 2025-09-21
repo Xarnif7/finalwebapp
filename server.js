@@ -476,9 +476,9 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Either email or phone is required' });
     }
 
-    if (!first_name || !last_name) {
-      return res.status(400).json({ ok: false, error: 'First name and last name are required' });
-    }
+    // First name and last name are optional - use defaults if not provided
+    const firstName = first_name || '';
+    const lastName = last_name || '';
 
     // Log the payload for debugging
     console.log('[ZAPIER] Upsert customer payload:', {
@@ -523,29 +523,39 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
     // Prepare customer data for upsert
     const customerData = {
       business_id: business.id,
-      full_name: `${first_name} ${last_name}`,
+      full_name: `${firstName} ${lastName}`.trim() || 'Unknown Customer',
       email: email?.toLowerCase().trim() || null,
       phone: phone?.replace(/\D/g, '') || null, // digits only
-      notes: external_id ? `External ID: ${external_id}` : null,
+      external_id: external_id || null,
+      source: source || 'zapier',
       tags: tags || [],
-      status: 'active',
-      service_date: event_ts ? new Date(event_ts).toISOString().split('T')[0] : null,
-      created_by: 'zapier'
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
 
     // Upsert customer
     const { data: customer, error: upsertError } = await supabase
       .from('customers')
       .upsert(customerData, {
-        onConflict: 'business_id,email,phone',
+        onConflict: 'business_id,email',
         ignoreDuplicates: false
       })
-      .select('id')
+      .select('id, full_name, email, phone')
       .single();
 
     if (upsertError) {
-      console.error('[ZAPIER] Customer upsert error:', upsertError);
-      return res.status(500).json({ ok: false, error: 'Failed to upsert customer' });
+      console.error('[ZAPIER] Customer upsert error:', {
+        error: upsertError,
+        customerData: customerData,
+        business_id: business.id
+      });
+      return res.status(500).json({ 
+        ok: false, 
+        error: 'Failed to upsert customer',
+        details: upsertError.message,
+        code: upsertError.code,
+        hint: upsertError.hint
+      });
     }
 
     // Log to audit_log
@@ -588,7 +598,14 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
     return res.status(200).json({ 
       ok: true, 
       customer_id: customer.id,
-      business_id: business.id
+      customer: {
+        id: customer.id,
+        full_name: customer.full_name,
+        email: customer.email,
+        phone: customer.phone
+      },
+      business_id: business.id,
+      message: 'Customer upserted successfully'
     });
   } catch (error) {
     console.error('[ZAPIER] Upsert customer error:', error);
