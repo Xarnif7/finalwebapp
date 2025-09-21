@@ -609,8 +609,7 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
         // Simple email-to-business mapping for seamless integration
         // This will be expanded as more users sign up
         const emailToBusinessMap = {
-          'shirley.xane@gmail.com': '5fcd7b0d-aa61-4b72-bba7-0709e0d2fba2', // Your main business
-          // TODO: Add more mappings as users sign up
+          // TODO: Add user mappings as they sign up
           // 'john@example.com': 'business-id-here',
           // 'sarah@example.com': 'business-id-here',
         };
@@ -799,6 +798,17 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
     // Initialize defaults for this business if not already done
     try {
       await initializeDefaultsForBusiness(business.id);
+      
+      // Mark that this business has CRM integration working
+      await supabase
+        .from('businesses')
+        .update({ 
+          crm_integration_active: true,
+          crm_integration_connected_at: new Date().toISOString()
+        })
+        .eq('id', business.id);
+        
+      console.log('[ZAPIER] ✅ CRM integration marked as active for business:', business.id);
     } catch (defaultsError) {
       console.error('[ZAPIER] Defaults initialization error:', defaultsError);
       // Don't fail the request if defaults initialization fails
