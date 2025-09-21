@@ -674,6 +674,7 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
           // Add your email mapping here for testing
           'shirley.xane@gmail.com': '5fcd7b0d-aa61-4b72-bba7-0709e0d2fba2', // Your business ID
           'xarnif9@gmail.com': 'e54bc051-f100-4bcc-b363-43b7351da8af', // New test account business ID
+          'xarnif7@gmail.com': 'e54bc051-f100-4bcc-b363-43b7351da8af', // Zapier account -> xarnif9 business
           // Add more mappings as needed
         };
         
