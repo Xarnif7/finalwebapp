@@ -11,7 +11,7 @@ import {
 import { LogOut, Repeat } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
-import { signInWithGoogle, switchAccount } from '../../lib/auth-utils';
+import { signInWithGoogle, switchAccount, logout } from '../../lib/auth-utils';
 import { supabase } from '../../lib/supabase/browser';
 
 const UserAvatar = ({ user, size = "40px" }) => {
@@ -76,7 +76,7 @@ export function Header() {
 
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut();
+      await logout();
       // Navigate to home page after sign out
       navigate('/', { replace: true });
     } catch (error) {

@@ -13,31 +13,31 @@ export default function AuthCallback() {
       if (hasRedirected.current) return;
       
       console.log('[AuthCallback] Starting callback handling...');
+      console.log('[AuthCallback] URL params:', Object.fromEntries(searchParams.entries()));
       
       try {
-        // Wait a moment for Supabase to process the OAuth callback
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Handle the OAuth callback explicitly
+        const { data, error } = await supabase.auth.getSession();
         
-        // Wait for session to be available
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('[AuthCallback] Session error:', sessionError);
+        if (error) {
+          console.error('[AuthCallback] Auth error:', error);
           hasRedirected.current = true;
           navigate('/', { replace: true });
           return;
         }
 
-        if (session && session.user) {
-          console.log('[AuthCallback] User authenticated:', session.user.email);
+        if (data.session && data.session.user) {
+          console.log('[AuthCallback] User authenticated:', data.session.user.email);
           
           // Get next destination from query params, default to '/'
           const next = searchParams.get('next') || '/';
           
           hasRedirected.current = true;
           
-          // Navigate to destination
-          navigate(next, { replace: true });
+          // Small delay to ensure session is fully established
+          setTimeout(() => {
+            navigate(next, { replace: true });
+          }, 100);
           
         } else {
           console.log('[AuthCallback] No valid session, redirecting to landing...');

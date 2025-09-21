@@ -19,6 +19,10 @@
       "destination": "/server.js"
     },
     {
+      "source": "/auth/callback",
+      "destination": "/dist/index.html"
+    },
+    {
       "source": "/post-checkout",
       "destination": "/dist/index.html"
     },

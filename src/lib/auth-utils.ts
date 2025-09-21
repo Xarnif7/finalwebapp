@@ -42,11 +42,26 @@ export async function signInWithGoogle(): Promise<void> {
   }
 }
 
+// Centralized logout handler
+export async function logout(): Promise<void> {
+  try {
+    console.log('[AUTH] Logging out user...');
+    await supabase.auth.signOut();
+    console.log('[AUTH] User logged out successfully');
+  } catch (error) {
+    console.error('Error logging out:', error);
+  }
+}
+
 // Centralized switch account handler
 export async function switchAccount(): Promise<void> {
   try {
+    console.log('[AUTH] Switching account...');
     // Sign out first
     await supabase.auth.signOut();
+    
+    // Small delay to ensure logout is complete
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     // Then sign in with Google (same as sign in)
     await signInWithGoogle();
