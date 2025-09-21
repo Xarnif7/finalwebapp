@@ -488,12 +488,18 @@ app.get('/api/debug-customers', async (req, res) => {
       customersByBusiness[customer.business_id].push(customer);
     });
 
+    // Get customers for specific business (your business)
+    const yourBusinessId = "5fcd7b0d-aa61-4b72-bba7-0709e0d2fba2";
+    const yourCustomers = customers.filter(c => c.business_id === yourBusinessId);
+
     return res.status(200).json({
       businesses: businesses,
       customersByBusiness: customersByBusiness,
       totalCustomers: customers.length,
       totalBusinesses: businesses.length,
-      yourBusinessId: businesses[0]?.id
+      yourBusinessId: yourBusinessId,
+      yourCustomers: yourCustomers,
+      yourCustomersCount: yourCustomers.length
     });
 
   } catch (error) {
