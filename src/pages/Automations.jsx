@@ -90,7 +90,7 @@ export default function AutomationsPage() {
     error: templatesError, 
     updateTemplateStatus, 
     provisionDefaultTemplates 
-  } = useTemplates(user?.business_id);
+  } = useTemplates();
   const { 
     sequences: activeSequences, 
     loading: activeSequencesLoading, 
