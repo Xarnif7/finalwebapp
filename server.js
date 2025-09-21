@@ -456,6 +456,42 @@ app.get('/api/zapier/ping', (req, res) => {
   return res.status(200).json({ ok: true });
 });
 
+// Debug endpoint to check automation templates
+app.get('/api/debug-templates', async (req, res) => {
+  try {
+    const businessId = "5fcd7b0d-aa61-4b72-bba7-0709e0d2fba2"; // Your business ID
+    
+    const { data: templates, error: templatesError } = await supabase
+      .from('automation_templates')
+      .select('*')
+      .eq('business_id', businessId);
+
+    if (templatesError) {
+      return res.status(500).json({ error: templatesError.message });
+    }
+
+    const { data: enrollments, error: enrollmentsError } = await supabase
+      .from('automation_enrollments')
+      .select('*')
+      .eq('business_id', businessId);
+
+    if (enrollmentsError) {
+      return res.status(500).json({ error: enrollmentsError.message });
+    }
+
+    return res.status(200).json({
+      business_id: businessId,
+      templates: templates,
+      enrollments: enrollments,
+      templatesCount: templates?.length || 0,
+      enrollmentsCount: enrollments?.length || 0
+    });
+
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // Debug endpoint to check customers and businesses
 app.get('/api/debug-customers', async (req, res) => {
   try {
