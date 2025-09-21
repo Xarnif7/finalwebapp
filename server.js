@@ -606,46 +606,45 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       if (zapierAccountEmail) {
         console.log('[ZAPIER] Looking for business by Zapier account email:', zapierAccountEmail);
         
-        // Extract username from email (e.g., "shirley.xane" from "shirley.xane@gmail.com")
-        const username = zapierAccountEmail.split('@')[0];
-        console.log('[ZAPIER] Extracted username:', username);
+        // Simple email-to-business mapping for seamless integration
+        const emailToBusinessMap = {
+          'shirley.xane@gmail.com': '5fcd7b0d-aa61-4b72-bba7-0709e0d2fba2', // Your main business
+          // Add more mappings as needed
+        };
         
-        // Try multiple matching strategies
-        let businessData = null;
-        
-        // Strategy 1: Match by business name containing the username
-        let { data: data1, error: error1 } = await supabase
-          .from('businesses')
-          .select('id, name, created_by')
-          .ilike('name', `%${username}%`)
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .single();
+        const mappedBusinessId = emailToBusinessMap[zapierAccountEmail];
+        if (mappedBusinessId) {
+          console.log('[ZAPIER] Found mapped business for email:', mappedBusinessId);
           
-        if (!error1 && data1) {
-          businessData = data1;
-          console.log('[ZAPIER] Found business by name match:', { id: businessData.id, name: businessData.name });
-        }
-        
-        // Strategy 2: If no match by name, try to find by created_by email (if we can map it)
-        if (!businessData) {
-          // For now, let's try to find the most recent business
-          let { data: data2, error: error2 } = await supabase
+          const { data: businessData, error: businessError } = await supabase
             .from('businesses')
             .select('id, name, created_by')
-            .order('created_at', { ascending: false })
-            .limit(1)
+            .eq('id', mappedBusinessId)
             .single();
-            
-          if (!error2 && data2) {
-            businessData = data2;
-            console.log('[ZAPIER] Found business by fallback (most recent):', { id: businessData.id, name: businessData.name });
+
+          if (!businessError && businessData) {
+            business = businessData;
+            console.log('[ZAPIER] Using mapped business:', { id: business.id, name: business.name });
           }
         }
+        
+        // Fallback: Try to match by business name containing username
+        if (!business) {
+          const username = zapierAccountEmail.split('@')[0];
+          console.log('[ZAPIER] Trying name match for username:', username);
+          
+          const { data: businessData, error: businessError } = await supabase
+            .from('businesses')
+            .select('id, name, created_by')
+            .ilike('name', `%${username}%`)
+            .order('created_at', { ascending: false }) // Get most recent
+            .limit(1)
+            .single();
 
-        if (businessData) {
-          business = businessData;
-          console.log('[ZAPIER] Using business by Zapier account:', { id: business.id, name: business.name });
+          if (!businessError && businessData) {
+            business = businessData;
+            console.log('[ZAPIER] Using business by name match:', { id: business.id, name: business.name });
+          }
         }
       }
       
