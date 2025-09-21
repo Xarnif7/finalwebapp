@@ -579,12 +579,12 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       event_ts
     });
 
-    // Check for business_id in headers (X-Blipp-Business)
-    const businessId = req.headers['x-blipp-business'];
-    
+    // Try to get business_id from multiple sources (in order of preference)
     let business;
+    
+    // 1. Check for business_id in headers (X-Blipp-Business) - manual override
+    const businessId = req.headers['x-blipp-business'];
     if (businessId) {
-      // Use the specific business_id from headers
       const { data: businessData, error: businessError } = await supabase
         .from('businesses')
         .select('id, name, created_by')
@@ -599,25 +599,48 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
         });
       }
       business = businessData;
-      console.log('[ZAPIER] Using specified business:', { id: business.id, name: business.name });
+      console.log('[ZAPIER] Using specified business (header):', { id: business.id, name: business.name });
     } else {
-      // Fallback: Get the first available business (for backward compatibility)
-      const { data: businessData, error: businessError } = await supabase
-        .from('businesses')
-        .select('id, name, created_by')
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .single();
+      // 2. Try to get business from Zapier account connection (if provided)
+      const zapierAccountEmail = req.headers['x-zapier-account-email'] || req.body.account_email;
+      if (zapierAccountEmail) {
+        console.log('[ZAPIER] Looking for business by Zapier account email:', zapierAccountEmail);
+        
+        // Find business by matching the account email to a user
+        // This assumes the Zapier account email matches a user's email in the system
+        const { data: businessData, error: businessError } = await supabase
+          .from('businesses')
+          .select('id, name, created_by')
+          .ilike('name', `%${zapierAccountEmail.split('@')[0]}%`) // Match by username part
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .single();
 
-      if (businessError) {
-        console.error('[ZAPIER] Error getting business:', businessError);
-        return res.status(500).json({ 
-          ok: false, 
-          error: 'No business found. Please create a business first in the dashboard.' 
-        });
+        if (!businessError && businessData) {
+          business = businessData;
+          console.log('[ZAPIER] Using business by Zapier account:', { id: business.id, name: business.name });
+        }
       }
-      business = businessData;
-      console.log('[ZAPIER] Using first available business (fallback):', { id: business.id, name: business.name });
+      
+      // 3. Fallback: Get the first available business (for backward compatibility)
+      if (!business) {
+        const { data: businessData, error: businessError } = await supabase
+          .from('businesses')
+          .select('id, name, created_by')
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .single();
+
+        if (businessError) {
+          console.error('[ZAPIER] Error getting business:', businessError);
+          return res.status(500).json({ 
+            ok: false, 
+            error: 'No business found. Please create a business first in the dashboard.' 
+          });
+        }
+        business = businessData;
+        console.log('[ZAPIER] Using first available business (fallback):', { id: business.id, name: business.name });
+      }
     }
 
     console.log('[ZAPIER] Using business:', {
