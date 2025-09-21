@@ -132,15 +132,15 @@ export default async function handler(req, res) {
       }
     });
 
-    // Prepare customer data
+    // Prepare customer data - handle empty strings properly
     const customerData = {
       business_id: resolvedBusinessId,
       full_name: `${first_name || ''} ${last_name || ''}`.trim() || 'Unknown Customer',
-      email: email || null,
-      phone: phone || null,
-      external_id: external_id || null,
-      source: source || 'zapier',
-      tags: tags || [],
+      email: email && email.trim() ? email.trim() : null,
+      phone: phone && phone.trim() ? phone.trim() : null,
+      external_id: external_id && external_id.trim() ? external_id.trim() : null,
+      source: source || 'blipp_1_0',
+      tags: Array.isArray(tags) ? tags : [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -156,14 +156,85 @@ export default async function handler(req, res) {
       .single();
 
     if (upsertError) {
-      console.error('[zapier:upsert-customer] Upsert error:', upsertError);
+      console.error('[zapier:upsert-customer] Upsert error:', {
+        error: upsertError,
+        customerData: customerData,
+        business_id: resolvedBusinessId
+      });
       res.setHeader('Content-Type', 'application/json');
       res.status(500).send(JSON.stringify({ 
         ok: false, 
         error: 'Failed to upsert customer',
-        details: upsertError.message 
+        details: upsertError.message,
+        code: upsertError.code,
+        hint: upsertError.hint
       }));
       return;
+    }
+
+    // Check if this is the first customer for this business and provision default templates
+    try {
+      const { data: existingTemplates, error: templatesError } = await supabase
+        .from('automation_templates')
+        .select('id')
+        .eq('business_id', resolvedBusinessId)
+        .limit(1);
+
+      if (!templatesError && (!existingTemplates || existingTemplates.length === 0)) {
+        console.log(`[zapier:upsert-customer] No templates found, provisioning defaults for business: ${resolvedBusinessId}`);
+        
+        const defaultTemplates = [
+          {
+            business_id: resolvedBusinessId,
+            key: 'job_completed',
+            name: 'Job Completed',
+            status: 'ready',
+            channels: ['sms', 'email'],
+            trigger_type: 'event',
+            config_json: {
+              message: "Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review.",
+              delay_hours: 24
+            }
+          },
+          {
+            business_id: resolvedBusinessId,
+            key: 'invoice_paid',
+            name: 'Invoice Paid',
+            status: 'ready',
+            channels: ['email', 'sms'],
+            trigger_type: 'event',
+            config_json: {
+              message: "Thank you for your payment! We appreciate your business. Please consider leaving us a review.",
+              delay_hours: 48
+            }
+          },
+          {
+            business_id: resolvedBusinessId,
+            key: 'service_reminder',
+            name: 'Service Reminder',
+            status: 'ready',
+            channels: ['sms', 'email'],
+            trigger_type: 'date_based',
+            config_json: {
+              message: "This is a friendly reminder about your upcoming service appointment. We look forward to serving you!",
+              delay_days: 1
+            }
+          }
+        ];
+
+        const { data: newTemplates, error: insertError } = await supabase
+          .from('automation_templates')
+          .insert(defaultTemplates)
+          .select();
+
+        if (insertError) {
+          console.error('[zapier:upsert-customer] Error creating default templates:', insertError);
+        } else {
+          console.log(`[zapier:upsert-customer] Created ${newTemplates.length} default templates for business: ${resolvedBusinessId}`);
+        }
+      }
+    } catch (templateError) {
+      console.error('[zapier:upsert-customer] Error checking/creating templates:', templateError);
     }
 
     // Return success response
