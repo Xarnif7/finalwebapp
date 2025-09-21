@@ -17,14 +17,12 @@
     {
       "src": "/api/(.*)",
       "dest": "/server.js"
-    },
+    }
+  ],
+  "rewrites": [
     {
-      "src": "/auth/callback",
-      "dest": "/dist/index.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/dist/index.html"
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ],
   "crons": [
