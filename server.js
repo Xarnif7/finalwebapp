@@ -609,7 +609,24 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
   try {
     // Validate Zapier token (check both header and URL param)
     const zapierToken = req.headers['x-zapier-token'] || req.query.zapier_token;
-    if (!zapierToken || zapierToken !== process.env.ZAPIER_TOKEN) {
+    
+    // NEW: Try to find business by zapier_token first (multi-tenant)
+    let business;
+    if (zapierToken) {
+      const { data: businessData, error: businessError } = await supabase
+        .from('businesses')
+        .select('id, name, created_by')
+        .eq('zapier_token', zapierToken)
+        .single();
+
+      if (!businessError && businessData) {
+        business = businessData;
+        console.log('[ZAPIER] Found business by zapier_token:', { id: business.id, name: business.name });
+      }
+    }
+
+    // Fallback: Use shared token for backward compatibility
+    if (!business && (!zapierToken || zapierToken !== process.env.ZAPIER_TOKEN)) {
       console.log('[ZAPIER] Token validation failed:', { 
         headerToken: req.headers['x-zapier-token'], 
         queryToken: req.query.zapier_token,
@@ -646,7 +663,7 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
     console.log('[ZAPIER] Request body:', req.body);
 
     // Try to get business_id from multiple sources (in order of preference)
-    let business;
+    // Note: business might already be found by zapier_token above
     
     // 1. Check for business_id in headers (X-Blipp-Business) - manual override
     const businessId = req.headers['x-blipp-business'];
