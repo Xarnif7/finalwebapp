@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { apiClient } from '../lib/apiClient';
 
 export const useSequencesData = () => {
   const [sequences, setSequences] = useState([]);
@@ -16,19 +17,7 @@ export const useSequencesData = () => {
         throw new Error('No session found');
       }
 
-      const response = await fetch('http://localhost:3001/api/sequences', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const result = await apiClient.get('/api/sequences');
       if (result.ok) {
         setSequences(result.sequences);
       } else {
