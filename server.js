@@ -492,45 +492,22 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       event_ts
     });
 
-    // Get or create business
+    // Get the first available business (use existing business instead of creating default)
     let { data: business, error: businessError } = await supabase
       .from('businesses')
-      .select('id')
+      .select('id, name, created_by')
+      .order('created_at', { ascending: true })
       .limit(1)
       .single();
 
-    if (businessError && businessError.code === 'PGRST116') {
-      // Create default business if none exists
-      const { data: newBusiness, error: createError } = await supabase
-        .from('businesses')
-        .insert({
-          name: 'Default Business',
-          created_by: 'system'
-        })
-        .select('id')
-        .single();
-
-      if (createError) {
-        console.error('[ZAPIER] Error creating business:', createError);
-        return res.status(500).json({ ok: false, error: 'Failed to create business' });
-      }
-      business = newBusiness;
-    } else if (businessError) {
+    if (businessError) {
       console.error('[ZAPIER] Error getting business:', businessError);
-      return res.status(500).json({ ok: false, error: 'Failed to get business' });
+      return res.status(500).json({ 
+        ok: false, 
+        error: 'No business found. Please create a business first in the dashboard.' 
+      });
     }
 
-    // Get the business owner's user_id for created_by
-    const { data: businessOwner, error: ownerError } = await supabase
-      .from('businesses')
-      .select('created_by')
-      .eq('id', business.id)
-      .single();
-
-    if (ownerError) {
-      console.error('[ZAPIER] Error getting business owner:', ownerError);
-      return res.status(500).json({ ok: false, error: 'Failed to get business owner' });
-    }
 
     // Prepare customer data for upsert
     const customerData = {
@@ -541,7 +518,7 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       external_id: external_id || null,
       source: source || 'zapier',
       tags: tags || [],
-      created_by: businessOwner.created_by,
+      created_by: business.created_by,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
