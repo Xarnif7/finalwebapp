@@ -356,14 +356,24 @@ export default function AutomationsPage() {
         <p className="text-slate-600">Create and manage review-request sequences</p>
       </div>
       
-      <Button
-        onClick={() => setShowWizard(true)}
-        className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        aria-label="Quick setup automation"
-      >
-        <Plus className="h-4 w-4 mr-2" />
-        Quick Setup
-      </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setShowWizard(true)}
+              variant="outline"
+              className="focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create Custom Sequence
+            </Button>
+            <Button
+              onClick={() => setShowWizard(true)}
+              className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-label="Quick setup automation"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Quick Setup
+            </Button>
+          </div>
     </div>
   );
 
