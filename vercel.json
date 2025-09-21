@@ -13,23 +13,27 @@
       "use": "@vercel/node"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/server.js"
-    },
+      "source": "/api/(.*)",
+      "destination": "/server.js"
+    }
+  ],
+  "routes": [
     {
       "src": "/assets/(.*\\.js)$",
       "dest": "/dist/assets/$1",
       "headers": {
-        "Content-Type": "application/javascript"
+        "Content-Type": "application/javascript",
+        "Cache-Control": "public, max-age=31536000, immutable"
       }
     },
     {
       "src": "/assets/(.*\\.css)$",
       "dest": "/dist/assets/$1",
       "headers": {
-        "Content-Type": "text/css"
+        "Content-Type": "text/css",
+        "Cache-Control": "public, max-age=31536000, immutable"
       }
     },
     {
