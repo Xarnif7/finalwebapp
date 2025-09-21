@@ -913,12 +913,13 @@ export default function AutomationsPage() {
   };
 
   const renderTemplatesTab = () => {
-    // Determine template status based on database state
+    // Determine template status based on CRM integration and database state
     const getTemplateStatus = (template) => {
-      if (!hasCustomers) {
-        return 'connect_required';
+      // If CRM is connected (either has customers OR has active integration), show as ready
+      if (hasActiveIntegration || hasCustomers) {
+        return template.status; // 'ready', 'active', 'paused'
       }
-      return template.status; // 'ready', 'active', 'paused'
+      return 'connect_required';
     };
     
     // Handle template status updates
@@ -1001,12 +1002,12 @@ export default function AutomationsPage() {
           <FileText className="h-16 w-16 text-slate-300 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-slate-900 mb-2">No templates found</h3>
           <p className="text-slate-600 mb-6">
-            {hasCustomers 
+            {hasActiveIntegration || hasCustomers
               ? "Default templates are being created automatically. If this persists, try refreshing the page."
-              : "Connect your customer data first, then we'll create default templates for you."
+              : "Connect your CRM first, then we'll create default templates for you."
             }
           </p>
-          {hasCustomers ? (
+          {hasActiveIntegration || hasCustomers ? (
             <div className="space-y-2">
               <Button onClick={handleProvisionDefaults} className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white">
                 <Plus className="h-4 w-4 mr-2" />
