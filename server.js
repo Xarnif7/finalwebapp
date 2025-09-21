@@ -553,6 +553,12 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       });
     }
 
+    console.log('[ZAPIER] Using business:', {
+      id: business.id,
+      name: business.name,
+      created_by: business.created_by
+    });
+
 
     // Prepare customer data for upsert
     const customerData = {
@@ -657,7 +663,8 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       customer_id: customer.id,
       name: customerData.full_name,
       email: customerData.email,
-      business_id: business.id
+      business_id: business.id,
+      created_by: customerData.created_by
     });
 
     // Initialize defaults for this business if not already done
