@@ -60,7 +60,6 @@ export function useBusinessIntegrations() {
           .from('customers')
           .select('id, source')
           .eq('business_id', businessId)
-          .eq('source', 'zapier')
           .limit(1);
 
         console.log('[INTEGRATIONS] Zapier customers check:', {

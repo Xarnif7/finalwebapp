@@ -18,7 +18,7 @@ export const useSequenceAnalytics = (sequenceId) => {
         throw new Error('No session found');
       }
 
-      const response = await fetch(`http://localhost:3001/api/sequences/${sequenceId}/analytics`, {
+      const response = await fetch(`/api/sequences/${sequenceId}/analytics`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

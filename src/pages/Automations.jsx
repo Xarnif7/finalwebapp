@@ -48,6 +48,7 @@ import SequenceDesigner from '../components/automations/SequenceDesigner';
 import SequencesList from '../components/automations/SequencesList';
 import RecipeCards from '../components/automations/RecipeCards';
 import TriggersTab from '../components/automations/TriggersTab';
+import { EmailTester } from '../components/automations/EmailTester';
 import TemplatesTab from '../components/automations/TemplatesTab';
 import LogsTab from '../components/automations/LogsTab';
 import AutomationKPIs from '../components/automations/AutomationKPIs';
@@ -1159,6 +1160,14 @@ export default function AutomationsPage() {
 
     return (
       <div className="space-y-6">
+        {/* Email Testing Tool */}
+        <div className="bg-white rounded-lg border border-slate-200 p-6">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Test Email System</h3>
+          <p className="text-sm text-slate-600 mb-4">
+            Send a test email to verify the automation system is working correctly
+          </p>
+          <EmailTester />
+        </div>
         {/* Filters */}
         <div className="bg-white rounded-lg border border-slate-200 p-4">
           <div className="flex flex-wrap gap-4">

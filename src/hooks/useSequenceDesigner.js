@@ -23,7 +23,7 @@ export const useSequenceDesigner = (sequenceId = null) => {
         throw new Error('No session found');
       }
 
-      const response = await fetch(`http://localhost:3001/api/sequences/${sequenceId}`, {
+      const response = await fetch(`/api/sequences/${sequenceId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -58,7 +58,7 @@ export const useSequenceDesigner = (sequenceId = null) => {
         throw new Error('No session found');
       }
 
-      const response = await fetch('http://localhost:3001/api/message-templates', {
+      const response = await fetch('/api/message-templates', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -93,7 +93,7 @@ export const useSequenceDesigner = (sequenceId = null) => {
         throw new Error('No session found');
       }
 
-      const response = await fetch('http://localhost:3001/api/sequences', {
+      const response = await fetch('/api/sequences', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -137,7 +137,7 @@ export const useSequenceDesigner = (sequenceId = null) => {
         throw new Error('No session found');
       }
 
-      const response = await fetch(`http://localhost:3001/api/sequences/${sequenceId}`, {
+      const response = await fetch(`/api/sequences/${sequenceId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -181,7 +181,7 @@ export const useSequenceDesigner = (sequenceId = null) => {
         throw new Error('No session found');
       }
 
-      const response = await fetch(`http://localhost:3001/api/sequences/${sequenceId}/steps`, {
+      const response = await fetch(`/api/sequences/${sequenceId}/steps`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -224,7 +224,7 @@ export const useSequenceDesigner = (sequenceId = null) => {
       }
 
       // Create the sequence first
-      const sequenceResponse = await fetch('http://localhost:3001/api/sequences', {
+      const sequenceResponse = await fetch('/api/sequences', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -247,7 +247,7 @@ export const useSequenceDesigner = (sequenceId = null) => {
       // Create steps for the sequence
       const createdSteps = [];
       for (const stepData of stepsData) {
-        const stepResponse = await fetch(`http://localhost:3001/api/sequences/${newSequence.id}/steps`, {
+        const stepResponse = await fetch(`/api/sequences/${newSequence.id}/steps`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -289,7 +289,7 @@ export const useSequenceDesigner = (sequenceId = null) => {
         throw new Error('No session found');
       }
 
-      const response = await fetch(`http://localhost:3001/api/sequences/${sequenceId}/steps/${stepId}`, {
+      const response = await fetch(`/api/sequences/${sequenceId}/steps/${stepId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -335,7 +335,7 @@ export const useSequenceDesigner = (sequenceId = null) => {
         throw new Error('No session found');
       }
 
-      const response = await fetch(`http://localhost:3001/api/sequences/${sequenceId}/steps/${stepId}`, {
+      const response = await fetch(`/api/sequences/${sequenceId}/steps/${stepId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -377,7 +377,7 @@ export const useSequenceDesigner = (sequenceId = null) => {
         throw new Error('No session found');
       }
 
-      const response = await fetch(`http://localhost:3001/api/sequences/${sequenceId}/steps/reorder`, {
+      const response = await fetch(`/api/sequences/${sequenceId}/steps/reorder`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -420,7 +420,7 @@ export const useSequenceDesigner = (sequenceId = null) => {
         throw new Error('No session found');
       }
 
-      const response = await fetch(`http://localhost:3001/api/sequences/${sequenceId}/test-send`, {
+      const response = await fetch(`/api/sequences/${sequenceId}/test-send`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

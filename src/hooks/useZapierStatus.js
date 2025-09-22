@@ -33,15 +33,14 @@ export const useZapierStatus = () => {
         return;
       }
 
-      // Check if business has customers from Zapier
+      // Check if business has ANY customers (CSV, manual, or Zapier)
       const { data: customers, error: customersError } = await supabase
         .from('customers')
         .select('id, source')
         .eq('business_id', profile.business_id)
-        .eq('source', 'zapier')
         .limit(1);
 
-      console.log('[ZAPIER_STATUS] Checking for Zapier customers:', {
+      console.log('[ZAPIER_STATUS] Checking for customers:', {
         businessId: profile.business_id,
         customersCount: customers?.length || 0,
         error: customersError
@@ -51,10 +50,10 @@ export const useZapierStatus = () => {
         throw customersError;
       }
 
-      const hasZapierCustomers = customers && customers.length > 0;
-      console.log('[ZAPIER_STATUS] Has Zapier customers:', hasZapierCustomers);
+      const hasCustomers = customers && customers.length > 0;
+      console.log('[ZAPIER_STATUS] Has customers:', hasCustomers);
       
-      setIsConnected(hasZapierCustomers);
+      setIsConnected(hasCustomers);
     } catch (err) {
       console.error('Error checking Zapier connection:', err);
       setError(err.message);

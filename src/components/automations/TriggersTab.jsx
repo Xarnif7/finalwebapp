@@ -126,7 +126,7 @@ const TriggersTab = () => {
       }
 
       // Send test event
-      const response = await fetch('http://localhost:3001/api/zapier/event', {
+      const response = await fetch('/api/zapier/event', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

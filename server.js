@@ -5124,7 +5124,7 @@ app.get('/api/sequences', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -5238,7 +5238,7 @@ app.post('/api/sequences/:id/pause', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -5287,7 +5287,7 @@ app.post('/api/sequences/:id/resume', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -5336,7 +5336,7 @@ app.post('/api/sequences/:id/duplicate', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -5445,7 +5445,7 @@ app.post('/api/sequences/:id/archive', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -5495,7 +5495,7 @@ app.post('/api/sequences', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -5561,7 +5561,7 @@ app.patch('/api/sequences/:id', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -5609,6 +5609,47 @@ app.patch('/api/sequences/:id', async (req, res) => {
   }
 });
 
+// Test endpoint to send a real email
+app.post('/api/test-email', async (req, res) => {
+  try {
+    const { to, subject, message } = req.body;
+    
+    if (!to || !subject || !message) {
+      return res.status(400).json({ error: 'to, subject, and message are required' });
+    }
+
+    // Send email via Resend
+    const emailData = {
+      from: 'Blipp <noreply@myblipp.com>',
+      to: [to],
+      subject: subject,
+      html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">${subject}</h2>
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          ${message.replace(/\n/g, '<br>')}
+        </div>
+        <p style="color: #666; font-size: 14px;">
+          This is a test email from Blipp automation system.
+        </p>
+      </div>`
+    };
+
+    const emailResponse = await resend.emails.send(emailData);
+    
+    console.log('Test email sent:', emailResponse);
+    
+    res.json({ 
+      success: true, 
+      message: 'Test email sent successfully',
+      emailId: emailResponse.data?.id 
+    });
+    
+  } catch (error) {
+    console.error('Error sending test email:', error);
+    res.status(500).json({ error: 'Failed to send test email' });
+  }
+});
+
 // Get single sequence with steps
 app.get('/api/sequences/:id', async (req, res) => {
   try {
@@ -5618,7 +5659,7 @@ app.get('/api/sequences/:id', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -5680,7 +5721,7 @@ app.post('/api/sequences/:id/steps', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -5754,7 +5795,7 @@ app.patch('/api/sequences/:id/steps/:stepId', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -5817,7 +5858,7 @@ app.delete('/api/sequences/:id/steps/:stepId', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -5877,7 +5918,7 @@ app.post('/api/sequences/:id/steps/reorder', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -5936,7 +5977,7 @@ app.get('/api/message-templates', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -5980,7 +6021,7 @@ app.post('/api/sequences/:id/test-send', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }
@@ -7003,7 +7044,7 @@ app.get('/api/sequences/:id/analytics', async (req, res) => {
     }
 
     // Get user from token
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ ok: false, error: 'Invalid token' });
     }

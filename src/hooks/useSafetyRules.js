@@ -16,7 +16,7 @@ export const useSafetyRules = () => {
         throw new Error('No session found');
       }
 
-      const response = await fetch('http://localhost:3001/api/safety-rules', {
+      const response = await fetch('/api/safety-rules', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
