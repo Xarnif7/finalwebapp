@@ -24,6 +24,8 @@ export default function Onboarding() {
     google_review_url: "",
     yelp_review_url: "",
     industry: "",
+    website: "",
+    description: "",
   });
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -87,6 +89,8 @@ export default function Onboarding() {
             google_review_url: business.google_review_url || "",
             yelp_review_url: business.yelp_review_url || "",
             industry: business.industry || "",
+            website: business.website || "",
+            description: business.description || "",
           });
         } else {
           // Set default email from user
@@ -149,6 +153,8 @@ export default function Onboarding() {
             google_review_url: formData.google_review_url,
             yelp_review_url: formData.yelp_review_url,
             industry: formData.industry,
+            website: formData.website,
+            description: formData.description,
           })
           .eq('id', existingBusinesses[0].id);
         
@@ -158,7 +164,15 @@ export default function Onboarding() {
       } else {
         // Create new business - try with created_by field as fallback
         const businessData = {
-          ...formData,
+          name: formData.name,
+          address: formData.address,
+          phone: formData.phone,
+          email: formData.email,
+          google_review_url: formData.google_review_url,
+          yelp_review_url: formData.yelp_review_url,
+          industry: formData.industry,
+          website: formData.website,
+          description: formData.description,
         };
         
         // If database trigger doesn't work, add created_by manually
@@ -249,32 +263,34 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-4xl"
+        className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 w-full max-w-4xl"
       >
         {/* Success Message for Users Who Just Paid */}
         {justPaid && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg"
+            className="mb-8 p-6 bg-green-50 border border-green-200 rounded-xl"
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="h-5 w-5 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
               </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-green-800">
-                  Payment Successful!
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-green-800">
+                  Payment Successful! 🎉
                 </h3>
-                <p className="text-sm text-green-700 mt-1">
-                  Your subscription is now active. Let's set up your business profile to get started.
+                <p className="text-green-700 mt-1">
+                  Your subscription is now active. Let's set up your business profile to get started with automations and review management.
                 </p>
               </div>
             </div>
@@ -282,132 +298,228 @@ export default function Onboarding() {
         )}
 
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {justPaid ? 'Welcome to Blipp!' : 'Complete Your Business Setup'}
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+            className="w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4"
+          >
+            <Building2 className="w-8 h-8 text-white" />
+          </motion.div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">
+            {justPaid ? 'Welcome to Blipp! 🚀' : 'Complete Your Business Setup'}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-slate-600 max-w-2xl mx-auto">
             {justPaid 
-              ? 'Let\'s get your business profile set up so you can start managing your online reputation.'
-              : 'Please provide your business information to complete the setup process.'
+              ? 'Let\'s get your business profile set up so you can start managing your online reputation and automating review requests.'
+              : 'Please provide your business information to complete the setup process and personalize your experience.'
             }
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Business Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                placeholder="Your Business Name"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Contact Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                placeholder="contact@yourbusiness.com"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                placeholder="+1 (555) 123-4567"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="industry">Industry</Label>
-              <Select value={formData.industry} onValueChange={(value) => setFormData({...formData, industry: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your industry" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="dental">Dental</SelectItem>
-                  <SelectItem value="fitness">Fitness</SelectItem>
-                  <SelectItem value="chiropractic">Chiropractic</SelectItem>
-                  <SelectItem value="medical">Medical</SelectItem>
-                  <SelectItem value="beauty">Beauty & Wellness</SelectItem>
-                  <SelectItem value="restaurant">Restaurant</SelectItem>
-                  <SelectItem value="automotive">Automotive</SelectItem>
-                  <SelectItem value="legal">Legal</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="address">Business Address</Label>
-            <Textarea
-              id="address"
-              value={formData.address}
-              onChange={(e) => setFormData({...formData, address: e.target.value})}
-              placeholder="123 Main Street, City, State, ZIP"
-              rows={2}
-            />
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">Review Platform URLs (Optional)</h3>
-            <p className="text-sm text-gray-600">Add these later in Settings if you don't have them ready</p>
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Business Information Section */}
+          <div className="bg-slate-50 rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                <span className="text-blue-600 text-sm font-bold">1</span>
+              </div>
+              Business Information
+            </h2>
             
-            <div className="space-y-2">
-              <Label htmlFor="google_review_url">Google Reviews URL</Label>
-              <Input
-                id="google_review_url"
-                value={formData.google_review_url}
-                onChange={(e) => setFormData({...formData, google_review_url: e.target.value})}
-                placeholder="https://www.google.com/maps/place/..."
-              />
-              <p className="text-xs text-gray-500">Your Google Maps business page URL</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-sm font-medium text-slate-700">
+                  Business Name *
+                </Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  placeholder="e.g., ABC Plumbing Services"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="industry" className="text-sm font-medium text-slate-700">
+                  Industry *
+                </Label>
+                <Select value={formData.industry} onValueChange={(value) => setFormData({...formData, industry: value})}>
+                  <SelectTrigger className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                    <SelectValue placeholder="Select your industry" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="home-services">Home Services (Plumbing, HVAC, etc.)</SelectItem>
+                    <SelectItem value="healthcare">Healthcare & Medical</SelectItem>
+                    <SelectItem value="restaurant">Restaurant & Food Service</SelectItem>
+                    <SelectItem value="retail">Retail & E-commerce</SelectItem>
+                    <SelectItem value="professional-services">Professional Services</SelectItem>
+                    <SelectItem value="automotive">Automotive Services</SelectItem>
+                    <SelectItem value="beauty-wellness">Beauty & Wellness</SelectItem>
+                    <SelectItem value="real-estate">Real Estate</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="yelp_review_url">Yelp Business URL</Label>
-              <Input
-                id="yelp_review_url"
-                value={formData.yelp_review_url}
-                onChange={(e) => setFormData({...formData, yelp_review_url: e.target.value})}
-                placeholder="https://www.yelp.com/biz/your-business-name"
+            <div className="mt-6 space-y-2">
+              <Label htmlFor="description" className="text-sm font-medium text-slate-700">
+                Business Description
+              </Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                placeholder="Briefly describe what your business does..."
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 min-h-[80px]"
+                rows={3}
               />
-              <p className="text-xs text-gray-500">Your Yelp business page URL</p>
             </div>
           </div>
 
-          {/* Logo Upload section removed */}
-          {/* Review Timing section removed */}
-          {/* Email Template section removed */}
+          {/* Contact Information Section */}
+          <div className="bg-slate-50 rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                <span className="text-blue-600 text-sm font-bold">2</span>
+              </div>
+              Contact Information
+            </h2>
+            
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="address" className="text-sm font-medium text-slate-700">
+                  Business Address
+                </Label>
+                <Textarea
+                  id="address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({...formData, address: e.target.value})}
+                  placeholder="123 Main St, City, State 12345"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  rows={2}
+                />
+              </div>
 
-          <Button
-            type="submit"
-            disabled={isSaving} // Using isSaving
-            className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white py-3 text-lg font-semibold"
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="text-sm font-medium text-slate-700">
+                    Phone Number
+                  </Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    placeholder="(555) 123-4567"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-medium text-slate-700">
+                    Business Email *
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    placeholder="business@example.com"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="website" className="text-sm font-medium text-slate-700">
+                  Website
+                </Label>
+                <Input
+                  id="website"
+                  type="url"
+                  value={formData.website}
+                  onChange={(e) => setFormData({...formData, website: e.target.value})}
+                  placeholder="https://www.yourbusiness.com"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Review URLs Section */}
+          <div className="bg-slate-50 rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                <span className="text-blue-600 text-sm font-bold">3</span>
+              </div>
+              Review Platform URLs
+            </h2>
+            <p className="text-sm text-slate-600 mb-4">
+              Add your review page URLs to help customers leave reviews after service completion. You can add these later in Settings if you don't have them ready.
+            </p>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="google_review_url" className="text-sm font-medium text-slate-700">
+                  Google Review URL
+                </Label>
+                <Input
+                  id="google_review_url"
+                  type="url"
+                  value={formData.google_review_url}
+                  onChange={(e) => setFormData({...formData, google_review_url: e.target.value})}
+                  placeholder="https://g.page/r/your-business/review"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                />
+                <p className="text-xs text-slate-500">
+                  Find this by searching your business on Google and clicking "Write a review"
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="yelp_review_url" className="text-sm font-medium text-slate-700">
+                  Yelp Review URL
+                </Label>
+                <Input
+                  id="yelp_review_url"
+                  type="url"
+                  value={formData.yelp_review_url}
+                  onChange={(e) => setFormData({...formData, yelp_review_url: e.target.value})}
+                  placeholder="https://www.yelp.com/biz/your-business"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                />
+                <p className="text-xs text-slate-500">
+                  Find this by searching your business on Yelp and copying the business page URL
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="flex justify-center pt-4"
           >
-            {isSaving ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Setting up your business...
-              </>
-            ) : (
-              <>
-                <Building2 className="w-5 h-5 mr-2" />
-                Complete Setup
-              </>
-            )}
-          </Button>
+            <Button
+              type="submit"
+              disabled={isSaving}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-12 py-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-lg"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Setting up your business...
+                </>
+              ) : (
+                "Complete Setup & Go to Dashboard"
+              )}
+            </Button>
+          </motion.div>
         </form>
       </motion.div>
     </div>

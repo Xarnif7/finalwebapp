@@ -45,3 +45,8 @@ WHERE profiles.business_id = profiles.id;
 UPDATE businesses 
 SET zapier_token = 'blipp_' || encode(gen_random_bytes(16), 'hex')
 WHERE zapier_token IS NULL;
+
+-- Add new columns to businesses table if they don't exist
+ALTER TABLE businesses 
+ADD COLUMN IF NOT EXISTS website TEXT,
+ADD COLUMN IF NOT EXISTS description TEXT;
