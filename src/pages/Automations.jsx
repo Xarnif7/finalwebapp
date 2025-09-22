@@ -78,12 +78,43 @@ const AutomatedRequestsPage = () => {
       
       if (response.ok) {
         const data = await response.json();
-        setTemplates(data.templates || []);
+        const templates = data.templates || [];
+        
+        // If no templates exist, auto-provision defaults
+        if (templates.length === 0) {
+          console.log('No templates found, provisioning defaults...');
+          await provisionDefaultTemplates();
+        } else {
+          setTemplates(templates);
+        }
       }
     } catch (error) {
       console.error('Error loading templates:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const provisionDefaultTemplates = async () => {
+    try {
+      const response = await fetch('/api/templates/provision-defaults', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user?.access_token}`
+        },
+        body: JSON.stringify({
+          business_id: business.id
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTemplates(data.templates || []);
+        console.log('Default templates provisioned successfully');
+      }
+    } catch (error) {
+      console.error('Error provisioning default templates:', error);
     }
   };
 
