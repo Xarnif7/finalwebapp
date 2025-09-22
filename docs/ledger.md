@@ -36,3 +36,26 @@
 - Test complete automation flow with email-based persistence
 - Verify customer data survives subscription expiration/renewal
 - Test multi-tenant functionality with different business owners
+
+## 2025-01-21: Fix Business Creation RLS Policy Violation
+
+### What Changed
+- **CRITICAL FIX**: Fixed business creation logic to use email-based ownership
+- Updated `Onboarding.jsx` to use `user.email` for `created_by` field instead of `user.id`
+- Updated `tenancy.ts` business creation to include `created_by: user.email`
+- Resolved RLS policy violation that was preventing new business creation
+
+### Why This Was Needed
+- New users were getting "Business Access Error" when trying to access the dashboard
+- Business creation was failing due to RLS policy requiring `created_by` field
+- The tenancy logic was trying to create businesses without proper ownership
+- Email-based ownership ensures consistent data persistence
+
+### Files Touched
+- `src/pages/Onboarding.jsx` - Fixed business creation to use email
+- `src/lib/tenancy.ts` - Fixed automatic business creation for new users
+
+### How Verified
+- Deployed fixes to production
+- New users should now be able to create businesses successfully
+- Email-based ownership maintains data consistency across subscription changes

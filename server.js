@@ -2367,14 +2367,41 @@ app.get('/api/automation/kpis/:business_id', async (req, res) => {
 
     const totalRecipients = customers?.length || 0;
 
+    // Get customers in sequences (customers who have been processed by automations)
+    const { data: customersInSequences, error: customersInSeqError } = await supabase
+      .from('automation_logs')
+      .select('customer_id')
+      .eq('business_id', business_id)
+      .gte('created_at', sevenDaysAgoIso)
+      .not('customer_id', 'is', null);
+
+    if (customersInSeqError) {
+      console.error('[API] Error fetching customers in sequences:', customersInSeqError);
+    }
+
+    // Calculate conversion rate (placeholder - would need review data to calculate actual conversion)
+    const conversionRate7d = 0; // TODO: Calculate actual conversion rate from reviews
+
     const kpis = {
+      // Frontend expects these field names
+      activeSequences: activeSequencesCount,
+      sendSuccessRate: sendSuccessRate,
+      failureRate: failureRate,
+      totalRecipients: totalRecipients,
+      totalSends: messagesSent,
+      successfulSends: messagesSent,
+      failedSends: failedLogs.length,
+      customersInSequences: customersInSequences?.length || 0,
+      conversionRate7d: conversionRate7d,
+      hasData: totalAttempts > 0,
+      
+      // Keep original field names for backward compatibility
       active_sequences_count: activeSequencesCount,
       send_success_pct: sendSuccessRate,
       failure_rate_pct: failureRate,
       messages_sent: messagesSent,
       messages_skipped: messagesSkipped,
-      total_recipients: totalRecipients,
-      hasData: totalAttempts > 0
+      total_recipients: totalRecipients
     };
 
     return res.status(200).json({

@@ -24,15 +24,15 @@ CREATE INDEX IF NOT EXISTS idx_automation_sequences_key ON automation_sequences(
 -- Enable RLS
 ALTER TABLE automation_sequences ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies
+-- Create RLS policies (updated for email-based created_by)
 CREATE POLICY "Users can view their automation sequences" ON automation_sequences
-FOR SELECT USING (business_id IN (SELECT id FROM businesses WHERE created_by = auth.uid()));
+FOR SELECT USING (business_id IN (SELECT id FROM businesses WHERE created_by = auth.jwt() ->> 'email'));
 
 CREATE POLICY "Users can insert their automation sequences" ON automation_sequences
-FOR INSERT WITH CHECK (business_id IN (SELECT id FROM businesses WHERE created_by = auth.uid()));
+FOR INSERT WITH CHECK (business_id IN (SELECT id FROM businesses WHERE created_by = auth.jwt() ->> 'email'));
 
 CREATE POLICY "Users can update their automation sequences" ON automation_sequences
-FOR UPDATE USING (business_id IN (SELECT id FROM businesses WHERE created_by = auth.uid()));
+FOR UPDATE USING (business_id IN (SELECT id FROM businesses WHERE created_by = auth.jwt() ->> 'email'));
 
 CREATE POLICY "Users can delete their automation sequences" ON automation_sequences
-FOR DELETE USING (business_id IN (SELECT id FROM businesses WHERE created_by = auth.uid()));
+FOR DELETE USING (business_id IN (SELECT id FROM businesses WHERE created_by = auth.jwt() ->> 'email'));
