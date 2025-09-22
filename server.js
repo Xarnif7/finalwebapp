@@ -2303,10 +2303,16 @@ app.get('/api/sequences/active/:business_id', async (req, res) => {
 // API endpoint to fetch automation logs
 app.get('/api/automation-logs', async (req, res) => {
   try {
-    // Get business ID from user session
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization header required' });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'Invalid token' });
     }
 
     // Find business by user email
@@ -2380,10 +2386,16 @@ app.get('/api/automation-logs', async (req, res) => {
 // API endpoint to create custom automation sequences
 app.post('/api/sequences', async (req, res) => {
   try {
-    // Get business ID from user session
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization header required' });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'Invalid token' });
     }
 
     // Find business by user email
@@ -2461,10 +2473,16 @@ app.post('/api/sequences/:sequenceId/pause', async (req, res) => {
   try {
     const { sequenceId } = req.params;
 
-    // Get business ID from user session
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization header required' });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'Invalid token' });
     }
 
     // Find business by user email
@@ -2511,10 +2529,16 @@ app.post('/api/sequences/:sequenceId/resume', async (req, res) => {
   try {
     const { sequenceId } = req.params;
 
-    // Get business ID from user session
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization header required' });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'Invalid token' });
     }
 
     // Find business by user email
@@ -2561,10 +2585,16 @@ app.post('/api/sequences/:sequenceId/duplicate', async (req, res) => {
   try {
     const { sequenceId } = req.params;
 
-    // Get business ID from user session
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization header required' });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'Invalid token' });
     }
 
     // Find business by user email
@@ -2631,10 +2661,16 @@ app.post('/api/sequences/:sequenceId/archive', async (req, res) => {
   try {
     const { sequenceId } = req.params;
 
-    // Get business ID from user session
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization header required' });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'Invalid token' });
     }
 
     // Find business by user email
