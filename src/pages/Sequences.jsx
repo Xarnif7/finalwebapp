@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Repeat, CheckCircle, Clock, ArrowRight, MessageSquare, Mail, Edit, Trash2, Users } from "lucide-react";
+import { Plus, Repeat, CheckCircle, Clock, ArrowRight, MessageSquare, Mail, Edit, Trash2, Users, GripVertical } from "lucide-react";
 import { motion } from "framer-motion";
 import PageHeader from "@/components/ui/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
@@ -170,6 +170,14 @@ export default function SequencesPage() {
     }));
   };
 
+  const getChannelIcon = (channel) => {
+    return channel === 'sms' ? <MessageSquare className="w-4 h-4" /> : <Mail className="w-4 h-4" />;
+  };
+
+  const getChannelColor = (channel) => {
+    return channel === 'sms' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700';
+  };
+
   if (loading) {
     return (
       <div className="p-8 space-y-6">
@@ -191,7 +199,7 @@ export default function SequencesPage() {
     <div className="p-8 space-y-6">
       <PageHeader 
         title="Automation Sequences"
-        subtitle="Create and manage multi-step follow-up campaigns."
+        subtitle="Create and manage multi-step follow-up campaigns with visual flow control."
       />
 
       <div className="flex justify-end">
@@ -220,11 +228,11 @@ export default function SequencesPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
             >
-              <Card className="rounded-2xl h-full flex flex-col">
+              <Card className="rounded-2xl h-full flex flex-col hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle>{sequence.name}</CardTitle>
+                      <CardTitle className="text-lg">{sequence.name}</CardTitle>
                       <p className="text-sm text-slate-500 mt-1">{sequence.description || 'Automated follow-up sequence'}</p>
                     </div>
                     <Switch 
@@ -234,22 +242,42 @@ export default function SequencesPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1">
-                  <div className="flex items-center gap-2 mt-4 flex-wrap">
-                    {sequence.channels.map((channel, index) => (
-                      <React.Fragment key={index}>
-                        {index > 0 && <ArrowRight className="w-4 h-4 text-slate-400" />}
-                        <div className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1 text-xs font-medium text-slate-700">
-                          {channel === 'sms' ? <MessageSquare className="w-3 h-3"/> : <Mail className="w-3 h-3"/>}
-                          <span>{channel === 'sms' ? 'SMS' : 'Email'} {sequence.trigger_type === 'event' ? 'on trigger' : 'scheduled'}</span>
-                        </div>
-                      </React.Fragment>
-                    ))}
+                  {/* Visual Flow with Icons */}
+                  <div className="space-y-3">
+                    <div className="text-sm font-medium text-slate-600">Sequence Flow:</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {sequence.channels.map((channel, index) => (
+                        <React.Fragment key={index}>
+                          {index > 0 && <ArrowRight className="w-4 h-4 text-slate-400" />}
+                          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${getChannelColor(channel)}`}>
+                            {getChannelIcon(channel)}
+                            <span className="text-sm font-medium">
+                              {channel === 'sms' ? 'SMS' : 'Email'}
+                            </span>
+                            {index > 0 && (
+                              <span className="text-xs opacity-75">
+                                +{sequence.config_json?.delay_hours || 24}h
+                              </span>
+                            )}
+                          </div>
+                        </React.Fragment>
+                      ))}
+                    </div>
                   </div>
                   
+                  {/* Message Preview */}
                   <div className="mt-4 p-3 bg-slate-50 rounded-lg">
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-slate-600 line-clamp-2">
                       {sequence.config_json?.message || 'Default automation message'}
                     </p>
+                  </div>
+
+                  {/* Trigger Type */}
+                  <div className="mt-3 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-slate-400" />
+                    <Badge variant="secondary" className="text-xs">
+                      {sequence.trigger_type === 'event' ? 'Event-triggered' : 'Scheduled'}
+                    </Badge>
                   </div>
                 </CardContent>
                 <div className="p-6 pt-0 mt-4 flex justify-between items-center border-t border-slate-100">
@@ -260,8 +288,8 @@ export default function SequencesPage() {
                       </Badge>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-slate-400" />
-                      <span className="text-slate-500">{sequence.trigger_type}</span>
+                      <Users className="w-4 h-4 text-slate-400" />
+                      <span className="text-slate-500">{sequence.channels.length} channels</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
@@ -362,6 +390,83 @@ export default function SequencesPage() {
                   <MessageSquare className="w-4 h-4" />
                   SMS (Coming Soon)
                 </label>
+              </div>
+            </div>
+
+            {/* Sequence Steps */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-base font-semibold">Sequence Steps</Label>
+                <Button onClick={addStep} size="sm" variant="outline">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Step
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                {formData.steps.map((step, index) => (
+                  <div key={index} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <GripVertical className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm font-medium text-slate-600">Step {index + 1}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeStep(index)}
+                        className="text-red-500 hover:text-red-700 ml-auto"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-2">
+                      <div>
+                        <Label>Channel</Label>
+                        <Select 
+                          value={step.channel} 
+                          onValueChange={(value) => updateStep(index, 'channel', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="email">
+                              <div className="flex items-center gap-2">
+                                <Mail className="w-4 h-4" />
+                                Email
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="sms">
+                              <div className="flex items-center gap-2">
+                                <MessageSquare className="w-4 h-4" />
+                                SMS
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label>Delay (days)</Label>
+                        <Input
+                          type="number"
+                          value={step.delay_days}
+                          onChange={(e) => updateStep(index, 'delay_days', parseInt(e.target.value) || 0)}
+                          min="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Message Template</Label>
+                      <Input
+                        value={step.template}
+                        onChange={(e) => updateStep(index, 'template', e.target.value)}
+                        placeholder="Custom message for this step..."
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

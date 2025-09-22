@@ -96,13 +96,30 @@ async function handlePatch(req, res, businessId, templateId) {
       return res.status(404).json({ error: 'Template not found' });
     }
 
-    // Update the template
+    // Update the template with enhanced data structure
+    const updatePayload = {
+      ...updateData,
+      updated_at: new Date().toISOString()
+    };
+
+    // If config_json is being updated, ensure it has the right structure
+    if (updateData.config_json && updateData.config_json.steps) {
+      // Calculate delay_hours from the first non-zero delay step
+      const delayStep = updateData.config_json.steps.find(step => step.delay > 0);
+      if (delayStep) {
+        let delayHours = delayStep.delay;
+        if (delayStep.delayUnit === 'days') {
+          delayHours = delayStep.delay * 24;
+        } else if (delayStep.delayUnit === 'minutes') {
+          delayHours = delayStep.delay / 60;
+        }
+        updatePayload.config_json.delay_hours = delayHours;
+      }
+    }
+
     const { data: updatedTemplate, error: updateError } = await supabase
       .from('automation_templates')
-      .update({
-        ...updateData,
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', templateId)
       .select()
       .single();

@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -17,8 +18,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Switch } from "@/components/ui/switch";
-import { Send, CheckCircle, Clock, Play, Pause, Settings, Mail, MessageSquare } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Send, CheckCircle, Clock, Play, Pause, Settings, Mail, MessageSquare, ArrowRight, Plus, Trash2, GripVertical } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { useBusiness } from "@/hooks/useBusiness";
@@ -31,6 +35,13 @@ const AutomatedRequestsPage = () => {
   const [showEmailSaved, setShowEmailSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState({});
+  const [customizeModalOpen, setCustomizeModalOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [customizationData, setCustomizationData] = useState({
+    name: '',
+    description: '',
+    steps: []
+  });
 
   // Load templates on component mount
   useEffect(() => {
@@ -169,12 +180,100 @@ const AutomatedRequestsPage = () => {
     }
   };
 
+  const openCustomizeModal = (template) => {
+    setSelectedTemplate(template);
+    setCustomizationData({
+      name: template.name,
+      description: template.config_json?.message || '',
+      steps: template.channels.map((channel, index) => ({
+        id: index,
+        channel: channel,
+        delay: index === 0 ? 0 : (template.config_json?.delay_hours || 24),
+        delayUnit: 'hours',
+        message: template.config_json?.message || ''
+      }))
+    });
+    setCustomizeModalOpen(true);
+  };
+
+  const addStep = () => {
+    setCustomizationData(prev => ({
+      ...prev,
+      steps: [...prev.steps, {
+        id: Date.now(),
+        channel: 'email',
+        delay: 24,
+        delayUnit: 'hours',
+        message: 'Thank you for your business!'
+      }]
+    }));
+  };
+
+  const removeStep = (stepId) => {
+    setCustomizationData(prev => ({
+      ...prev,
+      steps: prev.steps.filter(step => step.id !== stepId)
+    }));
+  };
+
+  const updateStep = (stepId, field, value) => {
+    setCustomizationData(prev => ({
+      ...prev,
+      steps: prev.steps.map(step => 
+        step.id === stepId ? { ...step, [field]: value } : step
+      )
+    }));
+  };
+
+  const saveCustomization = async () => {
+    try {
+      const channels = customizationData.steps.map(step => step.channel);
+      const configJson = {
+        message: customizationData.description,
+        delay_hours: customizationData.steps.length > 1 ? customizationData.steps[1].delay : 24,
+        steps: customizationData.steps
+      };
+
+      const response = await fetch(`/api/templates/${business.id}/${selectedTemplate.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user?.access_token}`
+        },
+        body: JSON.stringify({
+          name: customizationData.name,
+          channels: channels,
+          config_json: configJson
+        })
+      });
+
+      if (response.ok) {
+        await loadTemplates();
+        setCustomizeModalOpen(false);
+        setSelectedTemplate(null);
+      } else {
+        alert('Error saving customization');
+      }
+    } catch (error) {
+      console.error('Error saving customization:', error);
+      alert('Error saving customization');
+    }
+  };
+
+  const getChannelIcon = (channel) => {
+    return channel === 'sms' ? <MessageSquare className="w-4 h-4" /> : <Mail className="w-4 h-4" />;
+  };
+
+  const getChannelColor = (channel) => {
+    return channel === 'sms' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700';
+  };
+
   if (loading) {
     return (
       <div className="p-8 space-y-6">
         <PageHeader
           title="Automated Requests"
-          subtitle="Manage templates and send manual requests to customers."
+          subtitle="Manage automation templates and trigger sequences for your customers."
         />
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
@@ -201,7 +300,7 @@ const AutomatedRequestsPage = () => {
             Automation Templates
           </CardTitle>
           <CardDescription>
-            Pre-built automation sequences that trigger based on customer events. Toggle them on/off and test them.
+            Pre-built automation sequences that trigger based on customer events. Customize them to fit your business needs.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -215,11 +314,11 @@ const AutomatedRequestsPage = () => {
               </Button>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {templates.map((template) => (
-                <div key={template.id} className="border rounded-lg p-4 space-y-3">
+                <div key={template.id} className="border rounded-xl p-6 space-y-4 hover:shadow-lg transition-shadow">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">{template.name}</h4>
+                    <h4 className="font-semibold text-lg">{template.name}</h4>
                     <Switch 
                       checked={template.status === 'active'} 
                       onCheckedChange={() => toggleTemplateStatus(template)}
@@ -227,23 +326,47 @@ const AutomatedRequestsPage = () => {
                     />
                   </div>
                   
-                  <p className="text-sm text-slate-600">
+                  {/* Visual Flow */}
+                  <div className="space-y-3">
+                    <div className="text-sm font-medium text-slate-600">Sequence Flow:</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {template.channels.map((channel, index) => (
+                        <React.Fragment key={index}>
+                          {index > 0 && <ArrowRight className="w-4 h-4 text-slate-400" />}
+                          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${getChannelColor(channel)}`}>
+                            {getChannelIcon(channel)}
+                            <span className="text-sm font-medium">
+                              {channel === 'sms' ? 'SMS' : 'Email'}
+                            </span>
+                          </div>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <p className="text-sm text-slate-600 line-clamp-2">
                     {template.config_json?.message || 'No message configured'}
                   </p>
                   
                   <div className="flex items-center gap-2 flex-wrap">
-                    {template.channels.map((channel) => (
-                      <Badge key={channel} variant="outline" className="text-xs">
-                        {channel === 'sms' ? <MessageSquare className="w-3 h-3 mr-1" /> : <Mail className="w-3 h-3 mr-1" />}
-                        {channel === 'sms' ? 'SMS' : 'Email'}
-                      </Badge>
-                    ))}
                     <Badge variant="secondary" className="text-xs">
                       {template.trigger_type}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {template.config_json?.delay_hours || 24}h delay
                     </Badge>
                   </div>
                   
                   <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => openCustomizeModal(template)}
+                      className="flex-1"
+                    >
+                      <Settings className="w-3 h-3 mr-1" />
+                      Customize
+                    </Button>
                     <Button 
                       size="sm" 
                       variant="outline"
@@ -252,13 +375,6 @@ const AutomatedRequestsPage = () => {
                     >
                       <Play className="w-3 h-3 mr-1" />
                       Test
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      onClick={() => window.location.href = '/sequences'}
-                    >
-                      <Settings className="w-3 h-3" />
                     </Button>
                   </div>
                 </div>
@@ -320,6 +436,149 @@ const AutomatedRequestsPage = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Customize Sequence Modal */}
+      <Dialog open={customizeModalOpen} onOpenChange={setCustomizeModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Customize Sequence: {customizationData.name}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Basic Info */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">Sequence Name</Label>
+                <Input
+                  id="name"
+                  value={customizationData.name}
+                  onChange={(e) => setCustomizationData(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Trigger Type</Label>
+                <Badge variant="outline" className="mt-2">
+                  {selectedTemplate?.trigger_type || 'Event-based'}
+                </Badge>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="description">Default Message</Label>
+              <Textarea
+                id="description"
+                value={customizationData.description}
+                onChange={(e) => setCustomizationData(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+                placeholder="Enter the default message for this sequence..."
+              />
+            </div>
+
+            {/* Sequence Steps */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <Label className="text-base font-semibold">Sequence Steps</Label>
+                <Button onClick={addStep} size="sm" variant="outline">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Step
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                {customizationData.steps.map((step, index) => (
+                  <div key={step.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <GripVertical className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm font-medium text-slate-600">Step {index + 1}</span>
+                      {index > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeStep(step.id)}
+                          className="text-red-500 hover:text-red-700 ml-auto"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-3">
+                      <div>
+                        <Label>Channel</Label>
+                        <Select 
+                          value={step.channel} 
+                          onValueChange={(value) => updateStep(step.id, 'channel', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="email">
+                              <div className="flex items-center gap-2">
+                                <Mail className="w-4 h-4" />
+                                Email
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="sms">
+                              <div className="flex items-center gap-2">
+                                <MessageSquare className="w-4 h-4" />
+                                SMS (Coming Soon)
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label>Delay</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            value={step.delay}
+                            onChange={(e) => updateStep(step.id, 'delay', parseInt(e.target.value) || 0)}
+                            min="0"
+                          />
+                          <Select 
+                            value={step.delayUnit} 
+                            onValueChange={(value) => updateStep(step.id, 'delayUnit', value)}
+                          >
+                            <SelectTrigger className="w-20">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="minutes">min</SelectItem>
+                              <SelectItem value="hours">hrs</SelectItem>
+                              <SelectItem value="days">days</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label>Message</Label>
+                        <Input
+                          value={step.message}
+                          onChange={(e) => updateStep(step.id, 'message', e.target.value)}
+                          placeholder="Custom message for this step..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustomizeModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveCustomization}>
+              Save Customization
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
