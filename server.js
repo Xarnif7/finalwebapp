@@ -2023,6 +2023,51 @@ app.put('/api/templates/:template_id/status', async (req, res) => {
     if (status === 'active') {
       console.log(`[API] Enabling template: ${template.name} (${template.trigger_type})`);
       
+      // Create automation sequence record for active templates
+      const { data: existingSequence, error: sequenceCheckError } = await supabase
+        .from('automation_sequences')
+        .select('id')
+        .eq('template_id', template_id)
+        .eq('business_id', template.business_id)
+        .single();
+
+      if (sequenceCheckError && sequenceCheckError.code !== 'PGRST116') {
+        console.error('[API] Error checking for existing sequence:', sequenceCheckError);
+      } else if (!existingSequence) {
+        // Create new automation sequence
+        const { data: newSequence, error: sequenceCreateError } = await supabase
+          .from('automation_sequences')
+          .insert({
+            template_id: template_id,
+            business_id: template.business_id,
+            key: template.key,
+            name: template.name,
+            status: 'active',
+            trigger_type: template.trigger_type,
+            config_json: template.config_json || {}
+          })
+          .select('id')
+          .single();
+
+        if (sequenceCreateError) {
+          console.error('[API] Error creating automation sequence:', sequenceCreateError);
+        } else {
+          console.log('[API] Created automation sequence:', newSequence.id);
+        }
+      } else {
+        // Update existing sequence to active
+        const { error: sequenceUpdateError } = await supabase
+          .from('automation_sequences')
+          .update({ status: 'active' })
+          .eq('id', existingSequence.id);
+
+        if (sequenceUpdateError) {
+          console.error('[API] Error updating automation sequence:', sequenceUpdateError);
+        } else {
+          console.log('[API] Updated automation sequence to active:', existingSequence.id);
+        }
+      }
+      
       // For date_based templates (service_reminder), create scheduled jobs for existing customers
       if (template.trigger_type === 'date_based') {
         console.log(`[API] Creating scheduled jobs for date_based template: ${template.name}`);
@@ -2108,6 +2153,20 @@ app.put('/api/templates/:template_id/status', async (req, res) => {
       }
     } else if (status === 'paused') {
       console.log(`[API] Pausing template: ${template.name}`);
+      
+      // Update automation sequence to paused
+      const { error: sequencePauseError } = await supabase
+        .from('automation_sequences')
+        .update({ status: 'paused' })
+        .eq('template_id', template_id)
+        .eq('business_id', template.business_id);
+
+      if (sequencePauseError) {
+        console.error('[API] Error pausing automation sequence:', sequencePauseError);
+      } else {
+        console.log('[API] Paused automation sequence for template:', template.name);
+      }
+      
       // Existing pending jobs remain but will be skipped by the worker with "paused" reason
       console.log(`[API] Existing pending jobs for template ${template.name} will be skipped by worker`);
     }
