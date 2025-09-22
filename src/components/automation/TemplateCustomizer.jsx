@@ -162,13 +162,20 @@ export default function TemplateCustomizer({
       
       console.log('🤖 AI Generation Request:', requestBody);
       
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       const response = await fetch('/api/ai/generate-message', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = await response.json();
@@ -194,9 +201,13 @@ export default function TemplateCustomizer({
       }
     } catch (error) {
       console.error('AI generation error:', error);
-      alert('AI generation failed. Please try again.');
-    } finally {
+      if (error.name === 'AbortError') {
+        alert('AI generation timed out. Please try again.');
+      } else {
+        alert('AI generation failed. Please try again.');
+      }
       setAiGenerating(false);
+      setAiEnhancing(false);
     }
   };
 
@@ -208,6 +219,10 @@ export default function TemplateCustomizer({
       // Use a fallback business ID if none is available
       const effectiveBusinessId = businessId || 'demo-business-id';
       
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       const response = await fetch('/api/ai/enhance-message', {
         method: 'POST',
         headers: {
@@ -218,8 +233,11 @@ export default function TemplateCustomizer({
           template_name: template?.name,
           template_type: template?.key,
           business_id: effectiveBusinessId
-        })
+        }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = await response.json();
@@ -245,8 +263,12 @@ export default function TemplateCustomizer({
       }
     } catch (error) {
       console.error('AI enhancement error:', error);
-      alert('AI enhancement failed. Please try again.');
-    } finally {
+      if (error.name === 'AbortError') {
+        alert('AI enhancement timed out. Please try again.');
+      } else {
+        alert('AI enhancement failed. Please try again.');
+      }
+      setAiGenerating(false);
       setAiEnhancing(false);
     }
   };
@@ -508,14 +530,8 @@ export default function TemplateCustomizer({
               <Label htmlFor="message">Email/SMS Message</Label>
               <Textarea
                 id="message"
-                value={formData.config_json.message}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  config_json: {
-                    ...prev.config_json,
-                    message: e.target.value
-                  }
-                }))}
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
                 placeholder="Enter your message content. Use {{customer.name}} for personalization."
                 rows={4}
               />
@@ -523,6 +539,90 @@ export default function TemplateCustomizer({
                 Available variables: {'{{customer.name}}'}, {'{{business.name}}'}, {'{{service_type}}'}
               </p>
             </div>
+            
+            {/* Message Customization Dropdown */}
+            <Collapsible open={messageDropdownOpen} onOpenChange={setMessageDropdownOpen}>
+              <CollapsibleTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-between"
+                  type="button"
+                >
+                  <span className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" />
+                    Customize Message Content
+                  </span>
+                  {messageDropdownOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </Button>
+              </CollapsibleTrigger>
+              
+              <CollapsibleContent className="space-y-4 mt-4">
+                {/* Variable Insertion Buttons */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Insert Variables</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { key: '{{customer.name}}', label: 'Customer Name', icon: User },
+                      { key: '{{review_link}}', label: 'Review Link', icon: Link },
+                      { key: '{{business.name}}', label: 'Business Name', icon: Building },
+                      { key: '{{service_date}}', label: 'Service Date', icon: Calendar },
+                      { key: '{{amount}}', label: 'Amount', icon: Star }
+                    ].map((variable) => (
+                      <Button
+                        key={variable.key}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => insertVariable(variable.key)}
+                        className="flex items-center gap-2"
+                      >
+                        <variable.icon className="w-3 h-3" />
+                        {variable.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* AI Actions */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">AI Assistance</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={generateWithAI}
+                      disabled={aiGenerating || aiEnhancing}
+                      className="flex items-center gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      {aiGenerating ? 'Generating...' : 'Generate with AI'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={enhanceMessage}
+                      disabled={aiGenerating || aiEnhancing || !customMessage.trim()}
+                      className="flex items-center gap-2"
+                    >
+                      <Wand2 className="w-4 h-4" />
+                      {aiEnhancing ? 'Enhancing...' : 'Enhance Message'}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Live Preview */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    <Eye className="w-4 h-4" />
+                    Live Preview
+                  </Label>
+                  <div className="p-3 bg-gray-50 border rounded-lg">
+                    <div className="text-sm whitespace-pre-wrap">
+                      {messagePreview || customMessage || 'Enter a message to see preview...'}
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
 
           {/* Visual Preview */}
@@ -566,139 +666,6 @@ export default function TemplateCustomizer({
             </div>
           </div>
 
-          {/* Message Customization */}
-          <Collapsible open={messageDropdownOpen} onOpenChange={setMessageDropdownOpen}>
-            <CollapsibleTrigger asChild>
-              <Button 
-                variant="outline" 
-                className="w-full justify-between"
-                type="button"
-              >
-                <span className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />
-                  Customize Message Content
-                </span>
-                {messageDropdownOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </Button>
-            </CollapsibleTrigger>
-            
-            <CollapsibleContent className="space-y-4 pt-4">
-              {/* Variable Buttons */}
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Available Variables</Label>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => insertVariable('{{customer.name}}')}
-                    className="text-xs"
-                  >
-                    <User className="w-3 h-3 mr-1" />
-                    Customer Name
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => insertVariable('{{review_link}}')}
-                    className="text-xs"
-                  >
-                    <Link className="w-3 h-3 mr-1" />
-                    Review Link
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => insertVariable('{{business.name}}')}
-                    className="text-xs"
-                  >
-                    <Building className="w-3 h-3 mr-1" />
-                    Business Name
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => insertVariable('{{service_date}}')}
-                    className="text-xs"
-                  >
-                    <Calendar className="w-3 h-3 mr-1" />
-                    Service Date
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => insertVariable('{{amount}}')}
-                    className="text-xs"
-                  >
-                    <Star className="w-3 h-3 mr-1" />
-                    Amount
-                  </Button>
-                </div>
-              </div>
-
-              {/* Message Editor */}
-              <div>
-                <Label htmlFor="customMessage" className="text-sm font-medium mb-2 block">
-                  Custom Message
-                </Label>
-                <Textarea
-                  ref={textareaRef}
-                  id="customMessage"
-                  value={customMessage}
-                  onChange={(e) => {
-                    setCustomMessage(e.target.value);
-                    setFormData(prev => ({
-                      ...prev,
-                      config_json: { ...prev.config_json, message: e.target.value }
-                    }));
-                    generatePreview(e.target.value);
-                  }}
-                  placeholder="Type your message here or use variables above..."
-                  rows={4}
-                  className="font-mono text-sm"
-                />
-              </div>
-
-              {/* AI Actions */}
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  onClick={generateWithAI}
-                  disabled={aiGenerating}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  {aiGenerating ? 'Generating...' : 'Generate with AI'}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={enhanceMessage}
-                  disabled={aiEnhancing || !customMessage.trim()}
-                  variant="outline"
-                >
-                  <Wand2 className="w-4 h-4 mr-2" />
-                  {aiEnhancing ? 'Enhancing...' : 'Enhance Message'}
-                </Button>
-              </div>
-
-              {/* Live Preview */}
-              <div>
-                <Label className="text-sm font-medium mb-2 block flex items-center gap-2">
-                  <Eye className="w-4 h-4" />
-                  Live Preview
-                </Label>
-                <div className="p-3 bg-gray-50 border rounded-lg">
-                  <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {messagePreview || 'Preview will appear here...'}
-                  </div>
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t">
