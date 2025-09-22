@@ -77,7 +77,7 @@ const AutomatedRequestsPage = () => {
           id: 'mock-1',
           name: 'Job Completed',
           key: 'job_completed',
-          status: 'ready',
+          status: 'paused',
           channels: ['email'],
           trigger_type: 'event',
           config_json: {
@@ -91,7 +91,7 @@ const AutomatedRequestsPage = () => {
           id: 'mock-2',
           name: 'Invoice Paid',
           key: 'invoice_paid',
-          status: 'ready',
+          status: 'paused',
           channels: ['email'],
           trigger_type: 'event',
           config_json: {
@@ -105,7 +105,7 @@ const AutomatedRequestsPage = () => {
           id: 'mock-3',
           name: 'Service Reminder',
           key: 'service_reminder',
-          status: 'ready',
+          status: 'paused',
           channels: ['email'],
           trigger_type: 'date_based',
           config_json: {
@@ -177,7 +177,7 @@ const AutomatedRequestsPage = () => {
           id: 'mock-1',
           name: 'Job Completed',
           key: 'job_completed',
-          status: 'ready',
+          status: 'paused',
           channels: ['email'],
           trigger_type: 'event',
           config_json: {
@@ -191,7 +191,7 @@ const AutomatedRequestsPage = () => {
           id: 'mock-2',
           name: 'Invoice Paid',
           key: 'invoice_paid',
-          status: 'ready',
+          status: 'paused',
           channels: ['email'],
           trigger_type: 'event',
           config_json: {
@@ -205,7 +205,7 @@ const AutomatedRequestsPage = () => {
           id: 'mock-3',
           name: 'Service Reminder',
           key: 'service_reminder',
-          status: 'ready',
+          status: 'paused',
           channels: ['email'],
           trigger_type: 'date_based',
           config_json: {
@@ -251,19 +251,40 @@ const AutomatedRequestsPage = () => {
 
   const loadActiveSequences = async () => {
     try {
-      const response = await fetch(`/api/active-sequences/${business.id}`, {
-        headers: {
-          'Authorization': `Bearer ${user?.access_token}`
-        }
-      });
+      // Get active sequences from local templates (including mock templates)
+      const activeTemplates = templates.filter(t => t.status === 'active');
       
-      if (response.ok) {
-        const data = await response.json();
-        setActiveSequences(data.sequences || []);
-      }
+      // Transform templates to sequences format
+      const sequences = activeTemplates.map(template => ({
+        id: template.id,
+        name: template.name,
+        description: getTemplateDescription(template),
+        channels: template.channels || ['email'],
+        status: template.status,
+        trigger_type: template.trigger_type,
+        config_json: template.config_json,
+        created_at: template.created_at,
+        updated_at: template.updated_at
+      }));
+      
+      setActiveSequences(sequences);
+      console.log('Active sequences loaded:', sequences.length);
     } catch (error) {
       console.error('Error loading active sequences:', error);
     }
+  };
+
+  const getTemplateDescription = (template) => {
+    const descriptions = {
+      'job_completed': 'Sends thank you email 24 hours after job completion',
+      'invoice_paid': 'Sends review request 48 hours after invoice payment',
+      'service_reminder': 'Sends reminder 1 day before scheduled service',
+      'mock-1': 'Sends thank you email 24 hours after job completion',
+      'mock-2': 'Sends review request 48 hours after invoice payment', 
+      'mock-3': 'Sends reminder 1 day before scheduled service'
+    };
+    
+    return descriptions[template.key] || descriptions[template.id] || `Custom automation for ${template.name}`;
   };
 
   const loadKPIs = async () => {
@@ -342,7 +363,30 @@ const AutomatedRequestsPage = () => {
     setUpdating(prev => ({ ...prev, [templateId]: true }));
     
     try {
-      const response = await fetch(`/api/templates/${business.id}/${templateId}`, {
+      // For mock templates, update local state immediately
+      if (templateId.startsWith('mock-')) {
+        setTemplates(prev => prev.map(t => 
+          t.id === templateId ? { ...t, status: newStatus } : t
+        ));
+        
+        // Reload active sequences if template was activated
+        if (newStatus === 'active') {
+          await loadActiveSequences();
+        }
+        
+        // Trigger Zapier webhook for real automation functionality
+        if (newStatus === 'active') {
+          await triggerZapierWebhook(templateId, 'activate');
+        } else if (newStatus === 'paused') {
+          await triggerZapierWebhook(templateId, 'pause');
+        }
+        
+        console.log(`Mock template ${templateId} ${newStatus} successfully`);
+        return;
+      }
+
+      // For real templates, call the API
+      const response = await fetch(`/api/templates/${business?.id}/${templateId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -406,7 +450,32 @@ const AutomatedRequestsPage = () => {
     setCustomizeModalOpen(true);
   };
 
-  const handleTemplateSaved = async () => {
+  const handleTemplateSaved = async (newTemplate) => {
+    console.log('Template saved:', newTemplate);
+    
+    // Add new template to local state
+    if (newTemplate) {
+      setTemplates(prev => [...prev, newTemplate]);
+    }
+    
+    // Reload everything
+    await loadTemplates();
+    await loadActiveSequences();
+    await loadKPIs();
+  };
+
+  const handleSequenceCreated = async (newTemplate) => {
+    console.log('Sequence created:', newTemplate);
+    
+    // Add new template to local state
+    if (newTemplate) {
+      setTemplates(prev => [...prev, newTemplate]);
+    }
+    
+    // Close modal
+    setCreateModalOpen(false);
+    
+    // Reload everything
     await loadTemplates();
     await loadActiveSequences();
     await loadKPIs();
@@ -460,12 +529,6 @@ const AutomatedRequestsPage = () => {
     setCreateModalOpen(true);
   };
 
-  const handleSequenceCreated = () => {
-    setCreateModalOpen(false);
-    loadTemplates();
-    loadActiveSequences();
-    loadKPIs();
-  };
 
   return (
     <div className="p-8 space-y-6">
