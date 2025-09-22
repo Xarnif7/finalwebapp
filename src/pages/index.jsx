@@ -239,7 +239,7 @@ function PagesContent() {
   // Determine if this is a dashboard route that needs auth
   const isDashboardRoute = [
     'Onboarding', 'Dashboard', 'DashboardOverview', 'Clients', 'Settings', 'Reviews', 'ReviewTracking', 
-    'ReviewLanding', 'AutomatedRequests', 'ReviewInbox', 'SendRequests', 'SocialPosts', 
+    'ReviewLanding', 'AutomatedRequests', 'Automations', 'ReviewInbox', 'SendRequests', 'SocialPosts', 
     'Sequences', 'Competitors', 'TeamRoles', 'AuditLog', 'CsvImport', 'Notifications', 
     'Integrations', 'RevenueImpact', 'Conversations', 'ReviewPerformance', 'PrivateFeedback', 'Feedback'
   ].includes(currentPage);
