@@ -28,6 +28,7 @@ import { useBusiness } from "@/hooks/useBusiness";
 import FlowCard from "@/components/automation/FlowCard";
 import SequenceCreator from "@/components/automation/SequenceCreator";
 import ActiveSequences from "@/components/automation/ActiveSequences";
+import TemplateCustomizer from "@/components/automation/TemplateCustomizer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -250,6 +251,12 @@ const AutomatedRequestsPage = () => {
       steps: template.config_json?.steps || []
     });
     setCustomizeModalOpen(true);
+  };
+
+  const handleTemplateSaved = async () => {
+    await loadTemplates();
+    await loadActiveSequences();
+    await loadKPIs();
   };
 
   const handleTest = async (template) => {
@@ -542,44 +549,13 @@ const AutomatedRequestsPage = () => {
       )}
 
       {/* Customize Modal */}
-      <Dialog open={customizeModalOpen} onOpenChange={setCustomizeModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Customize Template</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="template-name">Template Name</Label>
-              <Input
-                id="template-name"
-                value={customizationData.name}
-                onChange={(e) => setCustomizationData(prev => ({ ...prev, name: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="template-description">Description</Label>
-              <Textarea
-                id="template-description"
-                value={customizationData.description}
-                onChange={(e) => setCustomizationData(prev => ({ ...prev, description: e.target.value }))}
-                rows={3}
-              />
-            </div>
-            {/* Add more customization options here */}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCustomizeModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => {
-              // Save customization logic here
-              setCustomizeModalOpen(false);
-            }}>
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TemplateCustomizer
+        isOpen={customizeModalOpen}
+        onClose={() => setCustomizeModalOpen(false)}
+        template={selectedTemplate}
+        onSave={handleTemplateSaved}
+        businessId={business?.id}
+      />
 
       {/* Create Sequence Modal */}
       <SequenceCreator

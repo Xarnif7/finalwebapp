@@ -6,7 +6,8 @@ import { Switch } from "@/components/ui/switch";
 import { CheckCircle, Clock, Mail, MessageSquare, ArrowRight, Settings, Play, Pause } from "lucide-react";
 
 export default function FlowCard({ 
-  sequence, 
+  template, 
+  sequence, // Support both template and sequence props
   onToggle, 
   onCustomize, 
   onTest, 
@@ -14,6 +15,8 @@ export default function FlowCard({
   onDelete,
   updating = false 
 }) {
+  // Use template if provided, otherwise use sequence
+  const data = template || sequence;
   const getChannelIcon = (channel) => {
     return channel === 'sms' ? <MessageSquare className="w-4 h-4" /> : <Mail className="w-4 h-4" />;
   };
@@ -40,8 +43,18 @@ export default function FlowCard({
       case 'active': return 'bg-green-100 text-green-700 border-green-200';
       case 'paused': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
       case 'draft': return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'ready': return 'bg-blue-100 text-blue-700 border-blue-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
+  };
+
+  const getTemplateDescription = (key) => {
+    const descriptions = {
+      'job_completed': 'Send review requests when jobs are marked complete. Perfect for contractors and service providers.',
+      'invoice_paid': 'Request reviews after payment is received. Great for B2B services and recurring clients.',
+      'service_reminder': 'Follow up with customers after service appointments. Ideal for maintenance and recurring services.'
+    };
+    return descriptions[key];
   };
 
   return (
@@ -51,19 +64,19 @@ export default function FlowCard({
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              {sequence.name}
+              {data.name}
             </h3>
             <p className="text-sm text-gray-500">
-              {formatTimeAgo(sequence.updated_at)}
+              {formatTimeAgo(data.updated_at)}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className={`${getStatusColor(sequence.status)} text-xs font-medium`}>
-              {sequence.status}
+            <Badge className={`${getStatusColor(data.status)} text-xs font-medium`}>
+              {data.status}
             </Badge>
             <Switch 
-              checked={sequence.status === 'active'} 
-              onCheckedChange={() => onToggle(sequence)}
+              checked={data.status === 'active'} 
+              onCheckedChange={(checked) => onToggle(checked ? 'active' : 'paused')}
               disabled={updating}
             />
           </div>
@@ -81,10 +94,30 @@ export default function FlowCard({
             <ArrowRight className="w-4 h-4 text-gray-400" />
             
             {/* Steps */}
-            {sequence.channels.map((channel, index) => {
-              const stepDelay = sequence.config_json?.steps?.[index]?.delay || 
-                               (index > 0 ? sequence.config_json?.delay_hours || 24 : 0);
-              const delayUnit = sequence.config_json?.steps?.[index]?.delayUnit || 'hours';
+            {data.channels?.map((channel, index) => {
+              // Get delay from config_json
+              let stepDelay = 0;
+              let delayUnit = 'hours';
+              
+              if (data.config_json?.steps?.[index]?.delay) {
+                stepDelay = data.config_json.steps[index].delay;
+                delayUnit = data.config_json.steps[index].delayUnit || 'hours';
+              } else if (index > 0 && data.config_json?.delay_hours) {
+                stepDelay = data.config_json.delay_hours;
+                delayUnit = 'hours';
+              } else if (index > 0 && data.config_json?.delay_days) {
+                stepDelay = data.config_json.delay_days;
+                delayUnit = 'days';
+              } else if (index > 0) {
+                // Default delays based on template type
+                const defaultDelays = {
+                  'job_completed': 24,
+                  'invoice_paid': 48,
+                  'service_reminder': 1
+                };
+                stepDelay = defaultDelays[data.key] || 24;
+                delayUnit = data.key === 'service_reminder' ? 'days' : 'hours';
+              }
               
               return (
                 <React.Fragment key={index}>
@@ -111,7 +144,7 @@ export default function FlowCard({
                     </span>
                   </div>
                   
-                  {index < sequence.channels.length - 1 && (
+                  {index < data.channels.length - 1 && (
                     <ArrowRight className="w-4 h-4 text-gray-400" />
                   )}
                 </React.Fragment>
@@ -123,7 +156,7 @@ export default function FlowCard({
         {/* Description */}
         <div className="mb-4">
           <p className="text-sm text-gray-600 line-clamp-2">
-            {sequence.description || sequence.config_json?.message || 'Automated follow-up sequence'}
+            {getTemplateDescription(data.key) || data.description || data.config_json?.message || 'Automated follow-up sequence'}
           </p>
         </div>
 
@@ -132,7 +165,7 @@ export default function FlowCard({
           <Button 
             size="sm" 
             variant="outline"
-            onClick={() => onCustomize(sequence)}
+            onClick={() => onCustomize(data)}
             className="flex-1"
           >
             <Settings className="w-3 h-3 mr-1" />
@@ -141,7 +174,7 @@ export default function FlowCard({
           <Button 
             size="sm" 
             variant="outline"
-            onClick={() => onTest(sequence)}
+            onClick={() => onTest(data)}
             className="flex-1"
           >
             <Play className="w-3 h-3 mr-1" />
@@ -151,7 +184,7 @@ export default function FlowCard({
             <Button 
               size="sm" 
               variant="ghost"
-              onClick={() => onEdit(sequence)}
+              onClick={() => onEdit(data)}
             >
               <Settings className="w-4 h-4" />
             </Button>
@@ -160,7 +193,7 @@ export default function FlowCard({
             <Button 
               size="sm" 
               variant="ghost"
-              onClick={() => onDelete(sequence.id)}
+              onClick={() => onDelete(data.id)}
               className="text-red-500 hover:text-red-700 hover:bg-red-50"
             >
               <Pause className="w-4 h-4" />
