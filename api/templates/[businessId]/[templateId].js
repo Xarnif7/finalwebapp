@@ -102,6 +102,29 @@ async function handlePatch(req, res, businessId, templateId) {
       updated_at: new Date().toISOString()
     };
 
+    // Handle custom message updates
+    if (updateData.config_json && updateData.config_json.message) {
+      updatePayload.custom_message = updateData.config_json.message;
+    }
+
+    // Handle AI generation tracking
+    if (updateData.ai_generated !== undefined) {
+      updatePayload.ai_generated = updateData.ai_generated;
+      if (updateData.ai_generated) {
+        updatePayload.last_ai_generation = new Date().toISOString();
+      }
+    }
+
+    // Handle message variables
+    if (updateData.message_variables) {
+      updatePayload.message_variables = updateData.message_variables;
+    }
+
+    // Handle preview data
+    if (updateData.preview_data) {
+      updatePayload.preview_data = updateData.preview_data;
+    }
+
     // If config_json is being updated, ensure it has the right structure
     if (updateData.config_json && updateData.config_json.steps) {
       // Calculate delay_hours from the first non-zero delay step

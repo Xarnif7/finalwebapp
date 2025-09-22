@@ -170,6 +170,10 @@ export default function TemplateCustomizer({
           config_json: { ...prev.config_json, message: newMessage }
         }));
         generatePreview(newMessage);
+        
+        // Mark as AI generated
+        setAiGenerating(false);
+        setAiEnhancing(false);
       } else {
         throw new Error('AI generation failed');
       }
@@ -208,6 +212,10 @@ export default function TemplateCustomizer({
           config_json: { ...prev.config_json, message: enhancedMessage }
         }));
         generatePreview(enhancedMessage);
+        
+        // Mark as AI enhanced
+        setAiGenerating(false);
+        setAiEnhancing(false);
       } else {
         throw new Error('AI enhancement failed');
       }
@@ -233,6 +241,15 @@ export default function TemplateCustomizer({
         config_json: {
           ...template.config_json,
           ...formData.config_json
+        },
+        custom_message: customMessage,
+        ai_generated: aiGenerating || aiEnhancing,
+        message_variables: {
+          customer_name: customMessage.includes('{{customer.name}}'),
+          review_link: customMessage.includes('{{review_link}}'),
+          business_name: customMessage.includes('{{business.name}}'),
+          service_date: customMessage.includes('{{service_date}}'),
+          amount: customMessage.includes('{{amount}}')
         },
         updated_at: new Date().toISOString()
       };
