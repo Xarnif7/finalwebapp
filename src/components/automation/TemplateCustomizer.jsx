@@ -162,12 +162,40 @@ export default function TemplateCustomizer({
       
       console.log('🤖 AI Generation Request:', requestBody);
       
+      // Check if API endpoint is available first
+      try {
+        const healthCheck = await fetch('/api/ai/generate-message', {
+          method: 'HEAD',
+          signal: AbortSignal.timeout(3000) // 3 second health check
+        });
+        if (!healthCheck.ok) {
+          throw new Error('API endpoint not available');
+        }
+      } catch (healthError) {
+        console.log('API health check failed, using fallback');
+        // Use fallback message immediately
+        const fallbackMessages = {
+          'job_completed': 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review at {{review_link}}.',
+          'invoice_paid': 'Thank you for your payment, {{customer.name}}! We appreciate your business. Please consider leaving us a review at {{review_link}}.',
+          'service_reminder': 'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!'
+        };
+        const fallbackMessage = fallbackMessages[template?.key] || 
+          'Thank you for your business! Please leave us a review at {{review_link}}.';
+        
+        setCustomMessage(fallbackMessage);
+        generatePreview(fallbackMessage);
+        alert('AI service is currently unavailable, but we\'ve added a professional fallback message for you!');
+        setAiGenerating(false);
+        setAiEnhancing(false);
+        return;
+      }
+      
       // Add timeout to prevent hanging
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
-        console.log('AI request timed out after 30 seconds');
-      }, 15000); // 15 second timeout
+        console.log('AI request timed out after 10 seconds');
+      }, 10000); // 10 second timeout
       
       const response = await fetch('/api/ai/generate-message', {
         method: 'POST',
@@ -233,12 +261,29 @@ export default function TemplateCustomizer({
       // Use a fallback business ID if none is available
       const effectiveBusinessId = businessId || 'demo-business-id';
       
+      // Check if API endpoint is available first
+      try {
+        const healthCheck = await fetch('/api/ai/enhance-message', {
+          method: 'HEAD',
+          signal: AbortSignal.timeout(3000) // 3 second health check
+        });
+        if (!healthCheck.ok) {
+          throw new Error('API endpoint not available');
+        }
+      } catch (healthError) {
+        console.log('Enhance API health check failed, keeping original message');
+        alert('AI enhancement service is currently unavailable. Your original message is preserved.');
+        setAiGenerating(false);
+        setAiEnhancing(false);
+        return;
+      }
+      
       // Add timeout to prevent hanging
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
-        console.log('AI enhancement request timed out after 30 seconds');
-      }, 15000); // 15 second timeout
+        console.log('AI enhancement request timed out after 10 seconds');
+      }, 10000); // 10 second timeout
       
       const response = await fetch('/api/ai/enhance-message', {
         method: 'POST',
