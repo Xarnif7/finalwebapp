@@ -179,16 +179,19 @@ export default function Onboarding() {
         console.log('[ONBOARDING] Created new business:', businessId);
       }
 
-      // Update profile onboarding_completed status
+      // Update profile with business_id and onboarding_completed status
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ 
+          business_id: businessId, // Link profile to the business
           onboarding_completed: true 
         })
         .eq('id', user.id);
       
       if (profileError) {
         console.error('[ONBOARDING] Error updating profile:', profileError);
+      } else {
+        console.log('[ONBOARDING] Profile updated with business_id:', businessId);
       }
 
       // Clear the justPaid flag

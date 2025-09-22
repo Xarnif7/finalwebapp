@@ -151,6 +151,7 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
                           }
 
                           let businessId = profile?.business_id;
+                          console.log('Extracted businessId:', businessId);
 
                           // Fallback: Try to find business by user email
                           if (!businessId) {
@@ -167,10 +168,17 @@ const ZapierConnectionModal = ({ isOpen, onClose, onConnect }) => {
                             }
                             businessId = business.id;
                             console.log('Found business by email:', businessId);
+                          } else {
+                            console.log('Using business_id from profile:', businessId);
                           }
 
+                          console.log('Making API call to:', `/api/zapier/token/${businessId}`);
                           const response = await fetch(`/api/zapier/token/${businessId}`);
+                          console.log('API response status:', response.status);
+                          
                           const data = await response.json();
+                          console.log('API response data:', data);
+                          
                           if (data.ok) {
                             alert(`Your Zapier Token: ${data.zapier_token}\n\nCopy this token and use it in your Zap setup!`);
                           } else {
