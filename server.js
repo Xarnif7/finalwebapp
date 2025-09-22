@@ -441,19 +441,60 @@ app.post('/api/dev/subscriptions/expire', async (req, res) => {
 
 // Zapier API endpoints
 app.get('/api/zapier/ping', (req, res) => {
-  // Only allow GET method
-  if (req.method !== 'GET') {
-    return res.status(405).json({ ok: false, error: 'Method not allowed' });
-  }
+  console.log('[ZAPIER_PING] Ping request received:', {
+    method: req.method,
+    headers: req.headers,
+    query: req.query,
+    body: req.body
+  });
 
-  // Validate Zapier token
-  const zapierToken = req.headers['x-zapier-token'];
-  if (!zapierToken || zapierToken !== process.env.ZAPIER_TOKEN) {
+  // Validate Zapier token from query parameter or header
+  const zapierToken = req.query.zapier_token || req.headers['x-zapier-token'];
+  
+  if (!zapierToken) {
+    console.log('[ZAPIER_PING] No token provided');
     return res.status(401).json({ ok: false, error: 'unauthorized' });
   }
 
-  // Return success
-  return res.status(200).json({ ok: true });
+  // For multi-tenant tokens, we need to validate against the database
+  if (zapierToken.startsWith('blipp_')) {
+    console.log('[ZAPIER_PING] Validating multi-tenant token:', zapierToken);
+    
+    // Find business by zapier_token
+    supabaseAdmin
+      .from('businesses')
+      .select('id, name, created_by')
+      .eq('zapier_token', zapierToken)
+      .single()
+      .then(({ data: business, error }) => {
+        if (error || !business) {
+          console.log('[ZAPIER_PING] Invalid token or business not found:', error?.message);
+          return res.status(401).json({ ok: false, error: 'unauthorized' });
+        }
+        
+        console.log('[ZAPIER_PING] Token validated for business:', business.name);
+        return res.status(200).json({ 
+          ok: true, 
+          business: {
+            id: business.id,
+            name: business.name
+          }
+        });
+      })
+      .catch(err => {
+        console.error('[ZAPIER_PING] Database error:', err);
+        return res.status(500).json({ ok: false, error: 'Internal server error' });
+      });
+  } else {
+    // Legacy single-tenant token validation
+    if (zapierToken !== process.env.ZAPIER_TOKEN) {
+      console.log('[ZAPIER_PING] Invalid legacy token');
+      return res.status(401).json({ ok: false, error: 'unauthorized' });
+    }
+    
+    console.log('[ZAPIER_PING] Legacy token validated');
+    return res.status(200).json({ ok: true });
+  }
 });
 
 // Debug endpoint to check automation templates
