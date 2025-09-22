@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 export default async function handler(req, res) {
@@ -18,14 +18,21 @@ export default async function handler(req, res) {
     }
 
     // Get business information for context
-    const { data: business, error: businessError } = await supabase
-      .from('businesses')
-      .select('name, business_type, description')
-      .eq('id', business_id)
-      .single();
+    let business = null;
+    try {
+      const { data: businessData, error: businessError } = await supabase
+        .from('businesses')
+        .select('name, business_type, description')
+        .eq('id', business_id)
+        .single();
 
-    if (businessError) {
-      console.error('Business fetch error:', businessError);
+      if (!businessError && businessData) {
+        business = businessData;
+      } else {
+        console.log('Business not found, using fallback context');
+      }
+    } catch (error) {
+      console.log('Business fetch error, using fallback context:', error.message);
     }
 
     // Create enhancement prompt
@@ -59,6 +66,11 @@ Enhanced message:`;
     const prompt = getEnhancementPrompt(current_message, template_name, template_type, business);
 
     // Call OpenAI API
+    if (!process.env.OPENAI_API_KEY) {
+      console.log('OpenAI API key not found, using fallback enhancement');
+      throw new Error('OpenAI API key not configured');
+    }
+
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
