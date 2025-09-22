@@ -63,12 +63,21 @@ export function useBusinessIntegrations() {
           .eq('source', 'zapier')
           .limit(1);
 
+        console.log('[INTEGRATIONS] Zapier customers check:', {
+          businessId,
+          customers,
+          customersError,
+          customersCount: customers?.length || 0
+        });
+
         if (customersError) {
           throw customersError;
         }
 
         // If we have zapier customers, consider CRM integration active
         const hasZapierCustomers = customers && customers.length > 0;
+        
+        console.log('[INTEGRATIONS] Has Zapier customers:', hasZapierCustomers);
         
         const mockIntegrations = hasZapierCustomers ? [
           {
