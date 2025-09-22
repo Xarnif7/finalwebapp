@@ -17,7 +17,7 @@ import ReviewInbox from "./ReviewInbox";
 import SendRequests from "./SendRequests";
 import SocialPosts from "./SocialPosts";
 import Sequences from "./Sequences";
-import Automations from "./Automations";
+import Automations from "./AutomationsSimple";
 import Competitors from "./Competitors";
 import TeamRoles from "./TeamRoles";
 import AuditLog from "./AuditLog";
