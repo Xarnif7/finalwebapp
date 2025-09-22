@@ -364,7 +364,7 @@ const AutomatedRequestsPage = () => {
     <div className="p-8 space-y-6">
       <PageHeader
         title="Automated Requests"
-        subtitle="Create and manage automation sequences that engage customers automatically with visual flow cards."
+        subtitle="Create and manage automation sequences with beautiful visual flow cards and full customization."
       />
 
       {/* Tab Navigation */}
