@@ -26,19 +26,44 @@ export function useCustomersData(initialParams = {}) {
       setLoading(true);
       setError(null);
 
-      // Get user's business_id from profiles
+      // Get user's business_id from profiles, with email-based fallback
+      let businessId = null;
+      
+      // First try: Get from profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('business_id')
         .eq('id', user.id)
         .single();
 
-      if (profileError) {
-        console.error('Profile error:', profileError);
-        throw new Error('Unable to load user profile. Please try logging out and back in.');
+      if (!profileError && profile?.business_id) {
+        businessId = profile.business_id;
+        console.log('📋 Using business_id from profile:', businessId);
+      } else {
+        // Fallback: Find business by email
+        console.log('📋 Profile business_id not found, trying email-based lookup for:', user.email);
+        
+        const { data: business, error: businessError } = await supabase
+          .from('businesses')
+          .select('id')
+          .eq('created_by', user.email)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!businessError && business) {
+          businessId = business.id;
+          console.log('📋 Found business by email:', businessId);
+          
+          // Update profile to point to this business
+          await supabase
+            .from('profiles')
+            .update({ business_id: businessId })
+            .eq('id', user.id);
+        }
       }
 
-      if (!profile?.business_id) {
+      if (!businessId) {
         throw new Error('Business not found. Please complete onboarding first.');
       }
 
@@ -46,7 +71,7 @@ export function useCustomersData(initialParams = {}) {
       let query = supabase
         .from('customers')
         .select('*', { count: 'exact' })
-        .eq('business_id', profile.business_id);
+        .eq('business_id', businessId);
 
       // Apply filters
       if (queryParams.status && queryParams.status !== 'all') {
@@ -138,7 +163,7 @@ export function useCustomersData(initialParams = {}) {
       console.log('📋 Loaded customers from database:', {
         count: list?.length || 0,
         total: count || 0,
-        business_id: profile.business_id,
+        business_id: businessId,
         customers: list?.map(c => ({ id: c.id, name: c.full_name, email: c.email })) || []
       });
 
