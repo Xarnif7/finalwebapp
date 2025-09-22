@@ -40,18 +40,10 @@ export const useSequencesData = () => {
           : seq
       ));
 
-      const response = await apiClient.post(`/api/sequences/${sequenceId}/pause`, {});
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await apiClient.post(`/api/sequences/${sequenceId}/pause`, {});
+      if (!result?.ok) {
+        throw new Error(result?.error || 'Failed to pause sequence');
       }
-
-      const result = await response.json();
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to pause sequence');
-      }
-
-      // Refresh data to ensure consistency
       await fetchSequences();
     } catch (err) {
       console.error('Error pausing sequence:', err);
@@ -70,18 +62,10 @@ export const useSequencesData = () => {
           : seq
       ));
 
-      const response = await apiClient.post(`/api/sequences/${sequenceId}/resume`, {});
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await apiClient.post(`/api/sequences/${sequenceId}/resume`, {});
+      if (!result?.ok) {
+        throw new Error(result?.error || 'Failed to resume sequence');
       }
-
-      const result = await response.json();
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to resume sequence');
-      }
-
-      // Refresh data to ensure consistency
       await fetchSequences();
     } catch (err) {
       console.error('Error resuming sequence:', err);
@@ -93,18 +77,10 @@ export const useSequencesData = () => {
 
   const duplicateSequence = useCallback(async (sequenceId) => {
     try {
-      const response = await apiClient.post(`/api/sequences/${sequenceId}/duplicate`, {});
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await apiClient.post(`/api/sequences/${sequenceId}/duplicate`, {});
+      if (!result?.ok) {
+        throw new Error(result?.error || 'Failed to duplicate sequence');
       }
-
-      const result = await response.json();
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to duplicate sequence');
-      }
-
-      // Refresh data to show the new sequence
       await fetchSequences();
     } catch (err) {
       console.error('Error duplicating sequence:', err);
@@ -121,18 +97,10 @@ export const useSequencesData = () => {
           : seq
       ));
 
-      const response = await apiClient.post(`/api/sequences/${sequenceId}/archive`, {});
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await apiClient.post(`/api/sequences/${sequenceId}/archive`, {});
+      if (!result?.ok) {
+        throw new Error(result?.error || 'Failed to archive sequence');
       }
-
-      const result = await response.json();
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to archive sequence');
-      }
-
-      // Refresh data to ensure consistency
       await fetchSequences();
     } catch (err) {
       console.error('Error archiving sequence:', err);
@@ -144,20 +112,11 @@ export const useSequencesData = () => {
 
   const createSequence = useCallback(async (sequenceData) => {
     try {
-      const response = await apiClient.post('/api/sequences', sequenceData);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await apiClient.post('/api/sequences', sequenceData);
+      if (!result?.ok) {
+        throw new Error(result?.error || 'Failed to create sequence');
       }
-
-      const result = await response.json();
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to create sequence');
-      }
-
-      // Refresh data to show the new sequence
       await fetchSequences();
-      
       return result.sequence;
     } catch (err) {
       console.error('Error creating sequence:', err);
