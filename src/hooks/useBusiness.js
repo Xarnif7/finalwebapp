@@ -33,6 +33,8 @@ export const useBusiness = () => {
         }
 
         if (!businessData) {
+          console.log('No business found, creating new business for:', user.email);
+          
           // Create business if it doesn't exist
           const { data: newBusiness, error: createError } = await supabase
             .from('businesses')
@@ -48,12 +50,16 @@ export const useBusiness = () => {
 
           if (createError) {
             console.error('Error creating business:', createError);
-            setError(createError.message);
+            // Don't set error, just continue with null business
+            // This allows the UI to still render
+            setBusiness(null);
             return;
           }
 
+          console.log('Successfully created business:', newBusiness);
           setBusiness(newBusiness);
         } else {
+          console.log('Found existing business:', businessData);
           setBusiness(businessData);
         }
       } catch (err) {
