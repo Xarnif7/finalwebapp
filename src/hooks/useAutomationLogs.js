@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { apiClient } from '../lib/apiClient';
 
 export const useAutomationLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -11,28 +11,12 @@ export const useAutomationLogs = () => {
       setLoading(true);
       setError(null);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No session found');
-      }
-
-      const response = await fetch('http://localhost:3001/api/automation-logs', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      if (result.ok) {
-        setLogs(result.logs || []);
+      const response = await apiClient.get('/api/automation-logs');
+      
+      if (response.ok) {
+        setLogs(response.logs || []);
       } else {
-        throw new Error(result.error || 'Failed to fetch automation logs');
+        throw new Error(response.error || 'Failed to fetch automation logs');
       }
     } catch (err) {
       console.error('Error fetching automation logs:', err);

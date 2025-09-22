@@ -2300,6 +2300,83 @@ app.get('/api/sequences/active/:business_id', async (req, res) => {
   }
 });
 
+// API endpoint to fetch automation logs
+app.get('/api/automation-logs', async (req, res) => {
+  try {
+    // Get business ID from user session
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Find business by user email
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('created_by', user.email)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    console.log(`[API] Fetching automation logs for business: ${business.id}`);
+    
+    // Fetch automation logs with related data
+    const { data: logs, error: logsError } = await supabase
+      .from('automation_logs')
+      .select(`
+        *,
+        customers:customer_id (
+          id,
+          full_name,
+          email,
+          phone
+        ),
+        sequences:sequence_id (
+          id,
+          name
+        )
+      `)
+      .eq('business_id', business.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (logsError) {
+      console.error('[API] Error fetching automation logs:', logsError);
+      return res.status(500).json({ error: 'Failed to fetch automation logs' });
+    }
+
+    // Transform logs to match frontend expected format
+    const transformedLogs = logs.map(log => ({
+      id: log.id,
+      event_type: log.level === 'info' ? 'message_sent' : 
+                  log.level === 'error' ? 'message_failed' : 
+                  log.level === 'sent' ? 'message_delivered' : 'info',
+      channel: log.metadata?.channel || 'email', // Default to email if not specified
+      sequence_name: log.sequences?.name || 'Unknown Sequence',
+      customer_email: log.customers?.email,
+      customer_phone: log.customers?.phone,
+      customer_id: log.customer_id,
+      sequence_id: log.sequence_id,
+      created_at: log.created_at,
+      details: log.metadata || {}
+    }));
+
+    return res.status(200).json({
+      ok: true,
+      logs: transformedLogs
+    });
+
+  } catch (error) {
+    console.error('[API] Error in fetch automation logs endpoint:', error);
+    return res.status(500).json({ 
+      ok: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
 // API endpoint to fetch automation KPIs
 app.get('/api/automation/kpis/:business_id', async (req, res) => {
   try {
