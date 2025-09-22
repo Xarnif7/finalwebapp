@@ -146,12 +146,16 @@ const AutomationsPage = () => {
     setCustomizeModalOpen(true);
   };
 
-  const handleTemplateSaved = async (newTemplate) => {
-    console.log('Template saved:', newTemplate);
-    if (newTemplate) {
-      setTemplates(prev => [...prev, newTemplate]);
+  const handleTemplateSaved = async (updatedTemplate) => {
+    console.log('Template saved:', updatedTemplate);
+    if (updatedTemplate && selectedTemplate) {
+      // Update the existing template in the state
+      setTemplates(prev => prev.map(t => 
+        t.id === selectedTemplate.id ? { ...t, ...updatedTemplate } : t
+      ));
     }
     setCustomizeModalOpen(false);
+    setSelectedTemplate(null);
   };
 
   const handleSequenceCreated = async (newTemplate) => {
