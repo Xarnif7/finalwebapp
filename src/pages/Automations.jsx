@@ -33,8 +33,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const AutomationsPage = () => {
-  const { user } = useAuth();
-  const { business } = useBusiness();
+  try {
+    const { user } = useAuth();
+    const { business } = useBusiness();
   const [templates, setTemplates] = useState([]);
   const [activeSequences, setActiveSequences] = useState([]);
   const [emailTemplate, setEmailTemplate] = useState("Subject: Thank you for your business!\n\nHi {{customer.name}},\n\nWe hope you had a great experience with us. If you have a moment, we would appreciate it if you could leave us a review at the link below.\n\n{{review_link}}\n\nThank you!");
