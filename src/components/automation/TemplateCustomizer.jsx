@@ -99,13 +99,15 @@ export default function TemplateCustomizer({
   const generatePreview = async (message) => {
     try {
       // Get real customer data for preview
+      const effectiveBusinessId = businessId || 'demo-business-id';
+      
       const response = await fetch('/api/customers/preview-data', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          business_id: businessId
+          business_id: effectiveBusinessId
         })
       });
 
@@ -148,17 +150,24 @@ export default function TemplateCustomizer({
     try {
       setAiGenerating(true);
       
+      // Use a fallback business ID if none is available
+      const effectiveBusinessId = businessId || 'demo-business-id';
+      
+      const requestBody = {
+        template_name: template?.name,
+        template_type: template?.key,
+        business_id: effectiveBusinessId,
+        automation_type: template?.trigger_type
+      };
+      
+      console.log('🤖 AI Generation Request:', requestBody);
+      
       const response = await fetch('/api/ai/generate-message', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          template_name: template?.name,
-          template_type: template?.key,
-          business_id: businessId,
-          automation_type: template?.trigger_type
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (response.ok) {
@@ -175,7 +184,13 @@ export default function TemplateCustomizer({
         setAiGenerating(false);
         setAiEnhancing(false);
       } else {
-        throw new Error('AI generation failed');
+        const errorText = await response.text();
+        console.error('AI Generation API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`AI generation failed: ${response.status} ${response.statusText}`);
       }
     } catch (error) {
       console.error('AI generation error:', error);
@@ -190,6 +205,9 @@ export default function TemplateCustomizer({
     try {
       setAiEnhancing(true);
       
+      // Use a fallback business ID if none is available
+      const effectiveBusinessId = businessId || 'demo-business-id';
+      
       const response = await fetch('/api/ai/enhance-message', {
         method: 'POST',
         headers: {
@@ -199,7 +217,7 @@ export default function TemplateCustomizer({
           current_message: customMessage,
           template_name: template?.name,
           template_type: template?.key,
-          business_id: businessId
+          business_id: effectiveBusinessId
         })
       });
 
@@ -217,7 +235,13 @@ export default function TemplateCustomizer({
         setAiGenerating(false);
         setAiEnhancing(false);
       } else {
-        throw new Error('AI enhancement failed');
+        const errorText = await response.text();
+        console.error('AI Enhancement API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`AI enhancement failed: ${response.status} ${response.statusText}`);
       }
     } catch (error) {
       console.error('AI enhancement error:', error);
