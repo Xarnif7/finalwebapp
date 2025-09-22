@@ -801,7 +801,7 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       updated_at: new Date().toISOString()
     };
 
-    // First check if customer already exists
+    // First check if customer already exists by email OR external_id
     let existingCustomer = null;
     if (customerData.email) {
       const { data: existing, error: existingError } = await supabase
@@ -815,6 +815,21 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
         existingCustomer = existing;
       }
     }
+    
+    // If not found by email, try to find by external_id (for Google Sheets row updates)
+    if (!existingCustomer && customerData.external_id) {
+      const { data: existing, error: existingError } = await supabase
+        .from('customers')
+        .select('id, full_name, email, phone')
+        .eq('business_id', customerData.business_id)
+        .eq('external_id', customerData.external_id)
+        .single();
+      
+      if (!existingError && existing) {
+        existingCustomer = existing;
+        console.log('[ZAPIER] Found existing customer by external_id:', existingCustomer.email, '->', customerData.email);
+      }
+    }
 
     let customer;
     if (existingCustomer) {
@@ -823,6 +838,7 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
         .from('customers')
         .update({
           full_name: customerData.full_name,
+          email: customerData.email, // Include email in updates
           phone: customerData.phone,
           external_id: customerData.external_id,
           source: customerData.source,
