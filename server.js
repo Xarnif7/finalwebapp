@@ -461,7 +461,7 @@ app.get('/api/zapier/ping', (req, res) => {
     console.log('[ZAPIER_PING] Validating multi-tenant token:', zapierToken);
     
     // Find business by zapier_token
-    supabaseAdmin
+    supabase
       .from('businesses')
       .select('id, name, created_by')
       .eq('zapier_token', zapierToken)
