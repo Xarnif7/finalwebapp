@@ -3846,6 +3846,318 @@ app.post('/api/templates/reset-defaults', async (req, res) => {
   }
 });
 
+// AI API Routes
+// AI message generation
+app.post('/api/ai/generate-message', async (req, res) => {
+  try {
+    const { template_name, template_type, business_id, automation_type } = req.body;
+
+    if (!template_name || !business_id) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Get business information for context
+    let business = null;
+    try {
+      const { data: businessData, error: businessError } = await supabase
+        .from('businesses')
+        .select('name, business_type, description')
+        .eq('id', business_id)
+        .single();
+
+      if (!businessError && businessData) {
+        business = businessData;
+      } else {
+        console.log('Business not found, using fallback context');
+      }
+    } catch (error) {
+      console.log('Business fetch error, using fallback context:', error.message);
+    }
+
+    // Create context-aware prompt based on automation type
+    const getPrompt = (templateName, templateType, businessInfo) => {
+      const businessContext = businessInfo ? `for ${businessInfo.name} (${businessInfo.business_type || 'business'})` : 'for a business';
+      
+      const prompts = {
+        'job_completed': `Create a professional follow-up email ${businessContext} after a job/service is completed. The message should:
+        - Thank the customer for choosing the business
+        - Express hope that they were satisfied with the service
+        - Politely request a review
+        - Include {{customer.name}} and {{review_link}} variables
+        - Be warm but professional
+        - Keep it concise (2-3 sentences)`,
+        
+        'invoice_paid': `Create a professional thank you email ${businessContext} after an invoice is paid. The message should:
+        - Thank the customer for their payment
+        - Express appreciation for their business
+        - Politely request a review
+        - Include {{customer.name}} and {{review_link}} variables
+        - Be warm but professional
+        - Keep it concise (2-3 sentences)`,
+        
+        'service_reminder': `Create a friendly reminder email ${businessContext} for an upcoming service appointment. The message should:
+        - Be warm and friendly
+        - Remind them of their upcoming appointment
+        - Express excitement to serve them
+        - Include {{customer.name}} and {{service_date}} variables
+        - Be professional but personable
+        - Keep it concise (2-3 sentences)`
+      };
+
+      return prompts[templateType] || prompts[templateName?.toLowerCase()] || 
+        `Create a professional email message ${businessContext} for a ${templateName} automation. Include {{customer.name}} and {{review_link}} variables.`;
+    };
+
+    const prompt = getPrompt(template_name, template_type, business);
+
+    // Call OpenAI API
+    if (!process.env.OPENAI_API_KEY) {
+      console.log('OpenAI API key not found, using fallback message');
+      throw new Error('OpenAI API key not configured');
+    }
+
+    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a professional email copywriter specializing in customer follow-up messages. Create clear, concise, and professional messages that maintain a warm tone while being respectful of the customer\'s time.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 200,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!openaiResponse.ok) {
+      const errorData = await openaiResponse.text();
+      console.error('OpenAI API error:', errorData);
+      throw new Error('OpenAI API request failed');
+    }
+
+    const aiData = await openaiResponse.json();
+    const generatedMessage = aiData.choices[0]?.message?.content?.trim();
+
+    if (!generatedMessage) {
+      throw new Error('No message generated');
+    }
+
+    // Ensure variables are included if they weren't in the AI response
+    let finalMessage = generatedMessage;
+    if (!finalMessage.includes('{{customer.name}}')) {
+      finalMessage = `{{customer.name}}, ${finalMessage}`;
+    }
+    if (!finalMessage.includes('{{review_link}}') && (template_type === 'job_completed' || template_type === 'invoice_paid')) {
+      finalMessage += ' Please leave us a review at {{review_link}}.';
+    }
+
+    res.status(200).json({
+      success: true,
+      message: finalMessage,
+      template_name,
+      template_type
+    });
+
+  } catch (error) {
+    console.error('AI generation error:', error);
+    
+    // Fallback to default message if AI fails
+    const fallbackMessages = {
+      'job_completed': 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review at {{review_link}}.',
+      'invoice_paid': 'Thank you for your payment, {{customer.name}}! We appreciate your business. Please consider leaving us a review at {{review_link}}.',
+      'service_reminder': 'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!'
+    };
+
+    const fallbackMessage = fallbackMessages[template_type] || 
+      'Thank you for your business! Please leave us a review at {{review_link}}.';
+
+    res.status(200).json({
+      success: true,
+      message: fallbackMessage,
+      template_name,
+      template_type,
+      fallback: true
+    });
+  }
+});
+
+// AI message enhancement
+app.post('/api/ai/enhance-message', async (req, res) => {
+  try {
+    const { current_message, template_name, template_type, business_id } = req.body;
+
+    if (!current_message || !business_id) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Get business information for context
+    let business = null;
+    try {
+      const { data: businessData, error: businessError } = await supabase
+        .from('businesses')
+        .select('name, business_type, description')
+        .eq('id', business_id)
+        .single();
+
+      if (!businessError && businessData) {
+        business = businessData;
+      } else {
+        console.log('Business not found, using fallback context');
+      }
+    } catch (error) {
+      console.log('Business fetch error, using fallback context:', error.message);
+    }
+
+    // Create enhancement prompt
+    const getEnhancementPrompt = (currentMessage, templateName, templateType, businessInfo) => {
+      const businessContext = businessInfo ? `for ${businessInfo.name} (${businessInfo.business_type || 'business'})` : 'for a business';
+      
+      return `Please enhance the following email message ${businessContext} to make it more professional and engaging while maintaining the original meaning and tone. Keep all variable placeholders like {{customer.name}} and {{review_link}} exactly as they are.
+
+Current message: "${currentMessage}"
+
+Please improve it by:
+- Making it more professional and polished
+- Improving the tone while keeping it warm
+- Making it more engaging without being pushy
+- Keep it concise (2-3 sentences)
+
+Enhanced message:`;
+    };
+
+    const prompt = getEnhancementPrompt(current_message, template_name, template_type, business);
+
+    // Call OpenAI API
+    if (!process.env.OPENAI_API_KEY) {
+      console.log('OpenAI API key not found, using fallback enhancement');
+      throw new Error('OpenAI API key not configured');
+    }
+
+    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a professional email copywriter. Enhance messages to be more professional, engaging, and effective while maintaining the original meaning and tone. Always preserve variable placeholders like {{customer.name}} and {{review_link}} exactly as they are.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 200,
+        temperature: 0.5, // Lower temperature for more consistent enhancements
+      }),
+    });
+
+    if (!openaiResponse.ok) {
+      const errorData = await openaiResponse.text();
+      console.error('OpenAI API error:', errorData);
+      throw new Error('OpenAI API request failed');
+    }
+
+    const aiData = await openaiResponse.json();
+    const enhancedMessage = aiData.choices[0]?.message?.content?.trim();
+
+    if (!enhancedMessage) {
+      throw new Error('No enhanced message generated');
+    }
+
+    res.status(200).json({
+      success: true,
+      enhanced_message: enhancedMessage,
+      template_name,
+      template_type
+    });
+
+  } catch (error) {
+    console.error('AI enhancement error:', error);
+    
+    // Return original message if enhancement fails
+    res.status(200).json({
+      success: true,
+      enhanced_message: current_message,
+      template_name,
+      template_type,
+      fallback: true
+    });
+  }
+});
+
+// Customer preview data
+app.post('/api/customers/preview-data', async (req, res) => {
+  try {
+    const { business_id } = req.body;
+
+    if (!business_id) {
+      return res.status(400).json({ error: 'business_id is required' });
+    }
+
+    // Get a sample customer for preview
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .select('name, email')
+      .eq('business_id', business_id)
+      .limit(1)
+      .single();
+
+    // Get business info
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('name')
+      .eq('id', business_id)
+      .single();
+
+    const previewData = {
+      customer_name: customer?.name || 'John Smith',
+      customer_email: customer?.email || 'john.smith@example.com',
+      business_name: business?.name || 'Your Business',
+      service_date: '2024-01-15',
+      amount: '$150.00',
+      review_link: 'https://google.com/reviews/your-business'
+    };
+
+    res.status(200).json({
+      success: true,
+      preview_data: previewData
+    });
+
+  } catch (error) {
+    console.error('Preview data error:', error);
+    
+    // Fallback preview data
+    const fallbackData = {
+      customer_name: 'John Smith',
+      customer_email: 'john.smith@example.com',
+      business_name: 'Your Business',
+      service_date: '2024-01-15',
+      amount: '$150.00',
+      review_link: 'https://google.com/reviews/your-business'
+    };
+
+    res.status(200).json({
+      success: true,
+      preview_data: fallbackData
+    });
+  }
+});
+
 // Rotate HMAC secret for Zapier integration
 app.post('/api/zapier/rotate-secret', async (req, res) => {
   try {
