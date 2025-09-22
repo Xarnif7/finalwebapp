@@ -25,9 +25,6 @@ import { Send, CheckCircle, Clock, Play, Pause, Settings, Mail, MessageSquare, A
 import PageHeader from "@/components/ui/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { useBusiness } from "@/hooks/useBusiness";
-import FlowCard from "@/components/automation/FlowCard";
-import SequenceCreator from "@/components/automation/SequenceCreator";
-import ActiveSequences from "@/components/automation/ActiveSequences";
 
 const AutomatedRequestsPage = () => {
   const { user } = useAuth();
@@ -277,6 +274,7 @@ const AutomatedRequestsPage = () => {
 
       if (response.ok) {
         await loadTemplates();
+        setCreateModalOpen(false);
       } else {
         const error = await response.json();
         alert('Error creating sequence: ' + error.error);
@@ -284,7 +282,7 @@ const AutomatedRequestsPage = () => {
       }
     } catch (error) {
       console.error('Error creating sequence:', error);
-      throw error;
+      alert('Error creating sequence');
     }
   };
 
@@ -307,6 +305,36 @@ const AutomatedRequestsPage = () => {
         console.error('Error deleting sequence:', error);
         alert('Error deleting sequence');
       }
+    }
+  };
+
+  const getChannelIcon = (channel) => {
+    return channel === 'sms' ? <MessageSquare className="w-4 h-4" /> : <Mail className="w-4 h-4" />;
+  };
+
+  const getChannelColor = (channel) => {
+    return channel === 'sms' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-green-100 text-green-700 border-green-200';
+  };
+
+  const formatTimeAgo = (dateString) => {
+    if (!dateString) return 'Just now';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-700 border-green-200';
+      case 'paused': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      case 'draft': return 'bg-gray-100 text-gray-700 border-gray-200';
+      default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
 
@@ -403,15 +431,111 @@ const AutomatedRequestsPage = () => {
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {templates.map((template) => (
-                    <FlowCard
-                      key={template.id}
-                      sequence={template}
-                      onToggle={toggleTemplateStatus}
-                      onCustomize={openCustomizeModal}
-                      onTest={triggerTestAutomation}
-                      onDelete={handleDeleteSequence}
-                      updating={updating[template.id]}
-                    />
+                    <Card key={template.id} className="hover:shadow-lg transition-shadow duration-200">
+                      <CardContent className="p-6">
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                              {template.name}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              {formatTimeAgo(template.updated_at)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className={`${getStatusColor(template.status)} text-xs font-medium`}>
+                              {template.status}
+                            </Badge>
+                            <Switch 
+                              checked={template.status === 'active'} 
+                              onCheckedChange={() => toggleTemplateStatus(template)}
+                              disabled={updating[template.id]}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Visual Flow - THIS IS THE KEY FEATURE */}
+                        <div className="mb-4">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {/* Trigger */}
+                            <div className="flex items-center gap-2 px-3 py-2 bg-green-100 border border-green-200 rounded-lg">
+                              <CheckCircle className="w-4 h-4 text-green-600" />
+                              <span className="text-sm font-medium text-green-700">Trigger</span>
+                            </div>
+                            
+                            <ArrowRight className="w-4 h-4 text-gray-400" />
+                            
+                            {/* Steps */}
+                            {template.channels.map((channel, index) => {
+                              const stepDelay = template.config_json?.steps?.[index]?.delay || 
+                                               (index > 0 ? template.config_json?.delay_hours || 24 : 0);
+                              const delayUnit = template.config_json?.steps?.[index]?.delayUnit || 'hours';
+                              
+                              return (
+                                <React.Fragment key={index}>
+                                  {/* Delay indicator for non-first steps */}
+                                  {index > 0 && stepDelay > 0 && (
+                                    <>
+                                      <div className="flex items-center gap-2 px-3 py-2 bg-orange-100 border border-orange-200 rounded-lg">
+                                        <Clock className="w-4 h-4 text-orange-600" />
+                                        <span className="text-sm font-medium text-orange-700">
+                                          {delayUnit === 'hours' ? `${stepDelay}h` : 
+                                           delayUnit === 'days' ? `${stepDelay}d` : 
+                                           `${stepDelay}m`}
+                                        </span>
+                                      </div>
+                                      <ArrowRight className="w-4 h-4 text-gray-400" />
+                                    </>
+                                  )}
+                                  
+                                  {/* Channel */}
+                                  <div className={`flex items-center gap-2 px-3 py-2 border rounded-lg ${getChannelColor(channel)}`}>
+                                    {getChannelIcon(channel)}
+                                    <span className="text-sm font-medium">
+                                      {channel === 'sms' ? 'SMS' : 'Email'}
+                                    </span>
+                                  </div>
+                                  
+                                  {index < template.channels.length - 1 && (
+                                    <ArrowRight className="w-4 h-4 text-gray-400" />
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Description */}
+                        <div className="mb-4">
+                          <p className="text-sm text-gray-600 line-clamp-2">
+                            {template.description || template.config_json?.message || 'Automated follow-up sequence'}
+                          </p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => openCustomizeModal(template)}
+                            className="flex-1"
+                          >
+                            <Settings className="w-3 h-3 mr-1" />
+                            Customize
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => triggerTestAutomation(template)}
+                            className="flex-1"
+                          >
+                            <Play className="w-3 h-3 mr-1" />
+                            Test
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               )}
@@ -421,7 +545,115 @@ const AutomatedRequestsPage = () => {
       )}
 
       {activeTab === 'active' && (
-        <ActiveSequences />
+        <Card className="rounded-2xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Play className="w-5 h-5 text-green-600" />
+              Active Sequences
+            </CardTitle>
+            <p className="text-sm text-slate-600">
+              Currently running automation sequences that are actively engaging your customers.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {templates.filter(t => t.status === 'active').length === 0 ? (
+              <div className="text-center py-8">
+                <Pause className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-700 mb-2">No active sequences</h3>
+                <p className="text-slate-500 mb-4">Start an automation sequence to see it here.</p>
+                <Button onClick={() => setCreateModalOpen(true)}>
+                  Create Sequence
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {templates.filter(t => t.status === 'active').map((sequence) => (
+                  <div key={sequence.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-lg text-gray-900 mb-1">
+                          {sequence.name}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {sequence.description || sequence.config_json?.message || 'Automated follow-up sequence'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-green-100 text-green-700 text-xs">
+                          Active
+                        </Badge>
+                        <Switch 
+                          checked={sequence.status === 'active'} 
+                          onCheckedChange={() => toggleTemplateStatus(sequence)}
+                          disabled={updating[sequence.id]}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Channels */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-sm font-medium text-gray-600">Channels:</span>
+                      {sequence.channels.map((channel, index) => (
+                        <div key={index} className={`flex items-center gap-1 px-2 py-1 rounded ${getChannelColor(channel)}`}>
+                          {getChannelIcon(channel)}
+                          <span className="text-xs font-medium">
+                            {channel === 'sms' ? 'SMS' : 'Email'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Visual Flow */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
+                        <CheckCircle className="w-3 h-3" />
+                        <span>Trigger</span>
+                      </div>
+                      
+                      <ArrowRight className="w-3 h-3 text-gray-400" />
+                      
+                      {sequence.channels.map((channel, index) => {
+                        const stepDelay = sequence.config_json?.steps?.[index]?.delay || 
+                                         (index > 0 ? sequence.config_json?.delay_hours || 24 : 0);
+                        const delayUnit = sequence.config_json?.steps?.[index]?.delayUnit || 'hours';
+                        
+                        return (
+                          <React.Fragment key={index}>
+                            {/* Delay indicator for non-first steps */}
+                            {index > 0 && stepDelay > 0 && (
+                              <>
+                                <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs">
+                                  <Clock className="w-3 h-3" />
+                                  <span>
+                                    {delayUnit === 'hours' ? `${stepDelay}h` : 
+                                     delayUnit === 'days' ? `${stepDelay}d` : 
+                                     `${stepDelay}m`}
+                                  </span>
+                                </div>
+                                <ArrowRight className="w-3 h-3 text-gray-400" />
+                              </>
+                            )}
+                            
+                            {/* Channel */}
+                            <div className={`flex items-center gap-1 px-2 py-1 rounded text-xs ${getChannelColor(channel)}`}>
+                              {getChannelIcon(channel)}
+                              <span>{channel === 'sms' ? 'SMS' : 'Email'}</span>
+                            </div>
+                            
+                            {index < sequence.channels.length - 1 && (
+                              <ArrowRight className="w-3 h-3 text-gray-400" />
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {activeTab === 'templates' && (
@@ -481,13 +713,162 @@ const AutomatedRequestsPage = () => {
         </>
       )}
 
-      {/* Sequence Creator Modal */}
-      <SequenceCreator
-        isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        onCreate={handleCreateSequence}
-        business={business}
-      />
+      {/* Create Sequence Modal */}
+      <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Automation Sequence</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Basic Information */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">Sequence Name</Label>
+                <Input
+                  id="name"
+                  placeholder="e.g., Post-Visit Review Request"
+                />
+              </div>
+              <div>
+                <Label htmlFor="trigger_event">Trigger Event</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select trigger event" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="job_completed">
+                      <div>
+                        <div className="font-medium">Job Completed</div>
+                        <div className="text-xs text-slate-500">Triggered when a job/service is marked complete</div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="invoice_paid">
+                      <div>
+                        <div className="font-medium">Invoice Paid</div>
+                        <div className="text-xs text-slate-500">Triggered when payment is received</div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="service_completed">
+                      <div>
+                        <div className="font-medium">Service Completed</div>
+                        <div className="text-xs text-slate-500">Triggered when a service appointment ends</div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="customer_created">
+                      <div>
+                        <div className="font-medium">New Customer</div>
+                        <div className="text-xs text-slate-500">Triggered when a new customer is added</div>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="description">Sequence Description</Label>
+              <Textarea
+                id="description"
+                placeholder="Describe what this automation sequence does..."
+                rows={3}
+              />
+            </div>
+
+            {/* Sequence Steps */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <Label className="text-base font-semibold">Sequence Steps</Label>
+                <Button size="sm" variant="outline">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Step
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <GripVertical className="w-4 h-4 text-slate-400" />
+                    <span className="text-sm font-medium text-slate-600">Step 1</span>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div>
+                      <Label>Channel</Label>
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="email">
+                            <div className="flex items-center gap-2">
+                              <Mail className="w-4 h-4" />
+                              Email
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="sms">
+                            <div className="flex items-center gap-2">
+                              <MessageSquare className="w-4 h-4" />
+                              SMS
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Delay</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          defaultValue="24"
+                          className="flex-1"
+                        />
+                        <Select defaultValue="hours">
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="minutes">min</SelectItem>
+                            <SelectItem value="hours">hrs</SelectItem>
+                            <SelectItem value="days">days</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Subject</Label>
+                      <Input
+                        placeholder="Email subject..."
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Message</Label>
+                      <Textarea
+                        placeholder="Message content..."
+                        rows={2}
+                        className="resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => setCreateModalOpen(false)}>
+              Create Sequence
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Customize Modal */}
       <Dialog open={customizeModalOpen} onOpenChange={setCustomizeModalOpen}>

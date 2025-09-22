@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { supabase } from '../lib/supabase/browser';
+import { useAuth } from './useAuth';
+import { supabase } from '@/lib/supabaseClient';
 
-export function useBusiness() {
+export const useBusiness = () => {
   const { user } = useAuth();
   const [business, setBusiness] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!user) {
+    if (!user?.email) {
       setBusiness(null);
       setLoading(false);
       return;
@@ -18,66 +18,54 @@ export function useBusiness() {
     const fetchBusiness = async () => {
       try {
         setLoading(true);
-        setError(null);
-
-        // First try: Get from profile
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('business_id')
-          .eq('id', user.id)
+        
+        // Get business by email (using the email-based data persistence)
+        const { data: businessData, error: businessError } = await supabase
+          .from('businesses')
+          .select('*')
+          .eq('created_by', user.email)
           .single();
 
-        let businessId = null;
-
-        if (!profileError && profile?.business_id) {
-          businessId = profile.business_id;
-          console.log('📋 Using business_id from profile:', businessId);
-        } else {
-          // Fallback: Find business by email
-          console.log('📋 Profile business_id not found, trying email-based lookup for:', user.email);
-          
-          const { data: business, error: businessError } = await supabase
-            .from('businesses')
-            .select('id')
-            .eq('created_by', user.email)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-
-          if (!businessError && business) {
-            businessId = business.id;
-            console.log('📋 Found business by email:', businessId);
-          }
+        if (businessError && businessError.code !== 'PGRST116') {
+          console.error('Error fetching business:', businessError);
+          setError(businessError.message);
+          return;
         }
 
-        if (businessId) {
-          // Fetch full business data
-          const { data: businessData, error: businessDataError } = await supabase
+        if (!businessData) {
+          // Create business if it doesn't exist
+          const { data: newBusiness, error: createError } = await supabase
             .from('businesses')
-            .select('*')
-            .eq('id', businessId)
+            .insert({
+              name: user.user_metadata?.business_name || 'My Business',
+              created_by: user.email,
+              email: user.email,
+              phone: user.user_metadata?.phone || null,
+              website: user.user_metadata?.website || null
+            })
+            .select()
             .single();
 
-          if (!businessDataError && businessData) {
-            setBusiness(businessData);
-          } else {
-            console.error('Error fetching business data:', businessDataError);
-            setError('Failed to fetch business data');
+          if (createError) {
+            console.error('Error creating business:', createError);
+            setError(createError.message);
+            return;
           }
+
+          setBusiness(newBusiness);
         } else {
-          console.log('📋 No business found for user');
-          setBusiness(null);
+          setBusiness(businessData);
         }
       } catch (err) {
-        console.error('Error in useBusiness:', err);
-        setError('Failed to load business');
+        console.error('Error in fetchBusiness:', err);
+        setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
     fetchBusiness();
-  }, [user]);
+  }, [user?.email]);
 
   return { business, loading, error };
-}
+};
