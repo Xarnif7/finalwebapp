@@ -9,7 +9,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -22,10 +21,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, CheckCircle, Clock, Play, Pause, Settings, Mail, MessageSquare, ArrowRight, Plus, Trash2, GripVertical } from "lucide-react";
+import { Send, CheckCircle, Clock, Play, Pause, Settings, Mail, MessageSquare, ArrowRight, Plus, Trash2, GripVertical, Zap, List } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { useBusiness } from "@/hooks/useBusiness";
+import FlowCard from "@/components/automation/FlowCard";
+import SequenceCreator from "@/components/automation/SequenceCreator";
+import ActiveSequences from "@/components/automation/ActiveSequences";
 
 const AutomatedRequestsPage = () => {
   const { user } = useAuth();
@@ -36,12 +38,14 @@ const AutomatedRequestsPage = () => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState({});
   const [customizeModalOpen, setCustomizeModalOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [customizationData, setCustomizationData] = useState({
     name: '',
     description: '',
     steps: []
   });
+  const [activeTab, setActiveTab] = useState('templates');
 
   // Load templates on component mount
   useEffect(() => {
@@ -260,12 +264,50 @@ const AutomatedRequestsPage = () => {
     }
   };
 
-  const getChannelIcon = (channel) => {
-    return channel === 'sms' ? <MessageSquare className="w-4 h-4" /> : <Mail className="w-4 h-4" />;
+  const handleCreateSequence = async (sequenceData) => {
+    try {
+      const response = await fetch(`/api/templates/${business.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user?.access_token}`
+        },
+        body: JSON.stringify(sequenceData)
+      });
+
+      if (response.ok) {
+        await loadTemplates();
+      } else {
+        const error = await response.json();
+        alert('Error creating sequence: ' + error.error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error creating sequence:', error);
+      throw error;
+    }
   };
 
-  const getChannelColor = (channel) => {
-    return channel === 'sms' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700';
+  const handleDeleteSequence = async (sequenceId) => {
+    if (window.confirm("Are you sure you want to delete this sequence? This action cannot be undone.")) {
+      try {
+        const response = await fetch(`/api/templates/${business.id}/${sequenceId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${user?.access_token}`
+          }
+        });
+
+        if (response.ok) {
+          await loadTemplates();
+        } else {
+          alert('Error deleting sequence');
+        }
+      } catch (error) {
+        console.error('Error deleting sequence:', error);
+        alert('Error deleting sequence');
+      }
+    }
   };
 
   if (loading) {
@@ -285,159 +327,169 @@ const AutomatedRequestsPage = () => {
     );
   }
 
+  const tabs = [
+    { id: 'templates', label: 'Templates', icon: Zap },
+    { id: 'active', label: 'Active Sequences', icon: List }
+  ];
+
   return (
     <div className="p-8 space-y-6">
       <PageHeader
         title="Automated Requests"
-        subtitle="Manage automation templates and trigger sequences for your customers."
+        subtitle="Create and manage automation sequences that engage customers automatically."
       />
 
-      {/* Premade Automation Templates */}
-      <Card className="rounded-2xl">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5" />
-            Automation Templates
-          </CardTitle>
-          <CardDescription>
-            Pre-built automation sequences that trigger based on customer events. Customize them to fit your business needs.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {templates.length === 0 ? (
-            <div className="text-center py-8">
-              <Settings className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-700 mb-2">No automation templates yet</h3>
-              <p className="text-slate-500 mb-4">Create your first automation template to get started.</p>
-              <Button onClick={() => window.location.href = '/sequences'}>
-                Create Automation Template
-              </Button>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {templates.map((template) => (
-                <div key={template.id} className="border rounded-xl p-6 space-y-4 hover:shadow-lg transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-lg">{template.name}</h4>
-                    <Switch 
-                      checked={template.status === 'active'} 
-                      onCheckedChange={() => toggleTemplateStatus(template)}
-                      disabled={updating[template.id]}
-                    />
-                  </div>
-                  
-                  {/* Visual Flow */}
-                  <div className="space-y-3">
-                    <div className="text-sm font-medium text-slate-600">Sequence Flow:</div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {template.channels.map((channel, index) => (
-                        <React.Fragment key={index}>
-                          {index > 0 && <ArrowRight className="w-4 h-4 text-slate-400" />}
-                          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${getChannelColor(channel)}`}>
-                            {getChannelIcon(channel)}
-                            <span className="text-sm font-medium">
-                              {channel === 'sms' ? 'SMS' : 'Email'}
-                            </span>
-                          </div>
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <p className="text-sm text-slate-600 line-clamp-2">
-                    {template.config_json?.message || 'No message configured'}
-                  </p>
-                  
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="secondary" className="text-xs">
-                      {template.trigger_type}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {template.config_json?.delay_hours || 24}h delay
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => openCustomizeModal(template)}
-                      className="flex-1"
-                    >
-                      <Settings className="w-3 h-3 mr-1" />
-                      Customize
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => triggerTestAutomation(template)}
-                      className="flex-1"
-                    >
-                      <Play className="w-3 h-3 mr-1" />
-                      Test
-                    </Button>
-                  </div>
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-4">
+        <Button onClick={() => setCreateModalOpen(true)} className="gap-2">
+          <Plus className="w-4 h-4" />
+          Create Custom Sequence
+        </Button>
+        {activeTab === 'templates' && (
+          <Button variant="outline" onClick={() => window.location.href = '/sequences'}>
+            <Settings className="w-4 h-4 mr-2" />
+            Manage Sequences
+          </Button>
+        )}
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'templates' && (
+        <>
+          {/* Automation Templates */}
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Automation Templates
+              </CardTitle>
+              <CardDescription>
+                Pre-built automation sequences that trigger based on customer events. Customize them to fit your business needs.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {templates.length === 0 ? (
+                <div className="text-center py-8">
+                  <Settings className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-slate-700 mb-2">No automation templates yet</h3>
+                  <p className="text-slate-500 mb-4">Create your first automation template to get started.</p>
+                  <Button onClick={() => setCreateModalOpen(true)}>
+                    Create Automation Template
+                  </Button>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {templates.map((template) => (
+                    <FlowCard
+                      key={template.id}
+                      sequence={template}
+                      onToggle={toggleTemplateStatus}
+                      onCustomize={openCustomizeModal}
+                      onTest={triggerTestAutomation}
+                      onDelete={handleDeleteSequence}
+                      updating={updating[template.id]}
+                    />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
 
-      {/* Manual Email Template */}
-      <Card className="rounded-2xl">
-        <CardHeader>
-          <CardTitle>Email Template</CardTitle>
-          <CardDescription>
-            Used for sending manual review requests via email. This template is used when you manually send requests to customers.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={emailTemplate}
-            onChange={(e) => setEmailTemplate(e.target.value)}
-            rows={6}
-            placeholder="Enter your email template..."
-          />
-          <div className="flex justify-end mt-4">
-            <Button onClick={saveEmailTemplate} disabled={showEmailSaved}>
-              {showEmailSaved ? <><CheckCircle className="w-4 h-4 mr-2" /> Saved</> : "Save Email Template"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {activeTab === 'active' && (
+        <ActiveSequences />
+      )}
 
-      {/* Automation Status */}
-      <Card className="rounded-2xl">
-        <CardHeader>
-          <CardTitle>Automation Status</CardTitle>
-          <CardDescription>
-            Overview of your automation system and recent activity.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-slate-50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">{templates.length}</div>
-              <div className="text-sm text-slate-600">Total Templates</div>
-            </div>
-            <div className="text-center p-4 bg-slate-50 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">
-                {templates.filter(t => t.status === 'active').length}
+      {activeTab === 'templates' && (
+        <>
+          {/* Manual Email Template */}
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <CardTitle>Email Template</CardTitle>
+              <CardDescription>
+                Used for sending manual review requests via email. This template is used when you manually send requests to customers.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={emailTemplate}
+                onChange={(e) => setEmailTemplate(e.target.value)}
+                rows={6}
+                placeholder="Enter your email template..."
+              />
+              <div className="flex justify-end mt-4">
+                <Button onClick={saveEmailTemplate} disabled={showEmailSaved}>
+                  {showEmailSaved ? <><CheckCircle className="w-4 h-4 mr-2" /> Saved</> : "Save Email Template"}
+                </Button>
               </div>
-              <div className="text-sm text-slate-600">Active Automations</div>
-            </div>
-            <div className="text-center p-4 bg-slate-50 rounded-lg">
-              <div className="text-2xl font-bold text-orange-600">
-                {templates.filter(t => t.channels.includes('email')).length}
-              </div>
-              <div className="text-sm text-slate-600">Email Channels</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {/* Customize Sequence Modal */}
+          {/* Automation Status */}
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <CardTitle>Automation Status</CardTitle>
+              <CardDescription>
+                Overview of your automation system and recent activity.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-slate-50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{templates.length}</div>
+                  <div className="text-sm text-slate-600">Total Templates</div>
+                </div>
+                <div className="text-center p-4 bg-slate-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">
+                    {templates.filter(t => t.status === 'active').length}
+                  </div>
+                  <div className="text-sm text-slate-600">Active Automations</div>
+                </div>
+                <div className="text-center p-4 bg-slate-50 rounded-lg">
+                  <div className="text-2xl font-bold text-orange-600">
+                    {templates.filter(t => t.channels.includes('email')).length}
+                  </div>
+                  <div className="text-sm text-slate-600">Email Channels</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* Sequence Creator Modal */}
+      <SequenceCreator
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreate={handleCreateSequence}
+        business={business}
+      />
+
+      {/* Customize Modal */}
       <Dialog open={customizeModalOpen} onOpenChange={setCustomizeModalOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
