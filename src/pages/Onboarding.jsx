@@ -175,9 +175,9 @@ export default function Onboarding() {
           description: formData.description,
         };
         
-        // If database trigger doesn't work, add created_by manually
-        if (user.id) {
-          businessData.created_by = user.id; // Use UUID, not email
+        // Use email for created_by field (email-based persistence)
+        if (user.email) {
+          businessData.created_by = user.email;
         }
         
         console.log('[ONBOARDING] Creating business with data:', businessData);

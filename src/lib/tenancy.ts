@@ -43,11 +43,12 @@ export function useCurrentBusinessId() {
             console.log('[tenancy] No profile found, creating business and profile for new user');
             
             try {
-              // Create a business first
+              // Create a business first with email-based ownership
               const { data: businessData, error: businessError } = await supabase
                 .from('businesses')
                 .insert({
-                  name: `${user.email?.split('@')[0] || 'User'}'s Business`
+                  name: `${user.email?.split('@')[0] || 'User'}'s Business`,
+                  created_by: user.email
                 })
                 .select('id')
                 .single();
