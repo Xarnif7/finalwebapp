@@ -440,7 +440,15 @@ export default function AutomationsPage() {
       {/* Recipe Cards */}
       <RecipeCards 
         isZapierConnected={isZapierConnected}
-        onRecipeSequenceCreated={handleRecipeSequenceCreated}
+        onSequenceCreated={handleRecipeSequenceCreated}
+        onGoToSequences={(seq) => {
+          setMainTab('sequences');
+          // Optionally open details drawer if available
+          if (seq) {
+            setSelectedSequence(seq);
+            setShowDetailsDrawer(true);
+          }
+        }}
       />
 
       {/* Toolbar */}

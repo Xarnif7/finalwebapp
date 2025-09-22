@@ -14,13 +14,16 @@ import {
   Eye,
   Loader2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ArrowRight,
+  CheckCircle as CheckIcon,
+  DollarSign
 } from 'lucide-react';
 import { useSequenceDesigner } from '../../hooks/useSequenceDesigner';
 import { useSequencesData } from '../../hooks/useSequencesData';
 import { useToast } from '../../hooks/useToast';
 
-const RecipeCards = ({ isZapierConnected, onSequenceCreated, onConnectZapier }) => {
+const RecipeCards = ({ isZapierConnected, onSequenceCreated, onConnectZapier, onGoToSequences }) => {
   const [creating, setCreating] = useState(null);
   const [testing, setTesting] = useState(null);
   const [showPreview, setShowPreview] = useState({});
@@ -81,6 +84,80 @@ const RecipeCards = ({ isZapierConnected, onSequenceCreated, onConnectZapier }) 
       }
     }
   ];
+
+  // Format milliseconds into a short label (e.g., 5h, 24h, 2d)
+  const formatWait = (ms) => {
+    if (!ms) return '';
+    const minutes = Math.round(ms / (60 * 1000));
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.round(hours / 24);
+    return `${days}d`;
+  };
+
+  // Render compact visual flow for a recipe
+  const renderFlow = (recipe) => {
+    const triggerIcon = (() => {
+      switch (recipe.trigger) {
+        case 'job_completed':
+          return <CheckIcon className="w-4 h-4 text-emerald-600" />;
+        case 'invoice_paid':
+          return <DollarSign className="w-4 h-4 text-blue-600" />;
+        case 'service_delivered':
+        default:
+          return <Clock className="w-4 h-4 text-orange-600" />;
+      }
+    })();
+
+    const parts = [];
+    // Start with trigger
+    parts.push(
+      <div key="trigger" className="flex items-center gap-1">
+        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100" title="Trigger">
+          {triggerIcon}
+        </div>
+      </div>
+    );
+
+    recipe.steps.forEach((step, idx) => {
+      parts.push(
+        <ArrowRight key={`arrow-${idx}`} className="w-4 h-4 text-slate-400" />
+      );
+      if (step.kind === 'wait') {
+        parts.push(
+          <div key={`wait-${idx}`} className="flex items-center gap-1" title={step.label}>
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100">
+              <Clock className="w-4 h-4 text-orange-600" />
+            </div>
+            <span className="text-[11px] text-slate-600">{formatWait(step.wait_ms)}</span>
+          </div>
+        );
+      } else if (step.kind === 'send_email') {
+        parts.push(
+          <div key={`email-${idx}`} className="flex items-center gap-1" title="Send Email">
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100">
+              <Mail className="w-4 h-4 text-blue-600" />
+            </div>
+          </div>
+        );
+      } else if (step.kind === 'send_sms') {
+        parts.push(
+          <div key={`sms-${idx}`} className="flex items-center gap-1" title="Send SMS">
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100">
+              <MessageSquare className="w-4 h-4 text-green-600" />
+            </div>
+          </div>
+        );
+      }
+    });
+
+    return (
+      <div className="flex items-center flex-wrap gap-2" aria-label="Automation flow">
+        {parts}
+      </div>
+    );
+  };
 
   // Helper function to check if a recipe is enabled
   const isRecipeEnabled = (recipe) => {
@@ -146,10 +223,10 @@ const RecipeCards = ({ isZapierConnected, onSequenceCreated, onConnectZapier }) 
   const handleViewSequence = (recipe) => {
     const sequence = getEnabledSequence(recipe);
     if (sequence) {
-      // Navigate to the sequence in the manage tab
-      // This could be handled by the parent component
       toastSuccess(`Opening ${recipe.title} sequence`);
-      // TODO: Implement deep-link to sequence details/designer
+      if (onGoToSequences) {
+        onGoToSequences(sequence);
+      }
     }
   };
 
@@ -260,26 +337,10 @@ const RecipeCards = ({ isZapierConnected, onSequenceCreated, onConnectZapier }) 
             
             <CardContent className="pt-0">
               <div className="space-y-4">
-                {/* Step Chips - Only show when preview is enabled */}
-                {showPreview[recipe.id] && (
-                  <div className="flex flex-wrap gap-2">
-                    {recipe.steps.map((step, index) => (
-                      <div key={index} className="flex items-center space-x-2 px-3 py-1 bg-slate-100 rounded-full text-sm">
-                        <div className="w-5 h-5 bg-slate-200 rounded-full flex items-center justify-center text-xs font-medium">
-                          {index + 1}
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          {step.kind === 'send_email' && <Mail className="w-3 h-3 text-blue-600" />}
-                          {step.kind === 'send_sms' && <MessageSquare className="w-3 h-3 text-green-600" />}
-                          {step.kind === 'wait' && <Clock className="w-3 h-3 text-orange-600" />}
-                          <span className="text-slate-700 font-medium">
-                            {step.label}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {/* Compact visual flow */}
+                <div className="border border-slate-200/70 rounded-lg p-3 bg-white">
+                  {renderFlow(recipe)}
+                </div>
 
                 {/* Settings Summary */}
                 <div className="text-xs text-slate-500 space-y-1 bg-slate-50 p-3 rounded-lg">
