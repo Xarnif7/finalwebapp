@@ -123,6 +123,11 @@ const AutomatedRequestsPage = () => {
     }
   }, [business?.id, user?.email]);
 
+  // Update active sequences when templates change
+  useEffect(() => {
+    loadActiveSequences();
+  }, [templates]);
+
   const loadTemplates = async () => {
     try {
       setLoading(true);
@@ -271,6 +276,8 @@ const AutomatedRequestsPage = () => {
       console.log('Active sequences loaded:', sequences.length);
     } catch (error) {
       console.error('Error loading active sequences:', error);
+      // Set empty array if there's an error
+      setActiveSequences([]);
     }
   };
 
@@ -418,6 +425,12 @@ const AutomatedRequestsPage = () => {
 
   const triggerZapierWebhook = async (templateId, action) => {
     try {
+      // Only trigger webhook if we have a business ID
+      if (!business?.id) {
+        console.log('No business ID available for Zapier webhook, skipping');
+        return;
+      }
+
       const response = await fetch('/api/zapier/webhook', {
         method: 'POST',
         headers: {
