@@ -164,7 +164,10 @@ export default function TemplateCustomizer({
       
       // Add timeout to prevent hanging
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        console.log('AI request timed out after 30 seconds');
+      }, 15000); // 15 second timeout
       
       const response = await fetch('/api/ai/generate-message', {
         method: 'POST',
@@ -202,7 +205,18 @@ export default function TemplateCustomizer({
     } catch (error) {
       console.error('AI generation error:', error);
       if (error.name === 'AbortError') {
-        alert('AI generation timed out. Please try again.');
+        // Use fallback message when timeout occurs
+        const fallbackMessages = {
+          'job_completed': 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review at {{review_link}}.',
+          'invoice_paid': 'Thank you for your payment, {{customer.name}}! We appreciate your business. Please consider leaving us a review at {{review_link}}.',
+          'service_reminder': 'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!'
+        };
+        const fallbackMessage = fallbackMessages[template?.key] || 
+          'Thank you for your business! Please leave us a review at {{review_link}}.';
+        
+        setCustomMessage(fallbackMessage);
+        generatePreview(fallbackMessage);
+        alert('AI generation timed out, but we\'ve added a professional fallback message for you!');
       } else {
         alert('AI generation failed. Please try again.');
       }
@@ -221,7 +235,10 @@ export default function TemplateCustomizer({
       
       // Add timeout to prevent hanging
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        console.log('AI enhancement request timed out after 30 seconds');
+      }, 15000); // 15 second timeout
       
       const response = await fetch('/api/ai/enhance-message', {
         method: 'POST',
@@ -264,7 +281,7 @@ export default function TemplateCustomizer({
     } catch (error) {
       console.error('AI enhancement error:', error);
       if (error.name === 'AbortError') {
-        alert('AI enhancement timed out. Please try again.');
+        alert('AI enhancement timed out, but your original message is still there!');
       } else {
         alert('AI enhancement failed. Please try again.');
       }
@@ -588,10 +605,9 @@ export default function TemplateCustomizer({
                   <div className="flex gap-2">
                     <Button
                       type="button"
-                      variant="outline"
                       onClick={generateWithAI}
                       disabled={aiGenerating || aiEnhancing}
-                      className="flex items-center gap-2"
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 flex items-center gap-2"
                     >
                       <Sparkles className="w-4 h-4" />
                       {aiGenerating ? 'Generating...' : 'Generate with AI'}
