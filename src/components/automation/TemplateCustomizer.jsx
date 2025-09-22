@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, MessageSquare, Clock, Settings, ArrowRight, CheckCircle, AlertCircle } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Mail, MessageSquare, Clock, Settings, ArrowRight, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, Wand2, Eye, User, Link, Building, Calendar, Star } from "lucide-react";
 
 export default function TemplateCustomizer({ 
   isOpen, 
@@ -28,23 +29,195 @@ export default function TemplateCustomizer({
     }
   });
   const [saving, setSaving] = useState(false);
+  const [messageDropdownOpen, setMessageDropdownOpen] = useState(false);
+  const [customMessage, setCustomMessage] = useState('');
+  const [messagePreview, setMessagePreview] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiEnhancing, setAiEnhancing] = useState(false);
+  const textareaRef = useRef(null);
+
+  // Default messages for each automation type
+  const getDefaultMessage = (templateKey, templateName) => {
+    const defaults = {
+      'job_completed': 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review at {{review_link}}.',
+      'invoice_paid': 'Thank you for your payment, {{customer.name}}! We appreciate your business. Please consider leaving us a review at {{review_link}}.',
+      'service_reminder': 'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!',
+      'mock-1': 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review at {{review_link}}.',
+      'mock-2': 'Thank you for your payment, {{customer.name}}! We appreciate your business. Please consider leaving us a review at {{review_link}}.',
+      'mock-3': 'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!'
+    };
+    
+    return defaults[templateKey] || defaults[templateName?.toLowerCase()] || 'Thank you for your business! Please leave us a review at {{review_link}}.';
+  };
 
   useEffect(() => {
     if (template) {
+      const defaultMessage = getDefaultMessage(template.key, template.name);
+      const currentMessage = template.config_json?.message || defaultMessage;
+      
       setFormData({
         name: template.name || '',
         description: template.description || '',
         trigger_type: template.trigger_type || 'event',
         channels: template.channels || ['email'],
         config_json: {
-          message: template.config_json?.message || '',
+          message: currentMessage,
           delay_hours: template.config_json?.delay_hours || 24,
           delay_days: template.config_json?.delay_days || 1,
           steps: template.config_json?.steps || []
         }
       });
+      
+      setCustomMessage(currentMessage);
+      generatePreview(currentMessage);
     }
   }, [template]);
+
+  // Variable insertion function
+  const insertVariable = (variable) => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newMessage = customMessage.substring(0, start) + variable + customMessage.substring(end);
+      setCustomMessage(newMessage);
+      setFormData(prev => ({
+        ...prev,
+        config_json: { ...prev.config_json, message: newMessage }
+      }));
+      generatePreview(newMessage);
+      
+      // Set cursor position after the inserted variable
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + variable.length, start + variable.length);
+      }, 0);
+    }
+  };
+
+  // Generate preview with real customer data
+  const generatePreview = async (message) => {
+    try {
+      // Get real customer data for preview
+      const response = await fetch('/api/customers/preview-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          business_id: businessId
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const previewData = data.preview_data;
+        
+        const preview = message
+          .replace(/\{\{customer\.name\}\}/g, previewData.customer_name)
+          .replace(/\{\{review_link\}\}/g, previewData.review_link)
+          .replace(/\{\{business\.name\}\}/g, previewData.business_name)
+          .replace(/\{\{service_date\}\}/g, previewData.service_date)
+          .replace(/\{\{amount\}\}/g, previewData.amount);
+        setMessagePreview(preview);
+      } else {
+        // Fallback to sample data
+        const preview = message
+          .replace(/\{\{customer\.name\}\}/g, 'John Smith')
+          .replace(/\{\{review_link\}\}/g, 'https://reviews.example.com/review/abc123')
+          .replace(/\{\{business\.name\}\}/g, 'Your Business Name')
+          .replace(/\{\{service_date\}\}/g, 'January 15, 2024')
+          .replace(/\{\{amount\}\}/g, '$150.00');
+        setMessagePreview(preview);
+      }
+    } catch (error) {
+      console.error('Preview generation error:', error);
+      // Fallback to sample data
+      const preview = message
+        .replace(/\{\{customer\.name\}\}/g, 'John Smith')
+        .replace(/\{\{review_link\}\}/g, 'https://reviews.example.com/review/abc123')
+        .replace(/\{\{business\.name\}\}/g, 'Your Business Name')
+        .replace(/\{\{service_date\}\}/g, 'January 15, 2024')
+        .replace(/\{\{amount\}\}/g, '$150.00');
+      setMessagePreview(preview);
+    }
+  };
+
+  // AI message generation
+  const generateWithAI = async () => {
+    try {
+      setAiGenerating(true);
+      
+      const response = await fetch('/api/ai/generate-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          template_name: template?.name,
+          template_type: template?.key,
+          business_id: businessId,
+          automation_type: template?.trigger_type
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const newMessage = data.message;
+        setCustomMessage(newMessage);
+        setFormData(prev => ({
+          ...prev,
+          config_json: { ...prev.config_json, message: newMessage }
+        }));
+        generatePreview(newMessage);
+      } else {
+        throw new Error('AI generation failed');
+      }
+    } catch (error) {
+      console.error('AI generation error:', error);
+      alert('AI generation failed. Please try again.');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  // AI message enhancement
+  const enhanceMessage = async () => {
+    try {
+      setAiEnhancing(true);
+      
+      const response = await fetch('/api/ai/enhance-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          current_message: customMessage,
+          template_name: template?.name,
+          template_type: template?.key,
+          business_id: businessId
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const enhancedMessage = data.enhanced_message;
+        setCustomMessage(enhancedMessage);
+        setFormData(prev => ({
+          ...prev,
+          config_json: { ...prev.config_json, message: enhancedMessage }
+        }));
+        generatePreview(enhancedMessage);
+      } else {
+        throw new Error('AI enhancement failed');
+      }
+    } catch (error) {
+      console.error('AI enhancement error:', error);
+      alert('AI enhancement failed. Please try again.');
+    } finally {
+      setAiEnhancing(false);
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -351,6 +524,140 @@ export default function TemplateCustomizer({
               ))}
             </div>
           </div>
+
+          {/* Message Customization */}
+          <Collapsible open={messageDropdownOpen} onOpenChange={setMessageDropdownOpen}>
+            <CollapsibleTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="w-full justify-between"
+                type="button"
+              >
+                <span className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4" />
+                  Customize Message Content
+                </span>
+                {messageDropdownOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent className="space-y-4 pt-4">
+              {/* Variable Buttons */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Available Variables</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => insertVariable('{{customer.name}}')}
+                    className="text-xs"
+                  >
+                    <User className="w-3 h-3 mr-1" />
+                    Customer Name
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => insertVariable('{{review_link}}')}
+                    className="text-xs"
+                  >
+                    <Link className="w-3 h-3 mr-1" />
+                    Review Link
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => insertVariable('{{business.name}}')}
+                    className="text-xs"
+                  >
+                    <Building className="w-3 h-3 mr-1" />
+                    Business Name
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => insertVariable('{{service_date}}')}
+                    className="text-xs"
+                  >
+                    <Calendar className="w-3 h-3 mr-1" />
+                    Service Date
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => insertVariable('{{amount}}')}
+                    className="text-xs"
+                  >
+                    <Star className="w-3 h-3 mr-1" />
+                    Amount
+                  </Button>
+                </div>
+              </div>
+
+              {/* Message Editor */}
+              <div>
+                <Label htmlFor="customMessage" className="text-sm font-medium mb-2 block">
+                  Custom Message
+                </Label>
+                <Textarea
+                  ref={textareaRef}
+                  id="customMessage"
+                  value={customMessage}
+                  onChange={(e) => {
+                    setCustomMessage(e.target.value);
+                    setFormData(prev => ({
+                      ...prev,
+                      config_json: { ...prev.config_json, message: e.target.value }
+                    }));
+                    generatePreview(e.target.value);
+                  }}
+                  placeholder="Type your message here or use variables above..."
+                  rows={4}
+                  className="font-mono text-sm"
+                />
+              </div>
+
+              {/* AI Actions */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  onClick={generateWithAI}
+                  disabled={aiGenerating}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  {aiGenerating ? 'Generating...' : 'Generate with AI'}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={enhanceMessage}
+                  disabled={aiEnhancing || !customMessage.trim()}
+                  variant="outline"
+                >
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  {aiEnhancing ? 'Enhancing...' : 'Enhance Message'}
+                </Button>
+              </div>
+
+              {/* Live Preview */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block flex items-center gap-2">
+                  <Eye className="w-4 h-4" />
+                  Live Preview
+                </Label>
+                <div className="p-3 bg-gray-50 border rounded-lg">
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                    {messagePreview || 'Preview will appear here...'}
+                  </div>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t">
