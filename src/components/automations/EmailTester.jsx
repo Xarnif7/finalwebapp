@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Send, Mail, CheckCircle, AlertCircle } from 'lucide-react';
+import { Send, Mail, CheckCircle, AlertCircle, Zap, Users } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
+import { useCustomers } from '../../hooks/useCustomers';
+import { useAuth } from '../auth/AuthProvider';
 
 export const EmailTester = () => {
+  const { user } = useAuth();
+  const { customers, businessId } = useCustomers();
   const [formData, setFormData] = useState({
     to: '',
     subject: 'Test Email from Blipp',
@@ -14,6 +18,7 @@ export const EmailTester = () => {
   });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState('');
 
   const handleSendTest = async () => {
     if (!formData.to || !formData.subject || !formData.message) {
@@ -35,6 +40,35 @@ export const EmailTester = () => {
       setResult({ 
         success: false, 
         message: error.message || 'Failed to send test email' 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTestAutomation = async () => {
+    if (!selectedCustomer || !businessId) {
+      setResult({ success: false, message: 'Please select a customer to test automation' });
+      return;
+    }
+
+    setLoading(true);
+    setResult(null);
+
+    try {
+      const response = await apiClient.post('/api/test-automation', {
+        customerId: selectedCustomer,
+        businessId: businessId
+      });
+      setResult({ 
+        success: true, 
+        message: `Automation test completed! Processed ${response.sequencesProcessed} sequences for ${response.customer}`,
+        details: response.results
+      });
+    } catch (error) {
+      setResult({ 
+        success: false, 
+        message: error.message || 'Failed to test automation' 
       });
     } finally {
       setLoading(false);
@@ -82,23 +116,63 @@ export const EmailTester = () => {
           />
         </div>
 
-        <Button 
-          onClick={handleSendTest} 
-          disabled={loading}
-          className="w-full"
-        >
-          {loading ? (
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Sending...
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Send className="w-4 h-4" />
-              Send Test Email
-            </div>
-          )}
-        </Button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Button 
+            onClick={handleSendTest} 
+            disabled={loading}
+            className="w-full"
+          >
+            {loading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Sending...
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Send className="w-4 h-4" />
+                Send Test Email
+              </div>
+            )}
+          </Button>
+
+          <Button 
+            onClick={handleTestAutomation} 
+            disabled={loading || !selectedCustomer}
+            variant="outline"
+            className="w-full"
+          >
+            {loading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                Testing...
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4" />
+                Test Automation
+              </div>
+            )}
+          </Button>
+        </div>
+
+        {/* Customer Selection for Automation Test */}
+        {customers && customers.length > 0 && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Select Customer for Automation Test</label>
+            <select
+              value={selectedCustomer}
+              onChange={(e) => setSelectedCustomer(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Choose a customer...</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.full_name} ({customer.email})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {result && (
           <div className={`p-4 rounded-lg border ${

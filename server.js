@@ -5133,7 +5133,7 @@ app.get('/api/sequences', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -5247,7 +5247,7 @@ app.post('/api/sequences/:id/pause', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -5296,7 +5296,7 @@ app.post('/api/sequences/:id/resume', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -5345,7 +5345,7 @@ app.post('/api/sequences/:id/duplicate', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -5454,7 +5454,7 @@ app.post('/api/sequences/:id/archive', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -5504,7 +5504,7 @@ app.post('/api/sequences', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -5570,7 +5570,7 @@ app.patch('/api/sequences/:id', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -5609,6 +5609,71 @@ app.patch('/api/sequences/:id', async (req, res) => {
   }
 });
 
+// Test endpoint to trigger automation for a customer
+app.post('/api/test-automation', async (req, res) => {
+  try {
+    const { customerId, businessId } = req.body;
+    
+    if (!customerId || !businessId) {
+      return res.status(400).json({ error: 'customerId and businessId are required' });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get the customer
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('id', customerId)
+      .eq('business_id', businessId)
+      .single();
+
+    if (customerError || !customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    // Get active sequences for the business
+    const { data: sequences, error: sequencesError } = await supabase
+      .from('automation_sequences')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('status', 'active');
+
+    if (sequencesError) {
+      return res.status(500).json({ error: 'Failed to fetch sequences' });
+    }
+
+    console.log(`[TEST] Found ${sequences?.length || 0} active sequences for customer ${customer.full_name}`);
+
+    // Process each sequence
+    const results = [];
+    for (const sequence of sequences || []) {
+      try {
+        await processAutomationSequence(customer, sequence, supabase);
+        results.push({ sequenceId: sequence.id, sequenceName: sequence.name, status: 'success' });
+      } catch (error) {
+        console.error('[TEST] Error processing sequence:', sequence.id, error);
+        results.push({ sequenceId: sequence.id, sequenceName: sequence.name, status: 'error', error: error.message });
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Automation test completed',
+      customer: customer.full_name,
+      sequencesProcessed: results.length,
+      results: results
+    });
+    
+  } catch (error) {
+    console.error('Error testing automation:', error);
+    res.status(500).json({ 
+      error: 'Failed to test automation',
+      details: error.message 
+    });
+  }
+});
+
 // Test endpoint to send a real email
 app.post('/api/test-email', async (req, res) => {
   try {
@@ -5617,6 +5682,16 @@ app.post('/api/test-email', async (req, res) => {
     if (!to || !subject || !message) {
       return res.status(400).json({ error: 'to, subject, and message are required' });
     }
+
+    // Check if Resend API key is available
+    if (!process.env.RESEND_API_KEY) {
+      console.error('RESEND_API_KEY not found in environment variables');
+      return res.status(500).json({ error: 'Email service not configured' });
+    }
+
+    // Initialize Resend
+    const { Resend } = await import('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     // Send email via Resend
     const emailData = {
@@ -5634,6 +5709,7 @@ app.post('/api/test-email', async (req, res) => {
       </div>`
     };
 
+    console.log('Sending test email to:', to);
     const emailResponse = await resend.emails.send(emailData);
     
     console.log('Test email sent:', emailResponse);
@@ -5646,7 +5722,10 @@ app.post('/api/test-email', async (req, res) => {
     
   } catch (error) {
     console.error('Error sending test email:', error);
-    res.status(500).json({ error: 'Failed to send test email' });
+    res.status(500).json({ 
+      error: 'Failed to send test email',
+      details: error.message 
+    });
   }
 });
 
@@ -5668,7 +5747,7 @@ app.get('/api/sequences/:id', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -5730,7 +5809,7 @@ app.post('/api/sequences/:id/steps', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -5804,7 +5883,7 @@ app.patch('/api/sequences/:id/steps/:stepId', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -5867,7 +5946,7 @@ app.delete('/api/sequences/:id/steps/:stepId', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -5927,7 +6006,7 @@ app.post('/api/sequences/:id/steps/reorder', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -5986,7 +6065,7 @@ app.get('/api/message-templates', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -6030,7 +6109,7 @@ app.post('/api/sequences/:id/test-send', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
@@ -7053,7 +7132,7 @@ app.get('/api/sequences/:id/analytics', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {

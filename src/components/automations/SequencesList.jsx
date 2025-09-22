@@ -12,7 +12,8 @@ import {
   Users,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Settings
 } from 'lucide-react';
 import { useSequencesData } from '../../hooks/useSequencesData';
 import { toast } from 'sonner';
@@ -45,6 +46,11 @@ const SequencesList = ({ onEdit }) => {
         case 'resume':
           await resumeSequence(sequenceId);
           toast.success('Sequence resumed successfully');
+          break;
+        case 'customize':
+          // Open the sequence details drawer for customization
+          setSelectedSequence(sequences.find(s => s.id === sequenceId));
+          setShowDetailsDrawer(true);
           break;
         case 'duplicate':
           await duplicateSequence(sequenceId);
@@ -277,9 +283,28 @@ const SequencesList = ({ onEdit }) => {
                     className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
+                      handleAction('customize', sequence.id);
+                    }}
+                    disabled={actionLoading[sequence.id] === 'customize'}
+                    title="Customize sequence"
+                  >
+                    {actionLoading[sequence.id] === 'customize' ? (
+                      <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
+                    ) : (
+                      <Settings className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                
+                <div className="relative">
+                  <button
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
                       handleAction('duplicate', sequence.id);
                     }}
                     disabled={actionLoading[sequence.id] === 'duplicate'}
+                    title="Duplicate sequence"
                   >
                     {actionLoading[sequence.id] === 'duplicate' ? (
                       <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
