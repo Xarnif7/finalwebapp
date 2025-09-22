@@ -7,9 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, GripVertical, Mail, MessageSquare, Clock, CheckCircle, ArrowRight } from "lucide-react";
+import { Plus, Trash2, GripVertical, Mail, MessageSquare, Clock, CheckCircle, ArrowRight, AlertCircle } from "lucide-react";
 
-export default function SequenceCreator({ isOpen, onClose, onCreate, business }) {
+export default function SequenceCreator({ isOpen, onClose, onSequenceCreated, businessId }) {
   const [sequenceData, setSequenceData] = useState({
     name: '',
     description: '',
@@ -77,14 +77,26 @@ export default function SequenceCreator({ isOpen, onClose, onCreate, business })
         steps: sequenceData.steps
       };
 
-      await onCreate({
-        name: sequenceData.name,
-        description: sequenceData.description,
-        channels: channels,
-        trigger_type: sequenceData.trigger_type,
-        key: sequenceData.trigger_event,
-        config_json: configJson
+      // Create the sequence via API
+      const response = await fetch(`/api/templates/${businessId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        },
+        body: JSON.stringify({
+          name: sequenceData.name,
+          description: sequenceData.description,
+          channels: channels,
+          trigger_type: sequenceData.trigger_type,
+          key: sequenceData.trigger_event,
+          config_json: configJson
+        })
       });
+
+      if (response.ok) {
+        onSequenceCreated();
+      }
 
       // Reset form
       setSequenceData({
@@ -253,14 +265,25 @@ export default function SequenceCreator({ isOpen, onClose, onCreate, business })
                               Email
                             </div>
                           </SelectItem>
-                          <SelectItem value="sms">
-                            <div className="flex items-center gap-2">
+                          <SelectItem value="sms" disabled>
+                            <div className="flex items-center gap-2 opacity-50">
                               <MessageSquare className="w-4 h-4" />
                               SMS
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                Coming Soon
+                              </Badge>
                             </div>
                           </SelectItem>
                         </SelectContent>
                       </Select>
+                      {step.channel === 'sms' && (
+                        <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                          <div className="flex items-center gap-2 text-sm text-blue-700">
+                            <AlertCircle className="w-4 h-4" />
+                            <span>SMS functionality coming soon! Using Email for now.</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div>
