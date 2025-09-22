@@ -38,12 +38,12 @@ export function useCurrentBusinessId() {
         if (profileError) {
           console.error('[tenancy] Error fetching business_id:', profileError);
           
-          // If no profile exists, check if business exists by email first
+          // If no profile exists, try to find business by email and create profile
           if (profileError.code === 'PGRST116') {
             console.log('[tenancy] No profile found, checking for existing business by email');
             
             try {
-              // First check if a business already exists for this email
+              // Check if a business already exists for this email
               const { data: existingBusiness, error: businessCheckError } = await supabase
                 .from('businesses')
                 .select('id')
@@ -52,11 +52,9 @@ export function useCurrentBusinessId() {
                 .limit(1)
                 .single();
 
-              let businessId;
-
               if (!businessCheckError && existingBusiness) {
                 // Business exists, just create the profile
-                businessId = existingBusiness.id;
+                const businessId = existingBusiness.id;
                 console.log('[tenancy] Found existing business:', businessId);
                 
                 const { error: profileCreateError } = await supabase
@@ -73,50 +71,18 @@ export function useCurrentBusinessId() {
                   setBusinessId(null);
                   return;
                 }
+
+                setBusinessId(businessId);
+                setError(null);
+                console.log('[tenancy] Successfully created profile for existing business');
               } else {
-                // No business exists, create both business and profile
-                console.log('[tenancy] No existing business found, creating new business and profile');
-                
-                const { data: businessData, error: businessError } = await supabase
-                  .from('businesses')
-                  .insert({
-                    name: `${user.email?.split('@')[0] || 'User'}'s Business`,
-                    created_by: user.email
-                  })
-                  .select('id')
-                  .single();
-
-                if (businessError) {
-                  console.error('[tenancy] Error creating business:', businessError);
-                  setError('Failed to create business');
-                  setBusinessId(null);
-                  return;
-                }
-
-                businessId = businessData.id;
-
-                // Create profile linking user to business
-                const { error: profileCreateError } = await supabase
-                  .from('profiles')
-                  .insert({
-                    id: user.id,
-                    business_id: businessId,
-                    role: 'owner'
-                  });
-
-                if (profileCreateError) {
-                  console.error('[tenancy] Error creating profile:', profileCreateError);
-                  setError('Failed to create user profile');
-                  setBusinessId(null);
-                  return;
-                }
+                // No business exists - let other hooks handle business creation
+                console.log('[tenancy] No existing business found - business creation will be handled by onboarding or other hooks');
+                setError('No business found. Please complete onboarding first.');
+                setBusinessId(null);
               }
-
-              setBusinessId(businessId);
-              setError(null);
-              console.log('[tenancy] Successfully set up business and profile for user');
             } catch (createErr) {
-              console.error('[tenancy] Error during business/profile creation:', createErr);
+              console.error('[tenancy] Error during profile creation:', createErr);
               setError('Failed to set up account');
               setBusinessId(null);
             }
