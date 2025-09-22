@@ -2377,6 +2377,305 @@ app.get('/api/automation-logs', async (req, res) => {
   }
 });
 
+// API endpoint to create custom automation sequences
+app.post('/api/sequences', async (req, res) => {
+  try {
+    // Get business ID from user session
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Find business by user email
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('created_by', user.email)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    const {
+      name,
+      description,
+      trigger_type,
+      trigger_event_type,
+      allow_manual_enroll,
+      quiet_hours_start,
+      quiet_hours_end,
+      rate_limit,
+      status,
+      steps
+    } = req.body;
+
+    console.log(`[API] Creating custom sequence for business: ${business.id}`);
+
+    // Create the automation sequence
+    const { data: sequence, error: sequenceError } = await supabase
+      .from('automation_sequences')
+      .insert({
+        business_id: business.id,
+        name,
+        key: name.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now(),
+        status: status || 'active',
+        trigger_type: trigger_type || 'manual',
+        channels: ['email', 'sms'], // Default channels
+        config_json: {
+          description,
+          trigger_event_type,
+          allow_manual_enroll,
+          quiet_hours_start,
+          quiet_hours_end,
+          rate_limit,
+          steps: steps || []
+        }
+      })
+      .select()
+      .single();
+
+    if (sequenceError) {
+      console.error('[API] Error creating sequence:', sequenceError);
+      return res.status(500).json({ error: 'Failed to create sequence' });
+    }
+
+    console.log('[API] Successfully created custom sequence:', sequence.id);
+
+    return res.status(200).json({
+      ok: true,
+      sequence: sequence
+    });
+
+  } catch (error) {
+    console.error('[API] Error in create sequence endpoint:', error);
+    return res.status(500).json({ 
+      ok: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// API endpoint to pause a sequence
+app.post('/api/sequences/:sequenceId/pause', async (req, res) => {
+  try {
+    const { sequenceId } = req.params;
+
+    // Get business ID from user session
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Find business by user email
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('created_by', user.email)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // Update sequence status to paused
+    const { data: sequence, error: updateError } = await supabase
+      .from('automation_sequences')
+      .update({ status: 'paused' })
+      .eq('id', sequenceId)
+      .eq('business_id', business.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('[API] Error pausing sequence:', updateError);
+      return res.status(500).json({ error: 'Failed to pause sequence' });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      sequence: sequence
+    });
+
+  } catch (error) {
+    console.error('[API] Error in pause sequence endpoint:', error);
+    return res.status(500).json({ 
+      ok: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// API endpoint to resume a sequence
+app.post('/api/sequences/:sequenceId/resume', async (req, res) => {
+  try {
+    const { sequenceId } = req.params;
+
+    // Get business ID from user session
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Find business by user email
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('created_by', user.email)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // Update sequence status to active
+    const { data: sequence, error: updateError } = await supabase
+      .from('automation_sequences')
+      .update({ status: 'active' })
+      .eq('id', sequenceId)
+      .eq('business_id', business.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('[API] Error resuming sequence:', updateError);
+      return res.status(500).json({ error: 'Failed to resume sequence' });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      sequence: sequence
+    });
+
+  } catch (error) {
+    console.error('[API] Error in resume sequence endpoint:', error);
+    return res.status(500).json({ 
+      ok: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// API endpoint to duplicate a sequence
+app.post('/api/sequences/:sequenceId/duplicate', async (req, res) => {
+  try {
+    const { sequenceId } = req.params;
+
+    // Get business ID from user session
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Find business by user email
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('created_by', user.email)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // Get the original sequence
+    const { data: originalSequence, error: fetchError } = await supabase
+      .from('automation_sequences')
+      .select('*')
+      .eq('id', sequenceId)
+      .eq('business_id', business.id)
+      .single();
+
+    if (fetchError || !originalSequence) {
+      return res.status(404).json({ error: 'Sequence not found' });
+    }
+
+    // Create a duplicate with a new name and key
+    const duplicateData = {
+      business_id: business.id,
+      name: `${originalSequence.name} (Copy)`,
+      key: originalSequence.key + '_copy_' + Date.now(),
+      status: 'paused', // Start as paused
+      trigger_type: originalSequence.trigger_type,
+      channels: originalSequence.channels,
+      config_json: originalSequence.config_json
+    };
+
+    const { data: duplicateSequence, error: createError } = await supabase
+      .from('automation_sequences')
+      .insert(duplicateData)
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('[API] Error duplicating sequence:', createError);
+      return res.status(500).json({ error: 'Failed to duplicate sequence' });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      sequence: duplicateSequence
+    });
+
+  } catch (error) {
+    console.error('[API] Error in duplicate sequence endpoint:', error);
+    return res.status(500).json({ 
+      ok: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// API endpoint to archive a sequence
+app.post('/api/sequences/:sequenceId/archive', async (req, res) => {
+  try {
+    const { sequenceId } = req.params;
+
+    // Get business ID from user session
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Find business by user email
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('created_by', user.email)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // Update sequence status to archived
+    const { data: sequence, error: updateError } = await supabase
+      .from('automation_sequences')
+      .update({ status: 'archived' })
+      .eq('id', sequenceId)
+      .eq('business_id', business.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('[API] Error archiving sequence:', updateError);
+      return res.status(500).json({ error: 'Failed to archive sequence' });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      sequence: sequence
+    });
+
+  } catch (error) {
+    console.error('[API] Error in archive sequence endpoint:', error);
+    return res.status(500).json({ 
+      ok: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
 // API endpoint to fetch automation KPIs
 app.get('/api/automation/kpis/:business_id', async (req, res) => {
   try {

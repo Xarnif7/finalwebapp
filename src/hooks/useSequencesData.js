@@ -33,11 +33,6 @@ export const useSequencesData = () => {
 
   const pauseSequence = useCallback(async (sequenceId) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No session found');
-      }
-
       // Optimistic update
       setSequences(prev => prev.map(seq => 
         seq.id === sequenceId 
@@ -45,13 +40,7 @@ export const useSequencesData = () => {
           : seq
       ));
 
-      const response = await fetch(`http://localhost:3001/api/sequences/${sequenceId}/pause`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await apiClient.post(`/api/sequences/${sequenceId}/pause`, {});
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -74,11 +63,6 @@ export const useSequencesData = () => {
 
   const resumeSequence = useCallback(async (sequenceId) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No session found');
-      }
-
       // Optimistic update
       setSequences(prev => prev.map(seq => 
         seq.id === sequenceId 
@@ -86,13 +70,7 @@ export const useSequencesData = () => {
           : seq
       ));
 
-      const response = await fetch(`http://localhost:3001/api/sequences/${sequenceId}/resume`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await apiClient.post(`/api/sequences/${sequenceId}/resume`, {});
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -115,18 +93,7 @@ export const useSequencesData = () => {
 
   const duplicateSequence = useCallback(async (sequenceId) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No session found');
-      }
-
-      const response = await fetch(`http://localhost:3001/api/sequences/${sequenceId}/duplicate`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await apiClient.post(`/api/sequences/${sequenceId}/duplicate`, {});
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -147,11 +114,6 @@ export const useSequencesData = () => {
 
   const archiveSequence = useCallback(async (sequenceId) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No session found');
-      }
-
       // Optimistic update
       setSequences(prev => prev.map(seq => 
         seq.id === sequenceId 
@@ -159,13 +121,7 @@ export const useSequencesData = () => {
           : seq
       ));
 
-      const response = await fetch(`http://localhost:3001/api/sequences/${sequenceId}/archive`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await apiClient.post(`/api/sequences/${sequenceId}/archive`, {});
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -188,19 +144,7 @@ export const useSequencesData = () => {
 
   const createSequence = useCallback(async (sequenceData) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No session found');
-      }
-
-      const response = await fetch('http://localhost:3001/api/sequences', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(sequenceData)
-      });
+      const response = await apiClient.post('/api/sequences', sequenceData);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
