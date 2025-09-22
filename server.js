@@ -801,18 +801,29 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       updated_at: new Date().toISOString()
     };
 
+    console.log('[ZAPIER] Processing customer data:', {
+      name: customerData.full_name,
+      email: customerData.email,
+      phone: customerData.phone,
+      external_id: customerData.external_id,
+      business_id: customerData.business_id
+    });
+
     // First check if customer already exists by email OR external_id
     let existingCustomer = null;
+    
+    // Try to find by email first
     if (customerData.email) {
       const { data: existing, error: existingError } = await supabase
         .from('customers')
-        .select('id, full_name, email, phone')
+        .select('id, full_name, email, phone, external_id')
         .eq('business_id', customerData.business_id)
         .eq('email', customerData.email)
         .single();
       
       if (!existingError && existing) {
         existingCustomer = existing;
+        console.log('[ZAPIER] Found existing customer by email:', existingCustomer.email);
       }
     }
     
@@ -820,7 +831,7 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
     if (!existingCustomer && customerData.external_id) {
       const { data: existing, error: existingError } = await supabase
         .from('customers')
-        .select('id, full_name, email, phone')
+        .select('id, full_name, email, phone, external_id')
         .eq('business_id', customerData.business_id)
         .eq('external_id', customerData.external_id)
         .single();
@@ -828,6 +839,22 @@ app.post('/api/zapier/upsert-customer', async (req, res) => {
       if (!existingError && existing) {
         existingCustomer = existing;
         console.log('[ZAPIER] Found existing customer by external_id:', existingCustomer.email, '->', customerData.email);
+      }
+    }
+    
+    // If still not found, try to find by name + phone combination (for cases where email changed)
+    if (!existingCustomer && customerData.full_name && customerData.phone) {
+      const { data: existing, error: existingError } = await supabase
+        .from('customers')
+        .select('id, full_name, email, phone, external_id')
+        .eq('business_id', customerData.business_id)
+        .eq('full_name', customerData.full_name)
+        .eq('phone', customerData.phone)
+        .single();
+      
+      if (!existingError && existing) {
+        existingCustomer = existing;
+        console.log('[ZAPIER] Found existing customer by name+phone:', existingCustomer.email, '->', customerData.email);
       }
     }
 
