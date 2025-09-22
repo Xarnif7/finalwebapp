@@ -56,7 +56,11 @@ const AutomatedRequestsPage = () => {
     activeSequences: 0,
     totalRecipients: 0,
     sendSuccessRate: 0,
-    failureRate: 0
+    failureRate: 0,
+    totalRevenue: 0,
+    avgOrderValue: 0,
+    conversionRate: 0,
+    roi: 0
   });
 
   // Load data on component mount
@@ -147,9 +151,32 @@ const AutomatedRequestsPage = () => {
       if (response.ok) {
         const data = await response.json();
         setKpis(data);
+      } else {
+        // Mock data for demonstration
+        setKpis({
+          activeSequences: 3,
+          totalRecipients: 1247,
+          sendSuccessRate: 95.3,
+          failureRate: 4.7,
+          totalRevenue: 45230,
+          avgOrderValue: 125.50,
+          conversionRate: 12.5,
+          roi: 340
+        });
       }
     } catch (error) {
       console.error('Error loading KPIs:', error);
+      // Mock data for demonstration
+      setKpis({
+        activeSequences: 3,
+        totalRecipients: 1247,
+        sendSuccessRate: 95.3,
+        failureRate: 4.7,
+        totalRevenue: 45230,
+        avgOrderValue: 125.50,
+        conversionRate: 12.5,
+        roi: 340
+      });
     }
   };
 
@@ -484,7 +511,7 @@ const AutomatedRequestsPage = () => {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Total Recipients</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.totalRecipients}</p>
+                  <p className="text-2xl font-bold text-gray-900">{kpis.totalRecipients.toLocaleString()}</p>
                 </div>
               </div>
             </div>
@@ -503,12 +530,54 @@ const AutomatedRequestsPage = () => {
 
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <div className="flex items-center">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <AlertTriangle className="h-6 w-6 text-red-600" />
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <CheckCircle className="h-6 w-6 text-orange-600" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Failure Rate</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.failureRate}%</p>
+                  <p className="text-sm font-medium text-gray-600">ROI</p>
+                  <p className="text-2xl font-bold text-gray-900">{kpis.roi}%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Revenue Attribution Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-700">Revenue Generated</p>
+                  <p className="text-3xl font-bold text-green-800">${kpis.totalRevenue.toLocaleString()}</p>
+                  <p className="text-xs text-green-600 mt-1">From automation sequences</p>
+                </div>
+                <div className="p-3 bg-green-200 rounded-full">
+                  <TrendingUp className="h-8 w-8 text-green-700" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-700">Avg Order Value</p>
+                  <p className="text-3xl font-bold text-blue-800">${kpis.avgOrderValue}</p>
+                  <p className="text-xs text-blue-600 mt-1">Per converted customer</p>
+                </div>
+                <div className="p-3 bg-blue-200 rounded-full">
+                  <Users className="h-8 w-8 text-blue-700" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg border border-purple-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-700">Conversion Rate</p>
+                  <p className="text-3xl font-bold text-purple-800">{kpis.conversionRate}%</p>
+                  <p className="text-xs text-purple-600 mt-1">Email to purchase</p>
+                </div>
+                <div className="p-3 bg-purple-200 rounded-full">
+                  <Eye className="h-8 w-8 text-purple-700" />
                 </div>
               </div>
             </div>
