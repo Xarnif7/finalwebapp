@@ -1,0 +1,197 @@
+import { createClient } from '@supabase/supabase-js';
+import { headers } from 'next/headers';
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export default async function handler(req, res) {
+  const { businessId, templateId } = req.query;
+  const method = req.method;
+
+  if (method === 'GET') {
+    return handleGet(req, res, businessId, templateId);
+  } else if (method === 'PATCH') {
+    return handlePatch(req, res, businessId, templateId);
+  } else if (method === 'DELETE') {
+    return handleDelete(req, res, businessId, templateId);
+  } else {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+}
+
+async function handleGet(req, res, businessId, templateId) {
+  try {
+    // Get user from JWT token
+    const authHeader = headers().get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    // Get template
+    const { data: template, error: templateError } = await supabase
+      .from('automation_templates')
+      .select(`
+        *,
+        businesses!inner(id, created_by)
+      `)
+      .eq('id', templateId)
+      .eq('business_id', businessId)
+      .eq('businesses.created_by', user.email)
+      .single();
+
+    if (templateError || !template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    return res.status(200).json({ 
+      success: true, 
+      template: template
+    });
+
+  } catch (error) {
+    console.error('Error in GET template:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+async function handlePatch(req, res, businessId, templateId) {
+  try {
+    const updateData = req.body;
+
+    // Get user from JWT token
+    const authHeader = headers().get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    // Verify template ownership
+    const { data: template, error: templateError } = await supabase
+      .from('automation_templates')
+      .select(`
+        id,
+        businesses!inner(id, created_by)
+      `)
+      .eq('id', templateId)
+      .eq('business_id', businessId)
+      .eq('businesses.created_by', user.email)
+      .single();
+
+    if (templateError || !template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    // Update the template
+    const { data: updatedTemplate, error: updateError } = await supabase
+      .from('automation_templates')
+      .update({
+        ...updateData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', templateId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Error updating template:', updateError);
+      return res.status(500).json({ error: 'Failed to update template' });
+    }
+
+    // Log the update
+    await supabase.rpc('log_telemetry_event', {
+      p_business_id: businessId,
+      p_event_type: 'sequence_updated',
+      p_event_data: { 
+        template_id: templateId,
+        updates: updateData
+      }
+    });
+
+    return res.status(200).json({ 
+      success: true, 
+      template: updatedTemplate,
+      message: 'Sequence updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Error in PATCH template:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+async function handleDelete(req, res, businessId, templateId) {
+  try {
+    // Get user from JWT token
+    const authHeader = headers().get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    // Verify template ownership
+    const { data: template, error: templateError } = await supabase
+      .from('automation_templates')
+      .select(`
+        id,
+        businesses!inner(id, created_by)
+      `)
+      .eq('id', templateId)
+      .eq('business_id', businessId)
+      .eq('businesses.created_by', user.email)
+      .single();
+
+    if (templateError || !template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    // Delete the template
+    const { error: deleteError } = await supabase
+      .from('automation_templates')
+      .delete()
+      .eq('id', templateId);
+
+    if (deleteError) {
+      console.error('Error deleting template:', deleteError);
+      return res.status(500).json({ error: 'Failed to delete template' });
+    }
+
+    // Log the deletion
+    await supabase.rpc('log_telemetry_event', {
+      p_business_id: businessId,
+      p_event_type: 'sequence_deleted',
+      p_event_data: { 
+        template_id: templateId
+      }
+    });
+
+    return res.status(200).json({ 
+      success: true,
+      message: 'Sequence deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error in DELETE template:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
