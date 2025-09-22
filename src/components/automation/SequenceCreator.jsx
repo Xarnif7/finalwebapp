@@ -28,11 +28,56 @@ export default function SequenceCreator({ isOpen, onClose, onSequenceCreated, bu
   });
 
   const triggerEvents = [
-    { value: 'job_completed', label: 'Job Completed', description: 'Triggered when a job/service is marked complete' },
-    { value: 'invoice_paid', label: 'Invoice Paid', description: 'Triggered when payment is received' },
-    { value: 'service_completed', label: 'Service Completed', description: 'Triggered when a service appointment ends' },
-    { value: 'customer_created', label: 'New Customer', description: 'Triggered when a new customer is added' }
+    { 
+      value: 'job_completed', 
+      label: 'Job Completed', 
+      description: 'Triggered when a job/service is marked complete',
+      recommendedTiming: '24 hours',
+      recommendedMessage: 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review.',
+      recommendedChannels: ['email', 'sms']
+    },
+    { 
+      value: 'invoice_paid', 
+      label: 'Invoice Paid', 
+      description: 'Triggered when payment is received',
+      recommendedTiming: '48 hours',
+      recommendedMessage: 'Thank you for your payment! We appreciate your business. Please consider leaving us a review.',
+      recommendedChannels: ['email']
+    },
+    { 
+      value: 'service_completed', 
+      label: 'Service Completed', 
+      description: 'Triggered when a service appointment ends',
+      recommendedTiming: '2 hours',
+      recommendedMessage: 'We hope you were satisfied with today\'s service. Your feedback helps us improve!',
+      recommendedChannels: ['sms', 'email']
+    },
+    { 
+      value: 'customer_created', 
+      label: 'New Customer', 
+      description: 'Triggered when a new customer is added',
+      recommendedTiming: '1 hour',
+      recommendedMessage: 'Welcome! We\'re excited to serve you. Here\'s how you can get started.',
+      recommendedChannels: ['email']
+    }
   ];
+
+  const applySmartRecommendations = () => {
+    const selectedTrigger = triggerEvents.find(event => event.value === sequenceData.trigger_event);
+    if (selectedTrigger) {
+      setSequenceData(prev => ({
+        ...prev,
+        steps: selectedTrigger.recommendedChannels.map((channel, index) => ({
+          id: Date.now() + index,
+          channel: channel,
+          delay: index === 0 ? 0 : parseInt(selectedTrigger.recommendedTiming.split(' ')[0]),
+          delayUnit: selectedTrigger.recommendedTiming.includes('hour') ? 'hours' : 'days',
+          message: selectedTrigger.recommendedMessage,
+          subject: channel === 'email' ? 'Thank you for your business!' : ''
+        }))
+      }));
+    }
+  };
 
   const addStep = () => {
     const newStep = {
@@ -180,6 +225,40 @@ export default function SequenceCreator({ isOpen, onClose, onSequenceCreated, bu
               rows={3}
             />
           </div>
+
+          {/* Smart Recommendations */}
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h4 className="font-medium text-blue-800 flex items-center gap-2 mb-2">
+                    <AlertCircle className="h-4 w-4" />
+                    Smart Recommendations
+                  </h4>
+                  <div className="text-sm text-blue-700 space-y-1">
+                    {(() => {
+                      const selectedTrigger = triggerEvents.find(event => event.value === sequenceData.trigger_event);
+                      return selectedTrigger ? (
+                        <>
+                          <p><strong>Optimal Timing:</strong> {selectedTrigger.recommendedTiming} after trigger</p>
+                          <p><strong>Recommended Channels:</strong> {selectedTrigger.recommendedChannels.join(', ')}</p>
+                          <p><strong>Message:</strong> {selectedTrigger.recommendedMessage}</p>
+                        </>
+                      ) : null;
+                    })()}
+                  </div>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={applySmartRecommendations}
+                  className="ml-4"
+                >
+                  Apply Recommendations
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Visual Flow Preview */}
           <div>
@@ -329,9 +408,39 @@ export default function SequenceCreator({ isOpen, onClose, onSequenceCreated, bu
                         value={step.message}
                         onChange={(e) => updateStep(step.id, 'message', e.target.value)}
                         placeholder="Message content..."
-                        rows={2}
+                        rows={3}
                         className="resize-none"
                       />
+                      <div className="mt-2 p-2 bg-gray-50 border rounded-md">
+                        <p className="text-xs text-gray-600 mb-1 font-medium">Available variables:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {[
+                            { var: '{{customer.name}}', desc: 'Customer name' },
+                            { var: '{{business.name}}', desc: 'Business name' },
+                            { var: '{{service_type}}', desc: 'Service type' },
+                            { var: '{{review_link}}', desc: 'Review link' },
+                            { var: '{{invoice_amount}}', desc: 'Invoice amount' }
+                          ].map((variable, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                const textarea = document.querySelector(`textarea[value="${step.message}"]`);
+                                if (textarea) {
+                                  const start = textarea.selectionStart;
+                                  const end = textarea.selectionEnd;
+                                  const newMessage = step.message.slice(0, start) + variable.var + step.message.slice(end);
+                                  updateStep(step.id, 'message', newMessage);
+                                }
+                              }}
+                              className="text-xs bg-white border border-gray-200 rounded px-2 py-1 hover:bg-gray-100 transition-colors"
+                              title={variable.desc}
+                            >
+                              {variable.var}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
