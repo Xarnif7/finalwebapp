@@ -32,7 +32,7 @@ import TemplateCustomizer from "@/components/automation/TemplateCustomizer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const AutomatedRequestsPage = () => {
+const AutomationsPage = () => {
   const { user } = useAuth();
   const { business } = useBusiness();
   const [templates, setTemplates] = useState([]);
@@ -803,4 +803,4 @@ const AutomatedRequestsPage = () => {
   );
 };
 
-export default AutomatedRequestsPage;
+export default AutomationsPage;
