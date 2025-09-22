@@ -69,10 +69,56 @@ const AutomatedRequestsPage = () => {
       loadTemplates();
       loadActiveSequences();
       loadKPIs();
-    } else if (user?.email && !business) {
-      // If we have a user but no business yet, still try to load templates
-      // This handles the case where business creation is still in progress
-      console.log('User exists but business not ready yet, attempting to load templates anyway');
+    } else if (user?.email) {
+      // If we have a user but no business yet, show mock templates immediately
+      console.log('User exists but business not ready yet, showing mock templates');
+      setTemplates([
+        {
+          id: 'mock-1',
+          name: 'Job Completed',
+          key: 'job_completed',
+          status: 'ready',
+          channels: ['email'],
+          trigger_type: 'event',
+          config_json: {
+            message: 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review.',
+            delay_hours: 24
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        {
+          id: 'mock-2',
+          name: 'Invoice Paid',
+          key: 'invoice_paid',
+          status: 'ready',
+          channels: ['email'],
+          trigger_type: 'event',
+          config_json: {
+            message: 'Thank you for your payment! We appreciate your business. Please consider leaving us a review.',
+            delay_hours: 48
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        {
+          id: 'mock-3',
+          name: 'Service Reminder',
+          key: 'service_reminder',
+          status: 'ready',
+          channels: ['email'],
+          trigger_type: 'date_based',
+          config_json: {
+            message: 'This is a friendly reminder about your upcoming service appointment. We look forward to serving you!',
+            delay_days: 1
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ]);
+      setLoading(false);
+      
+      // Also try to load real templates in the background
       loadTemplates();
     }
   }, [business?.id, user?.email]);
@@ -503,51 +549,6 @@ const AutomatedRequestsPage = () => {
             </div>
           )}
 
-          {/* Manual Email Template Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Mail className="h-5 w-5 mr-2" />
-                Manual Email Template
-              </CardTitle>
-              <CardDescription>
-                Create and send manual review request emails
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="email-template">Email Template</Label>
-                <Textarea
-                  id="email-template"
-                  value={emailTemplate}
-                  onChange={(e) => setEmailTemplate(e.target.value)}
-                  className="mt-1"
-                  rows={8}
-                  placeholder="Enter your email template here..."
-                />
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-gray-600">
-                  Use <code className="bg-gray-100 px-1 rounded">{'{{customer.name}}'}</code> and <code className="bg-gray-100 px-1 rounded">{'{{review_link}}'}</code> for personalization
-                </div>
-                <div className="flex space-x-2">
-                  {showEmailSaved && (
-                    <Badge variant="outline" className="text-green-600 border-green-600">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Saved!
-                    </Badge>
-                  )}
-                  <Button onClick={saveEmailTemplate} variant="outline">
-                    Save Template
-                  </Button>
-                  <Button onClick={saveEmailTemplate} className="bg-blue-600 hover:bg-blue-700">
-                    <Send className="h-4 w-4 mr-2" />
-                    Send Now
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       )}
 
