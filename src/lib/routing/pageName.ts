@@ -69,7 +69,7 @@ export function getPageNameFromPath(pathname: string): string {
     'dashboard': 'DashboardOverview',
     'reporting': 'Dashboard',
     'customers': 'Clients',
-    'automations': 'SendRequests',
+    'automations': 'Automations',
     'reviews': 'Reviews',
     'feedback': 'Feedback',
     'settings': 'Settings',

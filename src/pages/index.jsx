@@ -109,6 +109,7 @@ const PAGES = {
   SendRequests: SendRequests,
   SocialPosts: SocialPosts,
   Sequences: Sequences,
+  Automations: Automations,
   Competitors: Competitors,
   TeamRoles: TeamRoles,
   AuditLog: AuditLog,

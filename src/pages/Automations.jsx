@@ -496,7 +496,11 @@ const AutomatedRequestsPage = () => {
 
   const handleTest = async (template) => {
     try {
-      const response = await fetch('/api/automation/trigger', {
+      // For testing, use the user's email as the test customer
+      const testEmail = user?.email || 'test@example.com';
+      const testName = user?.user_metadata?.full_name || 'Test Customer';
+
+      const response = await fetch('/api/automation/test-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -504,17 +508,22 @@ const AutomatedRequestsPage = () => {
         },
         body: JSON.stringify({
           template_id: template.id,
-          customer_id: null // Will use first available customer
+          business_id: business?.id,
+          customer_email: testEmail,
+          customer_name: testName
         })
       });
 
       if (response.ok) {
-        alert('Test automation triggered successfully!');
+        const result = await response.json();
+        console.log('Test email sent successfully:', result);
+        alert(`Test email sent to ${testEmail}! Check your inbox in a few minutes.`);
       } else {
-        alert('Failed to trigger test automation');
+        console.error('Failed to send test email:', response.statusText);
+        alert('Failed to send test email. Check console for details.');
       }
     } catch (error) {
-      console.error('Error testing automation:', error);
+      console.error('Error triggering test automation:', error);
       alert('Error testing automation');
     }
   };
