@@ -50,42 +50,51 @@ export default function TemplateCustomizer({
     try {
       setSaving(true);
       
-      // For mock templates, update local state directly
-      if (template && template.id.startsWith('mock-')) {
-        console.log('Updating mock template:', template.id, formData);
-        onSave({
-          ...template,
-          name: formData.name,
-          description: formData.description,
-          trigger_type: formData.trigger_type,
-          channels: formData.channels,
-          config_json: {
-            ...template.config_json,
-            ...formData.config_json
+      // Always save to database for persistence
+      const updatedTemplate = {
+        ...template,
+        name: formData.name,
+        description: formData.description,
+        trigger_type: formData.trigger_type,
+        channels: formData.channels,
+        config_json: {
+          ...template.config_json,
+          ...formData.config_json
+        },
+        updated_at: new Date().toISOString()
+      };
+
+      // Try to save to database first
+      try {
+        const response = await fetch(`/api/templates/${businessId}/${template.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
           },
-          updated_at: new Date().toISOString()
+          body: JSON.stringify(formData)
         });
-        onClose();
-        return;
+
+        if (response.ok) {
+          const dbTemplate = await response.json();
+          onSave(dbTemplate);
+        } else {
+          throw new Error('Database save failed');
+        }
+      } catch (dbError) {
+        console.log('Database save failed, saving to localStorage as backup:', dbError);
+        // Fallback to localStorage for persistence
+        const savedTemplates = JSON.parse(localStorage.getItem('customTemplates') || '{}');
+        savedTemplates[template.id] = updatedTemplate;
+        localStorage.setItem('customTemplates', JSON.stringify(savedTemplates));
+        
+        onSave(updatedTemplate);
       }
       
-      // For real templates, call the API
-      const response = await fetch(`/api/templates/${businessId}/${template.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (response.ok) {
-        const updatedTemplate = await response.json();
-        onSave(updatedTemplate);
-        onClose();
-      }
+      onClose();
     } catch (error) {
       console.error('Error saving template:', error);
+      alert('Error saving template. Please try again.');
     } finally {
       setSaving(false);
     }

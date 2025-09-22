@@ -40,14 +40,14 @@ const AutomationsPage = () => {
     roi: 0
   });
 
-  // Initialize with mock templates
+  // Initialize with mock templates and load saved customizations
   useEffect(() => {
     console.log('Automations component mounted');
     console.log('User:', user);
     console.log('Business:', business);
     
-    // Set mock templates
-    setTemplates([
+    // Base mock templates
+    const baseTemplates = [
       {
         id: 'mock-1',
         name: 'Job Completed',
@@ -90,8 +90,23 @@ const AutomationsPage = () => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
-    ]);
+    ];
+
+    // Load saved customizations from localStorage
+    const savedTemplates = JSON.parse(localStorage.getItem('customTemplates') || '{}');
     
+    // Merge saved customizations with base templates
+    const templatesWithCustomizations = baseTemplates.map(template => {
+      const saved = savedTemplates[template.id];
+      return saved ? { ...template, ...saved } : template;
+    });
+
+    // Add any completely custom templates
+    const customTemplates = Object.values(savedTemplates).filter(t => 
+      !t.id.startsWith('mock-') || !baseTemplates.some(bt => bt.id === t.id)
+    );
+
+    setTemplates([...templatesWithCustomizations, ...customTemplates]);
     setLoading(false);
   }, [user, business]);
 
@@ -177,10 +192,34 @@ const AutomationsPage = () => {
       console.log('Message:', template.config_json?.message);
       console.log('==================');
 
-      alert(`Test email would be sent to ${testEmail}! Check console for details.`);
+      // Try to send real test email
+      try {
+        const response = await fetch('/api/automation/test-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            template_id: template.id,
+            business_id: business?.id,
+            customer_email: testEmail,
+            customer_name: testName,
+            message: template.config_json?.message || 'Test message from automation'
+          })
+        });
+
+        if (response.ok) {
+          alert(`✅ Test email sent successfully to ${testEmail}!\n\nCheck your inbox for the test message.`);
+        } else {
+          throw new Error('API call failed');
+        }
+      } catch (apiError) {
+        console.log('API test failed, showing demo message:', apiError);
+        alert(`📧 Test Email Demo\n\nTo: ${testEmail}\nTemplate: ${template.name}\n\nThis would send a real email with your automation message.\n\nNote: In production, this sends actual emails to customers!`);
+      }
     } catch (error) {
       console.error('Error testing automation:', error);
-      alert('Error testing automation');
+      alert('❌ Error testing automation. Please try again.');
     }
   };
 
@@ -212,7 +251,7 @@ const AutomationsPage = () => {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="templates" className="flex items-center gap-2">
             <FileText className="w-4 h-4" />
             Templates
@@ -220,10 +259,6 @@ const AutomationsPage = () => {
           <TabsTrigger value="active" className="flex items-center gap-2">
             <Activity className="w-4 h-4" />
             Active Sequences
-          </TabsTrigger>
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            Overview
           </TabsTrigger>
           <TabsTrigger value="activity" className="flex items-center gap-2">
             <List className="w-4 h-4" />
@@ -237,7 +272,7 @@ const AutomationsPage = () => {
               <h3 className="text-lg font-semibold">Automation Templates</h3>
               <p className="text-sm text-gray-600">Create and manage your automation sequences.</p>
             </div>
-            <Button onClick={handleCreateSequence} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleCreateSequence} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg">
               <Plus className="w-4 h-4 mr-2" />
               Create Custom Template
             </Button>
@@ -315,50 +350,6 @@ const AutomationsPage = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="overview" className="space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold">Overview</h3>
-            <p className="text-sm text-gray-600">Automation performance and insights</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Active Sequences</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{activeSequences.length}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Total Templates</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{templates.length}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Success Rate</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">98%</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Total Revenue</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">$0</div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
 
         <TabsContent value="activity" className="space-y-6">
           <div>

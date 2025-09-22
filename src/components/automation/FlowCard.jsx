@@ -78,6 +78,10 @@ export default function FlowCard({
               checked={data.status === 'active'} 
               onCheckedChange={(checked) => onToggle(checked ? 'active' : 'paused')}
               disabled={updating}
+              className={`${data.status === 'active' 
+                ? 'data-[state=checked]:bg-green-500 hover:data-[state=checked]:bg-green-600' 
+                : 'data-[state=unchecked]:bg-yellow-500 hover:data-[state=unchecked]:bg-yellow-600'
+              } transition-all duration-200`}
             />
           </div>
         </div>
