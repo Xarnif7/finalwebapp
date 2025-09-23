@@ -8040,7 +8040,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
     res.json({ 
       success: true, 
       processedAutomations: scheduledJobs ? scheduledJobs.length : 0,
-      processedRequests: sentCount || 0
+      processedRequests: 0
     });
 
   } catch (error) {
