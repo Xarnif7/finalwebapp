@@ -99,6 +99,7 @@ const AutomationsPage = () => {
       }
       
       // If no localStorage data, fall back to database or mock templates
+      console.log('🔍 NO LOCALSTORAGE DATA - Loading from database/mock templates');
       if (business?.id) {
         loadTemplates();
         loadActiveSequences();
@@ -524,8 +525,9 @@ const AutomationsPage = () => {
       });
     }
     
-    // Reload everything to ensure consistency
-    await loadTemplates();
+    // Don't reload from database - localStorage is the source of truth
+    console.log('🔒 LOCALSTORAGE SAVE COMPLETE - Not reloading from database');
+    // await loadTemplates(); // REMOVED - This was overwriting localStorage data!
     await loadActiveSequences();
     await loadKPIs();
   };
@@ -608,6 +610,30 @@ const AutomationsPage = () => {
     }
   };
 
+  const reloadFromLocalStorage = () => {
+    const userEmail = user?.email || 'unknown';
+    const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    
+    try {
+      const existingData = localStorage.getItem(localStorageKey);
+      const savedTemplates = existingData ? JSON.parse(existingData) : {};
+      
+      if (Object.keys(savedTemplates).length > 0) {
+        const savedTemplatesArray = Object.values(savedTemplates);
+        const userTemplates = savedTemplatesArray.filter(template => 
+          template.user_email === userEmail || template.business_id?.includes(userEmail.replace(/[^a-zA-Z0-9]/g, '_'))
+        );
+        
+        setTemplates(userTemplates);
+        alert(`Reloaded ${userTemplates.length} templates from localStorage`);
+      } else {
+        alert('No templates found in localStorage');
+      }
+    } catch (error) {
+      alert(`Error reloading from localStorage: ${error.message}`);
+    }
+  };
+
   const handleDelete = async (template) => {
     if (confirm(`Are you sure you want to delete "${template.name}"?`)) {
       try {
@@ -687,6 +713,9 @@ const AutomationsPage = () => {
               </Button>
               <Button onClick={testLocalStorage} className="bg-green-600 hover:bg-green-700">
                 Test Storage
+              </Button>
+              <Button onClick={reloadFromLocalStorage} className="bg-yellow-600 hover:bg-yellow-700">
+                Reload Storage
               </Button>
               <Button onClick={clearLocalStorage} className="bg-red-600 hover:bg-red-700">
                 Clear Storage
