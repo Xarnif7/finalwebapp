@@ -90,6 +90,9 @@ export default async function handler(req, res) {
           if (request.customers.email) {
             try {
               // Send email directly via Resend API
+              console.log('📧 Sending email to:', request.customers.email);
+              console.log('🔑 RESEND_API_KEY available:', !!process.env.RESEND_API_KEY);
+              
               const emailResponse = await fetch('https://api.resend.com/emails', {
                 method: 'POST',
                 headers: {
@@ -115,6 +118,9 @@ export default async function handler(req, res) {
 
               const emailData = await emailResponse.json();
 
+              console.log('📧 Email response status:', emailResponse.status);
+              console.log('📧 Email response data:', emailData);
+              
               if (emailResponse.ok) {
                 // Mark job as success
                 await supabase
