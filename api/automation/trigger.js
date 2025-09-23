@@ -84,9 +84,8 @@ export default async function handler(req, res) {
           channel: channels?.[0] || 'email',
           review_link: reviewLink,
           message: template_message || 'Thank you for your business! Please consider leaving us a review.',
-          email_status: 'pending',
-          sms_status: 'skipped',
-          requested_at: new Date().toISOString()
+          status: 'pending',
+          send_at: new Date().toISOString()
         })
         .select()
         .single();
