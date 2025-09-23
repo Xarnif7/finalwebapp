@@ -128,6 +128,15 @@ export default async function handler(req, res) {
                   .update({ status: 'success', processed_at: new Date().toISOString() })
                   .eq('id', job.id);
                 
+                // Mark review request as sent
+                await supabase
+                  .from('review_requests')
+                  .update({ 
+                    status: 'sent',
+                    sent_at: new Date().toISOString()
+                  })
+                  .eq('id', reviewRequestId);
+                
                 console.log(`✅ Automation email sent to ${request.customers.email} via Resend`);
               } else {
                 console.error(`❌ Failed to send automation email to ${request.customers.email}:`, emailData);
@@ -178,7 +187,7 @@ export default async function handler(req, res) {
         customers!inner(full_name, email, phone),
         businesses!inner(name, email)
       `)
-      .or('email_status.eq.pending,sms_status.eq.pending')
+      .eq('status', 'pending')
       .limit(20);
 
     if (requestsError) {
@@ -228,6 +237,15 @@ export default async function handler(req, res) {
           if (sendResponse.ok) {
             sentCount++;
             console.log(`Sent email to ${request.customers.email}`);
+            
+            // Mark review request as sent
+            await supabase
+              .from('review_requests')
+              .update({ 
+                status: 'sent',
+                sent_at: new Date().toISOString()
+              })
+              .eq('id', request.id);
           } else {
             console.error(`Failed to send email to ${request.customers.email}`);
           }
@@ -239,8 +257,7 @@ export default async function handler(req, res) {
         await supabase
           .from('review_requests')
           .update({ 
-            email_status: 'failed',
-            sms_status: 'failed'
+            status: 'failed'
           })
           .eq('id', request.id);
       }
