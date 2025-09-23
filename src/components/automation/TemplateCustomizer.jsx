@@ -219,14 +219,34 @@ export default function TemplateCustomizer({
     } catch (error) {
       console.error('AI generation error:', error);
       
-      // Always use fallback message when AI fails
+      // Generate unique fallback messages when AI fails
       const fallbackMessages = {
-        'job_completed': 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review at {{review_link}}.',
-        'invoice_paid': 'Thank you for your payment, {{customer.name}}! We appreciate your business. Please consider leaving us a review at {{review_link}}.',
-        'service_reminder': 'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!'
+        'job_completed': [
+          'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review at {{review_link}}.',
+          'We appreciate your business! If you enjoyed our service, please share your experience with a review at {{review_link}}.',
+          'Thank you for trusting us with your project! We\'d love to hear your feedback at {{review_link}}.',
+          'Your satisfaction means everything to us! Please consider leaving a review at {{review_link}}.',
+          'Thank you for your business! We hope you\'ll share your experience with others at {{review_link}}.'
+        ],
+        'invoice_paid': [
+          'Thank you for your payment, {{customer.name}}! We appreciate your business. Please consider leaving us a review at {{review_link}}.',
+          'Payment received with gratitude! We\'d love your feedback at {{review_link}}.',
+          'Thank you for the prompt payment! Please share your experience at {{review_link}}.',
+          'We appreciate your business! Your review at {{review_link}} would mean the world to us.',
+          'Payment confirmed! Thank you for choosing us. Please leave a review at {{review_link}}.'
+        ],
+        'service_reminder': [
+          'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!',
+          'Hello {{customer.name}}! Just a quick reminder about your upcoming appointment. We can\'t wait to see you!',
+          'Hi there {{customer.name}}! We\'re excited about your upcoming service. See you soon!',
+          'Hello {{customer.name}}! A friendly reminder that we have your service appointment coming up. Looking forward to it!',
+          'Hi {{customer.name}}! We\'re preparing for your upcoming appointment and can\'t wait to serve you!'
+        ]
       };
-      const fallbackMessage = fallbackMessages[template?.key] || 
-        'Thank you for your business! Please leave us a review at {{review_link}}.';
+      
+      const messageArray = fallbackMessages[template?.key] || ['Thank you for your business! Please leave us a review at {{review_link}}.'];
+      const randomIndex = Math.floor(Math.random() * messageArray.length);
+      const fallbackMessage = messageArray[randomIndex];
       
       setCustomMessage(fallbackMessage);
       generatePreview(fallbackMessage);
@@ -307,19 +327,32 @@ export default function TemplateCustomizer({
       }
     } catch (error) {
       console.error('AI enhancement error:', error);
-      if (error.name === 'AbortError') {
+      
+      // Provide a simple enhancement when AI fails
+      const currentText = customMessage;
+      let enhancedText = currentText;
+      
+      // Simple enhancement rules
+      if (currentText && !currentText.includes('{{customer.name}}')) {
+        enhancedText = `{{customer.name}}, ${currentText}`;
+      }
+      
+      if (enhancedText !== currentText) {
+        setCustomMessage(enhancedText);
+        generatePreview(enhancedText);
         setNotification({
           type: 'info',
-          message: 'AI enhancement timed out, but your original message is still there!',
+          message: 'AI enhancement is unavailable, but we\'ve made some basic improvements to your message!',
           duration: 5000
         });
       } else {
         setNotification({
-          type: 'error',
-          message: 'AI enhancement failed. Please try again.',
+          type: 'info',
+          message: 'AI enhancement is temporarily unavailable, but your original message is preserved.',
           duration: 5000
         });
       }
+      
       setAiGenerating(false);
       setAiEnhancing(false);
     }
@@ -601,15 +634,13 @@ export default function TemplateCustomizer({
             <div>
               <Label htmlFor="message">Email/SMS Message</Label>
               <Textarea
+                ref={textareaRef}
                 id="message"
                 value={customMessage}
                 onChange={(e) => setCustomMessage(e.target.value)}
                 placeholder="Enter your message content. Use {{customer.name}} for personalization."
                 rows={4}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Available variables: {'{{customer.name}}'}, {'{{business.name}}'}, {'{{service_type}}'}
-              </p>
             </div>
             
             {/* Message Customization Dropdown */}
