@@ -3912,9 +3912,11 @@ app.post('/api/ai/generate-message', async (req, res) => {
 
     // Call OpenAI API
     if (!process.env.OPENAI_API_KEY) {
-      console.log('OpenAI API key not found, using fallback message');
+      console.log('[AI] OpenAI API key not found, using fallback message');
       throw new Error('OpenAI API key not configured');
     }
+
+    console.log('[AI] Making OpenAI API request with key:', process.env.OPENAI_API_KEY.substring(0, 10) + '...');
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -3941,12 +3943,22 @@ app.post('/api/ai/generate-message', async (req, res) => {
 
     if (!openaiResponse.ok) {
       const errorData = await openaiResponse.text();
-      console.error('OpenAI API error:', errorData);
-      throw new Error('OpenAI API request failed');
+      console.error('[AI] OpenAI API error:', {
+        status: openaiResponse.status,
+        statusText: openaiResponse.statusText,
+        body: errorData
+      });
+      throw new Error(`OpenAI API request failed: ${openaiResponse.status} ${openaiResponse.statusText}`);
     }
 
     const aiData = await openaiResponse.json();
     const generatedMessage = aiData.choices[0]?.message?.content?.trim();
+
+    console.log('[AI] OpenAI API response successful:', {
+      messageLength: generatedMessage?.length || 0,
+      hasCustomerName: generatedMessage?.includes('{{customer.name}}') || false,
+      hasReviewLink: generatedMessage?.includes('{{review_link}}') || false
+    });
 
     if (!generatedMessage) {
       throw new Error('No message generated');
@@ -3960,6 +3972,13 @@ app.post('/api/ai/generate-message', async (req, res) => {
     if (!finalMessage.includes('{{review_link}}') && (template_type === 'job_completed' || template_type === 'invoice_paid')) {
       finalMessage += ' Please leave us a review at {{review_link}}.';
     }
+
+    console.log('[AI] Sending successful response:', {
+      template_name,
+      template_type,
+      messageLength: finalMessage.length,
+      finalMessage: finalMessage.substring(0, 100) + '...'
+    });
 
     res.status(200).json({
       success: true,
