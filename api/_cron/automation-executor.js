@@ -88,29 +88,52 @@ export default async function handler(req, res) {
           
           // Send the automation email
           if (request.customers.email) {
-            // Call the send-now API internally
-            const sendResponse = await fetch(`${process.env.APP_BASE_URL || 'https://myblipp.com'}/api/review-requests/send-now`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-              },
-              body: JSON.stringify({
-                review_request_id: request.id,
-                channel: 'email'
-              })
-            });
+            try {
+              // Send email directly via Resend API
+              const emailResponse = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  from: request.businesses.email || 'noreply@myblipp.com',
+                  to: [request.customers.email],
+                  subject: 'Thank you for your business!',
+                  html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                      <h2>Thank you for your business!</h2>
+                      <p>Hi ${request.customers.full_name || 'Customer'},</p>
+                      <p>${request.message}</p>
+                      <p><a href="${request.review_link}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Leave a Review</a></p>
+                      <p>Best regards,<br>${request.businesses.name}</p>
+                    </div>
+                  `,
+                  text: `Hi ${request.customers.full_name || 'Customer'},\n\n${request.message}\n\n${request.review_link}\n\nBest regards,\n${request.businesses.name}`
+                })
+              });
 
-            if (sendResponse.ok) {
-              // Mark job as success
-              await supabase
-                .from('scheduled_jobs')
-                .update({ status: 'success', processed_at: new Date().toISOString() })
-                .eq('id', job.id);
-              
-              console.log(`✅ Automation email sent to ${request.customers.email}`);
-            } else {
-              console.error(`❌ Failed to send automation email to ${request.customers.email}`);
+              const emailData = await emailResponse.json();
+
+              if (emailResponse.ok) {
+                // Mark job as success
+                await supabase
+                  .from('scheduled_jobs')
+                  .update({ status: 'success', processed_at: new Date().toISOString() })
+                  .eq('id', job.id);
+                
+                console.log(`✅ Automation email sent to ${request.customers.email} via Resend`);
+              } else {
+                console.error(`❌ Failed to send automation email to ${request.customers.email}:`, emailData);
+                
+                // Mark job as failed
+                await supabase
+                  .from('scheduled_jobs')
+                  .update({ status: 'failed' })
+                  .eq('id', job.id);
+              }
+            } catch (emailError) {
+              console.error(`❌ Error sending automation email to ${request.customers.email}:`, emailError);
               
               // Mark job as failed
               await supabase
