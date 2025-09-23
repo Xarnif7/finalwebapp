@@ -113,7 +113,9 @@ export const triggerTemplateAutomation = async (template, customerId, additional
       ? `${delayHours} hour${delayHours !== 1 ? 's' : ''}` 
       : `${Math.floor(delayHours / 24)} day${Math.floor(delayHours / 24) !== 1 ? 's' : ''}`;
     
-    toast.success(`🎉 Automation sent! ${customer?.full_name || 'Customer'} will receive the email in ${delayText}.`, {
+    const customerName = additionalData?.customer_name || 'Customer';
+    
+    toast.success(`🎉 Automation sent! ${customerName} will receive the email in ${delayText}.`, {
       duration: 4000,
       style: {
         background: '#10b981',
