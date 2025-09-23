@@ -71,29 +71,35 @@ const AutomationsPage = () => {
       loadActiveSequences();
       loadKPIs();
     } else if (user?.email) {
-      // Try to load from localStorage first for better persistence
+      // BULLETPROOF LOAD SYSTEM
       const userEmail = user.email;
       const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
       
-      if (Object.keys(savedTemplates).length > 0) {
-        const savedTemplatesArray = Object.values(savedTemplates);
+      try {
+        const existingData = localStorage.getItem(localStorageKey);
+        const savedTemplates = existingData ? JSON.parse(existingData) : {};
         
-        // Filter out any templates that don't belong to this user
-        const userTemplates = savedTemplatesArray.filter(template => 
-          template.user_email === userEmail || template.business_id?.includes(userEmail.replace(/[^a-zA-Z0-9]/g, '_'))
-        );
-        
-        setTemplates(userTemplates);
-        console.log('🔒 BULLETPROOF LOADED templates from localStorage:', {
-          userEmail,
-          localStorageKey,
-          totalTemplates: savedTemplatesArray.length,
-          userTemplates: userTemplates.length,
-          templates: userTemplates.map(t => ({ id: t.id, name: t.name, user_email: t.user_email })),
-          timestamp: new Date().toISOString()
-        });
-        return; // Don't show mock templates if we have saved ones
+        if (Object.keys(savedTemplates).length > 0) {
+          const savedTemplatesArray = Object.values(savedTemplates);
+          
+          // Filter out any templates that don't belong to this user
+          const userTemplates = savedTemplatesArray.filter(template => 
+            template.user_email === userEmail || template.business_id?.includes(userEmail.replace(/[^a-zA-Z0-9]/g, '_'))
+          );
+          
+          setTemplates(userTemplates);
+          console.log('🔒 BULLETPROOF LOADED templates from localStorage:', {
+            userEmail,
+            localStorageKey,
+            totalTemplates: savedTemplatesArray.length,
+            userTemplates: userTemplates.length,
+            templates: userTemplates.map(t => ({ id: t.id, name: t.name, user_email: t.user_email })),
+            timestamp: new Date().toISOString()
+          });
+          return; // Don't show mock templates if we have saved ones
+        }
+      } catch (error) {
+        console.error('❌ LOAD ERROR:', error);
       }
       // If we have a user but no business yet, show mock templates immediately
       console.log('User exists but business not ready yet, showing mock templates');
@@ -579,6 +585,25 @@ const AutomationsPage = () => {
     window.location.reload();
   };
 
+  const testLocalStorage = () => {
+    const userEmail = user?.email || 'unknown';
+    const testKey = `test_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const testData = { test: 'data', timestamp: new Date().toISOString() };
+    
+    try {
+      localStorage.setItem(testKey, JSON.stringify(testData));
+      const retrieved = localStorage.getItem(testKey);
+      const parsed = retrieved ? JSON.parse(retrieved) : null;
+      
+      alert(`LocalStorage Test: ${parsed ? 'SUCCESS' : 'FAILED'}\n\nSaved: ${JSON.stringify(testData)}\nRetrieved: ${JSON.stringify(parsed)}`);
+      
+      // Clean up test data
+      localStorage.removeItem(testKey);
+    } catch (error) {
+      alert(`LocalStorage Test: FAILED\n\nError: ${error.message}`);
+    }
+  };
+
   const handleDelete = async (template) => {
     if (confirm(`Are you sure you want to delete "${template.name}"?`)) {
       try {
@@ -651,10 +676,18 @@ const AutomationsPage = () => {
               <h2 className="text-xl font-semibold text-gray-900">Automation Templates</h2>
               <p className="text-sm text-gray-600">Create and manage your automation sequences</p>
             </div>
-            <Button onClick={handleCreateSequence} className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Custom Template
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleCreateSequence} className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Custom Template
+              </Button>
+              <Button onClick={testLocalStorage} className="bg-green-600 hover:bg-green-700">
+                Test Storage
+              </Button>
+              <Button onClick={clearLocalStorage} className="bg-red-600 hover:bg-red-700">
+                Clear Storage
+              </Button>
+            </div>
           </div>
 
           {/* Templates Grid - Visual Flow Cards */}

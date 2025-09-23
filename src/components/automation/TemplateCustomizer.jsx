@@ -80,24 +80,42 @@ export default function TemplateCustomizer({
     if (template) {
       const defaultMessage = getDefaultMessage(template.key, template.name);
       
-      // Try to load from localStorage first for better persistence
+      // BULLETPROOF LOAD SYSTEM
       const userEmail = user?.email || 'unknown';
       const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
       
-      // Use the original template ID as the key for simplicity
-      const templateKey = template.id;
-      const savedTemplate = savedTemplates[templateKey];
+      let savedTemplate = null;
       
-      console.log('🔍 BULLETPROOF LOAD template:', {
-        templateId: template.id,
-        userEmail,
-        localStorageKey,
-        templateKey,
-        savedTemplate: savedTemplate ? 'Found' : 'Not found',
-        templateName: template.name,
-        timestamp: new Date().toISOString()
-      });
+      try {
+        // Try localStorage first
+        const existingData = localStorage.getItem(localStorageKey);
+        const savedTemplates = existingData ? JSON.parse(existingData) : {};
+        savedTemplate = savedTemplates[template.id];
+        
+        // If not found in localStorage, try sessionStorage
+        if (!savedTemplate) {
+          const sessionKey = `session_blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}_${template.id}`;
+          const sessionData = sessionStorage.getItem(sessionKey);
+          if (sessionData) {
+            savedTemplate = JSON.parse(sessionData);
+            console.log('🔄 LOADED from sessionStorage fallback:', sessionKey);
+          }
+        }
+        
+        console.log('🔍 BULLETPROOF LOAD COMPLETE:', {
+          templateId: template.id,
+          userEmail,
+          localStorageKey,
+          found: savedTemplate ? 'YES' : 'NO',
+          source: savedTemplate ? (savedTemplate.last_saved ? 'localStorage' : 'sessionStorage') : 'none',
+          templateName: template.name,
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (error) {
+        console.error('❌ LOAD ERROR:', error);
+        savedTemplate = null;
+      }
       
       // Use saved template data if available, otherwise use template data
       const templateData = savedTemplate || template;
@@ -484,33 +502,69 @@ export default function TemplateCustomizer({
       }
       
       
-      // ALWAYS save to localStorage for persistence (regardless of database success)
+      // BULLETPROOF PERSISTENCE SYSTEM
       const userEmail = user?.email || 'unknown';
       const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
       
-      // Use the original template ID as the key for simplicity
-      const templateKey = template.id;
-      
-      savedTemplates[templateKey] = {
-        ...updatedTemplate,
-        id: templateKey, // Keep original ID
-        business_id: `mock-business-${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
-        user_email: userEmail // Store the actual user email for reference
-      };
-      localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
-      
-      console.log('🔒 BULLETPROOF SAVE to localStorage:', {
-        userEmail,
-        localStorageKey,
-        templateKey,
-        templateName: updatedTemplate.name,
-        allKeys: Object.keys(localStorage).filter(key => key.startsWith('blipp_templates_')),
-        timestamp: new Date().toISOString()
-      });
-      
-      // Debug: Show what's actually in localStorage
-      console.log('🔍 DEBUG: localStorage contents:', localStorage.getItem(localStorageKey));
+      try {
+        // Get existing templates
+        const existingData = localStorage.getItem(localStorageKey);
+        const savedTemplates = existingData ? JSON.parse(existingData) : {};
+        
+        // Create template data
+        const templateData = {
+          ...updatedTemplate,
+          id: template.id,
+          business_id: `mock-business-${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          user_email: userEmail,
+          last_saved: new Date().toISOString()
+        };
+        
+        // Save template
+        savedTemplates[template.id] = templateData;
+        
+        // Save to localStorage
+        localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
+        
+        // Verify save worked
+        const verifyData = localStorage.getItem(localStorageKey);
+        const verifyTemplates = verifyData ? JSON.parse(verifyData) : {};
+        
+        console.log('🔒 BULLETPROOF SAVE COMPLETE:', {
+          userEmail,
+          localStorageKey,
+          templateId: template.id,
+          templateName: updatedTemplate.name,
+          saved: verifyTemplates[template.id] ? 'SUCCESS' : 'FAILED',
+          allTemplates: Object.keys(verifyTemplates),
+          timestamp: new Date().toISOString()
+        });
+        
+        // Double-check: if save failed, try alternative method
+        if (!verifyTemplates[template.id]) {
+          console.error('❌ SAVE FAILED - Trying alternative method');
+          
+          // Alternative: save to sessionStorage as backup
+          const sessionKey = `session_${localStorageKey}`;
+          sessionStorage.setItem(sessionKey, JSON.stringify(templateData));
+          
+          console.log('🔄 FALLBACK SAVE to sessionStorage:', sessionKey);
+        }
+        
+      } catch (error) {
+        console.error('❌ localStorage error:', error);
+        
+        // Fallback: save to sessionStorage
+        const sessionKey = `session_blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}_${template.id}`;
+        sessionStorage.setItem(sessionKey, JSON.stringify({
+          ...updatedTemplate,
+          id: template.id,
+          user_email: userEmail,
+          last_saved: new Date().toISOString()
+        }));
+        
+        console.log('🔄 FALLBACK SAVE to sessionStorage:', sessionKey);
+      }
       
       onSave(updatedTemplate);
       onClose();
