@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { CheckCircle, Clock, Mail, MessageSquare, ArrowRight, Settings, Play, Pause } from "lucide-react";
+import { CheckCircle, Clock, Mail, MessageSquare, ArrowRight, Settings, Trash2 } from "lucide-react";
 
 export default function FlowCard({ 
   template, 
@@ -199,19 +199,10 @@ export default function FlowCard({
             size="sm" 
             variant="outline"
             onClick={() => onCustomize(data)}
-            className="flex-1"
+            className="w-full"
           >
             <Settings className="w-3 h-3 mr-1" />
             Customize
-          </Button>
-          <Button 
-            size="sm" 
-            variant="outline"
-            onClick={() => onTest(data)}
-            className="flex-1"
-          >
-            <Play className="w-3 h-3 mr-1" />
-            Test
           </Button>
           {onEdit && (
             <Button 
@@ -229,7 +220,7 @@ export default function FlowCard({
               onClick={() => onDelete(data.id)}
               className="text-red-500 hover:text-red-700 hover:bg-red-50"
             >
-              <Pause className="w-4 h-4" />
+              <Trash2 className="w-4 h-4" />
             </Button>
           )}
         </div>

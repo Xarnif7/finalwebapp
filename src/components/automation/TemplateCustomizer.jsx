@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Mail, MessageSquare, Clock, Settings, ArrowRight, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, Wand2, Eye, User, Link, Building, Calendar, Star } from "lucide-react";
+import { Mail, MessageSquare, Clock, Settings, ArrowRight, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, Wand2, Eye, User, Link, Building, Calendar, Star, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function TemplateCustomizer({ 
@@ -957,8 +957,9 @@ export default function TemplateCustomizer({
                   variant="destructive" 
                   onClick={onDelete}
                   className="bg-red-600 hover:bg-red-700"
+                  size="sm"
                 >
-                  Delete Template
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               )}
             </div>

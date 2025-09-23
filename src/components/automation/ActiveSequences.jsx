@@ -206,59 +206,6 @@ export default function ActiveSequences({ businessId, templates = [] }) {
 
   return (
     <div className="space-y-6">
-      {/* Performance Metrics Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Sent</p>
-                <p className="text-2xl font-bold">{performanceMetrics.totalSent || 0}</p>
-              </div>
-              <Send className="h-8 w-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Delivery Rate</p>
-                <p className="text-2xl font-bold">{performanceMetrics.deliveryRate || 0}%</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-green-500" />
-            </div>
-            <Progress value={performanceMetrics.deliveryRate || 0} className="mt-2" />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Open Rate</p>
-                <p className="text-2xl font-bold">{performanceMetrics.openRate || 0}%</p>
-              </div>
-              <Eye className="h-8 w-8 text-purple-500" />
-            </div>
-            <Progress value={performanceMetrics.openRate || 0} className="mt-2" />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Reviews Generated</p>
-                <p className="text-2xl font-bold">{performanceMetrics.totalReviews || 0}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-orange-500" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       <Card className="rounded-2xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
