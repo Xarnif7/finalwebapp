@@ -1,4 +1,5 @@
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from "@/lib/supabaseClient";
 
 // Function to trigger an automation for a specific customer
 export const triggerAutomation = async (templateId, customerId, triggerData = {}) => {
@@ -45,7 +46,8 @@ export const triggerTemplateAutomation = async (template, customerId, additional
     console.log('🎯 Triggering template automation:', { 
       templateName: template.name, 
       customerId, 
-      templateId: template.id 
+      templateId: template.id,
+      template: template
     });
 
     // Create a review request entry that will be processed by the automation system
@@ -64,12 +66,20 @@ export const triggerTemplateAutomation = async (template, customerId, additional
       }
     };
 
+    // Get the current session token
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    
+    if (!token) {
+      throw new Error('No authentication token found. Please sign in again.');
+    }
+
     // Use the automation trigger API directly
     const response = await fetch('/api/automation/trigger', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         customer_id: customerId,
