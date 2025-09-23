@@ -90,6 +90,7 @@ const AutomationsPage = () => {
           );
           
           setTemplates(userTemplates);
+          setLoading(false); // CRITICAL: Set loading to false so templates display
           console.log('🔒 BULLETPROOF LOADED templates from localStorage:', {
             userEmail,
             localStorageKey,
