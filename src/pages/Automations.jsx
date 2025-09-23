@@ -484,9 +484,17 @@ const AutomationsPage = () => {
     
     // Update existing template in local state
     if (updatedTemplate) {
-      setTemplates(prev => prev.map(t => 
-        t.id === updatedTemplate.id ? updatedTemplate : t
-      ));
+      setTemplates(prev => {
+        const updated = prev.map(t => {
+          if (t.id === updatedTemplate.id) {
+            console.log('Updating template:', t.id, 'with new name:', updatedTemplate.name);
+            return updatedTemplate;
+          }
+          return t;
+        });
+        console.log('Updated templates:', updated.map(t => ({ id: t.id, name: t.name })));
+        return updated;
+      });
     }
     
     // Reload everything to ensure consistency

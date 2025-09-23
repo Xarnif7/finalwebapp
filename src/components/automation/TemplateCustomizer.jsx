@@ -87,6 +87,14 @@ export default function TemplateCustomizer({
       const uniqueTemplateId = `${template.id}-${userEmail}`;
       const savedTemplate = savedTemplates[uniqueTemplateId];
       
+      console.log('Loading template:', {
+        templateId: template.id,
+        userEmail,
+        uniqueTemplateId,
+        savedTemplate: savedTemplate ? 'Found' : 'Not found',
+        templateName: template.name
+      });
+      
       // Use saved template data if available, otherwise use template data
       const templateData = savedTemplate || template;
       const currentMessage = templateData.custom_message || templateData.config_json?.message || defaultMessage;
@@ -472,12 +480,7 @@ export default function TemplateCustomizer({
       }
       
       
-      // If database save failed or businessId is invalid, save to localStorage
-      if (!businessId || businessId === 'null' || businessId === 'undefined') {
-        console.log('No valid businessId, saving to localStorage only');
-      }
-      
-      // Fallback to user-specific localStorage for persistence
+      // ALWAYS save to localStorage for persistence (regardless of database success)
       const userEmail = user?.email || 'unknown';
       const localStorageKey = `customTemplates_${userEmail}`;
       const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
@@ -486,6 +489,8 @@ export default function TemplateCustomizer({
       const uniqueTemplateId = `${template.id}-${userEmail}`;
       savedTemplates[uniqueTemplateId] = updatedTemplate;
       localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
+      
+      console.log('Saved to localStorage:', uniqueTemplateId, updatedTemplate.name);
       
       onSave(updatedTemplate);
       onClose();
