@@ -1,0 +1,37 @@
+#!/usr/bin/env node
+
+console.log('🔧 Setting up cron-job.org for reliable automation...');
+console.log('');
+console.log('📋 CRON-JOB.ORG SETUP INSTRUCTIONS:');
+console.log('');
+console.log('1. Go to: https://cron-job.org/');
+console.log('2. Create a free account (or sign in)');
+console.log('3. Click "Create cronjob"');
+console.log('4. Fill in the details:');
+console.log('   - Title: Blipp Automation Executor');
+console.log('   - Address: https://myblipp.com/api/cron/automation-executor');
+console.log('   - Method: POST');
+console.log('   - Schedule: Every 1 minute');
+console.log('   - Timezone: Your timezone');
+console.log('   - Active: Yes');
+console.log('5. Save the cron job');
+console.log('');
+console.log('✅ This will call your automation executor every minute reliably!');
+console.log('✅ Much more reliable than GitHub Actions cron jobs');
+console.log('✅ Completely free');
+console.log('✅ No delays or missed executions');
+console.log('');
+console.log('🎯 Alternative URLs you can use:');
+console.log('   - https://myblipp.com/api/_cron/automation-executor');
+console.log('   - https://myblipp.com/api/cron/automation-executor');
+console.log('');
+console.log('🧪 Test the cron job:');
+console.log('   1. Create the cron job');
+console.log('   2. Trigger an automation from your Customers tab');
+console.log('   3. Wait 1-2 minutes');
+console.log('   4. Check your email - it should arrive automatically!');
+console.log('');
+console.log('📊 Monitor the cron job:');
+console.log('   - cron-job.org will show execution logs');
+console.log('   - You can see when it runs and if it succeeds');
+console.log('   - Much better monitoring than GitHub Actions');

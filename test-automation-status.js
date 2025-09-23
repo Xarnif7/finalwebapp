@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 // Test script to check automation system status
-const https = require('https');
 
 console.log('🔍 Testing Automation System Status...\n');
 
