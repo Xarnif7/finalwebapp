@@ -70,7 +70,7 @@ const AutomationsPage = () => {
   useEffect(() => {
     console.log('🚨🚨🚨 AUTOMATIONS USEEFFECT RUNNING 🚨🚨🚨');
     console.log('🔍 Automations useEffect triggered:', { userEmail: user?.email, businessId: business?.id });
-    if (user?.email && business?.id) {
+    if (user?.email) {
       console.log('✅ User email found, proceeding with localStorage check');
       // ALWAYS USE LOCALSTORAGE FIRST (regardless of business ID)
       const userEmail = user.email;
@@ -163,8 +163,56 @@ const AutomationsPage = () => {
       // Also try to load real templates in the background
       loadTemplates();
       }
+    } else {
+      // If no user email, show mock templates as fallback
+      console.log('🔍 NO USER EMAIL - Showing mock templates as fallback');
+      setTemplates([
+        {
+          id: 'mock-1',
+          name: 'Job Completed',
+          key: 'job_completed',
+          status: 'paused',
+          channels: ['email'],
+          trigger_type: 'event',
+          config_json: {
+            message: 'Thank you for choosing our services! We hope you had a great experience. Please consider leaving us a review.',
+            delay_hours: 24
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        {
+          id: 'mock-2',
+          name: 'Invoice Paid',
+          key: 'invoice_paid',
+          status: 'paused',
+          channels: ['email'],
+          trigger_type: 'event',
+          config_json: {
+            message: 'Thank you for your payment! We appreciate your business. Please consider leaving us a review.',
+            delay_hours: 48
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        {
+          id: 'mock-3',
+          name: 'Service Reminder',
+          key: 'service_reminder',
+          status: 'paused',
+          channels: ['email'],
+          trigger_type: 'date_based',
+          config_json: {
+            message: 'This is a friendly reminder about your upcoming service appointment. We look forward to serving you!',
+            delay_days: 1
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ]);
+      setLoading(false);
     }
-  }, [user?.email, business?.id]); // Add business?.id back but with proper condition
+  }, [user?.email]); // Only depend on user email to prevent multiple re-renders
 
   // Update active sequences when templates change
   useEffect(() => {
