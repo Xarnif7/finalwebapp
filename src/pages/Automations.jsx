@@ -66,10 +66,12 @@ const AutomationsPage = () => {
 
   // Load data on component mount
   useEffect(() => {
+    console.log('🔍 Automations useEffect triggered:', { userEmail: user?.email, businessId: business?.id });
     if (user?.email) {
       // ALWAYS USE LOCALSTORAGE FIRST (regardless of business ID)
       const userEmail = user.email;
       const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      console.log('🔍 Checking localStorage with key:', localStorageKey);
       
       try {
         const existingData = localStorage.getItem(localStorageKey);
@@ -100,6 +102,7 @@ const AutomationsPage = () => {
       
       // If no localStorage data, fall back to database or mock templates
       console.log('🔍 NO LOCALSTORAGE DATA - Loading from database/mock templates');
+      console.log('🔍 Business ID:', business?.id);
       if (business?.id) {
         loadTemplates();
         loadActiveSequences();
@@ -167,6 +170,7 @@ const AutomationsPage = () => {
   const loadTemplates = async () => {
     try {
       setLoading(true);
+      console.log('🔍 loadTemplates called - this will overwrite localStorage data!');
       
       // If no business ID yet, try to get it from user email
       let businessId = business?.id;
