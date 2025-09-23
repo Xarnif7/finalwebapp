@@ -98,7 +98,10 @@ export default async function handler(req, res) {
 
       // Schedule the email to be sent after the delay
       const sendTime = new Date();
-      sendTime.setHours(sendTime.getHours() + (delay_hours || 24));
+      if (delay_hours > 0) {
+        sendTime.setHours(sendTime.getHours() + delay_hours);
+      }
+      // If delay_hours is 0, sendTime remains as current time (instant)
       
       const { error: scheduleError } = await supabase
         .from('scheduled_jobs')

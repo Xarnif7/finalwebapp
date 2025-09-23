@@ -89,7 +89,7 @@ export const triggerTemplateAutomation = async (template, customerId, additional
           template_id: template.id,
           template_name: template.name,
           template_message: template.custom_message || template.config_json?.message,
-          delay_hours: template.config_json?.delay_hours || 24,
+          delay_hours: template.config_json?.delay_hours || 0,
           channels: template.channels || ['email'],
           source: 'manual_trigger',
           timestamp: new Date().toISOString(),
@@ -108,21 +108,23 @@ export const triggerTemplateAutomation = async (template, customerId, additional
     console.log('✅ Template automation triggered successfully:', result);
     
     // Show success notification
-    const delayHours = template.config_json?.delay_hours || 24;
-    const delayText = delayHours < 24 
-      ? `${delayHours} hour${delayHours !== 1 ? 's' : ''}` 
-      : `${Math.floor(delayHours / 24)} day${Math.floor(delayHours / 24) !== 1 ? 's' : ''}`;
+    const delayHours = template.config_json?.delay_hours || 0;
+    const delayText = delayHours === 0 
+      ? 'instantly' 
+      : delayHours < 24 
+        ? `${delayHours} hour${delayHours !== 1 ? 's' : ''}` 
+        : `${Math.floor(delayHours / 24)} day${Math.floor(delayHours / 24) !== 1 ? 's' : ''}`;
     
     const customerName = additionalData?.customer_name || 'Customer';
     
     console.log('🔔 About to show toast notification:', {
       customerName,
       delayText,
-      message: `🎉 Automation sent! ${customerName} will receive the email in ${delayText}.`
+      message: `🎉 Automation sent! ${customerName} will receive the email ${delayText === 'instantly' ? 'now' : `in ${delayText}`}.`
     });
     
     try {
-      toast.success(`🎉 Automation sent! ${customerName} will receive the email in ${delayText}.`, {
+      toast.success(`🎉 Automation sent! ${customerName} will receive the email ${delayText === 'instantly' ? 'now' : `in ${delayText}`}.`, {
         duration: 4000,
         style: {
           background: '#10b981',
@@ -134,7 +136,7 @@ export const triggerTemplateAutomation = async (template, customerId, additional
     } catch (toastError) {
       console.error('❌ Error showing toast:', toastError);
       // Fallback to alert if toast fails
-      alert(`🎉 Automation sent! ${customerName} will receive the email in ${delayText}.`);
+      alert(`🎉 Automation sent! ${customerName} will receive the email ${delayText === 'instantly' ? 'now' : `in ${delayText}`}.`);
     }
     
     return result;
