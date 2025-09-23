@@ -1,0 +1,57 @@
+name: Automation Executor Cron
+
+# This workflow runs every minute to process automation jobs
+on:
+  schedule:
+    # Run every minute (cron format: minute hour day month day-of-week)
+    - cron: '* * * * *'
+  
+  # Allow manual triggering for testing
+  workflow_dispatch:
+
+jobs:
+  automation-executor:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Call Automation Executor API
+        run: |
+          echo "🚀 Calling automation executor API..."
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            https://myblipp.com/api/_cron/automation-executor)
+          
+          # Extract response body and status code
+          http_code=$(echo "$response" | tail -n1)
+          response_body=$(echo "$response" | head -n -1)
+          
+          echo "📊 Response Status: $http_code"
+          echo "📊 Response Body: $response_body"
+          
+          # Check if the response was successful
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Automation executor called successfully!"
+            
+            # Parse the response to get job counts
+            processed_automations=$(echo "$response_body" | grep -o '"processedAutomations":[0-9]*' | grep -o '[0-9]*')
+            processed_requests=$(echo "$response_body" | grep -o '"processedRequests":[0-9]*' | grep -o '[0-9]*')
+            
+            echo "📈 Processed Automations: $processed_automations"
+            echo "📈 Processed Requests: $processed_requests"
+            
+            if [ "$processed_automations" -gt 0 ]; then
+              echo "🎉 $processed_automations automation jobs processed!"
+            else
+              echo "ℹ️  No automation jobs to process at this time"
+            fi
+          else
+            echo "❌ Error calling automation executor (HTTP $http_code)"
+            echo "Response: $response_body"
+            exit 1
+          fi
+          
+      - name: Log Execution Time
+        run: |
+          echo "⏰ Execution completed at: $(date)"
+          echo "🔄 Next execution will be in 1 minute"
