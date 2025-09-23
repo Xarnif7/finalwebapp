@@ -49,6 +49,19 @@ export default function TemplateCustomizer({
     }
   }, [notification]);
 
+  // Simple swear word filter
+  const filterSwearWords = (text) => {
+    const swearWords = ['damn', 'hell', 'shit', 'fuck', 'bitch', 'asshole', 'crap'];
+    let filteredText = text;
+    
+    swearWords.forEach(word => {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      filteredText = filteredText.replace(regex, '*'.repeat(word.length));
+    });
+    
+    return filteredText;
+  };
+
   // Default messages for each automation type
   const getDefaultMessage = (templateKey, templateName) => {
     const defaults = {
@@ -66,25 +79,34 @@ export default function TemplateCustomizer({
   useEffect(() => {
     if (template) {
       const defaultMessage = getDefaultMessage(template.key, template.name);
-      const currentMessage = template.custom_message || template.config_json?.message || defaultMessage;
+      
+      // Try to load from localStorage first for better persistence
+      const userEmail = user?.email || 'unknown';
+      const localStorageKey = `customTemplates_${userEmail}`;
+      const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
+      const savedTemplate = savedTemplates[template.id];
+      
+      // Use saved template data if available, otherwise use template data
+      const templateData = savedTemplate || template;
+      const currentMessage = templateData.custom_message || templateData.config_json?.message || defaultMessage;
       
       setFormData({
-        name: template.name || '',
-        description: template.description || '',
-        trigger_type: template.trigger_type || 'event',
-        channels: template.channels || ['email'],
+        name: templateData.name || '',
+        description: templateData.description || '',
+        trigger_type: templateData.trigger_type || 'event',
+        channels: templateData.channels || ['email'],
         config_json: {
           message: currentMessage,
-          delay_hours: template.config_json?.delay_hours || 24,
-          delay_days: template.config_json?.delay_days || 1,
-          steps: template.config_json?.steps || []
+          delay_hours: templateData.config_json?.delay_hours || 24,
+          delay_days: templateData.config_json?.delay_days || 0,
+          steps: templateData.config_json?.steps || []
         }
       });
       
       setCustomMessage(currentMessage);
       generatePreview(currentMessage);
     }
-  }, [template]);
+  }, [template, user?.email]);
 
   // Variable insertion function
   const insertVariable = (variable) => {
@@ -398,7 +420,7 @@ export default function TemplateCustomizer({
           ...template.config_json,
           ...formData.config_json
         },
-        custom_message: customMessage,
+        custom_message: filterSwearWords(customMessage),
         ai_generated: aiGenerating || aiEnhancing,
         message_variables: {
           customer_name: customMessage.includes('{{customer.name}}'),
@@ -420,7 +442,7 @@ export default function TemplateCustomizer({
           },
           body: JSON.stringify({
             ...formData,
-            custom_message: customMessage,
+            custom_message: filterSwearWords(customMessage),
             message_subject: formData.config_json?.subject || '',
             ai_generated: aiGenerating || aiEnhancing,
             message_variables: {

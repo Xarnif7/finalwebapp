@@ -71,6 +71,17 @@ const AutomationsPage = () => {
       loadActiveSequences();
       loadKPIs();
     } else if (user?.email) {
+      // Try to load from localStorage first for better persistence
+      const userEmail = user.email;
+      const localStorageKey = `customTemplates_${userEmail}`;
+      const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
+      
+      if (Object.keys(savedTemplates).length > 0) {
+        const savedTemplatesArray = Object.values(savedTemplates);
+        setTemplates(savedTemplatesArray);
+        console.log('Loaded templates from localStorage:', savedTemplatesArray.length);
+        return; // Don't show mock templates if we have saved ones
+      }
       // If we have a user but no business yet, show mock templates immediately
       console.log('User exists but business not ready yet, showing mock templates');
       setTemplates([
