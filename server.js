@@ -7819,10 +7819,14 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
       .select(`
         id, 
         business_id, 
+        customer_id,
         channel, 
         message, 
-        customer_email, 
-        customer_name,
+        review_link,
+        customers!inner(
+          full_name,
+          email
+        ),
         businesses!inner(
           name,
           email,
@@ -7832,7 +7836,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
         )
       `)
       .eq('status', 'pending')
-      .lte('scheduled_for', new Date().toISOString());
+      .lte('send_at', new Date().toISOString());
 
     if (requestsError) {
       console.error('Error fetching pending requests:', requestsError);
@@ -8085,9 +8089,9 @@ app.post('/api/automation/trigger', async (req, res) => {
           channel: channels?.[0] || 'email',
           review_link: reviewLink,
           message: template_message || 'Thank you for your business! Please consider leaving us a review.',
-          email_status: 'pending',
-          sms_status: 'skipped',
-          requested_at: new Date().toISOString()
+          status: 'pending',
+          send_at: new Date().toISOString(),
+          user_id: user.id
         })
         .select()
         .single();
@@ -8104,6 +8108,7 @@ app.post('/api/automation/trigger', async (req, res) => {
       const { error: scheduleError } = await supabase
         .from('scheduled_jobs')
         .insert({
+          business_id: business.id,
           job_type: 'automation_email',
           payload: {
             review_request_id: reviewRequest.id,
