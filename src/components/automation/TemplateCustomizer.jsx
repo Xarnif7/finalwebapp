@@ -84,7 +84,8 @@ export default function TemplateCustomizer({
       const userEmail = user?.email || 'unknown';
       const localStorageKey = `customTemplates_${userEmail}`;
       const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
-      const savedTemplate = savedTemplates[template.id];
+      const uniqueTemplateId = `${template.id}-${userEmail}`;
+      const savedTemplate = savedTemplates[uniqueTemplateId];
       
       // Use saved template data if available, otherwise use template data
       const templateData = savedTemplate || template;
@@ -432,9 +433,10 @@ export default function TemplateCustomizer({
         updated_at: new Date().toISOString()
       };
 
-      // Try to save to database first
-      try {
-        const response = await fetch(`/api/templates/${businessId}/${template.id}`, {
+      // Try to save to database first (only if we have a valid businessId)
+      if (businessId && businessId !== 'null' && businessId !== 'undefined') {
+        try {
+          const response = await fetch(`/api/templates/${businessId}/${template.id}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -463,15 +465,26 @@ export default function TemplateCustomizer({
         }
       } catch (dbError) {
         console.log('Database save failed, saving to localStorage as backup:', dbError);
-        // Fallback to user-specific localStorage for persistence
-        const userEmail = user?.email || 'unknown';
-        const localStorageKey = `customTemplates_${userEmail}`;
-        const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
-        savedTemplates[template.id] = updatedTemplate;
-        localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
-        
-        onSave(updatedTemplate);
+        // Fall through to localStorage save
       }
+      
+      
+      // If database save failed or businessId is invalid, save to localStorage
+      if (!businessId || businessId === 'null' || businessId === 'undefined') {
+        console.log('No valid businessId, saving to localStorage only');
+      }
+      
+      // Fallback to user-specific localStorage for persistence
+      const userEmail = user?.email || 'unknown';
+      const localStorageKey = `customTemplates_${userEmail}`;
+      const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
+      
+      // Ensure template ID is unique per user
+      const uniqueTemplateId = `${template.id}-${userEmail}`;
+      savedTemplates[uniqueTemplateId] = updatedTemplate;
+      localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
+      
+      onSave(updatedTemplate);
       
       onClose();
     } catch (error) {
@@ -593,7 +606,12 @@ export default function TemplateCustomizer({
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Describe what this template does"
                 rows={2}
+                maxLength={150}
+                className="resize-none"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {formData.description.length}/150 characters
+              </p>
             </div>
           </div>
 
