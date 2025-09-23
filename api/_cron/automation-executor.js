@@ -92,6 +92,16 @@ export default async function handler(req, res) {
               // Send email directly via Resend API
               console.log('📧 Sending email to:', request.customers.email);
               console.log('🔑 RESEND_API_KEY available:', !!process.env.RESEND_API_KEY);
+              console.log('🔑 RESEND_API_KEY length:', process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.length : 0);
+              
+              if (!process.env.RESEND_API_KEY) {
+                console.error('❌ RESEND_API_KEY is not available in environment');
+                await supabase
+                  .from('scheduled_jobs')
+                  .update({ status: 'failed' })
+                  .eq('id', job.id);
+                continue;
+              }
               
               const emailResponse = await fetch('https://api.resend.com/emails', {
                 method: 'POST',
@@ -120,6 +130,7 @@ export default async function handler(req, res) {
 
               console.log('📧 Email response status:', emailResponse.status);
               console.log('📧 Email response data:', emailData);
+              console.log('📧 Email response headers:', Object.fromEntries(emailResponse.headers.entries()));
               
               if (emailResponse.ok) {
                 // Mark job as success
