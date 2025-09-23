@@ -33,8 +33,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const AutomationsPage = () => {
+  console.log('🚨🚨🚨 AUTOMATIONS COMPONENT STARTING 🚨🚨🚨');
   const { user } = useAuth();
   const { business } = useBusiness();
+  console.log('🚨🚨🚨 AUTOMATIONS HOOKS LOADED 🚨🚨🚨', { user: user?.email, business: business?.id });
   const [templates, setTemplates] = useState([]);
   const [activeSequences, setActiveSequences] = useState([]);
   const [emailTemplate, setEmailTemplate] = useState("Subject: Thank you for your business!\n\nHi {{customer.name}},\n\nWe hope you had a great experience with us. If you have a moment, we would appreciate it if you could leave us a review at the link below.\n\n{{review_link}}\n\nThank you!");
@@ -64,6 +66,7 @@ const AutomationsPage = () => {
   });
 
   // Load data on component mount
+  console.log('🚨🚨🚨 ABOUT TO RUN USEEFFECT 🚨🚨🚨');
   useEffect(() => {
     console.log('🚨🚨🚨 AUTOMATIONS USEEFFECT RUNNING 🚨🚨🚨');
     console.log('🔍 Automations useEffect triggered:', { userEmail: user?.email, businessId: business?.id });
