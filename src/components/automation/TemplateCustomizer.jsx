@@ -36,6 +36,7 @@ export default function TemplateCustomizer({
   const [aiEnhancing, setAiEnhancing] = useState(false);
   const [notification, setNotification] = useState(null);
   const textareaRef = useRef(null);
+  const previewTimeoutRef = useRef(null);
 
   // Auto-dismiss notifications
   useEffect(() => {
@@ -104,6 +105,29 @@ export default function TemplateCustomizer({
         textarea.setSelectionRange(start + variable.length, start + variable.length);
       }, 0);
     }
+  };
+
+  // Debounced preview generation for real-time updates
+  const generatePreviewDebounced = (message) => {
+    // Clear existing timeout
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current);
+    }
+    
+    // Immediate preview for common variables
+    const immediatePreview = message
+      .replace(/\{\{customer\.name\}\}/g, 'John Smith')
+      .replace(/\{\{business\.name\}\}/g, 'Your Business')
+      .replace(/\{\{review_link\}\}/g, 'https://g.page/your-business/review')
+      .replace(/\{\{service_date\}\}/g, 'Tomorrow at 2:00 PM')
+      .replace(/\{\{amount\}\}/g, '$150.00');
+    
+    setMessagePreview(immediatePreview);
+    
+    // Set new timeout for full preview with real data
+    previewTimeoutRef.current = setTimeout(() => {
+      generatePreview(message);
+    }, 500); // 500ms delay for full preview
   };
 
   // Generate preview with real customer data
@@ -637,7 +661,11 @@ export default function TemplateCustomizer({
                 ref={textareaRef}
                 id="message"
                 value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  setCustomMessage(newValue);
+                  generatePreviewDebounced(newValue);
+                }}
                 placeholder="Enter your message content. Use {{customer.name}} for personalization."
                 rows={4}
               />
