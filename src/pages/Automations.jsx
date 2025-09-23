@@ -599,56 +599,6 @@ const AutomationsPage = () => {
     }
   };
 
-  const clearLocalStorage = () => {
-    const userEmail = user?.email || 'unknown';
-    const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    localStorage.removeItem(localStorageKey);
-    alert('LocalStorage cleared for user: ' + userEmail);
-    window.location.reload();
-  };
-
-  const testLocalStorage = () => {
-    const userEmail = user?.email || 'unknown';
-    const testKey = `test_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const testData = { test: 'data', timestamp: new Date().toISOString() };
-    
-    try {
-      localStorage.setItem(testKey, JSON.stringify(testData));
-      const retrieved = localStorage.getItem(testKey);
-      const parsed = retrieved ? JSON.parse(retrieved) : null;
-      
-      alert(`LocalStorage Test: ${parsed ? 'SUCCESS' : 'FAILED'}\n\nSaved: ${JSON.stringify(testData)}\nRetrieved: ${JSON.stringify(parsed)}`);
-      
-      // Clean up test data
-      localStorage.removeItem(testKey);
-    } catch (error) {
-      alert(`LocalStorage Test: FAILED\n\nError: ${error.message}`);
-    }
-  };
-
-  const reloadFromLocalStorage = () => {
-    const userEmail = user?.email || 'unknown';
-    const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    
-    try {
-      const existingData = localStorage.getItem(localStorageKey);
-      const savedTemplates = existingData ? JSON.parse(existingData) : {};
-      
-      if (Object.keys(savedTemplates).length > 0) {
-        const savedTemplatesArray = Object.values(savedTemplates);
-        const userTemplates = savedTemplatesArray.filter(template => 
-          template.user_email === userEmail || template.business_id?.includes(userEmail.replace(/[^a-zA-Z0-9]/g, '_'))
-        );
-        
-        setTemplates(userTemplates);
-        alert(`Reloaded ${userTemplates.length} templates from localStorage`);
-      } else {
-        alert('No templates found in localStorage');
-      }
-    } catch (error) {
-      alert(`Error reloading from localStorage: ${error.message}`);
-    }
-  };
 
   const handleDelete = async (template) => {
     if (confirm(`Are you sure you want to delete "${template.name}"?`)) {
@@ -722,21 +672,10 @@ const AutomationsPage = () => {
               <h2 className="text-xl font-semibold text-gray-900">Automation Templates</h2>
               <p className="text-sm text-gray-600">Create and manage your automation sequences</p>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={handleCreateSequence} className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Custom Template
-              </Button>
-              <Button onClick={testLocalStorage} className="bg-green-600 hover:bg-green-700">
-                Test Storage
-              </Button>
-              <Button onClick={reloadFromLocalStorage} className="bg-yellow-600 hover:bg-yellow-700">
-                Reload Storage
-              </Button>
-              <Button onClick={clearLocalStorage} className="bg-red-600 hover:bg-red-700">
-                Clear Storage
-              </Button>
-            </div>
+            <Button onClick={handleCreateSequence} className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Custom Template
+            </Button>
           </div>
 
           {/* Templates Grid - Visual Flow Cards */}

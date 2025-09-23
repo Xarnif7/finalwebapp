@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { headers } from 'next/headers';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -22,7 +21,7 @@ export default async function handler(req, res) {
     }
 
     // Validate trigger_type
-    const validTriggers = ['job_completed', 'invoice_paid', 'service_completed', 'customer_created'];
+    const validTriggers = ['job_completed', 'invoice_paid', 'service_completed', 'customer_created', 'manual_trigger'];
     if (!validTriggers.includes(trigger_type)) {
       return res.status(400).json({ 
         error: 'Invalid trigger_type. Must be one of: ' + validTriggers.join(', ') 
@@ -30,7 +29,7 @@ export default async function handler(req, res) {
     }
 
     // Get user from JWT token
-    const authHeader = headers().get('authorization');
+    const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
