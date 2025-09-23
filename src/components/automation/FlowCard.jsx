@@ -48,13 +48,28 @@ export default function FlowCard({
     }
   };
 
-  const getTemplateDescription = (key) => {
-    const descriptions = {
-      'job_completed': 'Send review requests when jobs are marked complete. Perfect for contractors and service providers.',
-      'invoice_paid': 'Request reviews after payment is received. Great for B2B services and recurring clients.',
-      'service_reminder': 'Follow up with customers after service appointments. Ideal for maintenance and recurring services.'
+  const getTemplateDescription = (key, data) => {
+    // Get actual delay from config
+    const delayHours = data.config_json?.delay_hours || 0;
+    const delayDays = data.config_json?.delay_days || 0;
+    
+    let delayText = '';
+    if (delayDays > 0) {
+      delayText = delayDays === 1 ? '1 day' : `${delayDays} days`;
+    } else if (delayHours > 0) {
+      delayText = delayHours === 1 ? '1 hour' : `${delayHours} hours`;
+    } else {
+      delayText = 'immediately';
+    }
+    
+    const baseDescriptions = {
+      'job_completed': 'Sends thank you emails',
+      'invoice_paid': 'Sends payment confirmation emails', 
+      'service_reminder': 'Sends service reminder emails'
     };
-    return descriptions[key];
+    
+    const baseDesc = baseDescriptions[key] || 'Sends automated emails';
+    return `${baseDesc} ${delayText} after ${key.replace('_', ' ')}.`;
   };
 
   return (
@@ -160,7 +175,7 @@ export default function FlowCard({
         {/* Description */}
         <div className="mb-4">
           <p className="text-sm text-gray-600 line-clamp-2">
-            {getTemplateDescription(data.key) || data.description || data.config_json?.message || 'Automated follow-up sequence'}
+            {getTemplateDescription(data.key, data) || data.description || data.config_json?.message || 'Automated follow-up sequence'}
           </p>
         </div>
 

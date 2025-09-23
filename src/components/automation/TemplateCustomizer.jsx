@@ -204,8 +204,8 @@ export default function TemplateCustomizer({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
-        console.log('AI request timed out after 10 seconds');
-      }, 10000); // 10 second timeout
+        console.log('AI request timed out after 30 seconds');
+      }, 30000); // 30 second timeout
       
       const response = await fetch('/api/ai/generate-message', {
         method: 'POST',
@@ -308,8 +308,8 @@ export default function TemplateCustomizer({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
-        console.log('AI enhancement request timed out after 10 seconds');
-      }, 10000); // 10 second timeout
+        console.log('AI enhancement request timed out after 30 seconds');
+      }, 30000); // 30 second timeout
       
       const response = await fetch('/api/ai/enhance-message', {
         method: 'POST',
@@ -417,7 +417,19 @@ export default function TemplateCustomizer({
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`
           },
-          body: JSON.stringify(formData)
+          body: JSON.stringify({
+            ...formData,
+            custom_message: customMessage,
+            message_subject: formData.config_json?.subject || '',
+            ai_generated: aiGenerating || aiEnhancing,
+            message_variables: {
+              customer_name: customMessage.includes('{{customer.name}}'),
+              review_link: customMessage.includes('{{review_link}}'),
+              business_name: customMessage.includes('{{business.name}}'),
+              service_date: customMessage.includes('{{service_date}}'),
+              amount: customMessage.includes('{{amount}}')
+            }
+          })
         });
 
         if (response.ok) {
