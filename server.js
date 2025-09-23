@@ -67,6 +67,10 @@ if (supabaseServiceKey) {
 }
 
 // API Routes
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 app.post('/api/checkout/create-session', async (req, res) => {
   try {
     const { priceId } = req.body;

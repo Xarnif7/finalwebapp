@@ -173,37 +173,8 @@ export default function TemplateCustomizer({
       
       console.log('🤖 AI Generation Request:', requestBody);
       
-      // Check if API endpoint is available first
-      try {
-        const healthCheck = await fetch('/api/ai/generate-message', {
-          method: 'HEAD',
-          signal: AbortSignal.timeout(3000) // 3 second health check
-        });
-        if (!healthCheck.ok) {
-          throw new Error('API endpoint not available');
-        }
-      } catch (healthError) {
-        console.log('API health check failed, using fallback');
-        // Use fallback message immediately
-        const fallbackMessages = {
-          'job_completed': 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review at {{review_link}}.',
-          'invoice_paid': 'Thank you for your payment, {{customer.name}}! We appreciate your business. Please consider leaving us a review at {{review_link}}.',
-          'service_reminder': 'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!'
-        };
-        const fallbackMessage = fallbackMessages[template?.key] || 
-          'Thank you for your business! Please leave us a review at {{review_link}}.';
-        
-        setCustomMessage(fallbackMessage);
-        generatePreview(fallbackMessage);
-        setNotification({
-          type: 'success',
-          message: 'AI service is currently unavailable, but we\'ve added a professional fallback message for you!',
-          duration: 5000
-        });
-        setAiGenerating(false);
-        setAiEnhancing(false);
-        return;
-      }
+      // Skip health check and go straight to AI request
+      console.log('🤖 Attempting AI generation...');
       
       // Add timeout to prevent hanging
       const controller = new AbortController();
@@ -247,27 +218,29 @@ export default function TemplateCustomizer({
       }
     } catch (error) {
       console.error('AI generation error:', error);
+      
+      // Always use fallback message when AI fails
+      const fallbackMessages = {
+        'job_completed': 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review at {{review_link}}.',
+        'invoice_paid': 'Thank you for your payment, {{customer.name}}! We appreciate your business. Please consider leaving us a review at {{review_link}}.',
+        'service_reminder': 'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!'
+      };
+      const fallbackMessage = fallbackMessages[template?.key] || 
+        'Thank you for your business! Please leave us a review at {{review_link}}.';
+      
+      setCustomMessage(fallbackMessage);
+      generatePreview(fallbackMessage);
+      
       if (error.name === 'AbortError') {
-        // Use fallback message when timeout occurs
-        const fallbackMessages = {
-          'job_completed': 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review at {{review_link}}.',
-          'invoice_paid': 'Thank you for your payment, {{customer.name}}! We appreciate your business. Please consider leaving us a review at {{review_link}}.',
-          'service_reminder': 'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!'
-        };
-        const fallbackMessage = fallbackMessages[template?.key] || 
-          'Thank you for your business! Please leave us a review at {{review_link}}.';
-        
-        setCustomMessage(fallbackMessage);
-        generatePreview(fallbackMessage);
         setNotification({
-          type: 'success',
+          type: 'info',
           message: 'AI generation timed out, but we\'ve added a professional fallback message for you!',
           duration: 5000
         });
       } else {
         setNotification({
-          type: 'error',
-          message: 'AI generation failed. Please try again.',
+          type: 'warning',
+          message: 'AI service is temporarily unavailable, but we\'ve added a professional fallback message for you!',
           duration: 5000
         });
       }
@@ -284,26 +257,8 @@ export default function TemplateCustomizer({
       // Use a fallback business ID if none is available
       const effectiveBusinessId = businessId || 'demo-business-id';
       
-      // Check if API endpoint is available first
-      try {
-        const healthCheck = await fetch('/api/ai/enhance-message', {
-          method: 'HEAD',
-          signal: AbortSignal.timeout(3000) // 3 second health check
-        });
-        if (!healthCheck.ok) {
-          throw new Error('API endpoint not available');
-        }
-      } catch (healthError) {
-        console.log('Enhance API health check failed, keeping original message');
-        setNotification({
-          type: 'info',
-          message: 'AI enhancement service is currently unavailable. Your original message is preserved.',
-          duration: 5000
-        });
-        setAiGenerating(false);
-        setAiEnhancing(false);
-        return;
-      }
+      // Skip health check and go straight to AI request
+      console.log('🤖 Attempting AI enhancement...');
       
       // Add timeout to prevent hanging
       const controller = new AbortController();
@@ -487,6 +442,7 @@ export default function TemplateCustomizer({
           <div className={`p-3 rounded-lg border ${
             notification.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
             notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+            notification.type === 'warning' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
             'bg-blue-50 border-blue-200 text-blue-800'
           }`}>
             <div className="flex items-center justify-between">
