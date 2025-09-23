@@ -53,6 +53,11 @@ export default function FlowCard({
     const delayHours = data.config_json?.delay_hours || 0;
     const delayDays = data.config_json?.delay_days || 0;
     
+    // Get channels
+    const channels = data.channels || ['email'];
+    const channelNames = channels.map(ch => ch === 'sms' ? 'SMS' : 'Email');
+    
+    // Format delay text
     let delayText = '';
     if (delayDays > 0) {
       delayText = delayDays === 1 ? '1 day' : `${delayDays} days`;
@@ -62,14 +67,17 @@ export default function FlowCard({
       delayText = 'immediately';
     }
     
-    const baseDescriptions = {
-      'job_completed': 'Sends thank you emails',
-      'invoice_paid': 'Sends payment confirmation emails', 
-      'service_reminder': 'Sends service reminder emails'
-    };
+    // Format trigger text
+    const triggerText = key.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
     
-    const baseDesc = baseDescriptions[key] || 'Sends automated emails';
-    return `${baseDesc} ${delayText} after ${key.replace('_', ' ')}.`;
+    // Generate smart description based on settings
+    if (channels.length === 1) {
+      return `Sends ${channelNames[0].toLowerCase()} ${delayText} after ${triggerText}.`;
+    } else {
+      // Multi-channel sequence
+      const channelList = channelNames.join(' and ');
+      return `Sends ${channelList.toLowerCase()} sequence ${delayText} after ${triggerText}.`;
+    }
   };
 
   return (

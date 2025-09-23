@@ -176,11 +176,12 @@ const AutomationsPage = () => {
       }
     } catch (error) {
       console.error('Error loading templates:', error);
-      // Fallback: show mock templates so user can see the interface
-      console.log('Falling back to mock templates');
+      // Fallback: show user-specific mock templates so user can see the interface
+      console.log('Falling back to user-specific mock templates for:', user?.email);
+      const userEmail = user?.email || 'unknown';
       setTemplates([
         {
-          id: 'mock-1',
+          id: `mock-1-${userEmail}`,
           name: 'Job Completed',
           key: 'job_completed',
           status: 'paused',
@@ -191,10 +192,11 @@ const AutomationsPage = () => {
             delay_hours: 24
           },
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          business_id: business?.id || userEmail // Make it user-specific
         },
         {
-          id: 'mock-2',
+          id: `mock-2-${userEmail}`,
           name: 'Invoice Paid',
           key: 'invoice_paid',
           status: 'paused',
@@ -205,10 +207,11 @@ const AutomationsPage = () => {
             delay_hours: 48
           },
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          business_id: business?.id || userEmail // Make it user-specific
         },
         {
-          id: 'mock-3',
+          id: `mock-3-${userEmail}`,
           name: 'Service Reminder',
           key: 'service_reminder',
           status: 'paused',
@@ -219,7 +222,8 @@ const AutomationsPage = () => {
             delay_days: 1
           },
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          business_id: business?.id || userEmail // Make it user-specific
         }
       ]);
     } finally {
@@ -464,15 +468,17 @@ const AutomationsPage = () => {
     setCustomizeModalOpen(true);
   };
 
-  const handleTemplateSaved = async (newTemplate) => {
-    console.log('Template saved:', newTemplate);
+  const handleTemplateSaved = async (updatedTemplate) => {
+    console.log('Template saved:', updatedTemplate);
     
-    // Add new template to local state
-    if (newTemplate) {
-      setTemplates(prev => [...prev, newTemplate]);
+    // Update existing template in local state
+    if (updatedTemplate) {
+      setTemplates(prev => prev.map(t => 
+        t.id === updatedTemplate.id ? updatedTemplate : t
+      ));
     }
     
-    // Reload everything
+    // Reload everything to ensure consistency
     await loadTemplates();
     await loadActiveSequences();
     await loadKPIs();
