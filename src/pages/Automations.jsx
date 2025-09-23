@@ -73,13 +73,18 @@ const AutomationsPage = () => {
     } else if (user?.email) {
       // Try to load from localStorage first for better persistence
       const userEmail = user.email;
-      const localStorageKey = `customTemplates_${userEmail}`;
+      const localStorageKey = `customTemplates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
       const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
       
       if (Object.keys(savedTemplates).length > 0) {
         const savedTemplatesArray = Object.values(savedTemplates);
         setTemplates(savedTemplatesArray);
-        console.log('Loaded templates from localStorage:', savedTemplatesArray.length);
+        console.log('Loaded templates from localStorage:', {
+          userEmail,
+          localStorageKey,
+          templateCount: savedTemplatesArray.length,
+          templates: savedTemplatesArray.map(t => ({ id: t.id, name: t.name }))
+        });
         return; // Don't show mock templates if we have saved ones
       }
       // If we have a user but no business yet, show mock templates immediately
@@ -190,9 +195,10 @@ const AutomationsPage = () => {
       // Fallback: show user-specific mock templates so user can see the interface
       console.log('Falling back to user-specific mock templates for:', user?.email);
       const userEmail = user?.email || 'unknown';
+      const sanitizedEmail = userEmail.replace(/[^a-zA-Z0-9]/g, '_');
       setTemplates([
         {
-          id: `mock-1-${userEmail}`,
+          id: `mock-1-${sanitizedEmail}`,
           name: 'Job Completed',
           key: 'job_completed',
           status: 'paused',
@@ -204,10 +210,10 @@ const AutomationsPage = () => {
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          business_id: business?.id || userEmail // Make it user-specific
+          business_id: business?.id || sanitizedEmail // Make it user-specific
         },
         {
-          id: `mock-2-${userEmail}`,
+          id: `mock-2-${sanitizedEmail}`,
           name: 'Invoice Paid',
           key: 'invoice_paid',
           status: 'paused',
@@ -219,10 +225,10 @@ const AutomationsPage = () => {
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          business_id: business?.id || userEmail // Make it user-specific
+          business_id: business?.id || sanitizedEmail // Make it user-specific
         },
         {
-          id: `mock-3-${userEmail}`,
+          id: `mock-3-${sanitizedEmail}`,
           name: 'Service Reminder',
           key: 'service_reminder',
           status: 'paused',
@@ -234,7 +240,7 @@ const AutomationsPage = () => {
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          business_id: business?.id || userEmail // Make it user-specific
+          business_id: business?.id || sanitizedEmail // Make it user-specific
         }
       ]);
     } finally {

@@ -82,14 +82,18 @@ export default function TemplateCustomizer({
       
       // Try to load from localStorage first for better persistence
       const userEmail = user?.email || 'unknown';
-      const localStorageKey = `customTemplates_${userEmail}`;
+      const localStorageKey = `customTemplates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
       const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
-      const uniqueTemplateId = `${template.id}-${userEmail}`;
+      
+      // Create completely unique template ID per user
+      const baseTemplateId = template.id.replace(/^mock-\d+-/, ''); // Remove mock prefix if exists
+      const uniqueTemplateId = `${baseTemplateId}-${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
       const savedTemplate = savedTemplates[uniqueTemplateId];
       
       console.log('Loading template:', {
         templateId: template.id,
         userEmail,
+        localStorageKey,
         uniqueTemplateId,
         savedTemplate: savedTemplate ? 'Found' : 'Not found',
         templateName: template.name
@@ -482,15 +486,25 @@ export default function TemplateCustomizer({
       
       // ALWAYS save to localStorage for persistence (regardless of database success)
       const userEmail = user?.email || 'unknown';
-      const localStorageKey = `customTemplates_${userEmail}`;
+      const localStorageKey = `customTemplates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
       const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
       
-      // Ensure template ID is unique per user
-      const uniqueTemplateId = `${template.id}-${userEmail}`;
-      savedTemplates[uniqueTemplateId] = updatedTemplate;
+      // Create completely unique template ID per user
+      const baseTemplateId = template.id.replace(/^mock-\d+-/, ''); // Remove mock prefix if exists
+      const uniqueTemplateId = `${baseTemplateId}-${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      savedTemplates[uniqueTemplateId] = {
+        ...updatedTemplate,
+        id: uniqueTemplateId, // Update the ID to be unique
+        business_id: `mock-business-${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`
+      };
       localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
       
-      console.log('Saved to localStorage:', uniqueTemplateId, updatedTemplate.name);
+      console.log('Saved to localStorage:', {
+        userEmail,
+        localStorageKey,
+        uniqueTemplateId,
+        templateName: updatedTemplate.name
+      });
       
       onSave(updatedTemplate);
       onClose();
