@@ -27,13 +27,21 @@ export const useActiveTemplates = () => {
         const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
         const savedTemplatesArray = Object.values(savedTemplates);
 
+        console.log('🔍 useActiveTemplates - Found templates:', savedTemplatesArray.length);
+        console.log('🔍 useActiveTemplates - Template details:', savedTemplatesArray.map(t => ({
+          name: t.name,
+          status: t.status,
+          trigger_type: t.trigger_type,
+          channels: t.channels
+        })));
+
         // Filter for active templates that can be manually triggered
         const manualTriggerTemplates = savedTemplatesArray.filter(template => 
           template.status === 'active' && 
-          template.trigger_type === 'event' &&
           template.channels?.includes('email')
         );
 
+        console.log('🔍 useActiveTemplates - Active templates found:', manualTriggerTemplates.length);
         setActiveTemplates(manualTriggerTemplates);
         
         // If no localStorage templates, try to load from database
@@ -67,7 +75,6 @@ export const useActiveTemplates = () => {
 
         const manualTriggerTemplates = savedTemplatesArray.filter(template => 
           template.status === 'active' && 
-          template.trigger_type === 'event' &&
           template.channels?.includes('email')
         );
 
