@@ -27,16 +27,7 @@ export default async function handler(req, res) {
         id,
         job_type,
         payload,
-        run_at,
-        review_requests!inner(
-          id,
-          business_id,
-          channel,
-          message,
-          review_link,
-          customers!inner(full_name, email, phone),
-          businesses!inner(name, email)
-        )
+        run_at
       `)
       .eq('job_type', 'automation_email')
       .eq('status', 'queued')
@@ -50,25 +41,43 @@ export default async function handler(req, res) {
       
       for (const job of scheduledJobs) {
         try {
-          const request = job.review_requests;
+          const reviewRequestId = job.payload.review_request_id;
+          
+          if (!reviewRequestId) {
+            console.error(`No review_request_id in job ${job.id}`);
+            await supabase
+              .from('scheduled_jobs')
+              .update({ status: 'failed' })
+              .eq('id', job.id);
+            continue;
+          }
+
+          // Fetch the review request data
+          const { data: request, error: requestError } = await supabase
+            .from('review_requests')
+            .select(`
+              id,
+              business_id,
+              channel,
+              message,
+              review_link,
+              customers!inner(full_name, email, phone),
+              businesses!inner(name, email)
+            `)
+            .eq('id', reviewRequestId)
+            .single();
+
+          if (requestError || !request) {
+            console.error(`Error fetching review request ${reviewRequestId}:`, requestError);
+            await supabase
+              .from('scheduled_jobs')
+              .update({ status: 'failed' })
+              .eq('id', job.id);
+            continue;
+          }
           
           // Send the automation email
           if (request.customers.email) {
-            const emailData = {
-              to: request.customers.email,
-              from: request.businesses.email || 'noreply@myblipp.com',
-              subject: 'Thank you for your business!',
-              html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <h2>Thank you for your business!</h2>
-                  <p>Hi ${request.customers.full_name || 'Customer'},</p>
-                  <p>${request.message}</p>
-                  <p><a href="${request.review_link}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Leave a Review</a></p>
-                  <p>Best regards,<br>${request.businesses.name}</p>
-                </div>
-              `
-            };
-
             // Call the send-now API internally
             const sendResponse = await fetch(`${process.env.APP_BASE_URL || 'https://myblipp.com'}/api/review-requests/send-now`, {
               method: 'POST',
@@ -99,6 +108,12 @@ export default async function handler(req, res) {
                 .update({ status: 'failed' })
                 .eq('id', job.id);
             }
+          } else {
+            console.error(`No customer email for review request ${reviewRequestId}`);
+            await supabase
+              .from('scheduled_jobs')
+              .update({ status: 'failed' })
+              .eq('id', job.id);
           }
         } catch (error) {
           console.error(`Error processing automation job ${job.id}:`, error);
