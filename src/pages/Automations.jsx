@@ -85,12 +85,13 @@ const AutomationsPage = () => {
         );
         
         setTemplates(userTemplates);
-        console.log('Loaded templates from localStorage:', {
+        console.log('🔒 BULLETPROOF LOADED templates from localStorage:', {
           userEmail,
           localStorageKey,
           totalTemplates: savedTemplatesArray.length,
           userTemplates: userTemplates.length,
-          templates: userTemplates.map(t => ({ id: t.id, name: t.name, user_email: t.user_email }))
+          templates: userTemplates.map(t => ({ id: t.id, name: t.name, user_email: t.user_email })),
+          timestamp: new Date().toISOString()
         });
         return; // Don't show mock templates if we have saved ones
       }

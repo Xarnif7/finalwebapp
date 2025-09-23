@@ -91,13 +91,14 @@ export default function TemplateCustomizer({
       const uniqueTemplateId = `${baseTemplateId}-${sanitizedEmail}`;
       const savedTemplate = savedTemplates[uniqueTemplateId];
       
-      console.log('Loading template:', {
+      console.log('🔍 BULLETPROOF LOAD template:', {
         templateId: template.id,
         userEmail,
         localStorageKey,
         uniqueTemplateId,
         savedTemplate: savedTemplate ? 'Found' : 'Not found',
-        templateName: template.name
+        templateName: template.name,
+        timestamp: new Date().toISOString()
       });
       
       // Use saved template data if available, otherwise use template data
@@ -503,12 +504,13 @@ export default function TemplateCustomizer({
       };
       localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
       
-      console.log('Saved to localStorage:', {
+      console.log('🔒 BULLETPROOF SAVE to localStorage:', {
         userEmail,
         localStorageKey,
         uniqueTemplateId,
         templateName: updatedTemplate.name,
-        allKeys: Object.keys(localStorage).filter(key => key.startsWith('customTemplates_'))
+        allKeys: Object.keys(localStorage).filter(key => key.startsWith('customTemplates_')),
+        timestamp: new Date().toISOString()
       });
       
       onSave(updatedTemplate);
