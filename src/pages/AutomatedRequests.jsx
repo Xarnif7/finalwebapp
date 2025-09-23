@@ -189,7 +189,7 @@ const AutomatedRequestsPage = () => {
       steps: template.channels.map((channel, index) => ({
         id: index,
         channel: channel,
-        delay: index === 0 ? 0 : (template.config_json?.delay_hours || 24),
+        delay: index === 0 ? 0 : (template.config_json?.delay_hours ?? 24),
         delayUnit: 'hours',
         message: template.config_json?.message || ''
       }))
@@ -469,7 +469,7 @@ const AutomatedRequestsPage = () => {
                             {/* Steps */}
                             {template.channels.map((channel, index) => {
                               const stepDelay = template.config_json?.steps?.[index]?.delay || 
-                                               (index > 0 ? template.config_json?.delay_hours || 24 : 0);
+                                               (index > 0 ? template.config_json?.delay_hours ?? 24 : 0);
                               const delayUnit = template.config_json?.steps?.[index]?.delayUnit || 'hours';
                               
                               return (
@@ -615,7 +615,7 @@ const AutomatedRequestsPage = () => {
                       
                       {sequence.channels.map((channel, index) => {
                         const stepDelay = sequence.config_json?.steps?.[index]?.delay || 
-                                         (index > 0 ? sequence.config_json?.delay_hours || 24 : 0);
+                                         (index > 0 ? sequence.config_json?.delay_hours ?? 24 : 0);
                         const delayUnit = sequence.config_json?.steps?.[index]?.delayUnit || 'hours';
                         
                         return (

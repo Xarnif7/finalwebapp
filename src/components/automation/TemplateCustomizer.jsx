@@ -30,7 +30,7 @@ export default function TemplateCustomizer({
     channels: ['email'],
     config_json: {
       message: '',
-      delay_hours: 24,
+      delay_hours: 0,
       steps: []
     }
   });
@@ -93,10 +93,10 @@ export default function TemplateCustomizer({
           description: '',
           channels: ['email'],
           trigger_type: 'event',
-          delay_hours: 24,
+          delay_hours: 0,
           config_json: {
             message: defaultMessage,
-            delay_hours: 24
+            delay_hours: 0
           }
         });
         setCustomMessage(defaultMessage);
@@ -155,7 +155,7 @@ export default function TemplateCustomizer({
         channels: templateData.channels || ['email'],
         config_json: {
           message: currentMessage,
-          delay_hours: templateData.config_json?.delay_hours || 24,
+          delay_hours: templateData.config_json?.delay_hours ?? 24,
           delay_days: templateData.config_json?.delay_days || 0,
           steps: templateData.config_json?.steps || []
         }

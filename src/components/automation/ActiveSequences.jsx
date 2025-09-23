@@ -260,7 +260,7 @@ export default function ActiveSequences({ businessId, templates = [], sequences 
                   
                   {sequence.channels.map((channel, index) => {
                     const stepDelay = sequence.config_json?.steps?.[index]?.delay || 
-                                     (index > 0 ? sequence.config_json?.delay_hours || 24 : 0);
+                                     (index > 0 ? sequence.config_json?.delay_hours ?? 24 : 0);
                     const delayUnit = sequence.config_json?.steps?.[index]?.delayUnit || 'hours';
                     
                     return (

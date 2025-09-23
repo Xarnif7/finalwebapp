@@ -89,7 +89,7 @@ export const triggerTemplateAutomation = async (template, customerId, additional
           template_id: template.id,
           template_name: template.name,
           template_message: template.custom_message || template.config_json?.message,
-          delay_hours: template.config_json?.delay_hours || 0,
+          delay_hours: template.config_json?.delay_hours ?? 0,
           channels: template.channels || ['email'],
           source: 'manual_trigger',
           timestamp: new Date().toISOString(),

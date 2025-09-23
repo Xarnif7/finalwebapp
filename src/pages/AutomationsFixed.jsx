@@ -233,7 +233,7 @@ const AutomationsPageFixed = () => {
         trigger_type: templateData.trigger_type || 'event',
         config_json: {
           message: templateData.message || 'Thank you for your business!',
-          delay_hours: templateData.delay_hours || 24
+          delay_hours: templateData.delay_hours ?? 24
         },
         user_email: userEmail,
         created_at: new Date().toISOString()
