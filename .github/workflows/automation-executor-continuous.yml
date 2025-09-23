@@ -1,17 +1,13 @@
-name: Automation Executor Cron
+name: Automation Executor Continuous
 
-# This workflow runs every minute to process automation jobs
+# This workflow runs continuously to process automation jobs
 on:
   schedule:
-    # Run every minute (cron format: minute hour day month day-of-week)
-    - cron: '* * * * *'
+    # Run every 2 minutes (GitHub's minimum reliable interval)
+    - cron: '*/2 * * * *'
   
   # Allow manual triggering for testing
   workflow_dispatch:
-  
-  # Also trigger on push to main for immediate testing
-  push:
-    branches: [ main ]
 
 jobs:
   automation-executor:
@@ -20,10 +16,13 @@ jobs:
     steps:
       - name: Call Automation Executor API
         run: |
-          echo "🚀 Calling automation executor API..."
+          echo "🚀 [CONTINUOUS] Calling automation executor API..."
+          echo "⏰ Current time: $(date)"
           
+          # Call the API with timeout
           response=$(curl -s -w "\n%{http_code}" -X POST \
             -H "Content-Type: application/json" \
+            --max-time 30 \
             https://myblipp.com/api/_cron/automation-executor)
           
           # Extract response body and status code
@@ -52,10 +51,10 @@ jobs:
           else
             echo "❌ Error calling automation executor (HTTP $http_code)"
             echo "Response: $response_body"
-            exit 1
+            # Don't exit 1 for continuous runs to avoid spam
           fi
           
       - name: Log Execution Time
         run: |
-          echo "⏰ Execution completed at: $(date)"
-          echo "🔄 Next execution will be in 1 minute"
+          echo "⏰ [CONTINUOUS] Execution completed at: $(date)"
+          echo "🔄 Next execution will be in 2 minutes"

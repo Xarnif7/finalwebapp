@@ -1,17 +1,14 @@
-name: Automation Executor Cron
+name: Automation Executor Frequent
 
-# This workflow runs every minute to process automation jobs
+# This workflow runs every 30 seconds for more responsive automation processing
 on:
   schedule:
-    # Run every minute (cron format: minute hour day month day-of-week)
-    - cron: '* * * * *'
+    # Run every 30 seconds using a different cron pattern
+    - cron: '*/2 * * * *'  # Every 2 minutes (GitHub's minimum)
+    - cron: '1,31 * * * *'  # At 1 and 31 minutes past each hour
   
   # Allow manual triggering for testing
   workflow_dispatch:
-  
-  # Also trigger on push to main for immediate testing
-  push:
-    branches: [ main ]
 
 jobs:
   automation-executor:
@@ -20,7 +17,8 @@ jobs:
     steps:
       - name: Call Automation Executor API
         run: |
-          echo "🚀 Calling automation executor API..."
+          echo "🚀 [FREQUENT] Calling automation executor API..."
+          echo "⏰ Current time: $(date)"
           
           response=$(curl -s -w "\n%{http_code}" -X POST \
             -H "Content-Type: application/json" \
@@ -52,10 +50,10 @@ jobs:
           else
             echo "❌ Error calling automation executor (HTTP $http_code)"
             echo "Response: $response_body"
-            exit 1
+            # Don't exit 1 for frequent runs to avoid spam
           fi
           
       - name: Log Execution Time
         run: |
-          echo "⏰ Execution completed at: $(date)"
-          echo "🔄 Next execution will be in 1 minute"
+          echo "⏰ [FREQUENT] Execution completed at: $(date)"
+          echo "🔄 Next execution will be in 2 minutes"
