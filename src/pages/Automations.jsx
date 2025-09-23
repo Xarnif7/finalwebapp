@@ -181,6 +181,31 @@ const AutomationsPage = () => {
     loadActiveSequences();
   }, [templates]);
 
+  const saveTemplateToLocalStorage = async (template) => {
+    try {
+      const userEmail = user?.email || 'unknown';
+      const sanitizedEmail = userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
+      const localStorageKey = `blipp_templates_${sanitizedEmail}`;
+      
+      // Get existing templates
+      const existingData = localStorage.getItem(localStorageKey);
+      const savedTemplates = existingData ? JSON.parse(existingData) : {};
+      
+      // Add new template
+      savedTemplates[template.id] = {
+        ...template,
+        user_email: userEmail,
+        last_saved: new Date().toISOString()
+      };
+      
+      // Save back to localStorage
+      localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
+      console.log('✅ Template saved to localStorage:', template.name);
+    } catch (error) {
+      console.error('❌ Error saving template to localStorage:', error);
+    }
+  };
+
   const loadTemplates = async () => {
     try {
       setLoading(true);
@@ -429,11 +454,16 @@ const AutomationsPage = () => {
   };
 
   const handleTemplateToggle = async (templateId, newStatus) => {
+    if (!templateId) {
+      console.error('❌ Cannot toggle template: templateId is null');
+      return;
+    }
+    
     setUpdating(prev => ({ ...prev, [templateId]: true }));
     
     try {
       // For mock templates, update local state immediately
-      if (templateId.startsWith('mock-')) {
+      if (templateId && templateId.startsWith('mock-')) {
         setTemplates(prev => prev.map(t => 
           t.id === templateId ? { ...t, status: newStatus } : t
         ));
@@ -516,6 +546,12 @@ const AutomationsPage = () => {
   };
 
   const handleCustomize = (template) => {
+    if (!template || !template.id) {
+      console.error('❌ Cannot customize template: template or template.id is null');
+      return;
+    }
+    
+    console.log('🔧 Customizing template:', template.name, 'with ID:', template.id);
     setSelectedTemplate(template);
     setCustomizationData({
       name: template.name,
@@ -660,6 +696,9 @@ const AutomationsPage = () => {
         // Add to local templates
         setTemplates(prev => [...prev, newTemplate.template]);
         
+        // Save to localStorage immediately to prevent data loss
+        await saveTemplateToLocalStorage(newTemplate.template);
+        
         // Close modal
         setCreateModalOpen(false);
         
@@ -685,6 +724,9 @@ const AutomationsPage = () => {
         
         // Add to local templates
         setTemplates(prev => [...prev, mockTemplate]);
+        
+        // Save to localStorage immediately to prevent data loss
+        await saveTemplateToLocalStorage(mockTemplate);
         
         // Close modal
         setCreateModalOpen(false);
