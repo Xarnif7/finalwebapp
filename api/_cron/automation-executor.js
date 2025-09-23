@@ -190,7 +190,8 @@ export default async function handler(req, res) {
     }
 
     // Get pending review requests and send them (existing functionality)
-    const { data: pendingRequests, error: requestsError } = await supabase
+    // But EXCLUDE review requests that have corresponding automation jobs
+    const { data: allPendingRequests, error: requestsError } = await supabase
       .from('review_requests')
       .select(`
         id, 
@@ -207,6 +208,22 @@ export default async function handler(req, res) {
     if (requestsError) {
       console.error('Error fetching pending requests:', requestsError);
       return res.status(500).json({ error: 'Failed to fetch pending requests' });
+    }
+
+    // Filter out review requests that have corresponding automation jobs
+    const pendingRequests = [];
+    for (const request of allPendingRequests || []) {
+      const { data: hasJob, error: jobCheckError } = await supabase
+        .from('scheduled_jobs')
+        .select('id')
+        .eq('job_type', 'automation_email')
+        .contains('payload', { review_request_id: request.id })
+        .limit(1);
+        
+      if (!jobCheckError && (!hasJob || hasJob.length === 0)) {
+        // No automation job found, so this is a regular review request
+        pendingRequests.push(request);
+      }
     }
 
     let sentCount = 0;
