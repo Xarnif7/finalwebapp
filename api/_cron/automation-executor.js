@@ -133,6 +133,9 @@ export default async function handler(req, res) {
               console.log('📧 Email response headers:', Object.fromEntries(emailResponse.headers.entries()));
               
               if (emailResponse.ok) {
+                console.log(`✅ Automation email sent to ${request.customers.email} via Resend`);
+                console.log(`📧 Email ID: ${emailData.id}`);
+                
                 // Mark job as success
                 await supabase
                   .from('scheduled_jobs')
@@ -148,9 +151,9 @@ export default async function handler(req, res) {
                   })
                   .eq('id', reviewRequestId);
                 
-                console.log(`✅ Automation email sent to ${request.customers.email} via Resend`);
               } else {
                 console.error(`❌ Failed to send automation email to ${request.customers.email}:`, emailData);
+                console.error(`❌ Response status: ${emailResponse.status}`);
                 
                 // Mark job as failed
                 await supabase
