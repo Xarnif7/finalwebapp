@@ -40,11 +40,11 @@ export default function FlowCard({
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-700 border-green-200';
-      case 'paused': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'draft': return 'bg-gray-100 text-gray-700 border-gray-200';
-      case 'ready': return 'bg-blue-100 text-blue-700 border-blue-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'active': return 'bg-green-500 text-white border-green-500 hover:bg-green-500 hover:text-white';
+      case 'paused': return 'bg-yellow-500 text-white border-yellow-500 hover:bg-yellow-500 hover:text-white';
+      case 'draft': return 'bg-gray-500 text-white border-gray-500 hover:bg-gray-500 hover:text-white';
+      case 'ready': return 'bg-blue-500 text-white border-blue-500 hover:bg-blue-500 hover:text-white';
+      default: return 'bg-gray-500 text-white border-gray-500 hover:bg-gray-500 hover:text-white';
     }
   };
 

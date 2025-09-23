@@ -8,7 +8,7 @@ import { CheckCircle, Clock, Mail, MessageSquare, ArrowRight, Play, Pause, Users
 import { useAuth } from "@/hooks/useAuth";
 import { useBusiness } from "@/hooks/useBusiness";
 
-export default function ActiveSequences({ businessId, templates = [] }) {
+export default function ActiveSequences({ businessId, templates = [], sequences = [], onToggle }) {
   const { user } = useAuth();
   const { business } = useBusiness();
   const [activeSequences, setActiveSequences] = useState([]);
@@ -29,15 +29,17 @@ export default function ActiveSequences({ businessId, templates = [] }) {
     }
   }, [businessId, business?.id]);
 
-  // Update active sequences when templates change
+  // Use sequences prop if provided, otherwise filter from templates
   useEffect(() => {
-    if (templates && templates.length > 0) {
+    if (sequences && sequences.length > 0) {
+      setActiveSequences(sequences);
+    } else if (templates && templates.length > 0) {
       const active = templates.filter(template => template.status === 'active');
       setActiveSequences(active);
     } else {
       setActiveSequences([]);
     }
-  }, [templates]);
+  }, [sequences, templates]);
 
   const loadActiveSequences = async () => {
     try {
@@ -112,31 +114,13 @@ export default function ActiveSequences({ businessId, templates = [] }) {
   };
 
   const handleToggleSequence = async (sequence) => {
-    try {
-      setUpdating(prev => ({ ...prev, [sequence.id]: true }));
-      
-      const newStatus = sequence.status === 'active' ? 'paused' : 'active';
-      
-      const response = await fetch(`/api/templates/${businessId || business.id}/${sequence.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.access_token}`
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
-
-      if (response.ok) {
-        await loadActiveSequences();
-      } else {
-        alert('Error updating sequence status');
-      }
-    } catch (error) {
-      console.error('Error toggling sequence:', error);
-      alert('Error updating sequence status');
-    } finally {
-      setUpdating(prev => ({ ...prev, [sequence.id]: false }));
+    if (!onToggle) {
+      console.error('❌ No onToggle function provided');
+      return;
     }
+    
+    const newStatus = sequence.status === 'active' ? 'paused' : 'active';
+    await onToggle(sequence.id, newStatus);
   };
 
   const getChannelIcon = (channel) => {
@@ -241,7 +225,7 @@ export default function ActiveSequences({ businessId, templates = [] }) {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-green-100 text-green-700 text-xs">
+                    <Badge className="bg-green-500 text-white border-green-500 hover:bg-green-500 hover:text-white text-xs">
                       Active
                     </Badge>
                     <Switch 
