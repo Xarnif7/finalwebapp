@@ -7918,7 +7918,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
               body: JSON.stringify({
                 from: 'Blipp <noreply@myblipp.com>',
                 to: [reviewRequest.customers.email],
-                subject: `How was your experience with ${reviewRequest.businesses.name}?`,
+                subject: `Thanks for choosing ${reviewRequest.businesses.name}!`,
                 html: `
                   <!DOCTYPE html>
                   <html>
@@ -7931,11 +7931,11 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                     <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
                       
                       <!-- Header -->
-                      <div style="background-color: #f8fafc; padding: 40px 30px; text-align: center; border-bottom: 1px solid #e2e8f0;">
-                        <h1 style="color: #1e293b; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">
+                      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+                        <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">
                           Thank You
                         </h1>
-                        <p style="color: #64748b; margin: 10px 0 0 0; font-size: 16px; font-weight: 400;">
+                        <p style="color: #e2e8f0; margin: 10px 0 0 0; font-size: 16px; font-weight: 300;">
                           We appreciate your business
                         </p>
                       </div>
@@ -7959,7 +7959,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                         <!-- CTA Button -->
                         <div style="text-align: center; margin: 35px 0;">
                           <a href="${reviewRequest.review_link}" 
-                             style="display: inline-block; background-color: #3b82f6; color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                             style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); transition: all 0.2s ease;">
                             Leave a Review
                           </a>
                         </div>
