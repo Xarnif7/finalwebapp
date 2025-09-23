@@ -3926,6 +3926,10 @@ app.post('/api/ai/generate-message', async (req, res) => {
 
     console.log('[AI] Making OpenAI API request with key:', process.env.OPENAI_API_KEY.substring(0, 10) + '...');
 
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -3947,7 +3951,10 @@ app.post('/api/ai/generate-message', async (req, res) => {
         max_tokens: 200,
         temperature: 0.7,
       }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!openaiResponse.ok) {
       const errorData = await openaiResponse.text();
@@ -3998,6 +4005,11 @@ app.post('/api/ai/generate-message', async (req, res) => {
   } catch (error) {
     console.error('AI generation error:', error);
     
+    // Check if it's a timeout error
+    if (error.name === 'AbortError') {
+      console.log('[AI] Request timed out, using fallback message');
+    }
+    
     // Fallback to default message if AI fails
     const fallbackMessages = {
       'job_completed': 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review at {{review_link}}.',
@@ -4013,7 +4025,8 @@ app.post('/api/ai/generate-message', async (req, res) => {
       message: fallbackMessage,
       template_name,
       template_type,
-      fallback: true
+      fallback: true,
+      error: error.name === 'AbortError' ? 'Request timed out' : error.message
     });
   }
 });
@@ -4070,6 +4083,10 @@ Enhanced message:`;
       throw new Error('OpenAI API key not configured');
     }
 
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -4091,7 +4108,10 @@ Enhanced message:`;
         max_tokens: 200,
         temperature: 0.5, // Lower temperature for more consistent enhancements
       }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!openaiResponse.ok) {
       const errorData = await openaiResponse.text();
@@ -4116,13 +4136,19 @@ Enhanced message:`;
   } catch (error) {
     console.error('AI enhancement error:', error);
     
+    // Check if it's a timeout error
+    if (error.name === 'AbortError') {
+      console.log('[AI] Enhancement request timed out, returning original message');
+    }
+    
     // Return original message if enhancement fails
     res.status(200).json({
       success: true,
       enhanced_message: current_message,
       template_name,
       template_type,
-      fallback: true
+      fallback: true,
+      error: error.name === 'AbortError' ? 'Request timed out' : error.message
     });
   }
 });
