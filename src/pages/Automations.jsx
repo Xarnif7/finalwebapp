@@ -74,8 +74,9 @@ const AutomationsPage = () => {
     if (user?.email) {
       console.log('✅ User email found, proceeding with localStorage check');
       // ALWAYS USE LOCALSTORAGE FIRST (regardless of business ID)
-      const userEmail = user.email;
-      const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const userEmail = user?.email || 'unknown';
+      const sanitizedEmail = userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
+      const localStorageKey = `blipp_templates_${sanitizedEmail}`;
       console.log('🔍 Checking localStorage with key:', localStorageKey);
       
       try {
@@ -87,7 +88,7 @@ const AutomationsPage = () => {
           
           // Filter out any templates that don't belong to this user
           const userTemplates = savedTemplatesArray.filter(template => 
-            template.user_email === userEmail || template.business_id?.includes(userEmail.replace(/[^a-zA-Z0-9]/g, '_'))
+            template.user_email === userEmail || template.business_id?.includes(sanitizedEmail)
           );
           
           setTemplates(userTemplates);
@@ -231,7 +232,7 @@ const AutomationsPage = () => {
       // Fallback: show user-specific mock templates so user can see the interface
       console.log('Falling back to user-specific mock templates for:', user?.email);
       const userEmail = user?.email || 'unknown';
-      const sanitizedEmail = userEmail.replace(/[^a-zA-Z0-9]/g, '_');
+      const sanitizedEmail = userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
       setTemplates([
         {
           id: `mock-1-${sanitizedEmail}`,

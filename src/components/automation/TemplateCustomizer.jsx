@@ -87,7 +87,8 @@ export default function TemplateCustomizer({
       console.log('🔍 TemplateCustomizer user prop:', user);
       const userEmail = user?.email || 'unknown';
       console.log('🔍 TemplateCustomizer userEmail:', userEmail);
-      const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const sanitizedEmail = userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
+      const localStorageKey = `blipp_templates_${sanitizedEmail}`;
       
       let savedTemplate = null;
       
@@ -99,7 +100,7 @@ export default function TemplateCustomizer({
         
         // If not found in localStorage, try sessionStorage
         if (!savedTemplate) {
-          const sessionKey = `session_blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}_${template.id}`;
+          const sessionKey = `session_blipp_templates_${sanitizedEmail}_${template.id}`;
           const sessionData = sessionStorage.getItem(sessionKey);
           if (sessionData) {
             savedTemplate = JSON.parse(sessionData);
@@ -174,7 +175,7 @@ export default function TemplateCustomizer({
     }
     
     // Immediate preview for common variables
-    const immediatePreview = message
+    const immediatePreview = (message || '')
       .replace(/\{\{customer\.name\}\}/g, 'John Smith')
       .replace(/\{\{business\.name\}\}/g, 'Your Business')
       .replace(/\{\{review_link\}\}/g, 'https://g.page/your-business/review')
@@ -209,7 +210,7 @@ export default function TemplateCustomizer({
         const data = await response.json();
         const previewData = data.preview_data;
         
-        const preview = message
+        const preview = (message || '')
           .replace(/\{\{customer\.name\}\}/g, previewData.customer_name)
           .replace(/\{\{review_link\}\}/g, previewData.review_link)
           .replace(/\{\{business\.name\}\}/g, previewData.business_name)
@@ -218,7 +219,7 @@ export default function TemplateCustomizer({
         setMessagePreview(preview);
       } else {
         // Fallback to sample data
-        const preview = message
+        const preview = (message || '')
           .replace(/\{\{customer\.name\}\}/g, 'John Smith')
           .replace(/\{\{review_link\}\}/g, 'https://reviews.example.com/review/abc123')
           .replace(/\{\{business\.name\}\}/g, 'Your Business Name')
@@ -229,7 +230,7 @@ export default function TemplateCustomizer({
     } catch (error) {
       console.error('Preview generation error:', error);
       // Fallback to sample data
-      const preview = message
+      const preview = (message || '')
         .replace(/\{\{customer\.name\}\}/g, 'John Smith')
         .replace(/\{\{review_link\}\}/g, 'https://reviews.example.com/review/abc123')
         .replace(/\{\{business\.name\}\}/g, 'Your Business Name')
@@ -511,7 +512,8 @@ export default function TemplateCustomizer({
       console.log('🔒 TemplateCustomizer save user prop:', user);
       const userEmail = user?.email || 'unknown';
       console.log('🔒 TemplateCustomizer save userEmail:', userEmail);
-      const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const sanitizedEmail = userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
+      const localStorageKey = `blipp_templates_${sanitizedEmail}`;
       
       try {
         // Get existing templates
@@ -522,7 +524,7 @@ export default function TemplateCustomizer({
         const templateData = {
           ...updatedTemplate,
           id: template.id,
-          business_id: `mock-business-${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          business_id: `mock-business-${sanitizedEmail}`,
           user_email: userEmail,
           last_saved: new Date().toISOString()
         };
@@ -562,7 +564,7 @@ export default function TemplateCustomizer({
         console.error('❌ localStorage error:', error);
         
         // Fallback: save to sessionStorage
-        const sessionKey = `session_blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}_${template.id}`;
+        const sessionKey = `session_blipp_templates_${sanitizedEmail}_${template.id}`;
         sessionStorage.setItem(sessionKey, JSON.stringify({
           ...updatedTemplate,
           id: template.id,
