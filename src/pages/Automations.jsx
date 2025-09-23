@@ -112,7 +112,7 @@ const AutomationsPage = () => {
       // Load user's actual templates from database
       console.log('🔍 Loading user templates from database');
       if (business?.id) {
-        await loadTemplates();
+        loadTemplates();
       } else {
         // If no business yet, show empty state to encourage template creation
         setTemplates([]);
