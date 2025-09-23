@@ -66,12 +66,8 @@ const AutomationsPage = () => {
 
   // Load data on component mount
   useEffect(() => {
-    if (business?.id) {
-      loadTemplates();
-      loadActiveSequences();
-      loadKPIs();
-    } else if (user?.email) {
-      // BULLETPROOF LOAD SYSTEM
+    if (user?.email) {
+      // ALWAYS USE LOCALSTORAGE FIRST (regardless of business ID)
       const userEmail = user.email;
       const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
       
@@ -96,11 +92,18 @@ const AutomationsPage = () => {
             templates: userTemplates.map(t => ({ id: t.id, name: t.name, user_email: t.user_email })),
             timestamp: new Date().toISOString()
           });
-          return; // Don't show mock templates if we have saved ones
+          return; // Don't load from database if we have localStorage
         }
       } catch (error) {
         console.error('❌ LOAD ERROR:', error);
       }
+      
+      // If no localStorage data, fall back to database or mock templates
+      if (business?.id) {
+        loadTemplates();
+        loadActiveSequences();
+        loadKPIs();
+      } else {
       // If we have a user but no business yet, show mock templates immediately
       console.log('User exists but business not ready yet, showing mock templates');
       setTemplates([
@@ -151,6 +154,7 @@ const AutomationsPage = () => {
       
       // Also try to load real templates in the background
       loadTemplates();
+      }
     }
   }, [business?.id, user?.email]);
 
