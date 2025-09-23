@@ -103,7 +103,9 @@ async function handlePatch(req, res, businessId, templateId) {
     };
 
     // Handle custom message updates
-    if (updateData.config_json && updateData.config_json.message) {
+    if (updateData.custom_message) {
+      updatePayload.custom_message = updateData.custom_message;
+    } else if (updateData.config_json && updateData.config_json.message) {
       updatePayload.custom_message = updateData.config_json.message;
     }
 

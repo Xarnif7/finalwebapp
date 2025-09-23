@@ -15,7 +15,8 @@ export default function TemplateCustomizer({
   onClose, 
   template, 
   onSave,
-  businessId 
+  businessId,
+  user 
 }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -440,10 +441,12 @@ export default function TemplateCustomizer({
         }
       } catch (dbError) {
         console.log('Database save failed, saving to localStorage as backup:', dbError);
-        // Fallback to localStorage for persistence
-        const savedTemplates = JSON.parse(localStorage.getItem('customTemplates') || '{}');
+        // Fallback to user-specific localStorage for persistence
+        const userEmail = user?.email || 'unknown';
+        const localStorageKey = `customTemplates_${userEmail}`;
+        const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
         savedTemplates[template.id] = updatedTemplate;
-        localStorage.setItem('customTemplates', JSON.stringify(savedTemplates));
+        localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
         
         onSave(updatedTemplate);
       }
@@ -527,24 +530,6 @@ export default function TemplateCustomizer({
         )}
 
         <div className="space-y-6">
-          {/* Smart Recommendations */}
-          {recommendations.timing && (
-            <Card className="border-blue-200 bg-blue-50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-blue-800 flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4" />
-                  Smart Recommendations
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-sm text-blue-700 space-y-1">
-                  <p><strong>Optimal Timing:</strong> {recommendations.timing}</p>
-                  <p><strong>Recommended Channels:</strong> {recommendations.channels.join(', ')}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Basic Information</h3>
@@ -626,24 +611,6 @@ export default function TemplateCustomizer({
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="delay_hours">Delay (Hours)</Label>
-                <Input
-                  id="delay_hours"
-                  type="number"
-                  value={formData.config_json.delay_hours}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    config_json: {
-                      ...prev.config_json,
-                      delay_hours: parseInt(e.target.value) || 0
-                    }
-                  }))}
-                  min="0"
-                  max="168"
-                />
-              </div>
-              
-              <div>
                 <Label htmlFor="delay_days">Delay (Days)</Label>
                 <Input
                   id="delay_days"
@@ -658,6 +625,24 @@ export default function TemplateCustomizer({
                   }))}
                   min="0"
                   max="30"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="delay_hours">Delay (Hours)</Label>
+                <Input
+                  id="delay_hours"
+                  type="number"
+                  value={formData.config_json.delay_hours}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    config_json: {
+                      ...prev.config_json,
+                      delay_hours: parseInt(e.target.value) || 0
+                    }
+                  }))}
+                  min="0"
+                  max="168"
                 />
               </div>
             </div>

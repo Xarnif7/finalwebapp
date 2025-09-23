@@ -797,6 +797,7 @@ const AutomationsPage = () => {
         template={selectedTemplate}
         onSave={handleTemplateSaved}
         businessId={business?.id}
+        user={user}
       />
 
       {/* Create Sequence Modal */}

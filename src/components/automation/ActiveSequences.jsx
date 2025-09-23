@@ -130,22 +130,35 @@ export default function ActiveSequences() {
   };
 
   const generateSequenceDescription = (sequence) => {
-    const triggerEvent = sequence.key || sequence.trigger_type || 'event';
-    const channels = sequence.channels.join(' and ');
-    const delay = sequence.config_json?.delay_hours || 24;
+    // Get actual delay from config (same logic as FlowCard)
+    const delayHours = sequence.config_json?.delay_hours || 0;
+    const delayDays = sequence.config_json?.delay_days || 0;
     
-    // Generate description based on sequence configuration
-    switch (triggerEvent) {
-      case 'job_completed':
-        return `Automatically sends ${channels} ${delay}h after job completion`;
-      case 'invoice_paid':
-        return `Triggers ${channels} ${delay}h after payment received`;
-      case 'service_completed':
-        return `Sends ${channels} ${delay}h after service completion`;
-      case 'customer_created':
-        return `Welcome ${channels} ${delay}h after new customer signup`;
-      default:
-        return `Automated ${channels} sequence with ${delay}h delay`;
+    // Get channels
+    const channels = sequence.channels || ['email'];
+    const channelNames = channels.map(ch => ch === 'sms' ? 'SMS' : 'Email');
+    
+    // Format delay text
+    let delayText = '';
+    if (delayDays > 0) {
+      delayText = delayDays === 1 ? '1 day' : `${delayDays} days`;
+    } else if (delayHours > 0) {
+      delayText = delayHours === 1 ? '1 hour' : `${delayHours} hours`;
+    } else {
+      delayText = 'immediately';
+    }
+    
+    // Format trigger text
+    const triggerEvent = sequence.key || sequence.trigger_type || 'event';
+    const triggerText = triggerEvent.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    
+    // Generate smart description based on settings
+    if (channels.length === 1) {
+      return `Sends ${channelNames[0].toLowerCase()} ${delayText} after ${triggerText}.`;
+    } else {
+      // Multi-channel sequence
+      const channelList = channelNames.join(' and ');
+      return `Sends ${channelList.toLowerCase()} sequence ${delayText} after ${triggerText}.`;
     }
   };
 
