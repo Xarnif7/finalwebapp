@@ -16,8 +16,10 @@ export default function TemplateCustomizer({
   onClose, 
   template, 
   onSave,
+  onDelete,
   businessId,
-  user: propUser 
+  user: propUser,
+  isCreating = false
 }) {
   const { user: authUser } = useAuth();
   const user = propUser || authUser; // Use prop user if available, otherwise use auth user
@@ -948,13 +950,26 @@ export default function TemplateCustomizer({
 
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
+          <div className="flex justify-between pt-4 border-t">
+            <div>
+              {onDelete && !isCreating && (
+                <Button 
+                  variant="destructive" 
+                  onClick={onDelete}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Delete Template
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
