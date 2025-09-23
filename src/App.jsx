@@ -1,6 +1,7 @@
 ﻿import './App.css'
 import Pages from "./pages/index.jsx"
 import { Toaster } from "./components/ui/toaster"
+import { Toaster as HotToaster } from "react-hot-toast"
 import { AuthProvider } from "@/components/auth/AuthProvider"
 import { BrowserRouter } from "react-router-dom"
 import { useEffect } from "react"
@@ -31,6 +32,17 @@ function App() {
       <BrowserRouter>
         <Pages />
         <Toaster />
+        <HotToaster 
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#10b981',
+              color: 'white',
+              fontWeight: '500'
+            }
+          }}
+        />
       </BrowserRouter>
     </AuthProvider>
   )

@@ -115,14 +115,27 @@ export const triggerTemplateAutomation = async (template, customerId, additional
     
     const customerName = additionalData?.customer_name || 'Customer';
     
-    toast.success(`🎉 Automation sent! ${customerName} will receive the email in ${delayText}.`, {
-      duration: 4000,
-      style: {
-        background: '#10b981',
-        color: 'white',
-        fontWeight: '500'
-      }
+    console.log('🔔 About to show toast notification:', {
+      customerName,
+      delayText,
+      message: `🎉 Automation sent! ${customerName} will receive the email in ${delayText}.`
     });
+    
+    try {
+      toast.success(`🎉 Automation sent! ${customerName} will receive the email in ${delayText}.`, {
+        duration: 4000,
+        style: {
+          background: '#10b981',
+          color: 'white',
+          fontWeight: '500'
+        }
+      });
+      console.log('✅ Toast notification called successfully');
+    } catch (toastError) {
+      console.error('❌ Error showing toast:', toastError);
+      // Fallback to alert if toast fails
+      alert(`🎉 Automation sent! ${customerName} will receive the email in ${delayText}.`);
+    }
     
     return result;
   } catch (error) {
