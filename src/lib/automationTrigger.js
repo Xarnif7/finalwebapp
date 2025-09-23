@@ -107,9 +107,16 @@ export const triggerTemplateAutomation = async (template, customerId, additional
     const result = await response.json();
     console.log('✅ Template automation triggered successfully:', result);
     
+    // Show success notification
+    toast.success(`✅ ${template.name} automation started! Email will be sent in ${template.config_json?.delay_hours || 24} hours.`);
+    
     return result;
   } catch (error) {
     console.error('❌ Error triggering template automation:', error);
+    
+    // Show error notification
+    toast.error(`❌ Failed to start automation: ${error.message}`);
+    
     throw error;
   }
 };

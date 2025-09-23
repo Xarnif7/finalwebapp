@@ -83,6 +83,25 @@ export default function TemplateCustomizer({
     if (template) {
       const defaultMessage = getDefaultMessage(template.key, template.name);
       
+      // Skip loading saved data for new templates (id is null or undefined)
+      if (!template.id) {
+        console.log('🆕 Creating new template - skipping saved data load');
+        setFormData({
+          name: '',
+          description: '',
+          channels: ['email'],
+          trigger_type: 'event',
+          delay_hours: 24,
+          config_json: {
+            message: defaultMessage,
+            delay_hours: 24
+          }
+        });
+        setCustomMessage(defaultMessage);
+        setMessagePreview(defaultMessage);
+        return;
+      }
+      
       // BULLETPROOF LOAD SYSTEM
       console.log('🔍 TemplateCustomizer user prop:', user);
       const userEmail = user?.email || 'unknown';
