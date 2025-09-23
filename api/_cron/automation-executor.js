@@ -21,6 +21,10 @@ export default async function handler(req, res) {
     console.log(`Processed ${processedCount} automation executions`);
 
     // Get pending scheduled automation emails
+    console.log('🔍 DEBUG: Fetching automation_email jobs...');
+    const currentTime = new Date().toISOString();
+    console.log('🔍 DEBUG: Current time:', currentTime);
+    
     const { data: scheduledJobs, error: jobsError } = await supabase
       .from('scheduled_jobs')
       .select(`
@@ -31,8 +35,14 @@ export default async function handler(req, res) {
       `)
       .eq('job_type', 'automation_email')
       .eq('status', 'queued')
-      .lte('run_at', new Date().toISOString())
+      .lte('run_at', currentTime)
       .limit(20);
+
+    console.log('🔍 DEBUG: Query result - error:', jobsError);
+    console.log('🔍 DEBUG: Query result - jobs found:', scheduledJobs ? scheduledJobs.length : 0);
+    if (scheduledJobs && scheduledJobs.length > 0) {
+      console.log('🔍 DEBUG: First job details:', scheduledJobs[0]);
+    }
 
     if (jobsError) {
       console.error('Error fetching scheduled automation emails:', jobsError);
