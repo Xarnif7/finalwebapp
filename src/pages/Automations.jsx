@@ -70,7 +70,7 @@ const AutomationsPage = () => {
   useEffect(() => {
     console.log('🚨🚨🚨 AUTOMATIONS USEEFFECT RUNNING 🚨🚨🚨');
     console.log('🔍 Automations useEffect triggered:', { userEmail: user?.email, businessId: business?.id });
-    if (user?.email) {
+    if (user?.email && business?.id) {
       console.log('✅ User email found, proceeding with localStorage check');
       // ALWAYS USE LOCALSTORAGE FIRST (regardless of business ID)
       const userEmail = user.email;
@@ -164,7 +164,7 @@ const AutomationsPage = () => {
       loadTemplates();
       }
     }
-  }, [business?.id, user?.email]);
+  }, [user?.email, business?.id]); // Add business?.id back but with proper condition
 
   // Update active sequences when templates change
   useEffect(() => {
