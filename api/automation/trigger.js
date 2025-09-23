@@ -11,7 +11,9 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('🚀 Automation trigger API called');
     const { customer_id, trigger_type, trigger_data } = req.body;
+    console.log('📋 Request data:', { customer_id, trigger_type, trigger_data });
 
     // Validate required fields
     if (!customer_id || !trigger_type) {
@@ -35,6 +37,8 @@ export default async function handler(req, res) {
     }
 
     const token = authHeader.split(' ')[1];
+    console.log('🔑 Auth token received:', token ? 'Present' : 'Missing');
+    
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {

@@ -127,7 +127,7 @@ export default function SequenceCreator({ isOpen, onClose, onSequenceCreated, bu
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
         },
         body: JSON.stringify({
           name: sequenceData.name,

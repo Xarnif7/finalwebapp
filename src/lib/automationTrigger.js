@@ -88,7 +88,9 @@ export const triggerTemplateAutomation = async (template, customerId, additional
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to trigger template automation: ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('❌ API Error Response:', errorData);
+      throw new Error(`Failed to trigger template automation: ${errorData.error || response.statusText}`);
     }
 
     const result = await response.json();
