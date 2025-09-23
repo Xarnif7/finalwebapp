@@ -76,7 +76,7 @@ export default function TemplateCustomizer({
       'mock-3': 'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!'
     };
     
-    return defaults[templateKey] || defaults[templateName?.toLowerCase()] || 'Thank you for your business! Please leave us a review at {{review_link}}.';
+    return defaults[templateKey] || defaults[(templateName || '').toLowerCase()] || 'Thank you for your business! Please leave us a review at {{review_link}}.';
   };
 
   useEffect(() => {

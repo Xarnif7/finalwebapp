@@ -174,14 +174,14 @@ export default function ActiveSequences({ businessId, templates = [] }) {
     
     // Format trigger text
     const triggerEvent = sequence.key || sequence.trigger_type || 'event';
-    const triggerText = triggerEvent.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const triggerText = (triggerEvent || 'event').replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
     
     // Generate smart description based on settings
     if (channels.length === 1) {
-      return `Sends ${channelNames[0].toLowerCase()} ${delayText} after ${triggerText}.`;
+      return `Sends ${(channelNames[0] || 'email').toLowerCase()} ${delayText} after ${triggerText}.`;
     } else {
       // Multi-channel sequence
-      const channelList = channelNames.join(' and ');
+      const channelList = (channelNames || ['email']).join(' and ');
       return `Sends ${channelList.toLowerCase()} sequence ${delayText} after ${triggerText}.`;
     }
   };
