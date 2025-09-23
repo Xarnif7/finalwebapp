@@ -109,56 +109,15 @@ const AutomationsPage = () => {
       console.log('🔍 NO LOCALSTORAGE DATA - Loading from database/mock templates');
       console.log('🔍 Business ID:', business?.id);
       
-      // Always show default templates for new users (regardless of business ID)
-      console.log('🔍 Loading default templates for new user');
-      setTemplates([
-        {
-          id: 'default-1',
-          name: 'Job Completed',
-          key: 'job_completed',
-          status: 'paused',
-          channels: ['email'],
-          trigger_type: 'event',
-          config_json: {
-            message: 'Thank you for choosing our services! We hope you had a great experience. Please consider leaving us a review at {{review_link}}.',
-            delay_hours: 24
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          description: 'Automatically send a thank you email 24 hours after job completion'
-        },
-        {
-          id: 'default-2',
-          name: 'Invoice Paid',
-          key: 'invoice_paid',
-          status: 'paused',
-          channels: ['email'],
-          trigger_type: 'event',
-          config_json: {
-            message: 'Thank you for your payment! We appreciate your business. Please consider leaving us a review at {{review_link}}.',
-            delay_hours: 48
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          description: 'Send a thank you email 48 hours after invoice payment'
-        },
-        {
-          id: 'default-3',
-          name: 'Service Reminder',
-          key: 'service_reminder',
-          status: 'paused',
-          channels: ['email'],
-          trigger_type: 'date_based',
-          config_json: {
-            message: 'This is a friendly reminder about your upcoming service appointment. We look forward to serving you!',
-            delay_days: 1
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          description: 'Send appointment reminder 1 day before scheduled service'
-        }
-      ]);
-      setLoading(false);
+      // Load user's actual templates from database
+      console.log('🔍 Loading user templates from database');
+      if (business?.id) {
+        await loadTemplates();
+      } else {
+        // If no business yet, show empty state to encourage template creation
+        setTemplates([]);
+        setLoading(false);
+      }
       
       if (business?.id) {
         loadActiveSequences();

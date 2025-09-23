@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Users, TrendingUp, UserCheck, Search, Upload, Edit, Archive, Trash2, Calendar, Mail, Phone, MoreVertical, Send, PlayCircle } from "lucide-react";
+import { Plus, Users, TrendingUp, UserCheck, Search, Upload, Edit, Archive, Trash2, Calendar, Mail, Phone, MoreVertical, Send, PlayCircle, Clock } from "lucide-react";
 import { useCustomersData } from "@/hooks/useCustomersData";
 import CustomerFormModal from "../components/clients/CustomerFormModal";
 import { supabase } from "@/lib/supabase/browser";
@@ -14,10 +14,13 @@ import { toast } from "react-hot-toast";
 import ZapierCrmCard from "../components/zapier/ZapierCrmCard";
 import { useAuth } from "../components/auth/AuthProvider";
 import { useCurrentBusinessId } from "../lib/tenancy";
+import { useActiveTemplates } from "@/hooks/useActiveTemplates";
+import { triggerTemplateAutomation } from "@/lib/automationTrigger";
 
 export default function ClientsPage() {
   const { user } = useAuth();
   const { businessId, loading: businessLoading, error: businessError } = useCurrentBusinessId();
+  const { activeTemplates, loading: templatesLoading } = useActiveTemplates();
   const [showAddForm, setShowAddForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -344,6 +347,25 @@ export default function ClientsPage() {
   const handleAddToSequence = async (customer) => {
     // Implementation for adding customer to a sequence
     console.log('Add customer to sequence:', customer);
+  };
+
+  const handleTriggerAutomation = async (customer, template) => {
+    try {
+      console.log('🚀 Triggering automation:', { 
+        customerName: customer.full_name, 
+        templateName: template.name 
+      });
+
+      await triggerTemplateAutomation(template, customer.id, {
+        customer_name: customer.full_name,
+        customer_email: customer.email
+      });
+
+      toast.success(`${template.name} automation triggered for ${customer.full_name}`);
+    } catch (error) {
+      console.error('❌ Failed to trigger automation:', error);
+      toast.error(`Failed to trigger ${template.name} automation: ${error.message}`);
+    }
   };
 
   // Close dropdown when clicking outside
@@ -711,16 +733,43 @@ export default function ClientsPage() {
                                 <Edit className="h-4 w-4 mr-2" />
                                 Edit Customer
                               </button>
-                              <button
-                                onClick={() => {
-                                  handleAddToSequence(customer);
-                                  setActiveDropdown(null);
-                                }}
-                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                              >
-                                <PlayCircle className="h-4 w-4 mr-2 text-blue-600" />
-                                Add to Sequence
-                              </button>
+                              {/* Dynamic Automation Triggers */}
+                              {activeTemplates.length > 0 ? (
+                                <>
+                                  <div className="px-3 py-2 text-xs font-medium text-slate-500 uppercase tracking-wide">
+                                    Trigger Automation
+                                  </div>
+                                  {activeTemplates.map((template) => (
+                                    <button
+                                      key={template.id}
+                                      onClick={() => {
+                                        handleTriggerAutomation(customer, template);
+                                        setActiveDropdown(null);
+                                      }}
+                                      className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                                    >
+                                      <Clock className="h-4 w-4 mr-2 text-blue-600" />
+                                      <span>{template.name}</span>
+                                      {template.config_json?.delay_hours && (
+                                        <span className="text-xs text-slate-500 ml-auto">
+                                          {template.config_json.delay_hours}h
+                                        </span>
+                                      )}
+                                    </button>
+                                  ))}
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    handleAddToSequence(customer);
+                                    setActiveDropdown(null);
+                                  }}
+                                  className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                                >
+                                  <PlayCircle className="h-4 w-4 mr-2 text-blue-600" />
+                                  Add to Sequence
+                                </button>
+                              )}
                               <button
                                 onClick={() => {
                                   // Send review request functionality
