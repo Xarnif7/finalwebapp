@@ -652,7 +652,7 @@ const AutomationsPage = () => {
               <p className="text-sm text-gray-600">Currently running automation sequences</p>
             </div>
           </div>
-          <ActiveSequences businessId={business?.id} />
+          <ActiveSequences businessId={business?.id} templates={templates} />
         </div>
       )}
 

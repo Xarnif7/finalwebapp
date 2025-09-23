@@ -66,7 +66,7 @@ export default function TemplateCustomizer({
   useEffect(() => {
     if (template) {
       const defaultMessage = getDefaultMessage(template.key, template.name);
-      const currentMessage = template.config_json?.message || defaultMessage;
+      const currentMessage = template.custom_message || template.config_json?.message || defaultMessage;
       
       setFormData({
         name: template.name || '',
@@ -205,8 +205,8 @@ export default function TemplateCustomizer({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
-        console.log('AI request timed out after 30 seconds');
-      }, 30000); // 30 second timeout
+        console.log('AI request timed out after 15 seconds');
+      }, 15000); // 15 second timeout
       
       const response = await fetch('/api/ai/generate-message', {
         method: 'POST',
@@ -309,8 +309,8 @@ export default function TemplateCustomizer({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
-        console.log('AI enhancement request timed out after 30 seconds');
-      }, 30000); // 30 second timeout
+        console.log('AI enhancement request timed out after 15 seconds');
+      }, 15000); // 15 second timeout
       
       const response = await fetch('/api/ai/enhance-message', {
         method: 'POST',

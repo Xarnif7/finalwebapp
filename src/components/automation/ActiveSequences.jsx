@@ -8,17 +8,16 @@ import { CheckCircle, Clock, Mail, MessageSquare, ArrowRight, Play, Pause, Users
 import { useAuth } from "@/hooks/useAuth";
 import { useBusiness } from "@/hooks/useBusiness";
 
-export default function ActiveSequences() {
+export default function ActiveSequences({ businessId, templates = [] }) {
   const { user } = useAuth();
   const { business } = useBusiness();
   const [activeSequences, setActiveSequences] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState({});
   const [performanceMetrics, setPerformanceMetrics] = useState({});
 
   useEffect(() => {
-    if (business?.id) {
-      loadActiveSequences();
+    if (businessId || business?.id) {
       loadPerformanceMetrics();
       
       // Set up real-time updates every 30 seconds
@@ -28,7 +27,17 @@ export default function ActiveSequences() {
       
       return () => clearInterval(interval);
     }
-  }, [business?.id]);
+  }, [businessId, business?.id]);
+
+  // Update active sequences when templates change
+  useEffect(() => {
+    if (templates && templates.length > 0) {
+      const active = templates.filter(template => template.status === 'active');
+      setActiveSequences(active);
+    } else {
+      setActiveSequences([]);
+    }
+  }, [templates]);
 
   const loadActiveSequences = async () => {
     try {
@@ -99,7 +108,7 @@ export default function ActiveSequences() {
       
       const newStatus = sequence.status === 'active' ? 'paused' : 'active';
       
-      const response = await fetch(`/api/templates/${business.id}/${sequence.id}`, {
+      const response = await fetch(`/api/templates/${businessId || business.id}/${sequence.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -142,9 +151,15 @@ export default function ActiveSequences() {
     let delayText = '';
     if (delayDays > 0) {
       delayText = delayDays === 1 ? '1 day' : `${delayDays} days`;
-    } else if (delayHours > 0) {
-      delayText = delayHours === 1 ? '1 hour' : `${delayHours} hours`;
-    } else {
+    }
+    if (delayHours > 0) {
+      if (delayText) {
+        delayText += ` ${delayHours === 1 ? '1 hour' : `${delayHours} hours`}`;
+      } else {
+        delayText = delayHours === 1 ? '1 hour' : `${delayHours} hours`;
+      }
+    }
+    if (!delayText) {
       delayText = 'immediately';
     }
     

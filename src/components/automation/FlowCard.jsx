@@ -61,9 +61,15 @@ export default function FlowCard({
     let delayText = '';
     if (delayDays > 0) {
       delayText = delayDays === 1 ? '1 day' : `${delayDays} days`;
-    } else if (delayHours > 0) {
-      delayText = delayHours === 1 ? '1 hour' : `${delayHours} hours`;
-    } else {
+    }
+    if (delayHours > 0) {
+      if (delayText) {
+        delayText += ` ${delayHours === 1 ? '1 hour' : `${delayHours} hours`}`;
+      } else {
+        delayText = delayHours === 1 ? '1 hour' : `${delayHours} hours`;
+      }
+    }
+    if (!delayText) {
       delayText = 'immediately';
     }
     
