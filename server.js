@@ -5,8 +5,9 @@ import Stripe from 'stripe';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 
-// Load environment variables from .env file
-dotenv.config({ path: '.env', debug: true });
+// Load environment variables from .env files
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
 
 const app = express();
 const PORT = 3001;
@@ -43,6 +44,9 @@ console.log('[SERVER] Environment variables:');
 Object.keys(process.env).filter(key => key.includes('SUPABASE')).forEach(key => {
   console.log(`[SERVER] ${key}: ${process.env[key] ? 'Set' : 'Missing'}`);
 });
+
+// Debug: Log OpenAI API key status
+console.log('[SERVER] OpenAI API Key:', process.env.OPENAI_API_KEY ? `Set (${process.env.OPENAI_API_KEY.substring(0, 10)}...)` : 'Missing');
 
 // Create Supabase client for user authentication (only if anon key available)
 let supabaseAuth = null;

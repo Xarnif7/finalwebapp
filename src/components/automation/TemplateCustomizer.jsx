@@ -34,7 +34,18 @@ export default function TemplateCustomizer({
   const [messagePreview, setMessagePreview] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiEnhancing, setAiEnhancing] = useState(false);
+  const [notification, setNotification] = useState(null);
   const textareaRef = useRef(null);
+
+  // Auto-dismiss notifications
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, notification.duration || 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   // Default messages for each automation type
   const getDefaultMessage = (templateKey, templateName) => {
@@ -184,7 +195,11 @@ export default function TemplateCustomizer({
         
         setCustomMessage(fallbackMessage);
         generatePreview(fallbackMessage);
-        alert('AI service is currently unavailable, but we\'ve added a professional fallback message for you!');
+        setNotification({
+          type: 'success',
+          message: 'AI service is currently unavailable, but we\'ve added a professional fallback message for you!',
+          duration: 5000
+        });
         setAiGenerating(false);
         setAiEnhancing(false);
         return;
@@ -244,9 +259,17 @@ export default function TemplateCustomizer({
         
         setCustomMessage(fallbackMessage);
         generatePreview(fallbackMessage);
-        alert('AI generation timed out, but we\'ve added a professional fallback message for you!');
+        setNotification({
+          type: 'success',
+          message: 'AI generation timed out, but we\'ve added a professional fallback message for you!',
+          duration: 5000
+        });
       } else {
-        alert('AI generation failed. Please try again.');
+        setNotification({
+          type: 'error',
+          message: 'AI generation failed. Please try again.',
+          duration: 5000
+        });
       }
       setAiGenerating(false);
       setAiEnhancing(false);
@@ -272,7 +295,11 @@ export default function TemplateCustomizer({
         }
       } catch (healthError) {
         console.log('Enhance API health check failed, keeping original message');
-        alert('AI enhancement service is currently unavailable. Your original message is preserved.');
+        setNotification({
+          type: 'info',
+          message: 'AI enhancement service is currently unavailable. Your original message is preserved.',
+          duration: 5000
+        });
         setAiGenerating(false);
         setAiEnhancing(false);
         return;
@@ -326,9 +353,17 @@ export default function TemplateCustomizer({
     } catch (error) {
       console.error('AI enhancement error:', error);
       if (error.name === 'AbortError') {
-        alert('AI enhancement timed out, but your original message is still there!');
+        setNotification({
+          type: 'info',
+          message: 'AI enhancement timed out, but your original message is still there!',
+          duration: 5000
+        });
       } else {
-        alert('AI enhancement failed. Please try again.');
+        setNotification({
+          type: 'error',
+          message: 'AI enhancement failed. Please try again.',
+          duration: 5000
+        });
       }
       setAiGenerating(false);
       setAiEnhancing(false);
@@ -446,6 +481,25 @@ export default function TemplateCustomizer({
             Customize Template: {template?.name}
           </DialogTitle>
         </DialogHeader>
+
+        {/* Notification */}
+        {notification && (
+          <div className={`p-3 rounded-lg border ${
+            notification.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
+            notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+            'bg-blue-50 border-blue-200 text-blue-800'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">{notification.message}</span>
+              <button
+                onClick={() => setNotification(null)}
+                className="text-gray-400 hover:text-gray-600 ml-2"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-6">
           {/* Smart Recommendations */}
