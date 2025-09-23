@@ -7813,6 +7813,163 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
 
     console.log(`Processed ${processedCount} automation executions`);
 
+    // Get pending scheduled automation emails
+    console.log('🔍 DEBUG: Fetching automation_email jobs...');
+    const currentTime = new Date().toISOString();
+    console.log('🔍 DEBUG: Current time:', currentTime);
+    
+    const { data: scheduledJobs, error: jobsError } = await supabase
+      .from('scheduled_jobs')
+      .select(`
+        id,
+        job_type,
+        payload,
+        run_at
+      `)
+      .eq('job_type', 'automation_email')
+      .eq('status', 'queued')
+      .lte('run_at', currentTime)
+      .limit(20);
+
+    console.log('🔍 DEBUG: Query result - error:', jobsError);
+    console.log('🔍 DEBUG: Query result - jobs found:', scheduledJobs ? scheduledJobs.length : 0);
+    if (scheduledJobs && scheduledJobs.length > 0) {
+      console.log('🔍 DEBUG: First job details:', scheduledJobs[0]);
+    }
+
+    if (jobsError) {
+      console.error('Error fetching scheduled automation emails:', jobsError);
+    } else if (scheduledJobs && scheduledJobs.length > 0) {
+      console.log(`Processing ${scheduledJobs.length} scheduled automation emails`);
+      
+      for (const job of scheduledJobs) {
+        try {
+          const reviewRequestId = job.payload.review_request_id;
+          
+          if (!reviewRequestId) {
+            console.error(`No review_request_id in job ${job.id}`);
+            await supabase
+              .from('scheduled_jobs')
+              .update({ status: 'failed' })
+              .eq('id', job.id);
+            continue;
+          }
+
+          // Get the review request data
+          const { data: reviewRequest, error: requestError } = await supabase
+            .from('review_requests')
+            .select(`
+              id,
+              business_id,
+              channel,
+              message,
+              review_link,
+              customers!inner(full_name, email, phone),
+              businesses!inner(name, email)
+            `)
+            .eq('id', reviewRequestId)
+            .single();
+
+          if (requestError) {
+            console.error(`Error fetching review request ${reviewRequestId}:`, requestError);
+            await supabase
+              .from('scheduled_jobs')
+              .update({ status: 'failed' })
+              .eq('id', job.id);
+            continue;
+          }
+
+          if (reviewRequest && reviewRequest.customers && reviewRequest.customers.email) {
+            console.log(`📧 Sending automation email for job ${job.id} to ${reviewRequest.customers.email}`);
+            
+            // Check if RESEND_API_KEY is available
+            if (!process.env.RESEND_API_KEY) {
+              console.error('❌ RESEND_API_KEY not available');
+              await supabase
+                .from('scheduled_jobs')
+                .update({ status: 'failed' })
+                .eq('id', job.id);
+              continue;
+            }
+
+            console.log('✅ RESEND_API_KEY available, length:', process.env.RESEND_API_KEY.length);
+
+            // Send email directly via Resend API
+            const emailResponse = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                from: 'Blipp <noreply@myblipp.com>',
+                to: [reviewRequest.customers.email],
+                subject: `Review Request from ${reviewRequest.businesses.name}`,
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2>Hi ${reviewRequest.customers.full_name}!</h2>
+                    <p>${reviewRequest.message}</p>
+                    <p>Thank you for your business!</p>
+                    <p>Best regards,<br>${reviewRequest.businesses.name}</p>
+                  </div>
+                `
+              })
+            });
+
+            console.log('📧 Email response status:', emailResponse.status);
+            console.log('📧 Email response headers:', Object.fromEntries(emailResponse.headers.entries()));
+
+            if (emailResponse.ok) {
+              const emailData = await emailResponse.json();
+              console.log('✅ Email sent successfully:', emailData.id);
+              
+              // Update review request status
+              await supabase
+                .from('review_requests')
+                .update({ 
+                  status: 'sent',
+                  sent_at: new Date().toISOString()
+                })
+                .eq('id', reviewRequestId);
+
+              // Mark job as completed
+              await supabase
+                .from('scheduled_jobs')
+                .update({ 
+                  status: 'success',
+                  processed_at: new Date().toISOString()
+                })
+                .eq('id', job.id);
+            } else {
+              console.error('❌ Failed to send email:', emailResponse.status);
+              const errorText = await emailResponse.text();
+              console.error('❌ Error response:', errorText);
+              
+              // Mark job as failed
+              await supabase
+                .from('scheduled_jobs')
+                .update({ status: 'failed' })
+                .eq('id', job.id);
+            }
+          } else {
+            console.error(`No customer email for review request ${reviewRequestId}`);
+            await supabase
+              .from('scheduled_jobs')
+              .update({ status: 'failed' })
+              .eq('id', job.id);
+          }
+        } catch (error) {
+          console.error(`Error processing automation job ${job.id}:`, error);
+          
+          // Mark job as failed
+          await supabase
+            .from('scheduled_jobs')
+            .update({ status: 'failed' })
+            .eq('id', job.id);
+        }
+      }
+    }
+
     // Get pending review requests and send them
     const { data: pendingRequests, error: requestsError } = await supabase
       .from('review_requests')
@@ -7882,8 +8039,8 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
 
     res.json({ 
       success: true, 
-      processedAutomations: processedCount,
-      processedRequests: pendingRequests.length 
+      processedAutomations: scheduledJobs ? scheduledJobs.length : 0,
+      processedRequests: sentCount || 0
     });
 
   } catch (error) {
