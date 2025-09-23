@@ -64,8 +64,8 @@ export const triggerTemplateAutomation = async (template, customerId, additional
       }
     };
 
-    // For now, we'll create a simplified trigger that works with our current system
-    const response = await fetch('/api/review-requests/schedule', {
+    // Use the automation trigger API directly
+    const response = await fetch('/api/automation/trigger', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -73,10 +73,17 @@ export const triggerTemplateAutomation = async (template, customerId, additional
       },
       body: JSON.stringify({
         customer_id: customerId,
-        channel: 'email',
-        strategy: 'immediate', // We'll handle delays in the automation system
-        job_type: 'automation_trigger',
-        automation_data: automationData
+        trigger_type: 'manual_trigger',
+        trigger_data: {
+          template_id: template.id,
+          template_name: template.name,
+          template_message: template.custom_message || template.config_json?.message,
+          delay_hours: template.config_json?.delay_hours || 24,
+          channels: template.channels || ['email'],
+          source: 'manual_trigger',
+          timestamp: new Date().toISOString(),
+          ...additionalData
+        }
       })
     });
 
