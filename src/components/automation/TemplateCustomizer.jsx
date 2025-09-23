@@ -82,20 +82,18 @@ export default function TemplateCustomizer({
       
       // Try to load from localStorage first for better persistence
       const userEmail = user?.email || 'unknown';
-      const localStorageKey = `customTemplates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
       const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
       
-      // Create completely unique template ID per user
-      const sanitizedEmail = userEmail.replace(/[^a-zA-Z0-9]/g, '_');
-      const baseTemplateId = template.id.replace(/^mock-\d+-/, ''); // Remove mock prefix if exists
-      const uniqueTemplateId = `${baseTemplateId}-${sanitizedEmail}`;
-      const savedTemplate = savedTemplates[uniqueTemplateId];
+      // Use the original template ID as the key for simplicity
+      const templateKey = template.id;
+      const savedTemplate = savedTemplates[templateKey];
       
       console.log('🔍 BULLETPROOF LOAD template:', {
         templateId: template.id,
         userEmail,
         localStorageKey,
-        uniqueTemplateId,
+        templateKey,
         savedTemplate: savedTemplate ? 'Found' : 'Not found',
         templateName: template.name,
         timestamp: new Date().toISOString()
@@ -488,18 +486,16 @@ export default function TemplateCustomizer({
       
       // ALWAYS save to localStorage for persistence (regardless of database success)
       const userEmail = user?.email || 'unknown';
-      const localStorageKey = `customTemplates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
       const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
       
-      // Create completely unique template ID per user
-      const sanitizedEmail = userEmail.replace(/[^a-zA-Z0-9]/g, '_');
-      const baseTemplateId = template.id.replace(/^mock-\d+-/, ''); // Remove mock prefix if exists
-      const uniqueTemplateId = `${baseTemplateId}-${sanitizedEmail}`;
+      // Use the original template ID as the key for simplicity
+      const templateKey = template.id;
       
-      savedTemplates[uniqueTemplateId] = {
+      savedTemplates[templateKey] = {
         ...updatedTemplate,
-        id: uniqueTemplateId, // Update the ID to be unique
-        business_id: `mock-business-${sanitizedEmail}`,
+        id: templateKey, // Keep original ID
+        business_id: `mock-business-${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
         user_email: userEmail // Store the actual user email for reference
       };
       localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
@@ -507,11 +503,14 @@ export default function TemplateCustomizer({
       console.log('🔒 BULLETPROOF SAVE to localStorage:', {
         userEmail,
         localStorageKey,
-        uniqueTemplateId,
+        templateKey,
         templateName: updatedTemplate.name,
-        allKeys: Object.keys(localStorage).filter(key => key.startsWith('customTemplates_')),
+        allKeys: Object.keys(localStorage).filter(key => key.startsWith('blipp_templates_')),
         timestamp: new Date().toISOString()
       });
+      
+      // Debug: Show what's actually in localStorage
+      console.log('🔍 DEBUG: localStorage contents:', localStorage.getItem(localStorageKey));
       
       onSave(updatedTemplate);
       onClose();

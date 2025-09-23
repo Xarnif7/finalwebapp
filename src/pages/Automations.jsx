@@ -73,7 +73,7 @@ const AutomationsPage = () => {
     } else if (user?.email) {
       // Try to load from localStorage first for better persistence
       const userEmail = user.email;
-      const localStorageKey = `customTemplates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
       const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
       
       if (Object.keys(savedTemplates).length > 0) {
@@ -569,6 +569,14 @@ const AutomationsPage = () => {
       console.error('Error triggering test automation:', error);
       alert('Error testing automation');
     }
+  };
+
+  const clearLocalStorage = () => {
+    const userEmail = user?.email || 'unknown';
+    const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    localStorage.removeItem(localStorageKey);
+    alert('LocalStorage cleared for user: ' + userEmail);
+    window.location.reload();
   };
 
   const handleDelete = async (template) => {
