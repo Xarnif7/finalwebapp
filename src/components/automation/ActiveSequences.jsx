@@ -42,16 +42,25 @@ export default function ActiveSequences({ businessId, templates = [] }) {
   const loadActiveSequences = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/templates/${business.id}`, {
-        headers: {
-          'Authorization': `Bearer ${user?.access_token}`
-        }
-      });
       
-      if (response.ok) {
-        const data = await response.json();
-        // Filter for active sequences only
-        setActiveSequences((data.templates || []).filter(template => template.status === 'active'));
+      // Only load from API if we don't have templates prop
+      if (!templates || templates.length === 0) {
+        const response = await fetch(`/api/templates/${business.id}`, {
+          headers: {
+            'Authorization': `Bearer ${user?.access_token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          // Filter for active sequences only
+          setActiveSequences((data.templates || []).filter(template => template.status === 'active'));
+        }
+      } else {
+        // Use templates prop if available
+        const active = templates.filter(template => template.status === 'active');
+        setActiveSequences(active);
+        console.log('ActiveSequences using templates prop:', active.length);
       }
     } catch (error) {
       console.error('Error loading active sequences:', error);

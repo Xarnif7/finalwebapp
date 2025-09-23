@@ -7797,6 +7797,97 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Cron endpoint for automation execution
+app.post('/api/_cron/automation-executor', async (req, res) => {
+  try {
+    console.log('Starting automation execution...');
+    
+    // Execute scheduled automations
+    const { data: processedCount, error: executeError } = await supabase
+      .rpc('execute_scheduled_automations');
+
+    if (executeError) {
+      console.error('Error executing automations:', executeError);
+      return res.status(500).json({ error: 'Failed to execute automations' });
+    }
+
+    console.log(`Processed ${processedCount} automation executions`);
+
+    // Get pending review requests and send them
+    const { data: pendingRequests, error: requestsError } = await supabase
+      .from('review_requests')
+      .select(`
+        id, 
+        business_id, 
+        channel, 
+        message, 
+        customer_email, 
+        customer_name,
+        businesses!inner(
+          name,
+          email,
+          phone,
+          google_review_url,
+          yelp_review_url
+        )
+      `)
+      .eq('status', 'pending')
+      .lte('scheduled_for', new Date().toISOString());
+
+    if (requestsError) {
+      console.error('Error fetching pending requests:', requestsError);
+      return res.status(500).json({ error: 'Failed to fetch pending requests' });
+    }
+
+    console.log(`Found ${pendingRequests.length} pending review requests`);
+
+    // Process each pending request
+    for (const request of pendingRequests) {
+      try {
+        // Update status to processing
+        await supabase
+          .from('review_requests')
+          .update({ status: 'processing' })
+          .eq('id', request.id);
+
+        // Send the review request (this would integrate with your email/SMS service)
+        console.log(`Sending review request to ${request.customer_email}`);
+        
+        // Update status to sent
+        await supabase
+          .from('review_requests')
+          .update({ 
+            status: 'sent',
+            sent_at: new Date().toISOString()
+          })
+          .eq('id', request.id);
+
+      } catch (requestError) {
+        console.error(`Error processing request ${request.id}:`, requestError);
+        
+        // Update status to failed
+        await supabase
+          .from('review_requests')
+          .update({ 
+            status: 'failed',
+            error_message: requestError.message
+          })
+          .eq('id', request.id);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      processedAutomations: processedCount,
+      processedRequests: pendingRequests.length 
+    });
+
+  } catch (error) {
+    console.error('Cron job error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Local API server running on http://localhost:${PORT}`);
