@@ -1796,7 +1796,7 @@ app.post('/api/zapier/ingest', async (req, res) => {
           // Create scheduled jobs for each matching template
           for (const template of templates) {
             // Calculate run time based on template config
-            const delayHours = template.config_json?.delay_hours || 24;
+            const delayHours = template.config_json?.delay_hours ?? 24;
             const runAt = new Date();
             runAt.setHours(runAt.getHours() + delayHours);
 
@@ -8103,7 +8103,10 @@ app.post('/api/automation/trigger', async (req, res) => {
 
       // Schedule the email to be sent after the delay
       const sendTime = new Date();
-      sendTime.setHours(sendTime.getHours() + (delay_hours || 24));
+      if (delay_hours > 0) {
+        sendTime.setHours(sendTime.getHours() + delay_hours);
+      }
+      // If delay_hours is 0, sendTime remains as current time (instant)
       
       const { error: scheduleError } = await supabase
         .from('scheduled_jobs')
