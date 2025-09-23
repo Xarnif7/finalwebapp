@@ -9,62 +9,62 @@ export const useBusiness = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!user?.email) {
-      setBusiness(null);
-      setLoading(false);
-      return;
-    }
-
     const fetchBusiness = async () => {
+      if (!user?.email) {
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
+        setError(null);
+
+        // First try to get business from profiles table
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('business_id')
+          .eq('email', user.email)
+          .single();
+
+        if (profile && profile.business_id) {
+          console.log('📋 Using business_id from profile:', profile.business_id);
+          
+          // Get the full business data
+          const { data: businessData, error: businessError } = await supabase
+            .from('businesses')
+            .select('*')
+            .eq('id', profile.business_id)
+            .single();
+
+          if (businessError) {
+            console.error('Error fetching business from profile:', businessError);
+            throw businessError;
+          }
+
+          setBusiness(businessData);
+          setLoading(false);
+          return;
+        }
+
+        // If no profile, try direct lookup by created_by
+        console.log('No business ID in profile, trying direct lookup');
         
-        // Get business by email (using the email-based data persistence)
         const { data: businessData, error: businessError } = await supabase
           .from('businesses')
           .select('*')
           .eq('created_by', user.email)
           .single();
 
-        if (businessError && businessError.code !== 'PGRST116') {
+        if (businessError) {
           console.error('Error fetching business:', businessError);
-          setError(businessError.message);
-          return;
+          throw businessError;
         }
 
-        if (!businessData) {
-          console.log('No business found, creating new business for:', user.email);
-          
-          // Create business if it doesn't exist
-          const { data: newBusiness, error: createError } = await supabase
-            .from('businesses')
-            .insert({
-              name: user.user_metadata?.business_name || 'My Business',
-              created_by: user.email,
-              email: user.email,
-              phone: user.user_metadata?.phone || null,
-              website: user.user_metadata?.website || null
-            })
-            .select()
-            .single();
-
-          if (createError) {
-            console.error('Error creating business:', createError);
-            // Don't set error, just continue with null business
-            // This allows the UI to still render
-            setBusiness(null);
-            return;
-          }
-
-          console.log('Successfully created business:', newBusiness);
-          setBusiness(newBusiness);
-        } else {
-          console.log('Found existing business:', businessData);
-          setBusiness(businessData);
-        }
+        setBusiness(businessData);
       } catch (err) {
-        console.error('Error in fetchBusiness:', err);
+        console.error('Error in useBusiness:', err);
         setError(err.message);
+        setBusiness(null);
       } finally {
         setLoading(false);
       }
