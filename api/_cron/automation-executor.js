@@ -75,6 +75,16 @@ export default async function handler(req, res) {
               .eq('id', job.id);
             continue;
           }
+
+          // Check if the review request has already been sent
+          if (request.status === 'sent' && request.sent_at) {
+            console.log(`✅ Review request ${reviewRequestId} already sent, marking job as completed`);
+            await supabase
+              .from('scheduled_jobs')
+              .update({ status: 'completed', processed_at: new Date().toISOString() })
+              .eq('id', job.id);
+            continue;
+          }
           
           // Send the automation email
           if (request.customers.email) {
