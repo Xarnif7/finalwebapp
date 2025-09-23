@@ -7894,6 +7894,20 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
 
             console.log('✅ RESEND_API_KEY available, length:', process.env.RESEND_API_KEY.length);
 
+            // Process the message to replace variables
+            let processedMessage = reviewRequest.message || 'Thank you for your business! Please consider leaving us a review.';
+            
+            // Replace common variables
+            processedMessage = processedMessage
+              .replace(/\{\{review_link\}\}/g, reviewRequest.review_link)
+              .replace(/\{\{customer\.name\}\}/g, reviewRequest.customers.full_name || 'Customer')
+              .replace(/\{\{customer_name\}\}/g, reviewRequest.customers.full_name || 'Customer')
+              .replace(/\{\{business\.name\}\}/g, reviewRequest.businesses.name || 'Our Business')
+              .replace(/\{\{business_name\}\}/g, reviewRequest.businesses.name || 'Our Business');
+
+            console.log('📝 Original message:', reviewRequest.message);
+            console.log('📝 Processed message:', processedMessage);
+
             // Send email directly via Resend API
             const emailResponse = await fetch('https://api.resend.com/emails', {
               method: 'POST',
@@ -7904,7 +7918,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
               body: JSON.stringify({
                 from: 'Blipp <noreply@myblipp.com>',
                 to: [reviewRequest.customers.email],
-                subject: `⭐ How was your experience with ${reviewRequest.businesses.name}?`,
+                subject: `How was your experience with ${reviewRequest.businesses.name}?`,
                 html: `
                   <!DOCTYPE html>
                   <html>
@@ -7913,41 +7927,40 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <title>Review Request</title>
                   </head>
-                  <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+                  <body style="margin: 0; padding: 0; background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
                     <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
                       
                       <!-- Header -->
-                      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-                        <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">
-                          Thank You!
+                      <div style="background-color: #f8fafc; padding: 40px 30px; text-align: center; border-bottom: 1px solid #e2e8f0;">
+                        <h1 style="color: #1e293b; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">
+                          Thank You
                         </h1>
-                        <p style="color: #e2e8f0; margin: 10px 0 0 0; font-size: 16px; font-weight: 300;">
-                          Your feedback means the world to us
+                        <p style="color: #64748b; margin: 10px 0 0 0; font-size: 16px; font-weight: 400;">
+                          We appreciate your business
                         </p>
                       </div>
                       
                       <!-- Main Content -->
                       <div style="padding: 40px 30px;">
                         <h2 style="color: #1e293b; margin: 0 0 20px 0; font-size: 24px; font-weight: 600;">
-                          Hi ${reviewRequest.customers.full_name}! 👋
+                          Hi ${reviewRequest.customers.full_name},
                         </h2>
                         
-                        <div style="background-color: #f1f5f9; border-left: 4px solid #3b82f6; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+                        <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
                           <p style="color: #334155; margin: 0; font-size: 16px; line-height: 1.6;">
-                            ${reviewRequest.message}
+                            ${processedMessage}
                           </p>
                         </div>
                         
                         <p style="color: #64748b; margin: 25px 0; font-size: 16px; line-height: 1.6;">
-                          Your experience with us is incredibly important, and we'd love to hear about it. 
-                          A quick review helps us improve and helps other customers make informed decisions.
+                          Your feedback helps us improve our services and assists other customers in making informed decisions.
                         </p>
                         
                         <!-- CTA Button -->
                         <div style="text-align: center; margin: 35px 0;">
                           <a href="${reviewRequest.review_link}" 
-                             style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); transition: all 0.2s ease;">
-                            ✨ Leave a Review
+                             style="display: inline-block; background-color: #3b82f6; color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                            Leave a Review
                           </a>
                         </div>
                         
