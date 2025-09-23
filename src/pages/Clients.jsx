@@ -361,10 +361,17 @@ export default function ClientsPage() {
         customer_email: customer.email
       });
 
-      toast.success(`${template.name} automation triggered for ${customer.full_name}`);
+      // Toast notification is handled in triggerTemplateAutomation function
     } catch (error) {
       console.error('❌ Failed to trigger automation:', error);
-      toast.error(`Failed to trigger ${template.name} automation: ${error.message}`);
+      toast.error(`❌ Failed to send automation: ${error.message}`, {
+        duration: 4000,
+        style: {
+          background: '#ef4444',
+          color: 'white',
+          fontWeight: '500'
+        }
+      });
     }
   };
 

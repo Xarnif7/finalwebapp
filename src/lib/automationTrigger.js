@@ -108,7 +108,19 @@ export const triggerTemplateAutomation = async (template, customerId, additional
     console.log('✅ Template automation triggered successfully:', result);
     
     // Show success notification
-    toast.success(`✅ ${template.name} automation started! Email will be sent in ${template.config_json?.delay_hours || 24} hours.`);
+    const delayHours = template.config_json?.delay_hours || 24;
+    const delayText = delayHours < 24 
+      ? `${delayHours} hour${delayHours !== 1 ? 's' : ''}` 
+      : `${Math.floor(delayHours / 24)} day${Math.floor(delayHours / 24) !== 1 ? 's' : ''}`;
+    
+    toast.success(`🎉 Automation sent! ${customer?.full_name || 'Customer'} will receive the email in ${delayText}.`, {
+      duration: 4000,
+      style: {
+        background: '#10b981',
+        color: 'white',
+        fontWeight: '500'
+      }
+    });
     
     return result;
   } catch (error) {
