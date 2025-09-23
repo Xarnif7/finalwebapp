@@ -108,44 +108,42 @@ const AutomationsPage = () => {
       // If no localStorage data, fall back to database or mock templates
       console.log('🔍 NO LOCALSTORAGE DATA - Loading from database/mock templates');
       console.log('🔍 Business ID:', business?.id);
-      if (business?.id) {
-        loadTemplates();
-        loadActiveSequences();
-        loadKPIs();
-      } else {
-      // If we have a user but no business yet, show mock templates immediately
-      console.log('User exists but business not ready yet, showing mock templates');
+      
+      // Always show default templates for new users (regardless of business ID)
+      console.log('🔍 Loading default templates for new user');
       setTemplates([
         {
-          id: 'mock-1',
+          id: 'default-1',
           name: 'Job Completed',
           key: 'job_completed',
           status: 'paused',
           channels: ['email'],
           trigger_type: 'event',
           config_json: {
-            message: 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review.',
+            message: 'Thank you for choosing our services! We hope you had a great experience. Please consider leaving us a review at {{review_link}}.',
             delay_hours: 24
           },
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          description: 'Automatically send a thank you email 24 hours after job completion'
         },
         {
-          id: 'mock-2',
+          id: 'default-2',
           name: 'Invoice Paid',
           key: 'invoice_paid',
           status: 'paused',
           channels: ['email'],
           trigger_type: 'event',
           config_json: {
-            message: 'Thank you for your payment! We appreciate your business. Please consider leaving us a review.',
+            message: 'Thank you for your payment! We appreciate your business. Please consider leaving us a review at {{review_link}}.',
             delay_hours: 48
           },
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          description: 'Send a thank you email 48 hours after invoice payment'
         },
         {
-          id: 'mock-3',
+          id: 'default-3',
           name: 'Service Reminder',
           key: 'service_reminder',
           status: 'paused',
@@ -156,13 +154,15 @@ const AutomationsPage = () => {
             delay_days: 1
           },
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          description: 'Send appointment reminder 1 day before scheduled service'
         }
       ]);
       setLoading(false);
       
-      // Also try to load real templates in the background
-      loadTemplates();
+      if (business?.id) {
+        loadActiveSequences();
+        loadKPIs();
       }
     } else {
       // If no user email, show mock templates as fallback
