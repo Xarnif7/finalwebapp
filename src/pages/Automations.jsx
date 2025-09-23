@@ -66,8 +66,10 @@ const AutomationsPage = () => {
 
   // Load data on component mount
   useEffect(() => {
+    console.log('🚨🚨🚨 AUTOMATIONS USEEFFECT RUNNING 🚨🚨🚨');
     console.log('🔍 Automations useEffect triggered:', { userEmail: user?.email, businessId: business?.id });
     if (user?.email) {
+      console.log('✅ User email found, proceeding with localStorage check');
       // ALWAYS USE LOCALSTORAGE FIRST (regardless of business ID)
       const userEmail = user.email;
       const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
