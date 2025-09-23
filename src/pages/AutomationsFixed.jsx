@@ -1,24 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Send, CheckCircle, Clock, Play, Pause, Settings, Mail, MessageSquare, ArrowRight, Plus, Trash2, Zap, List, BarChart3, Activity, FileText, Eye, TrendingUp, Users, AlertTriangle, RefreshCw } from "lucide-react";
-import PageHeader from "@/components/ui/PageHeader";
-import { useAuth } from "@/hooks/useAuth";
-import { useBusiness } from "@/hooks/useBusiness";
-import FlowCard from "@/components/automation/FlowCard";
-import SequenceCreator from "@/components/automation/SequenceCreator";
-import ActiveSequences from "@/components/automation/ActiveSequences";
-import TemplateCustomizer from "@/components/automation/TemplateCustomizer";
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useBusiness } from '@/hooks/useBusiness';
+import FlowCard from '@/components/automation/FlowCard';
+import ActiveSequences from '@/components/automation/ActiveSequences';
+import TemplateCustomizer from '@/components/automation/TemplateCustomizer';
+import { supabase } from '@/lib/supabaseClient';
 
-const AutomationsPage = () => {
+const AutomationsPageFixed = () => {
   const { user } = useAuth();
   const { business } = useBusiness();
   const [templates, setTemplates] = useState([]);
@@ -28,365 +16,348 @@ const AutomationsPage = () => {
   const [customizeModalOpen, setCustomizeModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [activeTab, setActiveTab] = useState('templates');
-  const [kpis, setKpis] = useState({
-    activeSequences: 0,
-    totalRecipients: 0,
-    sendSuccessRate: 0,
-    failureRate: 0,
-    totalRevenue: 0,
-    avgOrderValue: 0,
-    conversionRate: 0,
-    roi: 0
-  });
 
-  // Initialize with mock templates and load saved customizations
-  useEffect(() => {
-    console.log('Automations component mounted');
-    console.log('User:', user);
-    console.log('Business:', business);
-    
-    // Base mock templates
-    const baseTemplates = [
-      {
-        id: 'mock-1',
-        name: 'Job Completed',
-        key: 'job_completed',
-        status: 'paused',
-        channels: ['email'],
-        trigger_type: 'event',
-        config_json: {
-          message: 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review.',
-          delay_hours: 24
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      {
-        id: 'mock-2',
-        name: 'Invoice Paid',
-        key: 'invoice_paid',
-        status: 'paused',
-        channels: ['email'],
-        trigger_type: 'event',
-        config_json: {
-          message: 'Thank you for your payment! We appreciate your business. Please consider leaving us a review.',
-          delay_hours: 48
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      },
-      {
-        id: 'mock-3',
-        name: 'Service Reminder',
-        key: 'service_reminder',
-        status: 'paused',
-        channels: ['email'],
-        trigger_type: 'date_based',
-        config_json: {
-          message: 'This is a friendly reminder about your upcoming service appointment. We look forward to serving you!',
-          delay_days: 1
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-    ];
-
-    // Load saved customizations from localStorage
-    const savedTemplates = JSON.parse(localStorage.getItem('customTemplates') || '{}');
-    
-    // Merge saved customizations with base templates
-    const templatesWithCustomizations = baseTemplates.map(template => {
-      const saved = savedTemplates[template.id];
-      return saved ? { ...template, ...saved } : template;
-    });
-
-    // Add any completely custom templates
-    const customTemplates = Object.values(savedTemplates).filter(t => 
-      !t.id.startsWith('mock-') || !baseTemplates.some(bt => bt.id === t.id)
-    );
-
-    setTemplates([...templatesWithCustomizations, ...customTemplates]);
-    setLoading(false);
-  }, [user, business]);
-
-  // Update active sequences when templates change
-  useEffect(() => {
-    const activeTemplates = templates.filter(t => t.status === 'active');
-    setActiveSequences(activeTemplates.map(template => ({
-      id: template.id,
-      name: template.name,
-      description: getTemplateDescription(template),
-      channels: template.channels || ['email'],
-      status: template.status,
-      trigger_type: template.trigger_type,
-      config_json: template.config_json,
-      created_at: template.created_at,
-      updated_at: template.updated_at
-    })));
-  }, [templates]);
-
-  const getTemplateDescription = (template) => {
-    const descriptions = {
-      'job_completed': 'Sends thank you email 24 hours after job completion',
-      'invoice_paid': 'Sends review request 48 hours after invoice payment',
-      'service_reminder': 'Sends reminder 1 day before scheduled service',
-      'mock-1': 'Sends thank you email 24 hours after job completion',
-      'mock-2': 'Sends review request 48 hours after invoice payment', 
-      'mock-3': 'Sends reminder 1 day before scheduled service'
-    };
-    
-    return descriptions[template.key] || descriptions[template.id] || `Custom automation for ${template.name}`;
+  // Generate unique template IDs
+  const generateTemplateId = (name, userEmail) => {
+    const timestamp = Date.now();
+    const sanitizedEmail = userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
+    const sanitizedName = name ? name.replace(/[^a-zA-Z0-9]/g, '_') : 'template';
+    return `template_${sanitizedEmail}_${sanitizedName}_${timestamp}`;
   };
 
+  // Load templates with proper error handling
+  const loadTemplates = async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 Loading templates...');
+      
+      const userEmail = user?.email || 'unknown';
+      const sanitizedEmail = userEmail.replace(/[^a-zA-Z0-9]/g, '_');
+      const localStorageKey = `blipp_templates_${sanitizedEmail}`;
+      
+      // Try localStorage first
+      const savedData = localStorage.getItem(localStorageKey);
+      if (savedData) {
+        try {
+          const savedTemplates = JSON.parse(savedData);
+          const templateArray = Object.values(savedTemplates).filter(t => t.user_email === userEmail);
+          
+          if (templateArray.length > 0) {
+            console.log('✅ Loaded templates from localStorage:', templateArray.length);
+            setTemplates(templateArray);
+            setLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.error('❌ Error parsing localStorage data:', error);
+        }
+      }
+      
+      // Fallback to default templates
+      const defaultTemplates = [
+        {
+          id: generateTemplateId('Job Completed', userEmail),
+          name: 'Job Completed',
+          description: 'Send thank you email after job completion',
+          status: 'paused',
+          channels: ['email'],
+          trigger_type: 'event',
+          config_json: {
+            message: 'Thank you for choosing our services! We hope you\'re satisfied with our work.',
+            delay_hours: 24
+          },
+          user_email: userEmail,
+          created_at: new Date().toISOString()
+        },
+        {
+          id: generateTemplateId('Invoice Paid', userEmail),
+          name: 'Invoice Paid', 
+          description: 'Follow up after invoice payment',
+          status: 'paused',
+          channels: ['email'],
+          trigger_type: 'event',
+          config_json: {
+            message: 'Thank you for your payment! We appreciate your business.',
+            delay_hours: 2
+          },
+          user_email: userEmail,
+          created_at: new Date().toISOString()
+        },
+        {
+          id: generateTemplateId('Service Reminder', userEmail),
+          name: 'Service Reminder',
+          description: 'Remind customers about upcoming services',
+          status: 'paused', 
+          channels: ['email'],
+          trigger_type: 'scheduled',
+          config_json: {
+            message: 'This is a friendly reminder about your upcoming service appointment.',
+            delay_hours: 72
+          },
+          user_email: userEmail,
+          created_at: new Date().toISOString()
+        }
+      ];
+      
+      console.log('📝 Using default templates');
+      setTemplates(defaultTemplates);
+      
+      // Save defaults to localStorage
+      const templateMap = {};
+      defaultTemplates.forEach(template => {
+        templateMap[template.id] = template;
+      });
+      localStorage.setItem(localStorageKey, JSON.stringify(templateMap));
+      
+    } catch (error) {
+      console.error('❌ Error loading templates:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save template to localStorage
+  const saveTemplateToStorage = (template) => {
+    try {
+      const userEmail = user?.email || 'unknown';
+      const sanitizedEmail = userEmail.replace(/[^a-zA-Z0-9]/g, '_');
+      const localStorageKey = `blipp_templates_${sanitizedEmail}`;
+      
+      const savedData = localStorage.getItem(localStorageKey);
+      const savedTemplates = savedData ? JSON.parse(savedData) : {};
+      
+      savedTemplates[template.id] = {
+        ...template,
+        user_email: userEmail,
+        updated_at: new Date().toISOString()
+      };
+      
+      localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
+      console.log('💾 Template saved to localStorage:', template.name);
+    } catch (error) {
+      console.error('❌ Error saving template:', error);
+    }
+  };
+
+  // Handle template toggle
   const handleTemplateToggle = async (templateId, newStatus) => {
+    if (!templateId) {
+      console.error('❌ Cannot toggle: templateId is null');
+      return;
+    }
+    
+    console.log('🔄 Toggling template:', templateId, 'to', newStatus);
     setUpdating(prev => ({ ...prev, [templateId]: true }));
     
     try {
-      // Update local state immediately
+      // Update local state
       setTemplates(prev => prev.map(t => 
         t.id === templateId ? { ...t, status: newStatus } : t
       ));
       
-      console.log(`Template ${templateId} ${newStatus} successfully`);
+      // Save to localStorage
+      const updatedTemplate = templates.find(t => t.id === templateId);
+      if (updatedTemplate) {
+        const templateToSave = { ...updatedTemplate, status: newStatus };
+        saveTemplateToStorage(templateToSave);
+      }
+      
+      // Load active sequences
+      await loadActiveSequences();
+      
+      console.log('✅ Template toggled successfully');
     } catch (error) {
-      console.error('Error updating template:', error);
+      console.error('❌ Error toggling template:', error);
     } finally {
       setUpdating(prev => ({ ...prev, [templateId]: false }));
     }
   };
 
+  // Load active sequences
+  const loadActiveSequences = async () => {
+    try {
+      const activeTemplates = templates.filter(t => t.status === 'active');
+      setActiveSequences(activeTemplates);
+      console.log('📊 Active sequences loaded:', activeTemplates.length);
+    } catch (error) {
+      console.error('❌ Error loading active sequences:', error);
+    }
+  };
+
+  // Handle template customization
   const handleCustomize = (template) => {
+    if (!template || !template.id) {
+      console.error('❌ Cannot customize: invalid template');
+      return;
+    }
+    console.log('🔧 Customizing template:', template.name);
     setSelectedTemplate(template);
     setCustomizeModalOpen(true);
   };
 
+  // Handle template save
   const handleTemplateSaved = async (updatedTemplate) => {
-    console.log('Template saved:', updatedTemplate);
-    if (updatedTemplate && selectedTemplate) {
-      // Update the existing template in the state
-      setTemplates(prev => prev.map(t => 
-        t.id === selectedTemplate.id ? { ...t, ...updatedTemplate } : t
-      ));
-    }
-    setCustomizeModalOpen(false);
-    setSelectedTemplate(null);
-  };
-
-  const handleSequenceCreated = async (newTemplate) => {
-    console.log('Sequence created:', newTemplate);
-    if (newTemplate) {
-      setTemplates(prev => [...prev, newTemplate]);
-    }
-    setCreateModalOpen(false);
-  };
-
-  const handleTest = async (template) => {
     try {
-      const testEmail = user?.email || 'test@example.com';
-      const testName = user?.user_metadata?.full_name || 'Test Customer';
-
-      console.log('=== EMAIL TEST ===');
-      console.log('To:', testEmail);
-      console.log('Template:', template.name);
-      console.log('Message:', template.config_json?.message);
-      console.log('==================');
-
-      // Try to send real test email
-      try {
-        const response = await fetch('/api/automation/test-email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            template_id: template.id,
-            business_id: business?.id,
-            customer_email: testEmail,
-            customer_name: testName,
-            message: template.config_json?.message || 'Test message from automation'
-          })
-        });
-
-        if (response.ok) {
-          alert(`✅ Test email sent successfully to ${testEmail}!\n\nCheck your inbox for the test message.`);
-        } else {
-          throw new Error('API call failed');
-        }
-      } catch (apiError) {
-        console.log('API test failed, showing demo message:', apiError);
-        alert(`📧 Test Email Demo\n\nTo: ${testEmail}\nTemplate: ${template.name}\n\nThis would send a real email with your automation message.\n\nNote: In production, this sends actual emails to customers!`);
-      }
+      console.log('💾 Saving template:', updatedTemplate.name);
+      
+      // Update local state
+      setTemplates(prev => prev.map(t => 
+        t.id === updatedTemplate.id ? updatedTemplate : t
+      ));
+      
+      // Save to localStorage
+      saveTemplateToStorage(updatedTemplate);
+      
+      // Close modal
+      setCustomizeModalOpen(false);
+      
+      console.log('✅ Template saved successfully');
     } catch (error) {
-      console.error('Error testing automation:', error);
-      alert('❌ Error testing automation. Please try again.');
+      console.error('❌ Error saving template:', error);
     }
   };
 
-  const handleCreateSequence = () => {
-    setCreateModalOpen(true);
+  // Handle create template
+  const handleCreateTemplate = async (templateData) => {
+    try {
+      console.log('➕ Creating new template:', templateData.name);
+      
+      const userEmail = user?.email || 'unknown';
+      const newTemplate = {
+        id: generateTemplateId(templateData.name, userEmail),
+        name: templateData.name,
+        description: templateData.description,
+        status: 'paused',
+        channels: templateData.channels || ['email'],
+        trigger_type: templateData.trigger_type || 'event',
+        config_json: {
+          message: templateData.message || 'Thank you for your business!',
+          delay_hours: templateData.delay_hours || 24
+        },
+        user_email: userEmail,
+        created_at: new Date().toISOString()
+      };
+      
+      // Add to local state
+      setTemplates(prev => [...prev, newTemplate]);
+      
+      // Save to localStorage
+      saveTemplateToStorage(newTemplate);
+      
+      // Close modal
+      setCreateModalOpen(false);
+      
+      console.log('✅ Template created successfully');
+    } catch (error) {
+      console.error('❌ Error creating template:', error);
+    }
   };
+
+  // Load data on mount
+  useEffect(() => {
+    if (user?.email) {
+      loadTemplates();
+    }
+  }, [user?.email]);
+
+  // Update active sequences when templates change
+  useEffect(() => {
+    loadActiveSequences();
+  }, [templates]);
 
   if (loading) {
     return (
-      <div className="p-8 space-y-6">
-        <PageHeader
-          title="Automations"
-          subtitle="Create and manage automation sequences with beautiful visual flow cards and full customization."
-        />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-64 w-full" />
-          ))}
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-48 bg-gray-200 rounded-lg"></div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8 space-y-6">
-      <PageHeader
-        title="Automations"
-        subtitle="Create and manage automation sequences with beautiful visual flow cards and full customization."
-      />
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Automations</h1>
+        <p className="text-gray-600">Manage your email automation sequences</p>
+      </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="templates" className="flex items-center gap-2">
-            <FileText className="w-4 h-4" />
-            Templates
-          </TabsTrigger>
-          <TabsTrigger value="active" className="flex items-center gap-2">
-            <Activity className="w-4 h-4" />
-            Active Sequences
-          </TabsTrigger>
-          <TabsTrigger value="activity" className="flex items-center gap-2">
-            <List className="w-4 h-4" />
-            Activity
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="templates" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-semibold">Automation Templates</h3>
-              <p className="text-sm text-gray-600">Create and manage your automation sequences.</p>
-            </div>
-            <Button onClick={handleCreateSequence} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Custom Template
-            </Button>
+      {/* Templates Section */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">Templates</h2>
+          <button
+            onClick={() => setCreateModalOpen(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Create Custom Template
+          </button>
+        </div>
+        
+        {templates.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            No templates found. Create your first automation template.
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {templates.map((template) => (
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {templates.map(template => (
               <FlowCard
                 key={template.id}
                 template={template}
                 onToggle={(status) => handleTemplateToggle(template.id, status)}
                 onCustomize={() => handleCustomize(template)}
-                onTest={() => handleTest(template)}
                 updating={updating[template.id]}
               />
             ))}
           </div>
-        </TabsContent>
+        )}
+      </div>
 
-        <TabsContent value="active" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-semibold">Active Sequences</h3>
-              <p className="text-sm text-gray-600">Currently running automation sequences</p>
-            </div>
-          </div>
+      {/* Active Sequences Section */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Active Sequences</h2>
+        <ActiveSequences 
+          sequences={activeSequences}
+          templates={templates}
+          onToggle={handleTemplateToggle}
+        />
+      </div>
 
-          {activeSequences.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {activeSequences.map((sequence) => (
-                <Card key={sequence.id} className="border-l-4 border-l-green-500">
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      {sequence.name}
-                      <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">
-                        Active
-                      </Badge>
-                    </CardTitle>
-                    <CardDescription>{sequence.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2 mb-4">
-                      {sequence.channels?.map((channel, index) => (
-                        <div key={index} className="flex items-center gap-1 px-2 py-1 bg-blue-100 rounded-md">
-                          {channel === 'email' ? <Mail className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
-                          <span className="text-xs font-medium text-blue-700">{channel}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => handleTest(sequence)}>
-                        <Play className="w-3 h-3 mr-1" />
-                        Test
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleTemplateToggle(sequence.id, 'paused')}>
-                        <Pause className="w-3 h-3 mr-1" />
-                        Pause
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card className="text-center py-12">
-              <CardContent>
-                <Clock className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">No active sequences</h3>
-                <p className="text-gray-500 mb-4">Activate a template to see it here.</p>
-                <Button onClick={() => setActiveTab('templates')}>
-                  View Templates
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-
-        <TabsContent value="activity" className="space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold">Activity</h3>
-            <p className="text-sm text-gray-600">Recent automation activity</p>
-          </div>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center text-gray-500">
-                <Activity className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>No recent activity</p>
-                <p className="text-sm">Automation activity will appear here once sequences are running.</p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Template Customizer Modal */}
+      {/* Modals */}
       <TemplateCustomizer
         isOpen={customizeModalOpen}
         onClose={() => setCustomizeModalOpen(false)}
         template={selectedTemplate}
         onSave={handleTemplateSaved}
-        businessId={business?.id}
+        user={user}
       />
 
-      {/* Create Sequence Modal */}
-      <SequenceCreator
+      <TemplateCustomizer
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        onSequenceCreated={handleSequenceCreated}
-        businessId={business?.id}
+        template={{
+          id: null,
+          name: '',
+          description: '',
+          status: 'paused',
+          channels: ['email'],
+          trigger_type: 'event',
+          config_json: {
+            message: 'Thank you for your business!',
+            delay_hours: 24
+          }
+        }}
+        onSave={handleCreateTemplate}
+        user={user}
+        isCreating={true}
       />
     </div>
   );
 };
 
-export default AutomationsPage;
+export default AutomationsPageFixed;
