@@ -16,8 +16,10 @@ export default function TemplateCustomizer({
   template, 
   onSave,
   businessId,
-  user 
+  user: propUser 
 }) {
+  const { user: authUser } = useAuth();
+  const user = propUser || authUser; // Use prop user if available, otherwise use auth user
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -81,7 +83,9 @@ export default function TemplateCustomizer({
       const defaultMessage = getDefaultMessage(template.key, template.name);
       
       // BULLETPROOF LOAD SYSTEM
+      console.log('🔍 TemplateCustomizer user prop:', user);
       const userEmail = user?.email || 'unknown';
+      console.log('🔍 TemplateCustomizer userEmail:', userEmail);
       const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
       
       let savedTemplate = null;
@@ -503,7 +507,9 @@ export default function TemplateCustomizer({
       
       
       // BULLETPROOF PERSISTENCE SYSTEM
+      console.log('🔒 TemplateCustomizer save user prop:', user);
       const userEmail = user?.email || 'unknown';
+      console.log('🔒 TemplateCustomizer save userEmail:', userEmail);
       const localStorageKey = `blipp_templates_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
       
       try {
