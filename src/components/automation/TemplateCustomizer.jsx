@@ -437,35 +437,38 @@ export default function TemplateCustomizer({
       if (businessId && businessId !== 'null' && businessId !== 'undefined') {
         try {
           const response = await fetch(`/api/templates/${businessId}/${template.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          },
-          body: JSON.stringify({
-            ...formData,
-            custom_message: filterSwearWords(customMessage),
-            message_subject: formData.config_json?.subject || '',
-            ai_generated: aiGenerating || aiEnhancing,
-            message_variables: {
-              customer_name: customMessage.includes('{{customer.name}}'),
-              review_link: customMessage.includes('{{review_link}}'),
-              business_name: customMessage.includes('{{business.name}}'),
-              service_date: customMessage.includes('{{service_date}}'),
-              amount: customMessage.includes('{{amount}}')
-            }
-          })
-        });
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            },
+            body: JSON.stringify({
+              ...formData,
+              custom_message: filterSwearWords(customMessage),
+              message_subject: formData.config_json?.subject || '',
+              ai_generated: aiGenerating || aiEnhancing,
+              message_variables: {
+                customer_name: customMessage.includes('{{customer.name}}'),
+                review_link: customMessage.includes('{{review_link}}'),
+                business_name: customMessage.includes('{{business.name}}'),
+                service_date: customMessage.includes('{{service_date}}'),
+                amount: customMessage.includes('{{amount}}')
+              }
+            })
+          });
 
-        if (response.ok) {
-          const dbTemplate = await response.json();
-          onSave(dbTemplate);
-        } else {
-          throw new Error('Database save failed');
+          if (response.ok) {
+            const dbTemplate = await response.json();
+            onSave(dbTemplate);
+            onClose();
+            return; // Exit early if database save successful
+          } else {
+            throw new Error('Database save failed');
+          }
+        } catch (dbError) {
+          console.log('Database save failed, saving to localStorage as backup:', dbError);
+          // Fall through to localStorage save
         }
-      } catch (dbError) {
-        console.log('Database save failed, saving to localStorage as backup:', dbError);
-        // Fall through to localStorage save
       }
       
       
@@ -485,11 +488,14 @@ export default function TemplateCustomizer({
       localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
       
       onSave(updatedTemplate);
-      
       onClose();
     } catch (error) {
       console.error('Error saving template:', error);
-      alert('Error saving template. Please try again.');
+      setNotification({
+        type: 'error',
+        message: 'Error saving template. Please try again.',
+        duration: 5000
+      });
     } finally {
       setSaving(false);
     }
