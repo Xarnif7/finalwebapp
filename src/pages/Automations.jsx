@@ -78,12 +78,19 @@ const AutomationsPage = () => {
       
       if (Object.keys(savedTemplates).length > 0) {
         const savedTemplatesArray = Object.values(savedTemplates);
-        setTemplates(savedTemplatesArray);
+        
+        // Filter out any templates that don't belong to this user
+        const userTemplates = savedTemplatesArray.filter(template => 
+          template.user_email === userEmail || template.business_id?.includes(userEmail.replace(/[^a-zA-Z0-9]/g, '_'))
+        );
+        
+        setTemplates(userTemplates);
         console.log('Loaded templates from localStorage:', {
           userEmail,
           localStorageKey,
-          templateCount: savedTemplatesArray.length,
-          templates: savedTemplatesArray.map(t => ({ id: t.id, name: t.name }))
+          totalTemplates: savedTemplatesArray.length,
+          userTemplates: userTemplates.length,
+          templates: userTemplates.map(t => ({ id: t.id, name: t.name, user_email: t.user_email }))
         });
         return; // Don't show mock templates if we have saved ones
       }
@@ -210,7 +217,8 @@ const AutomationsPage = () => {
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          business_id: business?.id || sanitizedEmail // Make it user-specific
+          business_id: business?.id || sanitizedEmail, // Make it user-specific
+          user_email: userEmail // Store user email for isolation
         },
         {
           id: `mock-2-${sanitizedEmail}`,
@@ -225,7 +233,8 @@ const AutomationsPage = () => {
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          business_id: business?.id || sanitizedEmail // Make it user-specific
+          business_id: business?.id || sanitizedEmail, // Make it user-specific
+          user_email: userEmail // Store user email for isolation
         },
         {
           id: `mock-3-${sanitizedEmail}`,
@@ -240,7 +249,8 @@ const AutomationsPage = () => {
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          business_id: business?.id || sanitizedEmail // Make it user-specific
+          business_id: business?.id || sanitizedEmail, // Make it user-specific
+          user_email: userEmail // Store user email for isolation
         }
       ]);
     } finally {

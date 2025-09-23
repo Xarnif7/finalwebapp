@@ -86,8 +86,9 @@ export default function TemplateCustomizer({
       const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
       
       // Create completely unique template ID per user
+      const sanitizedEmail = userEmail.replace(/[^a-zA-Z0-9]/g, '_');
       const baseTemplateId = template.id.replace(/^mock-\d+-/, ''); // Remove mock prefix if exists
-      const uniqueTemplateId = `${baseTemplateId}-${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const uniqueTemplateId = `${baseTemplateId}-${sanitizedEmail}`;
       const savedTemplate = savedTemplates[uniqueTemplateId];
       
       console.log('Loading template:', {
@@ -490,12 +491,15 @@ export default function TemplateCustomizer({
       const savedTemplates = JSON.parse(localStorage.getItem(localStorageKey) || '{}');
       
       // Create completely unique template ID per user
+      const sanitizedEmail = userEmail.replace(/[^a-zA-Z0-9]/g, '_');
       const baseTemplateId = template.id.replace(/^mock-\d+-/, ''); // Remove mock prefix if exists
-      const uniqueTemplateId = `${baseTemplateId}-${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const uniqueTemplateId = `${baseTemplateId}-${sanitizedEmail}`;
+      
       savedTemplates[uniqueTemplateId] = {
         ...updatedTemplate,
         id: uniqueTemplateId, // Update the ID to be unique
-        business_id: `mock-business-${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`
+        business_id: `mock-business-${sanitizedEmail}`,
+        user_email: userEmail // Store the actual user email for reference
       };
       localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
       
@@ -503,7 +507,8 @@ export default function TemplateCustomizer({
         userEmail,
         localStorageKey,
         uniqueTemplateId,
-        templateName: updatedTemplate.name
+        templateName: updatedTemplate.name,
+        allKeys: Object.keys(localStorage).filter(key => key.startsWith('customTemplates_'))
       });
       
       onSave(updatedTemplate);
