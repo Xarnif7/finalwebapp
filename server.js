@@ -9992,10 +9992,26 @@ app.put('/api/notifications/mark-all-read', async (req, res) => {
   }
 });
 
-// Reviews API Routes
+// Enhanced Reviews API Routes
 app.get('/api/reviews', async (req, res) => {
   try {
-    const { business_id } = req.query;
+    const { 
+      business_id, 
+      status, 
+      platform, 
+      rating, 
+      sentiment, 
+      assigned_to, 
+      tags,
+      topics,
+      date_from,
+      date_to,
+      search,
+      sort_by = 'review_created_at',
+      sort_order = 'desc',
+      limit = 50,
+      offset = 0
+    } = req.query;
     
     if (!business_id) {
       return res.status(400).json({ error: 'Business ID is required' });
@@ -10003,11 +10019,74 @@ app.get('/api/reviews', async (req, res) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: reviews, error } = await supabase
+    let query = supabase
       .from('reviews')
-      .select('*')
-      .eq('business_id', business_id)
-      .order('review_date', { ascending: false });
+      .select(`
+        *,
+        audit_log:review_audit_log(
+          id,
+          action,
+          user_id,
+          notes,
+          created_at
+        )
+      `)
+      .eq('business_id', business_id);
+
+    // Apply filters
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
+    }
+    
+    if (platform && platform !== 'all') {
+      query = query.eq('platform', platform);
+    }
+    
+    if (rating && rating !== 'all') {
+      query = query.eq('rating', parseInt(rating));
+    }
+    
+    if (sentiment && sentiment !== 'all') {
+      query = query.eq('sentiment', sentiment);
+    }
+    
+    if (assigned_to && assigned_to !== 'all') {
+      if (assigned_to === 'unassigned') {
+        query = query.is('assigned_to', null);
+      } else {
+        query = query.eq('assigned_to', assigned_to);
+      }
+    }
+    
+    if (tags) {
+      const tagArray = tags.split(',').map(tag => tag.trim());
+      query = query.overlaps('tags', tagArray);
+    }
+    
+    if (topics) {
+      const topicArray = topics.split(',').map(topic => topic.trim());
+      query = query.overlaps('topics', topicArray);
+    }
+    
+    if (date_from) {
+      query = query.gte('review_created_at', date_from);
+    }
+    
+    if (date_to) {
+      query = query.lte('review_created_at', date_to);
+    }
+    
+    if (search) {
+      query = query.or(`reviewer_name.ilike.%${search}%,review_text.ilike.%${search}%`);
+    }
+
+    // Apply sorting
+    query = query.order(sort_by, { ascending: sort_order === 'asc' });
+
+    // Apply pagination
+    query = query.range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+
+    const { data: reviews, error } = await query;
 
     if (error) {
       console.error('Error fetching reviews:', error);
@@ -10021,21 +10100,99 @@ app.get('/api/reviews', async (req, res) => {
   }
 });
 
+// Get review analytics/KPIs
+app.get('/api/reviews/analytics', async (req, res) => {
+  try {
+    const { business_id, date_from, date_to } = req.query;
+    
+    if (!business_id) {
+      return res.status(400).json({ error: 'Business ID is required' });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    let dateFilter = '';
+    if (date_from && date_to) {
+      dateFilter = `AND review_created_at >= '${date_from}' AND review_created_at <= '${date_to}'`;
+    }
+
+    // Get response rate
+    const { count: totalReviews } = await supabase
+      .from('reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('business_id', business_id)
+      .neq('reply_text', null);
+
+    const { count: respondedReviews } = await supabase
+      .from('reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('business_id', business_id)
+      .not('reply_text', 'is', null);
+
+    // Get average rating
+    const { data: ratingData } = await supabase
+      .from('reviews')
+      .select('rating')
+      .eq('business_id', business_id);
+
+    const avgRating = ratingData?.length > 0 
+      ? ratingData.reduce((sum, r) => sum + r.rating, 0) / ratingData.length 
+      : 0;
+
+    // Get SLA compliance
+    const { count: slaViolations } = await supabase
+      .from('reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('business_id', business_id)
+      .not('due_at', 'is', null)
+      .lt('due_at', new Date().toISOString())
+      .in('status', ['unread', 'needs_response']);
+
+    // Get new reviews this week
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    
+    const { count: newReviews } = await supabase
+      .from('reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('business_id', business_id)
+      .gte('review_created_at', weekAgo.toISOString());
+
+    res.json({
+      totalReviews: totalReviews || 0,
+      responseRate: totalReviews > 0 ? ((respondedReviews || 0) / totalReviews * 100).toFixed(1) : 0,
+      averageRating: avgRating.toFixed(1),
+      slaCompliance: totalReviews > 0 ? (((totalReviews - (slaViolations || 0)) / totalReviews) * 100).toFixed(1) : 100,
+      newReviewsThisWeek: newReviews || 0,
+      unrepliedReviews: (totalReviews || 0) - (respondedReviews || 0)
+    });
+  } catch (error) {
+    console.error('Reviews analytics error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create new review
 app.post('/api/reviews', async (req, res) => {
   try {
     const { 
       business_id, 
       platform, 
-      customer_name, 
-      customer_email, 
-      customer_phone, 
+      reviewer_name, 
+      reviewer_email, 
+      reviewer_phone, 
       rating, 
       review_text, 
       review_url,
-      platform_review_id 
+      platform_review_id,
+      job_id,
+      job_type,
+      job_notes,
+      topics,
+      tags
     } = req.body;
 
-    if (!business_id || !platform || !customer_name || !rating || !review_text) {
+    if (!business_id || !platform || !reviewer_name || !rating || !review_text) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -10047,13 +10204,18 @@ app.post('/api/reviews', async (req, res) => {
         business_id,
         platform,
         platform_review_id,
-        customer_name,
-        customer_email,
-        customer_phone,
+        reviewer_name,
+        reviewer_email,
+        reviewer_phone,
         rating: parseInt(rating),
         review_text,
-        review_date: new Date().toISOString(),
-        review_url
+        review_created_at: new Date().toISOString(),
+        review_url,
+        job_id,
+        job_type,
+        job_notes,
+        topics: topics ? topics.split(',').map(t => t.trim()) : [],
+        tags: tags ? tags.split(',').map(t => t.trim()) : []
       })
       .select()
       .single();
@@ -10066,6 +10228,153 @@ app.post('/api/reviews', async (req, res) => {
     res.json({ review });
   } catch (error) {
     console.error('Create review API error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Bulk actions for reviews
+app.post('/api/reviews/bulk-action', async (req, res) => {
+  try {
+    const { 
+      business_id, 
+      review_ids, 
+      action, 
+      assigned_to, 
+      tags, 
+      status 
+    } = req.body;
+
+    if (!business_id || !review_ids || !action) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    let updateData = {};
+    
+    switch (action) {
+      case 'assign':
+        if (!assigned_to) {
+          return res.status(400).json({ error: 'assigned_to is required for assign action' });
+        }
+        updateData.assigned_to = assigned_to;
+        break;
+      case 'tag':
+        if (!tags) {
+          return res.status(400).json({ error: 'tags are required for tag action' });
+        }
+        updateData.tags = tags.split(',').map(t => t.trim());
+        break;
+      case 'status':
+        if (!status) {
+          return res.status(400).json({ error: 'status is required for status action' });
+        }
+        updateData.status = status;
+        break;
+      default:
+        return res.status(400).json({ error: 'Invalid action' });
+    }
+
+    const { data: reviews, error } = await supabase
+      .from('reviews')
+      .update(updateData)
+      .in('id', review_ids)
+      .eq('business_id', business_id)
+      .select();
+
+    if (error) {
+      console.error('Error performing bulk action:', error);
+      return res.status(500).json({ error: 'Failed to perform bulk action' });
+    }
+
+    res.json({ updatedReviews: reviews });
+  } catch (error) {
+    console.error('Bulk action API error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get response templates
+app.get('/api/reviews/templates', async (req, res) => {
+  try {
+    const { business_id, platform, sentiment } = req.query;
+    
+    if (!business_id) {
+      return res.status(400).json({ error: 'Business ID is required' });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    let query = supabase
+      .from('review_response_templates')
+      .select('*')
+      .eq('business_id', business_id);
+
+    if (platform && platform !== 'all') {
+      query = query.or(`platform.is.null,platform.eq.${platform}`);
+    }
+
+    if (sentiment && sentiment !== 'all') {
+      query = query.or(`sentiment.is.null,sentiment.eq.${sentiment}`);
+    }
+
+    query = query.order('usage_count', { ascending: false });
+
+    const { data: templates, error } = await query;
+
+    if (error) {
+      console.error('Error fetching templates:', error);
+      return res.status(500).json({ error: 'Failed to fetch templates' });
+    }
+
+    res.json({ templates });
+  } catch (error) {
+    console.error('Templates API error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create response template
+app.post('/api/reviews/templates', async (req, res) => {
+  try {
+    const { 
+      business_id, 
+      name, 
+      template_text, 
+      platform, 
+      sentiment, 
+      job_type, 
+      tone 
+    } = req.body;
+
+    if (!business_id || !name || !template_text) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: template, error } = await supabase
+      .from('review_response_templates')
+      .insert({
+        business_id,
+        name,
+        template_text,
+        platform,
+        sentiment,
+        job_type,
+        tone: tone || 'professional'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating template:', error);
+      return res.status(500).json({ error: 'Failed to create template' });
+    }
+
+    res.json({ template });
+  } catch (error) {
+    console.error('Create template API error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
