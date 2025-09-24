@@ -8933,22 +8933,39 @@ async function handleJobCompleted(payload) {
 
     console.log('🏢 Found business connection:', connection.business_id);
 
-    // Find the appropriate template based on service type
-    const { data: template } = await supabase
-      .rpc('find_template_for_service_type', {
-        p_business_id: connection.business_id,
-        p_service_type: serviceType
-      });
+    // Use AI to find the best matching template
+    console.log('🤖 Using AI to find best template match for:', serviceType);
+    
+    const aiMatchResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/api/ai/match-template`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jobberServiceType: serviceType,
+        businessId: connection.business_id
+      })
+    });
+
+    if (!aiMatchResponse.ok) {
+      console.error('❌ AI template matching failed:', aiMatchResponse.status);
+      return;
+    }
+
+    const aiMatchResult = await aiMatchResponse.json();
+    const template = aiMatchResult.matchedTemplate;
 
     if (!template) {
       console.error('❌ No template found for service type:', serviceType);
       return;
     }
 
-    console.log('📧 Found template:', {
+    console.log('🎯 AI Template Match:', {
       id: template.id,
       name: template.name,
-      serviceTypes: template.service_types
+      confidence: aiMatchResult.confidence,
+      reasoning: aiMatchResult.reasoning,
+      serviceType: serviceType
     });
 
     // Create or find customer
@@ -9609,6 +9626,159 @@ ${business.name}`;
     return false;
   }
 }
+
+// ============================================================================
+// AI TEMPLATE MATCHING API
+// ============================================================================
+
+// AI-powered template matching endpoint
+app.post('/api/ai/match-template', async (req, res) => {
+  try {
+    const { jobberServiceType, businessId } = req.body;
+    
+    if (!jobberServiceType || !businessId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    console.log('🤖 AI Template Matching Request:', { jobberServiceType, businessId });
+
+    // Get all active templates for this business
+    const { data: templates, error: templatesError } = await supabase
+      .from('automation_templates')
+      .select('id, name, service_types, is_default, config_json')
+      .eq('business_id', businessId)
+      .eq('status', 'active');
+
+    if (templatesError) {
+      console.error('❌ Error fetching templates:', templatesError);
+      return res.status(500).json({ error: 'Failed to fetch templates' });
+    }
+
+    if (!templates || templates.length === 0) {
+      console.log('⚠️ No templates found for business');
+      return res.json({ 
+        success: true, 
+        matchedTemplate: null, 
+        confidence: 0,
+        reason: 'No templates available'
+      });
+    }
+
+    // Prepare template data for AI
+    const templateData = templates.map(template => ({
+      id: template.id,
+      name: template.name,
+      serviceTypes: template.service_types || [],
+      isDefault: template.is_default || false,
+      description: template.config_json?.description || template.name
+    }));
+
+    // Call OpenAI to find the best match
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini', // Use the cheaper model
+        messages: [
+          {
+            role: 'system',
+            content: `You are a template matching assistant. Your job is to find the best automation template for a given service type.
+
+Given a Jobber service type and a list of available templates, return the template that best matches the service type.
+
+Consider:
+- Semantic similarity (meaning, not just exact words)
+- Service category matching
+- Default template as fallback
+
+Return ONLY a JSON response with this exact format:
+{
+  "matchedTemplateId": "template_id_or_null",
+  "confidence": 0.0_to_1.0,
+  "reasoning": "brief explanation of why this template was chosen"
+}`
+          },
+          {
+            role: 'user',
+            content: `Jobber Service Type: "${jobberServiceType}"
+
+Available Templates:
+${templateData.map(t => `- ID: ${t.id}, Name: "${t.name}", Service Types: [${t.serviceTypes.join(', ')}], Is Default: ${t.isDefault}, Description: "${t.description}"`).join('\n')}
+
+Find the best matching template for the Jobber service type.`
+          }
+        ],
+        max_tokens: 200,
+        temperature: 0.1
+      })
+    });
+
+    if (!aiResponse.ok) {
+      console.error('❌ OpenAI API error:', aiResponse.status, await aiResponse.text());
+      // Fallback to default template
+      const defaultTemplate = templates.find(t => t.is_default);
+      return res.json({
+        success: true,
+        matchedTemplate: defaultTemplate || null,
+        confidence: 0.1,
+        reason: 'AI matching failed, using fallback'
+      });
+    }
+
+    const aiData = await aiResponse.json();
+    const aiChoice = aiData.choices[0]?.message?.content;
+
+    if (!aiChoice) {
+      console.error('❌ No AI response received');
+      const defaultTemplate = templates.find(t => t.is_default);
+      return res.json({
+        success: true,
+        matchedTemplate: defaultTemplate || null,
+        confidence: 0.1,
+        reason: 'No AI response, using fallback'
+      });
+    }
+
+    // Parse AI response
+    let aiResult;
+    try {
+      aiResult = JSON.parse(aiChoice);
+    } catch (parseError) {
+      console.error('❌ Failed to parse AI response:', aiChoice);
+      const defaultTemplate = templates.find(t => t.is_default);
+      return res.json({
+        success: true,
+        matchedTemplate: defaultTemplate || null,
+        confidence: 0.1,
+        reason: 'AI response parse error, using fallback'
+      });
+    }
+
+    // Find the matched template
+    const matchedTemplate = templates.find(t => t.id === aiResult.matchedTemplateId);
+
+    console.log('🎯 AI Template Match Result:', {
+      jobberServiceType,
+      matchedTemplate: matchedTemplate?.name || 'None',
+      confidence: aiResult.confidence,
+      reasoning: aiResult.reasoning
+    });
+
+    res.json({
+      success: true,
+      matchedTemplate: matchedTemplate || null,
+      confidence: aiResult.confidence || 0,
+      reasoning: aiResult.reasoning || 'No reasoning provided'
+    });
+
+  } catch (error) {
+    console.error('❌ AI Template Matching Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // ============================================================================
 // NOTIFICATIONS API

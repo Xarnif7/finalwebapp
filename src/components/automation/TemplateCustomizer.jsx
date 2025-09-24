@@ -41,6 +41,9 @@ export default function TemplateCustomizer({
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiEnhancing, setAiEnhancing] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [testServiceType, setTestServiceType] = useState('');
+  const [aiTesting, setAiTesting] = useState(false);
+  const [aiTestResult, setAiTestResult] = useState(null);
   const textareaRef = useRef(null);
   const previewTimeoutRef = useRef(null);
 
@@ -463,6 +466,45 @@ export default function TemplateCustomizer({
       
       setAiGenerating(false);
       setAiEnhancing(false);
+    }
+  };
+
+  // AI template matching test
+  const testAiMatching = async () => {
+    if (!testServiceType.trim() || !businessId) return;
+    
+    setAiTesting(true);
+    setAiTestResult(null);
+    
+    try {
+      const response = await fetch('/api/ai/match-template', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jobberServiceType: testServiceType,
+          businessId: businessId
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setAiTestResult(result);
+      } else {
+        setAiTestResult({
+          confidence: 0,
+          reasoning: 'Failed to test AI matching. Please try again.'
+        });
+      }
+    } catch (error) {
+      console.error('AI testing error:', error);
+      setAiTestResult({
+        confidence: 0,
+        reasoning: 'Error testing AI matching. Please try again.'
+      });
+    } finally {
+      setAiTesting(false);
     }
   };
 
@@ -917,8 +959,46 @@ export default function TemplateCustomizer({
                     placeholder="e.g., Lawn Care, Tree Trimming, Hedge Trimming"
                   />
                   <p className="text-sm text-gray-500 mt-1">
-                    Enter the service types separated by commas. Leave empty to handle all service types.
+                    Enter the service types separated by commas. AI will intelligently match similar terms.
                   </p>
+                </div>
+
+                {/* AI Template Matching Preview */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">🤖 AI Matching Preview</h4>
+                  <p className="text-xs text-blue-700 mb-3">
+                    Test how well this template will match different service types from Jobber:
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Test service type (e.g., lawn mowing and edging)"
+                      value={testServiceType}
+                      onChange={(e) => setTestServiceType(e.target.value)}
+                      className="flex-1 px-3 py-2 text-sm border border-blue-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={testAiMatching}
+                      disabled={!testServiceType.trim() || aiTesting}
+                      className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {aiTesting ? 'Testing...' : 'Test'}
+                    </button>
+                  </div>
+                  {aiTestResult && (
+                    <div className="mt-3 p-3 bg-white rounded border">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`text-sm font-medium ${aiTestResult.confidence > 0.7 ? 'text-green-600' : aiTestResult.confidence > 0.4 ? 'text-yellow-600' : 'text-red-600'}`}>
+                          Confidence: {Math.round(aiTestResult.confidence * 100)}%
+                        </span>
+                        {aiTestResult.confidence > 0.7 && <span className="text-green-600">✅</span>}
+                        {aiTestResult.confidence > 0.4 && aiTestResult.confidence <= 0.7 && <span className="text-yellow-600">⚠️</span>}
+                        {aiTestResult.confidence <= 0.4 && <span className="text-red-600">❌</span>}
+                      </div>
+                      <p className="text-xs text-gray-600">{aiTestResult.reasoning}</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Default Template Toggle */}
