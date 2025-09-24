@@ -37,6 +37,21 @@ const AutomationsPageFixed = () => {
     return `template_${sanitizedEmail}_${sanitizedName}_${timestamp}`;
   };
 
+  // Fix templates that don't have IDs
+  const fixTemplateIds = (templates) => {
+    const userEmail = user?.email || 'unknown';
+    return templates.map(template => {
+      if (!template.id) {
+        console.log('🔧 Fixing template without ID:', template.name);
+        return {
+          ...template,
+          id: generateTemplateId(template.name, userEmail)
+        };
+      }
+      return template;
+    });
+  };
+
   // Load templates with proper error handling
   const loadTemplates = async () => {
     try {
@@ -56,7 +71,9 @@ const AutomationsPageFixed = () => {
           
           if (templateArray.length > 0) {
             console.log('✅ Loaded templates from localStorage:', templateArray.length);
-            setTemplates(templateArray);
+            // Fix any templates that don't have IDs
+            const fixedTemplates = fixTemplateIds(templateArray);
+            setTemplates(fixedTemplates);
             setLoading(false);
             return;
           }
@@ -265,19 +282,51 @@ const AutomationsPageFixed = () => {
     }
   };
 
-  // Handle delete template
-  const handleDeleteTemplate = async (templateId) => {
+  // Handle delete template - supports both template ID and template object
+  const handleDeleteTemplate = async (templateIdOrTemplate) => {
+    let templateId = templateIdOrTemplate;
+    let templateName = 'Unknown';
+    
+    // If we received a template object instead of just an ID
+    if (typeof templateIdOrTemplate === 'object' && templateIdOrTemplate !== null) {
+      templateId = templateIdOrTemplate.id;
+      templateName = templateIdOrTemplate.name || 'Unknown';
+    }
+    
     if (!templateId) {
-      console.error('❌ Cannot delete: templateId is null');
+      console.error('❌ Cannot delete: templateId is null or undefined');
+      
+      // Try to delete by name/index as fallback
+      const shouldForceDelete = confirm(`Error: Template "${templateName}" is missing an ID. Would you like to force delete it anyway? This will remove it from the list but may not clean up all data.`);
+      
+      if (shouldForceDelete) {
+        try {
+          console.log('🗑️ Force deleting template without ID:', templateName);
+          
+          // Remove from local state by name
+          setTemplates(prev => prev.filter(t => t.name !== templateName));
+          
+          // Close modal if it's open
+          setCustomizeModalOpen(false);
+          
+          console.log('✅ Template force deleted successfully');
+          return;
+        } catch (error) {
+          console.error('❌ Error force deleting template:', error);
+          alert('Error force deleting template. Please refresh the page and try again.');
+          return;
+        }
+      }
+      
       return;
     }
     
-    if (!confirm('Are you sure you want to delete this template? This action cannot be undone.')) {
+    if (!confirm(`Are you sure you want to delete the template "${templateName}"? This action cannot be undone.`)) {
       return;
     }
     
     try {
-      console.log('🗑️ Deleting template:', templateId);
+      console.log('🗑️ Deleting template:', templateId, templateName);
       
       // Remove from local state
       setTemplates(prev => prev.filter(t => t.id !== templateId));
@@ -300,6 +349,7 @@ const AutomationsPageFixed = () => {
       console.log('✅ Template deleted successfully');
     } catch (error) {
       console.error('❌ Error deleting template:', error);
+      alert('Error deleting template. Please try again.');
     }
   };
 
@@ -375,11 +425,11 @@ const AutomationsPageFixed = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {templates.map(template => (
                 <FlowCard
-                  key={template.id}
+                  key={template.id || template.name || Math.random()}
                   template={template}
                   onToggle={(status) => handleTemplateToggle(template.id, status)}
                   onCustomize={() => handleCustomize(template)}
-                  onDelete={() => handleDeleteTemplate(template.id)}
+                  onDelete={() => handleDeleteTemplate(template)}
                   updating={updating[template.id]}
                 />
               ))}
