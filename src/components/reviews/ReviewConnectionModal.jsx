@@ -249,11 +249,11 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                       }
                     }}
                     onBlur={() => {
-                      // Delay hiding suggestions to allow clicking
-                      setTimeout(() => {
-                        console.log('Hiding suggestions due to blur');
+                      // Only hide suggestions if no search results
+                      if (searchResults.length === 0) {
+                        console.log('Hiding suggestions due to blur - no results');
                         setShowSuggestions(false);
-                      }, 300);
+                      }
                     }}
                     className="w-full"
                   />
@@ -267,14 +267,20 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                 {/* Search Results Dropdown */}
                 {console.log('Render check - showSuggestions:', showSuggestions, 'searchResults.length:', searchResults.length)}
                 {showSuggestions && searchResults.length > 0 && (
-                  <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto">
+                  <div 
+                    className="absolute z-10 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto"
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
                     {searchResults.map((business, index) => (
                       <div 
                         key={index} 
                         className={`flex items-start justify-between p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
                           selectedBusiness?.place_id === business.place_id ? 'bg-blue-50 border-blue-200' : ''
                         }`}
-                        onClick={() => handleBusinessSelect(business)}
+                        onMouseDown={(e) => {
+                          e.preventDefault(); // Prevent input blur
+                          handleBusinessSelect(business);
+                        }}
                       >
                         <div className="flex items-start gap-3 flex-1 min-w-0">
                           <MapPin className="h-4 w-4 text-gray-500 mt-1 flex-shrink-0" />
