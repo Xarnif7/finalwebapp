@@ -9,6 +9,9 @@ const JobberConnectionCard = ({ userId, businessId }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionData, setConnectionData] = useState(null);
 
+  // Debug logging
+  console.log('🔧 JobberConnectionCard props:', { userId, businessId });
+
   // Check connection status on component mount
   useEffect(() => {
     checkConnectionStatus();
