@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
   Star, 
   Users, 
@@ -9,10 +10,42 @@ import {
   MessageCircle,
   BarChart3,
   Activity,
-  Clock
+  Clock,
+  CheckCircle,
+  X
 } from 'lucide-react';
 
 const DashboardOverview = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [showJobberSuccess, setShowJobberSuccess] = useState(false);
+
+  // Handle Jobber connection success
+  useEffect(() => {
+    const jobberConnected = searchParams.get('jobber_connected');
+    const jobberError = searchParams.get('jobber_error');
+    
+    if (jobberConnected === 'true') {
+      setShowJobberSuccess(true);
+      // Remove the parameter from URL
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('jobber_connected');
+      setSearchParams(newSearchParams, { replace: true });
+      
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        setShowJobberSuccess(false);
+      }, 5000);
+    }
+    
+    if (jobberError === 'true') {
+      // Handle error case if needed
+      console.error('Jobber connection failed');
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('jobber_error');
+      setSearchParams(newSearchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   // KPI Cards data
   const kpiCards = [
     {
@@ -121,6 +154,29 @@ const DashboardOverview = () => {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="mt-2 text-gray-600">Overview of your review management performance</p>
         </div>
+
+        {/* Jobber Connection Success Message */}
+        {showJobberSuccess && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <div>
+                  <h3 className="text-sm font-medium text-green-800">Jobber Connected Successfully!</h3>
+                  <p className="text-sm text-green-700 mt-1">
+                    Your Jobber account is now connected. You can now set up automated review requests for completed jobs.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowJobberSuccess(false)}
+                className="text-green-400 hover:text-green-600 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
