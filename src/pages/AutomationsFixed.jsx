@@ -348,10 +348,16 @@ const AutomationsPageFixed = () => {
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl font-semibold">Automation Templates</h2>
             <button
-              onClick={() => setCreateModalOpen(true)}
+              onClick={() => {
+                if (templates.length >= 9) {
+                  alert('Maximum of 9 templates allowed. Please edit or delete existing templates to create new ones.');
+                  return;
+                }
+                setCreateModalOpen(true);
+              }}
               className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
             >
-              Create Custom Template
+              Create Custom Template ({templates.length}/9)
             </button>
           </div>
           

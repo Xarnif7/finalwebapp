@@ -88,7 +88,7 @@ export default function FlowCard({
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200">
-      <CardContent className="p-8">
+      <CardContent className="pt-10 pb-8 px-8">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex-1">
