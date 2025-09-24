@@ -16,20 +16,20 @@ const JobberConnectionCard = ({ userId, businessId }) => {
 
   const checkConnectionStatus = async () => {
     try {
-      const response = await fetch(`/api/crm/jobber/status?business_id=${businessId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
-        }
-      });
+      const response = await fetch(`/api/crm/jobber/status?business_id=${businessId}`);
       
       if (response.ok) {
         const data = await response.json();
+        console.log('🔍 Jobber connection status check:', data);
         setConnectionStatus(data.connected ? 'connected' : 'disconnected');
         setConnectionData(data);
+      } else {
+        console.error('❌ Status check failed:', response.status);
+        setConnectionStatus('error');
       }
     } catch (error) {
-      console.error('Error checking Jobber connection status:', error);
-      setConnectionStatus('disconnected');
+      console.error('❌ Error checking Jobber connection status:', error);
+      setConnectionStatus('error');
     }
   };
 
@@ -43,7 +43,6 @@ const JobberConnectionCard = ({ userId, businessId }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
         },
         body: JSON.stringify({ 
           business_id: businessId,
@@ -114,7 +113,6 @@ const JobberConnectionCard = ({ userId, businessId }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
         },
         body: JSON.stringify({ business_id: businessId })
       });
@@ -122,9 +120,13 @@ const JobberConnectionCard = ({ userId, businessId }) => {
       if (response.ok) {
         setConnectionStatus('disconnected');
         setConnectionData(null);
+        console.log('✅ Successfully disconnected from Jobber');
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Disconnect failed:', errorData);
       }
     } catch (error) {
-      console.error('Error disconnecting from Jobber:', error);
+      console.error('❌ Error disconnecting from Jobber:', error);
     }
   };
 
@@ -193,7 +195,7 @@ const JobberConnectionCard = ({ userId, businessId }) => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open('https://app.getjobber.com', '_blank')}
+                  onClick={() => window.open('https://app.getjobber.com/app', '_blank')}
                   className="flex items-center space-x-2"
                 >
                   <ExternalLink className="h-4 w-4" />
