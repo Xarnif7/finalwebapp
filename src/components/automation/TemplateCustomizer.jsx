@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Mail, MessageSquare, Clock, Settings, ArrowRight, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, Wand2, Eye, User, Link, Building, Calendar, Star, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import ServiceTypeMapping from "./ServiceTypeMapping";
 
 export default function TemplateCustomizer({ 
   isOpen, 
@@ -154,6 +153,9 @@ export default function TemplateCustomizer({
         description: templateData.description || '',
         trigger_type: templateData.trigger_type || 'event',
         channels: templateData.channels || ['email'],
+        service_types: templateData.service_types || [],
+        is_default: templateData.is_default || false,
+        trigger_events: templateData.trigger_events || [],
         config_json: {
           message: currentMessage,
           delay_hours: templateData.config_json?.delay_hours ?? 24,
@@ -475,6 +477,9 @@ export default function TemplateCustomizer({
         description: formData.description,
         trigger_type: formData.trigger_type,
         channels: formData.channels,
+        service_types: formData.service_types || [],
+        is_default: formData.is_default || false,
+        trigger_events: formData.trigger_events || [],
         config_json: {
           ...template.config_json,
           ...formData.config_json
@@ -505,6 +510,9 @@ export default function TemplateCustomizer({
               custom_message: filterSwearWords(customMessage),
               message_subject: formData.config_json?.subject || '',
               ai_generated: aiGenerating || aiEnhancing,
+              service_types: formData.service_types || [],
+              is_default: formData.is_default || false,
+              trigger_events: formData.trigger_events || [],
               message_variables: {
                 customer_name: customMessage.includes('{{customer.name}}'),
                 review_link: customMessage.includes('{{review_link}}'),
@@ -685,33 +693,15 @@ export default function TemplateCustomizer({
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Basic Information</h3>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Template Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Enter template name"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="trigger">Trigger Type</Label>
-                <Select 
-                  value={formData.trigger_type} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, trigger_type: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="event">Event-based (Job Complete, Payment, etc.)</SelectItem>
-                    <SelectItem value="date_based">Date-based (Scheduled reminders)</SelectItem>
-                    <SelectItem value="manual">Manual trigger</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label htmlFor="name">Template Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter template name"
+                className="w-full"
+              />
             </div>
 
             <div>
@@ -908,19 +898,161 @@ export default function TemplateCustomizer({
             </Collapsible>
           </div>
 
-          {/* Service Type Mapping */}
+          {/* Service Type & Trigger Configuration */}
           {!isCreating && (
             <div className="space-y-4">
-              <ServiceTypeMapping
-                template={formData}
-                businessId={businessId}
-                onSave={(mappingData) => {
-                  setFormData(prev => ({
-                    ...prev,
-                    ...mappingData
-                  }));
-                }}
-              />
+              <h3 className="text-lg font-medium">Service Type & Trigger Configuration</h3>
+              
+              <div className="space-y-4">
+                {/* Service Types */}
+                <div>
+                  <Label htmlFor="serviceTypes">What types of services should trigger this template?</Label>
+                  <Input
+                    id="serviceTypes"
+                    value={formData.service_types?.join(', ') || ''}
+                    onChange={(e) => {
+                      const serviceTypes = e.target.value.split(',').map(s => s.trim()).filter(s => s);
+                      setFormData(prev => ({ ...prev, service_types: serviceTypes }));
+                    }}
+                    placeholder="e.g., Lawn Care, Tree Trimming, Hedge Trimming"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Enter the service types separated by commas. Leave empty to handle all service types.
+                  </p>
+                </div>
+
+                {/* Default Template Toggle */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isDefault"
+                    checked={formData.is_default || false}
+                    onChange={(e) => setFormData(prev => ({ ...prev, is_default: e.target.checked }))}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="isDefault" className="text-sm">
+                    Use this as the default template for service types that don't have a specific template
+                  </Label>
+                </div>
+
+                {/* Trigger Events */}
+                <div>
+                  <Label className="text-sm font-medium">Which events should trigger this template?</Label>
+                  <div className="space-y-2 mt-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="manualTrigger"
+                        checked={formData.trigger_events?.includes('manual') || false}
+                        onChange={(e) => {
+                          const triggers = formData.trigger_events || [];
+                          if (e.target.checked) {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              trigger_events: [...triggers, 'manual'].filter((v, i, a) => a.indexOf(v) === i)
+                            }));
+                          } else {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              trigger_events: triggers.filter(t => t !== 'manual')
+                            }));
+                          }
+                        }}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor="manualTrigger" className="text-sm">Manual Trigger - Triggered manually from customer tab</Label>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="jobberJobCompleted"
+                        checked={formData.trigger_events?.includes('jobber_job_completed') || false}
+                        onChange={(e) => {
+                          const triggers = formData.trigger_events || [];
+                          if (e.target.checked) {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              trigger_events: [...triggers, 'jobber_job_completed'].filter((v, i, a) => a.indexOf(v) === i)
+                            }));
+                          } else {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              trigger_events: triggers.filter(t => t !== 'jobber_job_completed')
+                            }));
+                          }
+                        }}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor="jobberJobCompleted" className="text-sm">Jobber Job Completed - Automatically triggered when Jobber job is completed</Label>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="housecallProJobCompleted"
+                        checked={formData.trigger_events?.includes('housecall_pro_job_completed') || false}
+                        onChange={(e) => {
+                          const triggers = formData.trigger_events || [];
+                          if (e.target.checked) {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              trigger_events: [...triggers, 'housecall_pro_job_completed'].filter((v, i, a) => a.indexOf(v) === i)
+                            }));
+                          } else {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              trigger_events: triggers.filter(t => t !== 'housecall_pro_job_completed')
+                            }));
+                          }
+                        }}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor="housecallProJobCompleted" className="text-sm">Housecall Pro Job Completed - Automatically triggered when Housecall Pro job is completed</Label>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="servicetitanJobCompleted"
+                        checked={formData.trigger_events?.includes('servicetitan_job_completed') || false}
+                        onChange={(e) => {
+                          const triggers = formData.trigger_events || [];
+                          if (e.target.checked) {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              trigger_events: [...triggers, 'servicetitan_job_completed'].filter((v, i, a) => a.indexOf(v) === i)
+                            }));
+                          } else {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              trigger_events: triggers.filter(t => t !== 'servicetitan_job_completed')
+                            }));
+                          }
+                        }}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor="servicetitanJobCompleted" className="text-sm">ServiceTitan Job Completed - Automatically triggered when ServiceTitan job is completed</Label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* How It Works Info Box */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <div className="w-5 h-5 text-blue-600 mt-0.5">ℹ️</div>
+                    <div>
+                      <h4 className="font-medium text-blue-900 mb-2">How Service Type Mapping Works</h4>
+                      <ul className="text-sm text-blue-800 space-y-1">
+                        <li>• <strong>Specific Service Types:</strong> Templates with matching service types are used first</li>
+                        <li>• <strong>Default Template:</strong> Used when no specific template matches the service type</li>
+                        <li>• <strong>Trigger Events:</strong> Only templates with matching trigger events will be activated</li>
+                        <li>• <strong>Jobber Integration:</strong> When a job is completed in Jobber, Blipp automatically finds the best matching template</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
