@@ -409,5 +409,3 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 };
 
 export default ReviewConnectionModal;
-
-export default ReviewConnectionModal;
