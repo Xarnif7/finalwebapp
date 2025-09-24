@@ -274,8 +274,8 @@ const DashboardRoutes = () => (
       <Route path="/automations" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Automations} name="Automations" /></ProtectedRoute>} />
       
       {/* Reviews Tab */}
-      <Route path="/reviews" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={ReviewInbox} name="ReviewInbox" /></ProtectedRoute>} />
-      <Route path="/reviews/inbox" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={ReviewInbox} name="ReviewInbox" /></ProtectedRoute>} />
+      <Route path="/reviews" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reviews} name="Reviews" /></ProtectedRoute>} />
+      <Route path="/reviews/inbox" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reviews} name="Reviews" /></ProtectedRoute>} />
       <Route path="/reviews/ai-suggestions" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reviews} name="Reviews" /></ProtectedRoute>} />
       <Route path="/reviews/sentiment-alerts" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reviews} name="Reviews" /></ProtectedRoute>} />
       
