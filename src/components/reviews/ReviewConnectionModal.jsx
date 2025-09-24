@@ -42,10 +42,24 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Get user's business_id first
+      const { data: businessData } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('created_by', user.email)
+        .limit(1)
+        .single();
+
+      if (!businessData?.id) {
+        setConnectedSources([]);
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('review_sources')
         .select('*')
-        .eq('created_by', user.email)
+        .eq('business_id', businessData.id)
         .eq('is_active', true);
 
       if (error) throw error;
@@ -114,36 +128,19 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get user's business_id from profiles table
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('business_id')
-        .eq('id', user.id)
+      // Get user's business_id from businesses table using user email
+      const { data: businessData } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('created_by', user.email)
+        .limit(1)
         .single();
 
-      let businessId = profile?.business_id;
-
-      if (!businessId) {
-        // If no business_id in profile, get it from businesses table
-        const { data: businessData } = await supabase
-          .from('businesses')
-          .select('id')
-          .eq('created_by', user.email)
-          .limit(1)
-          .single();
-
-        if (!businessData?.id) {
-          throw new Error('No business found for user');
-        }
-
-        businessId = businessData.id;
-
-        // Update profile with business_id
-        await supabase
-          .from('profiles')
-          .update({ business_id: businessId })
-          .eq('id', user.id);
+      if (!businessData?.id) {
+        throw new Error('No business found for user');
       }
+
+      const businessId = businessData.id;
 
       const { error } = await supabase
         .from('review_sources')
@@ -217,7 +214,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-5xl w-full max-h-[95vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[95vh] overflow-y-auto">
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -270,24 +267,24 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                     {searchResults.map((business, index) => (
                       <div 
                         key={index} 
-                        className={`flex items-center justify-between p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                        className={`flex items-start justify-between p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
                           selectedBusiness?.place_id === business.place_id ? 'bg-blue-50 border-blue-200' : ''
                         }`}
                         onClick={() => handleBusinessSelect(business)}
                       >
-                        <div className="flex items-center gap-3">
-                          <MapPin className="h-4 w-4 text-gray-500" />
-                          <div>
-                            <p className="font-medium">{business.name}</p>
-                            <p className="text-sm text-gray-500">{business.address}</p>
-                            <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <MapPin className="h-4 w-4 text-gray-500 mt-1 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 truncate">{business.name}</p>
+                            <p className="text-sm text-gray-500 mt-1 line-clamp-2">{business.address}</p>
+                            <div className="flex items-center gap-2 mt-2">
                               <span className="text-sm text-gray-600">
                                 {business.rating}/5 ({business.user_ratings_total} reviews)
                               </span>
                             </div>
                           </div>
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 ml-4 flex-shrink-0">
                           {selectedBusiness?.place_id === business.place_id ? 'Selected' : 'Click to select'}
                         </div>
                       </div>
@@ -343,9 +340,6 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                         </>
                       )}
                     </Button>
-                    <p className="text-xs text-gray-500 mt-2 text-center">
-                      This will import the 15 most recent reviews from this business
-                    </p>
                   </div>
                 )}
               </div>
