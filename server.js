@@ -9992,6 +9992,181 @@ app.put('/api/notifications/mark-all-read', async (req, res) => {
   }
 });
 
+// Reviews API Routes
+app.get('/api/reviews', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+    
+    if (!business_id) {
+      return res.status(400).json({ error: 'Business ID is required' });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: reviews, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('business_id', business_id)
+      .order('review_date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching reviews:', error);
+      return res.status(500).json({ error: 'Failed to fetch reviews' });
+    }
+
+    res.json({ reviews });
+  } catch (error) {
+    console.error('Reviews API error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/reviews', async (req, res) => {
+  try {
+    const { 
+      business_id, 
+      platform, 
+      customer_name, 
+      customer_email, 
+      customer_phone, 
+      rating, 
+      review_text, 
+      review_url,
+      platform_review_id 
+    } = req.body;
+
+    if (!business_id || !platform || !customer_name || !rating || !review_text) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: review, error } = await supabase
+      .from('reviews')
+      .insert({
+        business_id,
+        platform,
+        platform_review_id,
+        customer_name,
+        customer_email,
+        customer_phone,
+        rating: parseInt(rating),
+        review_text,
+        review_date: new Date().toISOString(),
+        review_url
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating review:', error);
+      return res.status(500).json({ error: 'Failed to create review' });
+    }
+
+    res.json({ review });
+  } catch (error) {
+    console.error('Create review API error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/reviews/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { response_status, response_text, response_url } = req.body;
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const updates = {};
+    if (response_status) updates.response_status = response_status;
+    if (response_text) updates.response_text = response_text;
+    if (response_url) updates.response_url = response_url;
+    
+    if (response_status === 'responded') {
+      updates.response_date = new Date().toISOString();
+    }
+
+    const { data: review, error } = await supabase
+      .from('reviews')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating review:', error);
+      return res.status(500).json({ error: 'Failed to update review' });
+    }
+
+    res.json({ review });
+  } catch (error) {
+    console.error('Update review API error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/ai/generate-review-response', async (req, res) => {
+  try {
+    const { review_text, rating, platform, business_name } = req.body;
+
+    if (!review_text || !rating || !business_name) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const systemPrompt = `You are a professional customer service representative writing a response to a customer review. 
+
+Business: ${business_name}
+Platform: ${platform}
+Rating: ${rating}/5 stars
+Review: "${review_text}"
+
+Guidelines:
+- Keep responses professional but warm and personal
+- Thank the customer by name if mentioned
+- For 5-star reviews: Express genuine gratitude and invite them back
+- For 4-star reviews: Thank them and mention you'd love to earn that 5th star
+- For 3-star reviews: Acknowledge their feedback and offer to improve
+- Keep responses concise (2-3 sentences max)
+- Match the platform's tone (Google = professional, Facebook = slightly casual)
+- Don't mention specific issues unless the customer did
+- Always invite them to return for future services
+
+Generate a perfect response:`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: 'Generate a response to this review' }
+        ],
+        max_tokens: 150,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const aiResponse = data.choices[0].message.content.trim();
+
+    res.json({ 
+      response: aiResponse,
+      confidence: 'high'
+    });
+  } catch (error) {
+    console.error('AI review response error:', error);
+    res.status(500).json({ error: 'Failed to generate AI response' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Local API server running on http://localhost:${PORT}`);
