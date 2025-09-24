@@ -11,10 +11,25 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('Jobber connect request received:', { body: req.body });
+    
     const { businessId, userId } = req.body;
 
     if (!businessId || !userId) {
+      console.error('Missing required parameters:', { businessId, userId });
       return res.status(400).json({ error: 'Business ID and User ID are required' });
+    }
+
+    // Check if environment variables are set
+    if (!process.env.JOBBER_CLIENT_ID || !process.env.JOBBER_REDIRECT_URI) {
+      console.error('Missing Jobber environment variables:', {
+        clientId: !!process.env.JOBBER_CLIENT_ID,
+        redirectUri: !!process.env.JOBBER_REDIRECT_URI
+      });
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Jobber integration not configured properly' 
+      });
     }
 
     // Generate OAuth state for security
