@@ -6,6 +6,7 @@ import ReviewsFilters from '../components/reviews/ReviewsFilters';
 import ReviewsList from '../components/reviews/ReviewsList';
 import ReviewDetailPanel from '../components/reviews/ReviewDetailPanel';
 import { ReviewImporter } from '../components/reviews/ReviewImporter';
+import ReviewPlatformConnector from '../components/reviews/ReviewPlatformConnector';
 
 export default function Reviews() {
   const [reviews, setReviews] = useState([]);
@@ -13,6 +14,7 @@ export default function Reviews() {
   const [activeTab, setActiveTab] = useState('inbox');
   const [loading, setLoading] = useState(true);
   const [businessId, setBusinessId] = useState(null);
+  const [showPlatformConnector, setShowPlatformConnector] = useState(false);
   
   // Filters state
   const [filters, setFilters] = useState({
@@ -177,6 +179,11 @@ export default function Reviews() {
     // TODO: Implement escalate functionality
   };
 
+  const handlePlatformsConnected = () => {
+    // Refresh reviews when platforms are connected
+    loadReviews();
+  };
+
   if (activeTab === 'requests') {
     return (
       <div className="h-screen bg-gray-50 flex flex-col">
@@ -246,12 +253,23 @@ export default function Reviews() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Reviews</h1>
-            <p className="text-gray-600 mt-1">Professional review management system</p>
-          </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Reviews</h1>
+              <p className="text-gray-600 mt-1">Professional review management system</p>
+            </div>
+            <div className="flex items-center space-x-4">
+              {reviews.length > 0 && (
+                <button
+                  onClick={() => setShowPlatformConnector(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  Connect Platforms
+                </button>
+              )}
             <button
               onClick={() => setActiveTab('inbox')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -285,9 +303,35 @@ export default function Reviews() {
         />
 
         {/* Main Content */}
-        {reviews.length === 0 && !loading ? (
-          <div className="flex items-center justify-center h-96">
-            <ReviewImporter onReviewAdded={handleReviewAdded} />
+        {showPlatformConnector ? (
+          <div className="max-w-4xl mx-auto">
+            <ReviewPlatformConnector onPlatformsConnected={handlePlatformsConnected} />
+          </div>
+        ) : reviews.length === 0 && !loading ? (
+          <div className="flex flex-col items-center justify-center h-96 space-y-4">
+            <div className="text-center">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No reviews yet</h3>
+              <p className="text-gray-600 mb-4">
+                Connect your review platforms to automatically import reviews, or add them manually.
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowPlatformConnector(true)}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              >
+                Connect Review Platforms
+              </button>
+              <button
+                onClick={() => setShowPlatformConnector(false)}
+                className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              >
+                Add Reviews Manually
+              </button>
+            </div>
+            <div className="mt-4">
+              <ReviewImporter onReviewAdded={handleReviewAdded} />
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-12 gap-6 h-[calc(100vh-300px)]">
