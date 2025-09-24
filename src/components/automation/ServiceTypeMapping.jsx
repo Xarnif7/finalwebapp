@@ -22,7 +22,7 @@ const ServiceTypeMapping = ({ template, onSave, businessId }) => {
   }, [template]);
 
   const addServiceType = () => {
-    if (newServiceType.trim() && !serviceTypes.includes(newServiceType.trim())) {
+    if (newServiceType.trim() && serviceTypes && Array.isArray(serviceTypes) && !serviceTypes.includes(newServiceType.trim())) {
       setServiceTypes([...serviceTypes, newServiceType.trim()]);
       setNewServiceType('');
     }
@@ -33,7 +33,7 @@ const ServiceTypeMapping = ({ template, onSave, businessId }) => {
   };
 
   const toggleTriggerEvent = (event) => {
-    if (triggerEvents.includes(event)) {
+    if (triggerEvents && Array.isArray(triggerEvents) && triggerEvents.includes(event)) {
       setTriggerEvents(triggerEvents.filter(e => e !== event));
     } else {
       setTriggerEvents([...triggerEvents, event]);
@@ -128,7 +128,7 @@ const ServiceTypeMapping = ({ template, onSave, businessId }) => {
               <div key={event.id} className="flex items-center space-x-3">
                 <Switch
                   id={event.id}
-                  checked={triggerEvents.includes(event.id)}
+                  checked={triggerEvents && Array.isArray(triggerEvents) && triggerEvents.includes(event.id)}
                   onCheckedChange={() => toggleTriggerEvent(event.id)}
                 />
                 <div className="flex-1">

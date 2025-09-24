@@ -71,7 +71,7 @@ export default function SequenceCreator({ isOpen, onClose, onSequenceCreated, bu
           id: Date.now() + index,
           channel: channel,
           delay: index === 0 ? 0 : parseInt(selectedTrigger.recommendedTiming.split(' ')[0]),
-          delayUnit: selectedTrigger.recommendedTiming.includes('hour') ? 'hours' : 'days',
+          delayUnit: selectedTrigger.recommendedTiming && selectedTrigger.recommendedTiming.includes('hour') ? 'hours' : 'days',
           message: selectedTrigger.recommendedMessage,
           subject: channel === 'email' ? 'Thank you for your business!' : ''
         }))

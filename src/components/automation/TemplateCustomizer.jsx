@@ -805,9 +805,9 @@ export default function TemplateCustomizer({
             <div className="flex gap-2 flex-wrap">
               <Button
                 type="button"
-                variant={formData.channels.includes('email') ? 'default' : 'outline'}
+                variant={formData.channels && formData.channels.includes('email') ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => formData.channels.includes('email') ? removeChannel('email') : addChannel('email')}
+                onClick={() => formData.channels && formData.channels.includes('email') ? removeChannel('email') : addChannel('email')}
                 className="flex items-center gap-2"
               >
                 <Mail className="h-4 w-4" />
@@ -816,9 +816,9 @@ export default function TemplateCustomizer({
               
               <Button
                 type="button"
-                variant={formData.channels.includes('sms') ? 'default' : 'outline'}
+                variant={formData.channels && formData.channels.includes('sms') ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => formData.channels.includes('sms') ? removeChannel('sms') : addChannel('sms')}
+                onClick={() => formData.channels && formData.channels.includes('sms') ? removeChannel('sms') : addChannel('sms')}
                 className="flex items-center gap-2"
               >
                 <MessageSquare className="h-4 w-4" />
@@ -1061,7 +1061,7 @@ export default function TemplateCustomizer({
                       <input
                         type="checkbox"
                         id="manualTrigger"
-                        checked={formData.trigger_events?.includes('manual') || false}
+                        checked={formData.trigger_events && Array.isArray(formData.trigger_events) && formData.trigger_events.includes('manual') || false}
                         onChange={(e) => {
                           const triggers = formData.trigger_events || [];
                           if (e.target.checked) {
@@ -1085,7 +1085,7 @@ export default function TemplateCustomizer({
                       <input
                         type="checkbox"
                         id="jobberJobCompleted"
-                        checked={formData.trigger_events?.includes('jobber_job_completed') || false}
+                        checked={formData.trigger_events && Array.isArray(formData.trigger_events) && formData.trigger_events.includes('jobber_job_completed') || false}
                         onChange={(e) => {
                           const triggers = formData.trigger_events || [];
                           if (e.target.checked) {
@@ -1109,7 +1109,7 @@ export default function TemplateCustomizer({
                       <input
                         type="checkbox"
                         id="housecallProJobCompleted"
-                        checked={formData.trigger_events?.includes('housecall_pro_job_completed') || false}
+                        checked={formData.trigger_events && Array.isArray(formData.trigger_events) && formData.trigger_events.includes('housecall_pro_job_completed') || false}
                         onChange={(e) => {
                           const triggers = formData.trigger_events || [];
                           if (e.target.checked) {
@@ -1133,7 +1133,7 @@ export default function TemplateCustomizer({
                       <input
                         type="checkbox"
                         id="servicetitanJobCompleted"
-                        checked={formData.trigger_events?.includes('servicetitan_job_completed') || false}
+                        checked={formData.trigger_events && Array.isArray(formData.trigger_events) && formData.trigger_events.includes('servicetitan_job_completed') || false}
                         onChange={(e) => {
                           const triggers = formData.trigger_events || [];
                           if (e.target.checked) {
