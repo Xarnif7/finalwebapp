@@ -8652,15 +8652,23 @@ app.post('/api/crm/jobber/connect', async (req, res) => {
 
 app.get('/api/crm/jobber/callback', async (req, res) => {
   try {
+    console.log('Jobber callback received:', req.query);
     const { code, state } = req.query;
     
     if (!code) {
+      console.error('No authorization code received');
       return res.status(400).json({ error: 'Authorization code missing' });
+    }
+
+    if (!state) {
+      console.error('No state parameter received');
+      return res.status(400).json({ error: 'State parameter missing' });
     }
 
     // Decode state to get business_id
     const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
     const { business_id } = stateData;
+    console.log('Decoded state data:', stateData);
 
     // Exchange code for tokens
     const tokenResponse = await fetch('https://api.getjobber.com/api/oauth/token', {
@@ -8678,6 +8686,8 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
     });
 
     const tokens = await tokenResponse.json();
+    console.log('Token exchange response status:', tokenResponse.status);
+    console.log('Token exchange response:', tokens);
     
     if (!tokenResponse.ok) {
       console.error('Token exchange failed:', tokens);
@@ -8704,7 +8714,8 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
     // Set up webhook
     await setupJobberWebhook(tokens.access_token, business_id);
 
-    res.json({ success: true, message: 'Jobber connected successfully' });
+    // Redirect back to the app with success message
+    res.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/?jobber_connected=true`);
 
   } catch (error) {
     console.error('Jobber callback error:', error);
