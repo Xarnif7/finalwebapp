@@ -8721,7 +8721,7 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
 
     // Redirect back to the app with success message
     const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/dashboard?jobber_connected=true`;
-    console.log('Redirecting to:', redirectUrl);
+    console.log('Jobber OAuth completed successfully, redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
 
   } catch (error) {
@@ -8733,7 +8733,8 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
     });
     
     // Redirect to dashboard with error message instead of JSON
-    const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/dashboard?jobber_error=true`;
+    const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/dashboard?jobber_error=true&error=${encodeURIComponent(error.message)}`;
+    console.log('Jobber OAuth failed, redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
   }
 });

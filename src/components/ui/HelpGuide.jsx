@@ -142,8 +142,8 @@ const HelpGuide = ({ isOpen, onClose }) => {
                       ))}
                     </ul>
 
-                    <Button
-                      className={`bg-gradient-to-r ${step.gradient} hover:scale-105 text-white transition-transform duration-200 hover:opacity-90`}
+                    <button
+                      className={`bg-gradient-to-r ${step.gradient} hover:scale-105 text-white transition-transform duration-200 hover:opacity-90 px-4 py-2 rounded-lg font-medium flex items-center gap-2`}
                       onClick={() => {
                         // Navigate to the correct tab
                         navigate(createPageUrl(step.route));
@@ -152,7 +152,7 @@ const HelpGuide = ({ isOpen, onClose }) => {
                     >
                       {step.action}
                       <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
+                    </button>
                   </div>
                 </div>
               </div>

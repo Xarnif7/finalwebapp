@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useBusiness } from '@/hooks/useBusiness';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import FlowCard from '@/components/automation/FlowCard';
 import ActiveSequences from '@/components/automation/ActiveSequences';
 import TemplateCustomizer from '@/components/automation/TemplateCustomizer';
@@ -10,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 const AutomationsPageFixed = () => {
   const { user } = useAuth();
   const { business } = useBusiness();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [templates, setTemplates] = useState([]);
   const [activeSequences, setActiveSequences] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +20,14 @@ const AutomationsPageFixed = () => {
   const [customizeModalOpen, setCustomizeModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  
+  // Get current tab from URL or default to 'templates'
+  const currentTab = searchParams.get('tab') || 'templates';
+  
+  // Handle tab change
+  const handleTabChange = (value) => {
+    setSearchParams({ tab: value });
+  };
 
   // Generate unique template IDs
   const generateTemplateId = (name, userEmail) => {
@@ -326,7 +337,7 @@ const AutomationsPageFixed = () => {
         <p className="text-gray-600">Manage your email automation sequences</p>
       </div>
 
-      <Tabs defaultValue="templates" className="w-full">
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="active">Active Sequences</TabsTrigger>
