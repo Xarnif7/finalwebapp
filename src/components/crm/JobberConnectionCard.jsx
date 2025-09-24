@@ -97,8 +97,9 @@ const JobberConnectionCard = ({ userId, businessId }) => {
             
             // Check immediately if popup was blocked
             if (!oauthWindow || oauthWindow.closed || typeof oauthWindow.closed == 'undefined') {
-              console.log('⚠️ Popup blocked, redirecting current window');
-              window.location.href = data.authUrl;
+              console.log('⚠️ Popup blocked, redirecting current window to OAuth URL');
+              // Force navigation to OAuth URL
+              window.location.assign(data.authUrl);
               return;
             }
             
@@ -106,6 +107,7 @@ const JobberConnectionCard = ({ userId, businessId }) => {
             
             // Add a listener to detect if popup navigates away from OAuth
             const checkPopupUrl = () => {
+              console.log('🔍 Checking popup URL...');
               try {
                 if (oauthWindow.closed) {
                   console.log('🔄 Popup was closed by user');
@@ -117,9 +119,15 @@ const JobberConnectionCard = ({ userId, businessId }) => {
                 
                 // If popup navigated to myblipp.com instead of staying on Jobber OAuth
                 if (currentUrl.includes('myblipp.com') && !currentUrl.includes('api.getjobber.com')) {
-                  console.log('⚠️ Popup redirected to Blipp instead of Jobber OAuth, closing and redirecting current window');
+                  console.log('⚠️ Popup redirected to Blipp instead of Jobber OAuth, closing popup');
                   oauthWindow.close();
-                  window.location.href = data.authUrl;
+                  // Don't redirect current window if we're already on myblipp.com
+                  if (!window.location.href.includes('api.getjobber.com')) {
+                    console.log('🔄 Current window is not on OAuth page, redirecting to OAuth URL');
+                    window.location.href = data.authUrl;
+                  } else {
+                    console.log('✅ Current window is already on OAuth page');
+                  }
                   return;
                 }
                 
