@@ -61,12 +61,15 @@ const JobberConnectionCard = ({ userId, businessId }) => {
   };
 
   const handleConnect = async () => {
+    console.log('🚀 handleConnect called, current status:', connectionStatus);
+    
     // If already connected, don't start OAuth flow
     if (connectionStatus === 'connected') {
       console.log('✅ Already connected to Jobber, skipping OAuth flow');
       return;
     }
 
+    console.log('🔄 Starting OAuth flow...');
     setIsConnecting(true);
     setConnectionStatus('connecting');
 
@@ -90,92 +93,9 @@ const JobberConnectionCard = ({ userId, businessId }) => {
         if (data.authUrl) {
           console.log('🚀 Opening Jobber OAuth URL:', data.authUrl);
           
-          // Try popup first, with immediate fallback to direct navigation
-          try {
-            console.log('🚀 Attempting to open popup with URL:', data.authUrl);
-            const oauthWindow = window.open(data.authUrl, 'jobber-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
-            
-            // Check immediately if popup was blocked
-            if (!oauthWindow || oauthWindow.closed || typeof oauthWindow.closed == 'undefined') {
-              console.log('⚠️ Popup blocked, redirecting current window to OAuth URL');
-              // Force navigation to OAuth URL
-              window.location.assign(data.authUrl);
-              return;
-            }
-            
-            console.log('✅ Popup window created successfully');
-            
-            // Add a listener to detect if popup navigates away from OAuth
-            const checkPopupUrl = () => {
-              console.log('🔍 Checking popup URL...');
-              try {
-                if (oauthWindow.closed) {
-                  console.log('🔄 Popup was closed by user');
-                  return;
-                }
-                
-                const currentUrl = oauthWindow.location.href;
-                console.log('🔍 Popup current URL:', currentUrl);
-                
-                // If popup navigated to myblipp.com instead of staying on Jobber OAuth
-                if (currentUrl.includes('myblipp.com') && !currentUrl.includes('api.getjobber.com')) {
-                  console.log('⚠️ Popup redirected to Blipp instead of Jobber OAuth, closing popup');
-                  oauthWindow.close();
-                  // Don't redirect current window if we're already on myblipp.com
-                  if (!window.location.href.includes('api.getjobber.com')) {
-                    console.log('🔄 Current window is not on OAuth page, redirecting to OAuth URL');
-                    window.location.href = data.authUrl;
-                  } else {
-                    console.log('✅ Current window is already on OAuth page');
-                  }
-                  return;
-                }
-                
-                // If still on Jobber OAuth domain, keep checking
-                if (currentUrl.includes('api.getjobber.com') || currentUrl.includes('getjobber.com')) {
-                  setTimeout(checkPopupUrl, 1000);
-                }
-              } catch (crossOriginError) {
-                // This is normal - we can't access the URL due to cross-origin restrictions
-                console.log('✅ Popup is on OAuth domain (cross-origin access blocked - this is normal)');
-                // Keep checking if popup is still open
-                if (!oauthWindow.closed) {
-                  setTimeout(checkPopupUrl, 1000);
-                }
-              }
-            };
-            
-            // Start monitoring the popup URL
-            setTimeout(checkPopupUrl, 1000);
-            
-            // Check again after a short delay to catch popups that close immediately
-            setTimeout(() => {
-              if (!oauthWindow || oauthWindow.closed || typeof oauthWindow.closed == 'undefined') {
-                console.log('⚠️ Popup closed immediately, redirecting current window');
-                window.location.href = data.authUrl;
-                return;
-              }
-              
-              // Check if popup was redirected to wrong URL
-              try {
-                if (oauthWindow.location.href && !oauthWindow.location.href.includes('api.getjobber.com')) {
-                  console.log('⚠️ Popup redirected to wrong URL:', oauthWindow.location.href);
-                  oauthWindow.close();
-                  window.location.href = data.authUrl;
-                  return;
-                }
-              } catch (crossOriginError) {
-                // Can't access popup URL due to cross-origin, this is normal for OAuth
-                console.log('✅ Popup is on OAuth domain (cross-origin access blocked - this is normal)');
-              }
-            }, 1000);
-            
-            console.log('✅ Popup opened successfully');
-          } catch (popupError) {
-            console.log('⚠️ Popup error, redirecting current window:', popupError.message);
-            window.location.href = data.authUrl;
-            return;
-          }
+          // Always redirect current window to OAuth URL (no popup)
+          console.log('🔄 Redirecting current window to OAuth URL');
+          window.location.assign(data.authUrl);
           
           // Poll for connection completion
           pollForConnection();
