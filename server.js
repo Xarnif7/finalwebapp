@@ -10831,23 +10831,30 @@ app.post('/api/reviews/search-business', async (req, res) => {
   try {
     const { query, platform } = req.body;
     
+    console.log('Search request:', { query, platform });
+    
     if (!query) {
       return res.status(400).json({ error: 'Query is required' });
     }
 
     // Use Google Places API to search for businesses
     const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
+    console.log('Google API Key available:', !!googleApiKey);
+    
     if (!googleApiKey) {
       return res.status(500).json({ error: 'Google Places API key not configured' });
     }
 
-    const response = await fetch(
-      `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${googleApiKey}`
-    );
+    const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${googleApiKey}`;
+    console.log('Search URL:', searchUrl);
 
+    const response = await fetch(searchUrl);
     const data = await response.json();
     
+    console.log('Google API Response:', { status: data.status, resultCount: data.results?.length });
+
     if (data.status !== 'OK') {
+      console.error('Google Places API error:', data.status, data.error_message);
       return res.status(400).json({ error: 'Google Places API error: ' + data.status });
     }
 
@@ -10860,6 +10867,7 @@ app.post('/api/reviews/search-business', async (req, res) => {
       url: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`
     }));
 
+    console.log('Formatted results:', results.length);
     res.json({ success: true, results });
   } catch (error) {
     console.error('Error searching business:', error);

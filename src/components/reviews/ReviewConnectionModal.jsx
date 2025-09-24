@@ -76,14 +76,12 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
     setShowSuggestions(true);
     
     try {
-      // Get auth token for API calls
-      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Searching for:', searchQuery);
       
       const response = await fetch('/api/reviews/search-business', {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ 
           query: searchQuery,
@@ -92,8 +90,11 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       });
 
       const data = await response.json();
+      console.log('Search response:', data);
+      
       if (data.success) {
         setSearchResults(data.results || []);
+        console.log('Search results:', data.results?.length);
       } else {
         console.error('Search failed:', data.error);
         setSearchResults([]);
