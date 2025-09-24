@@ -39,33 +39,19 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 
   const loadConnectedSources = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get user's business_id first
-      const { data: businessData } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('created_by', user.email)
-        .limit(1)
-        .single();
-
-      if (!businessData?.id) {
+      // Use API endpoint instead of direct database access
+      const response = await fetch('/api/reviews/sources');
+      const data = await response.json();
+      
+      if (data.success) {
+        setConnectedSources(data.sources || []);
+      } else {
+        console.error('Error loading connected sources:', data.error);
         setConnectedSources([]);
-        setIsLoading(false);
-        return;
       }
-
-      const { data, error } = await supabase
-        .from('review_sources')
-        .select('*')
-        .eq('business_id', businessData.id)
-        .eq('is_active', true);
-
-      if (error) throw error;
-      setConnectedSources(data || []);
     } catch (error) {
       console.error('Error loading connected sources:', error);
+      setConnectedSources([]);
     } finally {
       setIsLoading(false);
     }
@@ -126,15 +112,22 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   const connectBusiness = async (business) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
 
       // Get user's business_id from businesses table using user email
-      const { data: businessData } = await supabase
+      const { data: businessData, error: businessError } = await supabase
         .from('businesses')
         .select('id')
         .eq('created_by', user.email)
         .limit(1)
         .single();
+
+      if (businessError) {
+        console.error('Error getting business data:', businessError);
+        throw new Error('Failed to get business information');
+      }
 
       if (!businessData?.id) {
         throw new Error('No business found for user');
@@ -214,7 +207,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[95vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-6xl w-full h-[90vh] overflow-y-auto">
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -263,7 +256,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 
                 {/* Search Results Dropdown */}
                 {showSuggestions && searchResults.length > 0 && (
-                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
+                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto">
                     {searchResults.map((business, index) => (
                       <div 
                         key={index} 

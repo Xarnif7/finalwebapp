@@ -10573,6 +10573,42 @@ Generate a perfect response:`;
 });
 
 // Start server
+// Get connected review sources
+app.get('/api/reviews/sources', async (req, res) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get user's business_id from businesses table
+    const { data: businessData } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('created_by', user.email)
+      .limit(1)
+      .single();
+
+    if (!businessData?.id) {
+      return res.json({ success: true, sources: [] });
+    }
+
+    const { data, error } = await supabase
+      .from('review_sources')
+      .select('*')
+      .eq('business_id', businessData.id)
+      .eq('is_active', true);
+
+    if (error) throw error;
+
+    res.json({ success: true, sources: data || [] });
+  } catch (error) {
+    console.error('Error fetching review sources:', error);
+    res.status(500).json({ error: 'Failed to fetch review sources' });
+  }
+});
+
 // Reviews API endpoints
 app.get('/api/reviews', async (req, res) => {
   try {
