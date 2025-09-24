@@ -8790,9 +8790,71 @@ app.get('/api/crm/jobber/status', async (req, res) => {
       return res.status(500).json({ error: 'Database query failed' });
     }
 
+    if (!connection) {
+      return res.json({
+        connected: false,
+        connection: null
+      });
+    }
+
+    // Check if token is expired
+    if (connection.token_expires_at) {
+      const expiresAt = new Date(connection.token_expires_at);
+      const now = new Date();
+      
+      if (now >= expiresAt) {
+        console.log('Jobber token expired, marking as disconnected');
+        // Delete expired connection
+        await supabase
+          .from('crm_connections')
+          .delete()
+          .eq('id', connection.id);
+        
+        return res.json({
+          connected: false,
+          connection: null
+        });
+      }
+    }
+
+    // Test the connection by making a simple API call to Jobber
+    try {
+      const testResponse = await fetch('https://api.getjobber.com/api/users/me', {
+        headers: {
+          'Authorization': `Bearer ${connection.access_token}`
+        }
+      });
+      
+      if (!testResponse.ok) {
+        console.log('Jobber API test failed, marking as disconnected');
+        // Delete invalid connection
+        await supabase
+          .from('crm_connections')
+          .delete()
+          .eq('id', connection.id);
+        
+        return res.json({
+          connected: false,
+          connection: null
+        });
+      }
+    } catch (testError) {
+      console.log('Jobber API test error, marking as disconnected:', testError.message);
+      // Delete invalid connection
+      await supabase
+        .from('crm_connections')
+        .delete()
+        .eq('id', connection.id);
+      
+      return res.json({
+        connected: false,
+        connection: null
+      });
+    }
+
     res.json({
-      connected: !!connection,
-      connection: connection || null
+      connected: true,
+      connection: connection
     });
 
   } catch (error) {
