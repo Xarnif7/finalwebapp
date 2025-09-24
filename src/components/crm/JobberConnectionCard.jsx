@@ -59,12 +59,23 @@ const JobberConnectionCard = ({ userId, businessId }) => {
         
         if (data.authUrl) {
           console.log('🚀 Opening Jobber OAuth URL:', data.authUrl);
-          // Open OAuth flow in new window
-          const oauthWindow = window.open(data.authUrl, 'jobber-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
           
-          if (!oauthWindow) {
-            console.error('❌ Popup blocked! Please allow popups for this site');
-            throw new Error('Popup blocked. Please allow popups and try again.');
+          // Try popup first, fallback to direct navigation if blocked
+          let oauthWindow;
+          try {
+            oauthWindow = window.open(data.authUrl, 'jobber-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+            
+            if (!oauthWindow || oauthWindow.closed || typeof oauthWindow.closed == 'undefined') {
+              console.log('⚠️ Popup blocked, redirecting current window');
+              // If popup is blocked, redirect the current window
+              window.location.href = data.authUrl;
+              return; // Exit early since we're redirecting
+            }
+          } catch (popupError) {
+            console.log('⚠️ Popup failed, redirecting current window:', popupError.message);
+            // If popup fails, redirect the current window
+            window.location.href = data.authUrl;
+            return; // Exit early since we're redirecting
           }
           
           // Poll for connection completion
