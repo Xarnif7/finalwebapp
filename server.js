@@ -8769,12 +8769,36 @@ app.get('/api/crm/jobber/status', async (req, res) => {
     }
 
     // Check if crm_connections table exists first
-    const { data: connection, error } = await supabase
+    // First try to find connection for the specific business ID
+    let { data: connection, error } = await supabase
       .from('crm_connections')
       .select('*')
       .eq('business_id', business_id)
       .eq('crm_type', 'jobber')
       .single();
+
+    // If no connection found for this business ID, check if there's any Jobber connection
+    // (in case business ID changed between sessions)
+    if (error && error.code === 'PGRST116') {
+      console.log('No connection found for specific business_id, checking for any Jobber connection...');
+      const { data: anyConnection, error: anyError } = await supabase
+        .from('crm_connections')
+        .select('*')
+        .eq('crm_type', 'jobber')
+        .single();
+      
+      if (!anyError && anyConnection) {
+        console.log('Found existing Jobber connection for different business_id, updating...');
+        connection = anyConnection;
+        error = null;
+        
+        // Update the connection to use the correct business_id
+        await supabase
+          .from('crm_connections')
+          .update({ business_id })
+          .eq('id', connection.id);
+      }
+    }
 
     console.log('Database query result:', { connection, error });
 
