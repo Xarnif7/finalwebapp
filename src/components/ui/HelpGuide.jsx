@@ -28,7 +28,7 @@ const HelpGuide = ({ isOpen, onClose }) => {
       ],
       action: "Go to Customers",
       gradient: "from-blue-500 to-cyan-500",
-      route: "Clients"
+      route: "customers"
     },
     {
       number: 2,
@@ -42,7 +42,7 @@ const HelpGuide = ({ isOpen, onClose }) => {
       ],
       action: "Go to Automations",
       gradient: "from-purple-500 to-pink-500",
-      route: "AutomatedRequests"
+      route: "automated-requests"
     },
     {
       number: 3,
@@ -56,7 +56,7 @@ const HelpGuide = ({ isOpen, onClose }) => {
       ],
       action: "Go to Reviews",
       gradient: "from-green-500 to-emerald-500",
-      route: "ReviewInbox"
+      route: "review-inbox"
     },
     {
       number: 4,
@@ -70,7 +70,7 @@ const HelpGuide = ({ isOpen, onClose }) => {
       ],
       action: "Go to Analytics",
       gradient: "from-orange-500 to-red-500",
-      route: "Analytics"
+      route: "analytics"
     },
     {
       number: 5,
@@ -84,7 +84,7 @@ const HelpGuide = ({ isOpen, onClose }) => {
       ],
       action: "Go to Conversations",
       gradient: "from-pink-500 to-rose-500",
-      route: "Conversations"
+      route: "conversations"
     }
   ];
 
@@ -143,7 +143,7 @@ const HelpGuide = ({ isOpen, onClose }) => {
                     </ul>
 
                     <Button
-                      className={`bg-gradient-to-r ${step.gradient} hover:scale-105 text-white transition-transform duration-200`}
+                      className={`bg-gradient-to-r ${step.gradient} hover:scale-105 text-white transition-transform duration-200 hover:opacity-90`}
                       onClick={() => {
                         // Navigate to the correct tab
                         navigate(createPageUrl(step.route));

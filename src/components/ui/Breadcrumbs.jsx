@@ -13,6 +13,7 @@ const Breadcrumbs = () => {
     '/dashboard': { name: 'Dashboard', icon: '🏠' },
     '/customers': { name: 'Customers', icon: '👥' },
     '/automated-requests': { name: 'Automations', icon: '⚡' },
+    '/automations': { name: 'Automations', icon: '⚡' },
     '/sequences': { name: 'Sequences', icon: '📋' },
     '/review-inbox': { name: 'Review Inbox', icon: '⭐' },
     '/conversations': { name: 'Conversations', icon: '💬' },
@@ -25,10 +26,13 @@ const Breadcrumbs = () => {
 
   // Define sub-route mappings for better breadcrumbs
   const subRouteMap = {
+    'active': { name: 'Active Sequences', icon: '📋' },
+    'templates': { name: 'Templates', icon: '📝' },
+    'overview': { name: 'Overview', icon: '📊' },
+    'activity': { name: 'Activity', icon: '⚡' },
     'active-sequences': { name: 'Active Sequences', icon: '📋' },
     'draft-sequences': { name: 'Draft Sequences', icon: '📝' },
     'completed-sequences': { name: 'Completed Sequences', icon: '✅' },
-    'templates': { name: 'Templates', icon: '📝' },
     'create-template': { name: 'Create Template', icon: '➕' },
     'edit-template': { name: 'Edit Template', icon: '✏️' },
     'customer-details': { name: 'Customer Details', icon: '👤' },
@@ -75,7 +79,7 @@ const Breadcrumbs = () => {
           name: segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' '),
           path: currentPath,
           icon: '📄',
-          isClickable: false
+          isClickable: true
         });
       }
     });
@@ -102,11 +106,7 @@ const Breadcrumbs = () => {
             variant={breadcrumb.isClickable ? "ghost" : "ghost"}
             size="sm"
             onClick={() => breadcrumb.isClickable && navigate(breadcrumb.path)}
-            className={`px-2 py-1 h-auto text-sm font-normal ${
-              breadcrumb.isClickable 
-                ? 'text-gray-800 hover:text-gray-900 hover:bg-gray-100' 
-                : 'text-gray-600 cursor-default'
-            }`}
+            className={`px-2 py-1 h-auto text-sm font-normal text-gray-800 hover:text-gray-900 hover:bg-gray-100`}
             disabled={!breadcrumb.isClickable}
           >
             <span className="mr-1">{breadcrumb.icon}</span>

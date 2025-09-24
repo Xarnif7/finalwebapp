@@ -8711,8 +8711,13 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
       return res.status(500).json({ error: 'Failed to store connection' });
     }
 
-    // Set up webhook
-    await setupJobberWebhook(tokens.access_token, business_id);
+    // Set up webhook (don't fail if this doesn't work)
+    try {
+      await setupJobberWebhook(tokens.access_token, business_id);
+      console.log('Jobber webhook setup completed');
+    } catch (webhookError) {
+      console.error('Webhook setup failed, but connection will still work:', webhookError);
+    }
 
     // Redirect back to the app with success message
     const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/dashboard?jobber_connected=true`;
