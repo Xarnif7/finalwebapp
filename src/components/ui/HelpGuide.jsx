@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { 
   ArrowRight, 
   Users, 
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react';
 
 const HelpGuide = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
 
   const steps = [
     {
@@ -141,10 +143,11 @@ const HelpGuide = ({ isOpen, onClose }) => {
                     </ul>
 
                     <Button
-                      className={`bg-gradient-to-r ${step.gradient} hover:opacity-90 text-white`}
+                      className={`bg-gradient-to-r ${step.gradient} hover:scale-105 text-white transition-transform duration-200`}
                       onClick={() => {
-                        // Navigate to the route
-                        window.location.href = `#${step.route.toLowerCase()}`;
+                        // Navigate to the correct tab
+                        navigate(createPageUrl(step.route));
+                        onClose(); // Close the help guide
                       }}
                     >
                       {step.action}
@@ -157,27 +160,15 @@ const HelpGuide = ({ isOpen, onClose }) => {
           })}
         </div>
 
-        {/* Footer */}
-        <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
-          <div className="text-center">
-            <h4 className="text-lg font-semibold text-gray-900 mb-2">
-              🎉 You're all set!
-            </h4>
-            <p className="text-gray-600 mb-6">
-              Complete these 5 steps to get the most out of Blipp and start growing your online reputation.
-            </p>
-          </div>
-        </div>
-
         {/* Contact Support Button */}
-        <div className="mt-6 flex justify-center">
+        <div className="mt-8">
           <Button
             variant="outline"
             size="lg"
             onClick={() => {
               alert('Please contact via email xarnif7@gmail.com for any immediate issues or problems.');
             }}
-            className="flex items-center px-8 py-3 text-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 border-0"
+            className="w-full flex items-center justify-center py-4 text-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 border-0 hover:scale-105 transition-transform duration-200"
           >
             💬 Contact Support
           </Button>
