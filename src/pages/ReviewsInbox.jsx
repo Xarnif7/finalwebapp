@@ -191,7 +191,7 @@ export default function ReviewsInbox() {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex">
+    <div className="flex-1 bg-gray-50 flex">
       {/* Left Sidebar - Reviews List */}
       <div className="w-1/3 bg-white border-r border-gray-200 flex flex-col">
         {/* Header */}

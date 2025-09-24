@@ -153,9 +153,9 @@ export default function ReviewsPage() {
   }
 
   return (
-    <div className="h-screen bg-gray-50">
+    <div className="h-screen bg-gray-50 flex flex-col">
       {/* Header with Tabs */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Reviews</h1>
@@ -189,12 +189,14 @@ export default function ReviewsPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1">
+      <div className="flex-1 flex">
         {activeTab === "inbox" ? (
           reviews.length > 0 ? (
             <ReviewsInbox />
           ) : (
-            <ReviewImporter businessId={business?.id} onReviewAdded={handleReviewAdded} />
+            <div className="flex-1 flex items-center justify-center">
+              <ReviewImporter businessId={business?.id} onReviewAdded={handleReviewAdded} />
+            </div>
           )
         ) : (
           <div className="p-6 space-y-8 max-w-7xl mx-auto">
