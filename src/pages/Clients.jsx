@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Users, TrendingUp, UserCheck, Search, Upload, Edit, Archive, Trash2, Calendar, Mail, Phone, MoreVertical, Send, PlayCircle, Clock } from "lucide-react";
+import { Plus, Users, TrendingUp, UserCheck, Search, Upload, Edit, Archive, Trash2, Calendar, Mail, Phone, MoreVertical, Send, PlayCircle, Clock, Settings } from "lucide-react";
 import { useCustomersData } from "@/hooks/useCustomersData";
 import CustomerFormModal from "../components/clients/CustomerFormModal";
 import { supabase } from "@/lib/supabase/browser";
@@ -11,7 +11,7 @@ import CsvImportDialog from "../components/clients/CsvImportDialog";
 import PageHeader from "@/components/ui/PageHeader";
 import { isFeatureEnabled } from "@/lib/featureFlags";
 import { toast } from "react-hot-toast";
-import ZapierCrmCard from "../components/zapier/ZapierCrmCard";
+import CrmConnectionModal from "../components/crm/CrmConnectionModal";
 import { useAuth } from "../components/auth/AuthProvider";
 import { useCurrentBusinessId } from "../lib/tenancy";
 import { useActiveTemplates } from "@/hooks/useActiveTemplates";
@@ -23,6 +23,7 @@ export default function ClientsPage() {
   const { activeTemplates, loading: templatesLoading } = useActiveTemplates();
   const [showAddForm, setShowAddForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showCrmConnection, setShowCrmConnection] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -470,9 +471,29 @@ export default function ClientsPage() {
         subtitle="Manage your customer relationships and track their information"
       />
       
-      {/* Zapier CRM Connection Card */}
+      {/* CRM Connection Card */}
       <div className="mb-6">
-        <ZapierCrmCard userId={user?.id} />
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
+                <Settings className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Connect CRM</h3>
+                <p className="text-sm text-gray-600">Automatically send review requests when jobs are completed</p>
+              </div>
+            </div>
+            
+            <Button
+              onClick={() => setShowCrmConnection(true)}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Connect CRM
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -919,6 +940,13 @@ export default function ClientsPage() {
         onOpenChange={setShowImport}
         onImport={handleImportCsv}
         loading={loading}
+      />
+
+      <CrmConnectionModal
+        isOpen={showCrmConnection}
+        onClose={() => setShowCrmConnection(false)}
+        userId={user?.id}
+        businessId={businessId}
       />
 
     </div>

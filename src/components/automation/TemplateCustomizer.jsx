@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Mail, MessageSquare, Clock, Settings, ArrowRight, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, Wand2, Eye, User, Link, Building, Calendar, Star, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import ServiceTypeMapping from "./ServiceTypeMapping";
 
 export default function TemplateCustomizer({ 
   isOpen, 
@@ -906,6 +907,22 @@ export default function TemplateCustomizer({
               </CollapsibleContent>
             </Collapsible>
           </div>
+
+          {/* Service Type Mapping */}
+          {!isCreating && (
+            <div className="space-y-4">
+              <ServiceTypeMapping
+                template={formData}
+                businessId={businessId}
+                onSave={(mappingData) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    ...mappingData
+                  }));
+                }}
+              />
+            </div>
+          )}
 
           {/* Visual Preview */}
           <div className="space-y-4">
