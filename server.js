@@ -8895,6 +8895,49 @@ app.delete('/api/crm/jobber/disconnect', async (req, res) => {
       return res.status(400).json({ error: 'Business ID required' });
     }
 
+    // First, get the access token to call appDisconnect mutation
+    const { data: connection } = await supabase
+      .from('crm_connections')
+      .select('access_token')
+      .eq('business_id', business_id)
+      .eq('crm_type', 'jobber')
+      .single();
+
+    // Call Jobber's appDisconnect mutation if we have a token
+    if (connection && connection.access_token) {
+      try {
+        const disconnectResponse = await fetch('https://api.getjobber.com/api/graphql', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${connection.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: `
+              mutation Disconnect {
+                appDisconnect {
+                  app {
+                    name
+                    author
+                  }
+                  userErrors {
+                    message
+                  }
+                }
+              }
+            `
+          })
+        });
+
+        const disconnectResult = await disconnectResponse.json();
+        console.log('Jobber appDisconnect result:', disconnectResult);
+      } catch (disconnectError) {
+        console.error('Failed to call Jobber appDisconnect:', disconnectError);
+        // Continue with local disconnect even if Jobber call fails
+      }
+    }
+
+    // Remove from our database
     const { error } = await supabase
       .from('crm_connections')
       .delete()
