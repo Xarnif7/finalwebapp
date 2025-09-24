@@ -29,8 +29,6 @@ const Breadcrumbs = () => {
   const subRouteMap = {
     'active': { name: 'Active Sequences', icon: '📋' },
     'templates': { name: 'Templates', icon: '📝' },
-    'overview': { name: 'Overview', icon: '📊' },
-    'activity': { name: 'Activity', icon: '⚡' },
     'active-sequences': { name: 'Active Sequences', icon: '📋' },
     'draft-sequences': { name: 'Draft Sequences', icon: '📝' },
     'completed-sequences': { name: 'Completed Sequences', icon: '✅' },

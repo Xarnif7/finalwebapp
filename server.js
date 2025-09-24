@@ -8695,6 +8695,17 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
     }
 
     // Store connection in database
+    const expiresIn = tokens.expires_in || 3600; // Default to 1 hour if not provided
+    const expiresAt = new Date(Date.now() + (expiresIn * 1000));
+    const connectedAt = new Date();
+    
+    console.log('Storing connection with dates:', {
+      expiresAt: expiresAt.toISOString(),
+      connectedAt: connectedAt.toISOString(),
+      expiresIn: expiresIn,
+      tokensReceived: Object.keys(tokens)
+    });
+    
     const { error: insertError } = await supabase
       .from('crm_connections')
       .upsert({
@@ -8702,8 +8713,8 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
         crm_type: 'jobber',
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
-        expires_at: new Date(Date.now() + (tokens.expires_in * 1000)).toISOString(),
-        connected_at: new Date().toISOString()
+        expires_at: expiresAt.toISOString(),
+        connected_at: connectedAt.toISOString()
       });
 
     if (insertError) {
