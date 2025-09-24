@@ -110,7 +110,7 @@ const JobberConnectionCard = ({ userId, businessId }) => {
   const handleDisconnect = async () => {
     try {
       const response = await fetch('/api/crm/jobber/disconnect', {
-        method: 'POST',
+        method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -122,8 +122,15 @@ const JobberConnectionCard = ({ userId, businessId }) => {
         setConnectionData(null);
         console.log('✅ Successfully disconnected from Jobber');
       } else {
-        const errorData = await response.json();
-        console.error('❌ Disconnect failed:', errorData);
+        const errorText = await response.text();
+        console.error('❌ Disconnect failed:', response.status, errorText);
+        // Try to parse as JSON if possible
+        try {
+          const errorData = JSON.parse(errorText);
+          console.error('❌ Parsed error:', errorData);
+        } catch (parseError) {
+          console.error('❌ Response is not JSON:', errorText);
+        }
       }
     } catch (error) {
       console.error('❌ Error disconnecting from Jobber:', error);
@@ -195,7 +202,7 @@ const JobberConnectionCard = ({ userId, businessId }) => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open('https://app.getjobber.com/app', '_blank')}
+                  onClick={() => window.open('https://app.getjobber.com', '_blank')}
                   className="flex items-center space-x-2"
                 >
                   <ExternalLink className="h-4 w-4" />
