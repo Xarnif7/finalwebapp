@@ -455,7 +455,7 @@ export default function TemplateCustomizer({
       let enhancedText = currentText;
       
       // Simple enhancement rules
-      if (currentText && !currentText.includes('{{customer.name}}')) {
+      if (currentText && typeof currentText === 'string' && !currentText.includes('{{customer.name}}')) {
         enhancedText = `{{customer.name}}, ${currentText}`;
       }
       
@@ -564,11 +564,11 @@ export default function TemplateCustomizer({
         custom_message: filterSwearWords(customMessage),
         ai_generated: aiGenerating || aiEnhancing,
         message_variables: {
-          customer_name: customMessage.includes('{{customer.name}}'),
-          review_link: customMessage.includes('{{review_link}}'),
-          business_name: customMessage.includes('{{business.name}}'),
-          service_date: customMessage.includes('{{service_date}}'),
-          amount: customMessage.includes('{{amount}}')
+          customer_name: customMessage && customMessage.includes('{{customer.name}}'),
+          review_link: customMessage && customMessage.includes('{{review_link}}'),
+          business_name: customMessage && customMessage.includes('{{business.name}}'),
+          service_date: customMessage && customMessage.includes('{{service_date}}'),
+          amount: customMessage && customMessage.includes('{{amount}}')
         },
         updated_at: new Date().toISOString()
       };
@@ -591,11 +591,11 @@ export default function TemplateCustomizer({
               is_default: formData.is_default || false,
               trigger_events: formData.trigger_events || [],
               message_variables: {
-                customer_name: customMessage.includes('{{customer.name}}'),
-                review_link: customMessage.includes('{{review_link}}'),
-                business_name: customMessage.includes('{{business.name}}'),
-                service_date: customMessage.includes('{{service_date}}'),
-                amount: customMessage.includes('{{amount}}')
+                customer_name: customMessage && customMessage.includes('{{customer.name}}'),
+                review_link: customMessage && customMessage.includes('{{review_link}}'),
+                business_name: customMessage && customMessage.includes('{{business.name}}'),
+                service_date: customMessage && customMessage.includes('{{service_date}}'),
+                amount: customMessage && customMessage.includes('{{amount}}')
               }
             })
           });
@@ -697,7 +697,7 @@ export default function TemplateCustomizer({
   };
 
   const addChannel = (channel) => {
-    if (!formData.channels.includes(channel)) {
+    if (!formData.channels || !formData.channels.includes(channel)) {
       setFormData(prev => ({
         ...prev,
         channels: [...prev.channels, channel]
