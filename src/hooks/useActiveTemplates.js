@@ -38,7 +38,7 @@ export const useActiveTemplates = () => {
         // Filter for active templates that can be manually triggered
         const manualTriggerTemplates = savedTemplatesArray.filter(template => 
           template.status === 'active' && 
-          template.channels?.includes('email')
+          template.channels && Array.isArray(template.channels) && template.channels.includes('email')
         );
 
         console.log('🔍 useActiveTemplates - Active templates found:', manualTriggerTemplates.length);
@@ -75,7 +75,7 @@ export const useActiveTemplates = () => {
 
         const manualTriggerTemplates = savedTemplatesArray.filter(template => 
           template.status === 'active' && 
-          template.channels?.includes('email')
+          template.channels && Array.isArray(template.channels) && template.channels.includes('email')
         );
 
         setActiveTemplates(manualTriggerTemplates);
