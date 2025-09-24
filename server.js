@@ -8719,7 +8719,15 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
 
     if (insertError) {
       console.error('Database error:', insertError);
-      return res.status(500).json({ error: 'Failed to store connection' });
+      console.error('Insert data:', {
+        business_id,
+        crm_type: 'jobber',
+        access_token: tokens.access_token ? 'present' : 'missing',
+        refresh_token: tokens.refresh_token ? 'present' : 'missing',
+        expires_at: expiresAt.toISOString(),
+        connected_at: connectedAt.toISOString()
+      });
+      return res.status(500).json({ error: 'Failed to store connection: ' + insertError.message });
     }
 
     // Set up webhook (don't fail if this doesn't work)

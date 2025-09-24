@@ -332,8 +332,8 @@ const AutomationsPageFixed = () => {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Automations</h1>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-3">Automations</h1>
         <p className="text-gray-600">Manage your email automation sequences</p>
       </div>
 
@@ -344,12 +344,12 @@ const AutomationsPageFixed = () => {
         </TabsList>
 
         {/* Templates Tab */}
-        <TabsContent value="templates" className="mt-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold">Automation Templates</h2>
+        <TabsContent value="templates" className="mt-8">
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-2xl font-semibold">Automation Templates</h2>
             <button
               onClick={() => setCreateModalOpen(true)}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
             >
               Create Custom Template
             </button>

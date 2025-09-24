@@ -18,11 +18,11 @@ export default function FlowCard({
   // Use template if provided, otherwise use sequence
   const data = template || sequence;
   const getChannelIcon = (channel) => {
-    return channel === 'sms' ? <MessageSquare className="w-4 h-4" /> : <Mail className="w-4 h-4" />;
+    return channel === 'sms' ? <MessageSquare className="w-3 h-3 text-gray-600" /> : <Mail className="w-3 h-3 text-gray-600" />;
   };
 
   const getChannelColor = (channel) => {
-    return channel === 'sms' ? 'border-blue-200 bg-blue-50' : 'border-green-200 bg-green-50';
+    return channel === 'sms' ? 'border-gray-200 bg-gray-50' : 'border-gray-200 bg-gray-50';
   };
 
   const formatTimeAgo = (dateString) => {
@@ -88,9 +88,9 @@ export default function FlowCard({
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200">
-      <CardContent className="p-6">
+      <CardContent className="p-8">
         {/* Header */}
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-6">
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
               {data.name}
@@ -116,15 +116,15 @@ export default function FlowCard({
         </div>
 
         {/* Visual Flow */}
-        <div className="mb-4">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="mb-6">
+          <div className="flex items-center gap-3 flex-wrap">
             {/* Trigger */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-green-100 border border-green-200 rounded-lg">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span className="text-sm font-medium text-green-700">Trigger</span>
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
+              <CheckCircle className="w-3 h-3 text-gray-600" />
+              <span className="text-sm font-medium text-gray-700">Trigger</span>
             </div>
             
-            <ArrowRight className="w-4 h-4 text-gray-400" />
+            <ArrowRight className="w-3 h-3 text-gray-400" />
             
             {/* Steps */}
             {data.channels?.map((channel, index) => {
@@ -157,20 +157,20 @@ export default function FlowCard({
                   {/* Delay indicator for non-first steps */}
                   {index > 0 && stepDelay > 0 && (
                     <>
-                      <div className="flex items-center gap-2 px-3 py-2 bg-orange-100 border border-orange-200 rounded-lg">
-                        <Clock className="w-4 h-4 text-orange-600" />
-                        <span className="text-sm font-medium text-orange-700">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
+                        <Clock className="w-3 h-3 text-gray-600" />
+                        <span className="text-sm font-medium text-gray-700">
                           {delayUnit === 'hours' ? `${stepDelay}h` : 
                            delayUnit === 'days' ? `${stepDelay}d` : 
                            `${stepDelay}m`}
                         </span>
                       </div>
-                      <ArrowRight className="w-4 h-4 text-gray-400" />
+                      <ArrowRight className="w-3 h-3 text-gray-400" />
                     </>
                   )}
                   
                   {/* Channel */}
-                  <div className={`flex items-center gap-2 px-3 py-2 border rounded-lg ${getChannelColor(channel)}`}>
+                  <div className={`flex items-center gap-2 px-3 py-2 border rounded-md ${getChannelColor(channel)}`}>
                     {getChannelIcon(channel)}
                     <span className="text-sm font-medium">
                       {channel === 'sms' ? 'SMS' : 'Email'}
@@ -178,7 +178,7 @@ export default function FlowCard({
                   </div>
                   
                   {index < data.channels.length - 1 && (
-                    <ArrowRight className="w-4 h-4 text-gray-400" />
+                    <ArrowRight className="w-3 h-3 text-gray-400" />
                   )}
                 </React.Fragment>
               );
@@ -187,7 +187,7 @@ export default function FlowCard({
         </div>
 
         {/* Description */}
-        <div className="mb-4">
+        <div className="mb-6">
           <p className="text-sm text-gray-600 line-clamp-2">
             {getTemplateDescription(data.key, data) || data.description || data.config_json?.message || 'Automated follow-up sequence'}
           </p>
