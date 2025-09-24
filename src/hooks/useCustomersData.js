@@ -506,6 +506,48 @@ export function useCustomersData(initialParams = {}) {
         throw new Error('Business not found. Please complete onboarding first.');
       }
 
+      // IMPORTANT: Delete related records first to avoid foreign key constraint violations
+      console.log('🧹 Cleaning up related records for customer:', id);
+      
+      // Delete review requests
+      const { error: deleteRequestsError } = await supabase
+        .from('review_requests')
+        .delete()
+        .eq('customer_id', id);
+      
+      if (deleteRequestsError) {
+        console.warn('⚠️ Could not delete review requests:', deleteRequestsError.message);
+        // Don't fail the entire operation if review requests can't be deleted
+      } else {
+        console.log('✅ Review requests deleted');
+      }
+      
+      // Delete scheduled jobs related to this customer
+      const { error: deleteJobsError } = await supabase
+        .from('scheduled_jobs')
+        .delete()
+        .eq('payload->customer_id', id);
+      
+      if (deleteJobsError) {
+        console.warn('⚠️ Could not delete scheduled jobs:', deleteJobsError.message);
+      } else {
+        console.log('✅ Scheduled jobs deleted');
+      }
+      
+      // Delete automation executions related to this customer
+      const { error: deleteExecutionsError } = await supabase
+        .from('automation_executions')
+        .delete()
+        .eq('customer_id', id);
+      
+      if (deleteExecutionsError) {
+        console.warn('⚠️ Could not delete automation executions:', deleteExecutionsError.message);
+      } else {
+        console.log('✅ Automation executions deleted');
+      }
+
+      // Now delete the customer
+      console.log('🗑️ Deleting customer record...');
       const { error } = await supabase
         .from('customers')
         .delete()
@@ -516,6 +558,8 @@ export function useCustomersData(initialParams = {}) {
         console.error('Delete customer error:', error);
         throw new Error(error.message);
       }
+
+      console.log('✅ Customer deleted successfully');
 
       // Log to audit
       try {
