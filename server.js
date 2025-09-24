@@ -8626,7 +8626,7 @@ app.post('/api/crm/jobber/connect', async (req, res) => {
     }
 
     const state = Buffer.from(JSON.stringify({ business_id })).toString('base64');
-    const authUrl = `https://api.getjobber.com/api/oauth/authorize?client_id=${process.env.JOBBER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.JOBBER_REDIRECT_URI)}&response_type=code&state=${state}`;
+    const authUrl = `https://api.getjobber.com/api/oauth/authorize?client_id=${process.env.JOBBER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.JOBBER_REDIRECT_URI)}&response_type=code&scope=read:all&state=${state}`;
 
     console.log('Generated Jobber auth URL:', authUrl);
 

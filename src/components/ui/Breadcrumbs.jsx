@@ -1,11 +1,12 @@
 import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const Breadcrumbs = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Define route mappings
   const routeMap = {
@@ -83,6 +84,19 @@ const Breadcrumbs = () => {
         });
       }
     });
+
+    // Handle URL parameters for sub-tabs (like automations)
+    const tabParam = searchParams.get('tab');
+    if (tabParam && subRouteMap[tabParam]) {
+      const currentUrl = new URL(window.location);
+      currentUrl.searchParams.set('tab', tabParam);
+      breadcrumbs.push({
+        name: subRouteMap[tabParam].name,
+        path: currentUrl.pathname + currentUrl.search,
+        icon: subRouteMap[tabParam].icon,
+        isClickable: true
+      });
+    }
 
     return breadcrumbs;
   };

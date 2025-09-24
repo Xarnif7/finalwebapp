@@ -42,7 +42,7 @@ const HelpGuide = ({ isOpen, onClose }) => {
       ],
       action: "Go to Automations",
       gradient: "from-purple-500 to-pink-500",
-      route: "automated-requests"
+      route: "automations"
     },
     {
       number: 3,
@@ -56,7 +56,7 @@ const HelpGuide = ({ isOpen, onClose }) => {
       ],
       action: "Go to Reviews",
       gradient: "from-green-500 to-emerald-500",
-      route: "review-inbox"
+      route: "reviews"
     },
     {
       number: 4,
@@ -70,7 +70,7 @@ const HelpGuide = ({ isOpen, onClose }) => {
       ],
       action: "Go to Analytics",
       gradient: "from-orange-500 to-red-500",
-      route: "analytics"
+      route: "reporting"
     },
     {
       number: 5,
@@ -84,7 +84,7 @@ const HelpGuide = ({ isOpen, onClose }) => {
       ],
       action: "Go to Conversations",
       gradient: "from-pink-500 to-rose-500",
-      route: "conversations"
+      route: "feedback"
     }
   ];
 
