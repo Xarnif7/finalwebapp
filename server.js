@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import Stripe from 'stripe';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
 // Load environment variables from .env files
@@ -8594,6 +8595,347 @@ app.post('/api/automation/trigger', async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// ============================================================================
+// CRM INTEGRATION ROUTES
+// ============================================================================
+
+// Jobber CRM Integration Routes
+app.post('/api/crm/jobber/connect', async (req, res) => {
+  try {
+    console.log('Jobber connect request received:', { body: req.body });
+    
+    const { business_id } = req.body;
+    
+    if (!business_id) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Business ID is required' 
+      });
+    }
+
+    if (!process.env.JOBBER_CLIENT_ID || !process.env.JOBBER_REDIRECT_URI) {
+      console.error('Missing Jobber environment variables:', {
+        clientId: !!process.env.JOBBER_CLIENT_ID,
+        redirectUri: !!process.env.JOBBER_REDIRECT_URI
+      });
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Jobber integration not configured properly' 
+      });
+    }
+
+    const state = Buffer.from(JSON.stringify({ business_id })).toString('base64');
+    const authUrl = `https://app.getjobber.com/api/oauth2/authorize?client_id=${process.env.JOBBER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.JOBBER_REDIRECT_URI)}&response_type=code&scope=read:all&state=${state}`;
+
+    console.log('Generated Jobber auth URL:', authUrl);
+
+    res.json({
+      success: true,
+      authUrl: authUrl,
+      state: state
+    });
+
+  } catch (error) {
+    console.error('Jobber connection error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    return res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to initiate Jobber connection' 
+    });
+  }
+});
+
+app.get('/api/crm/jobber/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    
+    if (!code) {
+      return res.status(400).json({ error: 'Authorization code missing' });
+    }
+
+    // Decode state to get business_id
+    const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+    const { business_id } = stateData;
+
+    // Exchange code for tokens
+    const tokenResponse = await fetch('https://api.getjobber.com/api/oauth2/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: process.env.JOBBER_CLIENT_ID,
+        client_secret: process.env.JOBBER_CLIENT_SECRET,
+        code: code,
+        redirect_uri: process.env.JOBBER_REDIRECT_URI,
+      }),
+    });
+
+    const tokens = await tokenResponse.json();
+    
+    if (!tokenResponse.ok) {
+      console.error('Token exchange failed:', tokens);
+      return res.status(400).json({ error: 'Failed to exchange authorization code' });
+    }
+
+    // Store connection in database
+    const { error: insertError } = await supabase
+      .from('crm_connections')
+      .upsert({
+        business_id,
+        crm_type: 'jobber',
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_at: new Date(Date.now() + (tokens.expires_in * 1000)).toISOString(),
+        connected_at: new Date().toISOString()
+      });
+
+    if (insertError) {
+      console.error('Database error:', insertError);
+      return res.status(500).json({ error: 'Failed to store connection' });
+    }
+
+    // Set up webhook
+    await setupJobberWebhook(tokens.access_token, business_id);
+
+    res.json({ success: true, message: 'Jobber connected successfully' });
+
+  } catch (error) {
+    console.error('Jobber callback error:', error);
+    res.status(500).json({ error: 'Callback processing failed' });
+  }
+});
+
+app.get('/api/crm/jobber/status', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+    
+    if (!business_id) {
+      return res.status(400).json({ error: 'Business ID required' });
+    }
+
+    const { data: connection, error } = await supabase
+      .from('crm_connections')
+      .select('*')
+      .eq('business_id', business_id)
+      .eq('crm_type', 'jobber')
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Database error:', error);
+      return res.status(500).json({ error: 'Database query failed' });
+    }
+
+    res.json({
+      connected: !!connection,
+      connection: connection || null
+    });
+
+  } catch (error) {
+    console.error('Jobber status error:', error);
+    res.status(500).json({ error: 'Status check failed' });
+  }
+});
+
+app.delete('/api/crm/jobber/disconnect', async (req, res) => {
+  try {
+    const { business_id } = req.body;
+    
+    if (!business_id) {
+      return res.status(400).json({ error: 'Business ID required' });
+    }
+
+    const { error } = await supabase
+      .from('crm_connections')
+      .delete()
+      .eq('business_id', business_id)
+      .eq('crm_type', 'jobber');
+
+    if (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({ error: 'Failed to disconnect' });
+    }
+
+    res.json({ success: true, message: 'Disconnected successfully' });
+
+  } catch (error) {
+    console.error('Jobber disconnect error:', error);
+    res.status(500).json({ error: 'Disconnect failed' });
+  }
+});
+
+app.post('/api/crm/jobber/webhook', async (req, res) => {
+  try {
+    const signature = req.headers['x-jobber-hmac-sha256'];
+    const clientSecret = process.env.JOBBER_CLIENT_SECRET;
+
+    if (!signature || !clientSecret) {
+      console.error('Missing webhook signature or client secret');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get raw body for HMAC verification
+    const rawBody = JSON.stringify(req.body);
+    const expectedSignature = crypto
+      .createHmac('sha256', clientSecret)
+      .update(rawBody)
+      .digest('base64');
+
+    if (signature !== expectedSignature) {
+      console.error('Invalid webhook signature');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    const payload = req.body;
+    console.log('Jobber webhook received:', JSON.stringify(payload, null, 2));
+
+    const eventType = payload.event;
+    if (eventType === 'job.closed' || eventType === 'job.completed') {
+      await handleJobCompleted(payload);
+    }
+
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error('Jobber webhook error:', error);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// Helper function to set up Jobber webhook
+async function setupJobberWebhook(accessToken, businessId) {
+  const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/crm/jobber/webhook`;
+  
+  const webhookResponse = await fetch('https://api.getjobber.com/api/webhooks', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      url: webhookUrl,
+      events: ['job.closed']
+    })
+  });
+
+  if (webhookResponse.ok) {
+    const webhook = await webhookResponse.json();
+    console.log('Jobber webhook created:', webhook);
+    
+    // Store webhook ID for potential cleanup later
+    await supabase
+      .from('crm_connections')
+      .update({ webhook_id: webhook.id })
+      .eq('business_id', businessId)
+      .eq('crm_type', 'jobber');
+  } else {
+    console.error('Failed to create Jobber webhook:', await webhookResponse.text());
+  }
+}
+
+// Helper function to handle job completed events
+async function handleJobCompleted(payload) {
+  try {
+    console.log('Handling job completed event:', payload);
+    
+    // Extract customer and job information
+    const customer = payload.data?.customer;
+    const job = payload.data?.job;
+    const serviceType = job?.service_type;
+    
+    if (!customer || !job) {
+      console.error('Missing customer or job data in webhook payload');
+      return;
+    }
+
+    // Find the business that has this Jobber connection
+    const { data: connection } = await supabase
+      .from('crm_connections')
+      .select('business_id')
+      .eq('crm_type', 'jobber')
+      .single();
+
+    if (!connection) {
+      console.error('No Jobber connection found');
+      return;
+    }
+
+    // Find the appropriate template based on service type
+    const { data: template } = await supabase
+      .rpc('find_template_for_service_type', {
+        p_business_id: connection.business_id,
+        p_service_type: serviceType
+      });
+
+    if (!template) {
+      console.error('No template found for service type:', serviceType);
+      return;
+    }
+
+    // Create customer if doesn't exist
+    const { data: existingCustomer } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('email', customer.email)
+      .eq('business_id', connection.business_id)
+      .single();
+
+    let customerId;
+    if (existingCustomer) {
+      customerId = existingCustomer.id;
+    } else {
+      const { data: newCustomer, error: customerError } = await supabase
+        .from('customers')
+        .insert({
+          business_id: connection.business_id,
+          name: customer.name,
+          email: customer.email,
+          phone: customer.phone,
+          created_from: 'jobber_webhook'
+        })
+        .select('id')
+        .single();
+
+      if (customerError) {
+        console.error('Error creating customer:', customerError);
+        return;
+      }
+      customerId = newCustomer.id;
+    }
+
+    // Trigger automation
+    const { error: automationError } = await supabase
+      .from('automation_triggers')
+      .insert({
+        business_id: connection.business_id,
+        customer_id: customerId,
+        template_id: template.id,
+        trigger_type: 'jobber_job_completed',
+        trigger_data: {
+          jobber_job_id: job.id,
+          service_type: serviceType,
+          customer_name: customer.name,
+          customer_email: customer.email
+        },
+        status: 'pending'
+      });
+
+    if (automationError) {
+      console.error('Error creating automation trigger:', automationError);
+    } else {
+      console.log('Automation trigger created for Jobber job completion');
+    }
+
+  } catch (error) {
+    console.error('Error handling job completed:', error);
+  }
+}
 
 // Start server
 app.listen(PORT, () => {

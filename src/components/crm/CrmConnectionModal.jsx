@@ -18,7 +18,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
       id: 'jobber',
       name: 'Jobber',
       description: 'Field service management for home services',
-      logo: '/images/crm/jobber-logo.png',
+      logo: '/images/crm/Jobber ICON.jpg',
       color: 'from-orange-400 to-orange-600',
       connected: false, // This would come from your connection status
       component: JobberConnectionCard
@@ -27,7 +27,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
       id: 'housecall_pro',
       name: 'Housecall Pro',
       description: 'Home service business management',
-      logo: '/images/crm/housecall-pro-logo.png',
+      logo: '/images/crm/Housecall Pro ICON.jpg',
       color: 'from-blue-500 to-blue-700',
       connected: false,
       component: null // Will implement later
@@ -36,7 +36,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
       id: 'servicetitan',
       name: 'ServiceTitan',
       description: 'Complete business management platform',
-      logo: '/images/crm/servicetitan-logo.png',
+      logo: '/images/crm/ServiceTitan ICON.png',
       color: 'from-green-500 to-green-700',
       connected: false,
       component: null // Will implement later
@@ -140,17 +140,19 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
                   <CardContent className="p-6">
                     <div className="flex flex-col items-center text-center space-y-4">
                       {/* Logo */}
-                      <div className={`w-16 h-16 rounded-lg bg-gradient-to-r ${crm.color} flex items-center justify-center`}>
+                      <div className="w-20 h-20 rounded-xl bg-white border-2 border-gray-100 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow">
                         <img 
                           src={crm.logo} 
                           alt={`${crm.name} logo`}
-                          className="w-10 h-10 rounded object-contain"
+                          className="w-14 h-14 object-contain rounded-lg"
                           onError={(e) => {
                             e.target.style.display = 'none';
                             e.target.nextSibling.style.display = 'flex';
                           }}
                         />
-                        <Settings className="w-8 h-8 text-white" style={{ display: 'none' }} />
+                        <div className={`w-14 h-14 rounded-lg bg-gradient-to-r ${crm.color} flex items-center justify-center`} style={{ display: 'none' }}>
+                          <Settings className="w-8 h-8 text-white" />
+                        </div>
                       </div>
                       
                       {/* Name */}
