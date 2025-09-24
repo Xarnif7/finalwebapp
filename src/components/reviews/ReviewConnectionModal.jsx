@@ -14,12 +14,28 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   const [connectedSources, setConnectedSources] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedBusiness, setSelectedBusiness] = useState(null);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   React.useEffect(() => {
     if (isOpen) {
       loadConnectedSources();
     }
   }, [isOpen]);
+
+  // Debounce search to prevent rapid API calls
+  React.useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim()) {
+        searchGoogleBusiness();
+      } else {
+        setSearchResults([]);
+        setShowSuggestions(false);
+      }
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   const loadConnectedSources = async () => {
     try {
@@ -76,6 +92,23 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
     }
   };
 
+  const handleBusinessSelect = (business) => {
+    setSelectedBusiness(business);
+    setSearchQuery(business.name);
+    setShowSuggestions(false);
+  };
+
+  const handleConnect = async () => {
+    if (!selectedBusiness) return;
+    
+    setIsConnecting(true);
+    try {
+      await connectBusiness(selectedBusiness);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   const connectBusiness = async (business) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -88,7 +121,9 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
         .eq('id', user.id)
         .single();
 
-      if (!profile?.business_id) {
+      let businessId = profile?.business_id;
+
+      if (!businessId) {
         // If no business_id in profile, get it from businesses table
         const { data: businessData } = await supabase
           .from('businesses')
@@ -101,19 +136,19 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
           throw new Error('No business found for user');
         }
 
+        businessId = businessData.id;
+
         // Update profile with business_id
         await supabase
           .from('profiles')
-          .update({ business_id: businessData.id })
+          .update({ business_id: businessId })
           .eq('id', user.id);
-
-        profile.business_id = businessData.id;
       }
 
       const { error } = await supabase
         .from('review_sources')
         .upsert({
-          business_id: profile.business_id,
+          business_id: businessId,
           platform: 'google',
           public_url: business.url,
           business_name: business.name,
@@ -128,7 +163,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       await loadConnectedSources();
       
       // Trigger review sync (will import only 15 most recent)
-      await syncReviews(profile.business_id, business.place_id);
+      await syncReviews(businessId, business.place_id);
       
       if (onConnectionSuccess) {
         onConnectionSuccess();
@@ -182,7 +217,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-5xl w-full max-h-[95vh] overflow-y-auto">
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -211,15 +246,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                   <Input
                     placeholder="Search for your business on Google..."
                     value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      if (e.target.value.trim()) {
-                        searchGoogleBusiness();
-                      } else {
-                        setSearchResults([]);
-                        setShowSuggestions(false);
-                      }
-                    }}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     onFocus={() => {
                       if (searchResults.length > 0) {
                         setShowSuggestions(true);
@@ -239,12 +266,14 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 
                 {/* Search Results Dropdown */}
                 {showSuggestions && searchResults.length > 0 && (
-                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
                     {searchResults.map((business, index) => (
                       <div 
                         key={index} 
-                        className="flex items-center justify-between p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                        onClick={() => connectBusiness(business)}
+                        className={`flex items-center justify-between p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                          selectedBusiness?.place_id === business.place_id ? 'bg-blue-50 border-blue-200' : ''
+                        }`}
+                        onClick={() => handleBusinessSelect(business)}
                       >
                         <div className="flex items-center gap-3">
                           <MapPin className="h-4 w-4 text-gray-500" />
@@ -252,39 +281,15 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                             <p className="font-medium">{business.name}</p>
                             <p className="text-sm text-gray-500">{business.address}</p>
                             <div className="flex items-center gap-2 mt-1">
-                              <div className="flex items-center">
-                                {[...Array(5)].map((_, i) => (
-                                  <div
-                                    key={i}
-                                    className={`w-3 h-3 ${
-                                      i < Math.floor(business.rating) 
-                                        ? 'text-yellow-400' 
-                                        : 'text-gray-300'
-                                    }`}
-                                  >
-                                    ⭐
-                                  </div>
-                                ))}
-                              </div>
-                              <span className="text-xs text-gray-500">
-                                ({business.user_ratings_total} reviews)
+                              <span className="text-sm text-gray-600">
+                                {business.rating}/5 ({business.user_ratings_total} reviews)
                               </span>
                             </div>
                           </div>
                         </div>
-                        <Button 
-                          size="sm" 
-                          disabled={connectedSources.some(s => s.external_id === business.place_id)}
-                        >
-                          {connectedSources.some(s => s.external_id === business.place_id) ? (
-                            <>
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Connected
-                            </>
-                          ) : (
-                            'Connect'
-                          )}
-                        </Button>
+                        <div className="text-sm text-gray-500">
+                          {selectedBusiness?.place_id === business.place_id ? 'Selected' : 'Click to select'}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -293,6 +298,54 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                 {showSuggestions && searchResults.length === 0 && searchQuery.trim() && !isSearching && (
                   <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg p-4">
                     <p className="text-gray-500 text-center">No businesses found</p>
+                  </div>
+                )}
+
+                {/* Selected Business Confirmation */}
+                {selectedBusiness && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">Selected Business:</h4>
+                    <div className="flex items-center gap-3">
+                      <MapPin className="h-4 w-4 text-blue-600" />
+                      <div>
+                        <p className="font-medium text-blue-900">{selectedBusiness.name}</p>
+                        <p className="text-sm text-blue-700">{selectedBusiness.address}</p>
+                        <p className="text-sm text-blue-600">
+                          {selectedBusiness.rating}/5 ({selectedBusiness.user_ratings_total} reviews)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Connect Button */}
+                {selectedBusiness && (
+                  <div className="mt-4">
+                    <Button 
+                      onClick={handleConnect}
+                      disabled={isConnecting || connectedSources.some(s => s.external_id === selectedBusiness.place_id)}
+                      className="w-full"
+                    >
+                      {isConnecting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Connecting and importing reviews...
+                        </>
+                      ) : connectedSources.some(s => s.external_id === selectedBusiness.place_id) ? (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Already Connected
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Connect and Import Reviews
+                        </>
+                      )}
+                    </Button>
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                      This will import the 15 most recent reviews from this business
+                    </p>
                   </div>
                 )}
               </div>
@@ -354,5 +407,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
     </div>
   );
 };
+
+export default ReviewConnectionModal;
 
 export default ReviewConnectionModal;

@@ -10653,16 +10653,19 @@ app.post('/api/reviews/load-more', async (req, res) => {
       const sortedReviews = reviews
         .sort((a, b) => (b.time || 0) - (a.time || 0));
 
-      // Get user's business_id
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('business_id')
-        .eq('id', user.id)
+      // Get user's business_id from businesses table using user email
+      const { data: businessData } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('created_by', user.email)
+        .limit(1)
         .single();
 
-      if (!profile?.business_id) {
+      if (!businessData?.id) {
         return res.status(400).json({ error: 'No business ID found' });
       }
+
+      const businessId = businessData.id;
 
       // Find reviews older than the before_date
       const olderReviews = sortedReviews.filter(review => {
@@ -10672,7 +10675,7 @@ app.post('/api/reviews/load-more', async (req, res) => {
 
       // Convert Google reviews to our format
       const formattedReviews = olderReviews.map(review => ({
-        business_id: profile.business_id,
+        business_id: businessId,
         platform: 'google',
         reviewer_name: review.author_name || 'Anonymous',
         rating: review.rating || 5,
