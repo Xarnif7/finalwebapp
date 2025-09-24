@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Star, 
   Clock, 
@@ -14,7 +15,9 @@ import {
   MoreHorizontal,
   User,
   Calendar,
-  Tag
+  Tag,
+  Square,
+  CheckSquare
 } from 'lucide-react';
 
 const platformConfig = {
@@ -63,7 +66,7 @@ const getSLAStatus = (dueAt, status) => {
   }
 };
 
-const ReviewCard = ({ review, isSelected, onSelect, onAction }) => {
+const ReviewCard = ({ review, isSelected, onSelect, onAction, isBulkSelectMode, isChecked, onToggleCheck }) => {
   const platform = platformConfig[review.platform] || { name: review.platform, icon: '📱', color: 'bg-gray-100 text-gray-800' };
   const status = statusConfig[review.status] || { name: review.status, color: 'bg-gray-100 text-gray-800', icon: MessageSquare };
   const slaStatus = getSLAStatus(review.due_at, review.status);
@@ -80,15 +83,28 @@ const ReviewCard = ({ review, isSelected, onSelect, onAction }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.02 }}
-      className={`cursor-pointer transition-all duration-200 ${
+      className={`transition-all duration-200 ${
         isSelected ? 'ring-2 ring-blue-500 ring-opacity-50' : ''
       }`}
-      onClick={() => onSelect(review)}
+      onClick={() => !isBulkSelectMode && onSelect(review)}
     >
       <Card className={`hover:shadow-lg transition-all duration-200 ${
         isSelected ? 'bg-blue-50 border-blue-200' : 'hover:border-gray-300'
       }`}>
         <CardContent className="p-4">
+          {/* Bulk Select Checkbox */}
+          {isBulkSelectMode && (
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={isChecked}
+                  onCheckedChange={() => onToggleCheck(review.id)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <span className="text-sm text-gray-600">Select for bulk action</span>
+              </div>
+            </div>
+          )}
           {/* Header */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-3">
@@ -199,12 +215,46 @@ const ReviewCard = ({ review, isSelected, onSelect, onAction }) => {
 };
 
 export default function ReviewsList({ 
-  reviews, 
-  selectedReview, 
-  onSelectReview, 
-  onAction,
-  loading = false 
+    reviews, 
+    selectedReview, 
+    onSelectReview, 
+    onAction,
+    onBulkAction,
+    loading = false 
 }) {
+  const [isBulkSelectMode, setIsBulkSelectMode] = useState(false);
+  const [selectedReviewIds, setSelectedReviewIds] = useState(new Set());
+
+  const handleToggleCheck = (reviewId) => {
+    const newSelected = new Set(selectedReviewIds);
+    if (newSelected.has(reviewId)) {
+      newSelected.delete(reviewId);
+    } else {
+      newSelected.add(reviewId);
+    }
+    setSelectedReviewIds(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedReviewIds.size === reviews.length) {
+      setSelectedReviewIds(new Set());
+    } else {
+      setSelectedReviewIds(new Set(reviews.map(r => r.id)));
+    }
+  };
+
+  const handleBulkAction = async (action) => {
+    if (selectedReviewIds.size === 0) return;
+    
+    const selectedReviews = reviews.filter(r => selectedReviewIds.has(r.id));
+    
+    if (onBulkAction) {
+      await onBulkAction(action, selectedReviews);
+      setSelectedReviewIds(new Set());
+      setIsBulkSelectMode(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -235,6 +285,84 @@ export default function ReviewsList({
 
   return (
     <div className="space-y-4">
+      {/* Bulk Actions Header */}
+      {isBulkSelectMode && (
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={selectedReviewIds.size === reviews.length}
+                    onCheckedChange={handleSelectAll}
+                  />
+                  <span className="text-sm font-medium">
+                    {selectedReviewIds.size === reviews.length ? 'Deselect All' : 'Select All'}
+                  </span>
+                </div>
+                <span className="text-sm text-gray-600">
+                  {selectedReviewIds.size} of {reviews.length} selected
+                </span>
+              </div>
+              
+              {selectedReviewIds.size > 0 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleBulkAction('mark_resolved')}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    Mark Resolved
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleBulkAction('assign_to_me')}
+                  >
+                    <User className="w-4 h-4 mr-1" />
+                    Assign to Me
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleBulkAction('escalate')}
+                  >
+                    <AlertTriangle className="w-4 h-4 mr-1" />
+                    Escalate
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsBulkSelectMode(false);
+                      setSelectedReviewIds(new Set());
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Toggle Bulk Select Mode */}
+      {!isBulkSelectMode && reviews.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsBulkSelectMode(true)}
+          >
+            <CheckSquare className="w-4 h-4 mr-1" />
+            Bulk Actions
+          </Button>
+        </div>
+      )}
+
+      {/* Reviews List */}
       {reviews.map((review) => (
         <ReviewCard
           key={review.id}
@@ -242,6 +370,9 @@ export default function ReviewsList({
           isSelected={selectedReview?.id === review.id}
           onSelect={onSelectReview}
           onAction={onAction}
+          isBulkSelectMode={isBulkSelectMode}
+          isChecked={selectedReviewIds.has(review.id)}
+          onToggleCheck={handleToggleCheck}
         />
       ))}
     </div>

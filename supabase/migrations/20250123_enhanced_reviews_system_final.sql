@@ -125,6 +125,9 @@ DROP INDEX IF EXISTS idx_audit_log_review_id;
 DROP INDEX IF EXISTS idx_audit_log_created_at;
 DROP INDEX IF EXISTS idx_templates_business_id;
 DROP INDEX IF EXISTS idx_templates_platform;
+DROP INDEX IF EXISTS idx_review_sources_business_id;
+DROP INDEX IF EXISTS idx_review_sources_platform;
+DROP INDEX IF EXISTS idx_review_sources_is_active;
 
 -- Create indexes for performance
 CREATE INDEX idx_reviews_business_id ON public.reviews(business_id);

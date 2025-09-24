@@ -10414,6 +10414,102 @@ app.put('/api/reviews/:id', async (req, res) => {
   }
 });
 
+// Feedback Cases API
+app.get('/api/feedback/cases', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+    
+    if (!business_id) {
+      return res.status(400).json({ error: 'Business ID is required' });
+    }
+
+    const { data: cases, error } = await supabase
+      .from('feedback_cases')
+      .select(`
+        *,
+        review:reviews(
+          id,
+          platform,
+          rating,
+          review_text,
+          review_url
+        )
+      `)
+      .eq('business_id', business_id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching feedback cases:', error);
+      return res.status(500).json({ error: 'Failed to fetch feedback cases' });
+    }
+
+    res.json({ cases: cases || [] });
+  } catch (error) {
+    console.error('Error in feedback cases API:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/feedback/cases', async (req, res) => {
+  try {
+    const { business_id, title, description, priority, customer_name, customer_email, customer_phone, tags, category } = req.body;
+    
+    if (!business_id || !title) {
+      return res.status(400).json({ error: 'Business ID and title are required' });
+    }
+
+    const { data: case_, error } = await supabase
+      .from('feedback_cases')
+      .insert({
+        business_id,
+        title,
+        description,
+        priority: priority || 'medium',
+        customer_name,
+        customer_email,
+        customer_phone,
+        tags: tags || [],
+        category: category || 'general'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating feedback case:', error);
+      return res.status(500).json({ error: 'Failed to create feedback case' });
+    }
+
+    res.json({ case_ });
+  } catch (error) {
+    console.error('Error in create feedback case API:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/api/feedback/cases/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const { data: case_, error } = await supabase
+      .from('feedback_cases')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating feedback case:', error);
+      return res.status(500).json({ error: 'Failed to update feedback case' });
+    }
+
+    res.json({ case_ });
+  } catch (error) {
+    console.error('Error in update feedback case API:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.post('/api/ai/generate-review-response', async (req, res) => {
   try {
     const { review_text, rating, platform, business_name } = req.body;
@@ -10477,6 +10573,256 @@ Generate a perfect response:`;
 });
 
 // Start server
+// Reviews API endpoints
+app.get('/api/reviews', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('created_by', user.email)
+      .order('review_created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ success: true, reviews: data });
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+    res.status(500).json({ error: 'Failed to fetch reviews' });
+  }
+});
+
+// Search Google Business
+app.post('/api/reviews/search-business', async (req, res) => {
+  try {
+    const { query, platform } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ error: 'Query is required' });
+    }
+
+    // Use Google Places API to search for businesses
+    const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!googleApiKey) {
+      return res.status(500).json({ error: 'Google Places API key not configured' });
+    }
+
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${googleApiKey}`
+    );
+
+    const data = await response.json();
+    
+    if (data.status !== 'OK') {
+      return res.status(400).json({ error: 'Google Places API error: ' + data.status });
+    }
+
+    const results = data.results.map(place => ({
+      place_id: place.place_id,
+      name: place.name,
+      address: place.formatted_address,
+      rating: place.rating,
+      user_ratings_total: place.user_ratings_total,
+      url: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`
+    }));
+
+    res.json({ success: true, results });
+  } catch (error) {
+    console.error('Error searching business:', error);
+    res.status(500).json({ error: 'Failed to search business' });
+  }
+});
+
+// Sync reviews from Google My Business
+app.post('/api/reviews/sync', async (req, res) => {
+  try {
+    const { business_id, place_id, platform } = req.body;
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (platform === 'google') {
+      // Use Google Places API to fetch real reviews
+      const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
+      if (!googleApiKey) {
+        return res.status(500).json({ error: 'Google Places API key not configured' });
+      }
+
+      // First, get place details to fetch reviews
+      const placeDetailsResponse = await fetch(
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&fields=name,rating,reviews,user_ratings_total&key=${googleApiKey}`
+      );
+
+      const placeData = await placeDetailsResponse.json();
+      
+      if (placeData.status !== 'OK') {
+        return res.status(400).json({ error: 'Failed to fetch place details: ' + placeData.status });
+      }
+
+      const place = placeData.result;
+      const reviews = place.reviews || [];
+
+      // Convert Google reviews to our format
+      const formattedReviews = reviews.map(review => ({
+        business_id,
+        platform: 'google',
+        reviewer_name: review.author_name || 'Anonymous',
+        rating: review.rating || 5,
+        review_text: review.text || '',
+        review_url: review.author_url || `https://www.google.com/maps/place/?q=place_id:${place_id}`,
+        review_created_at: new Date(review.time * 1000).toISOString(), // Convert timestamp to ISO string
+        status: 'unread',
+        created_by: user.email
+      }));
+
+      if (formattedReviews.length === 0) {
+        return res.json({ success: true, message: 'No reviews found for this business', count: 0 });
+      }
+
+      // Upsert reviews to database
+      const { error } = await supabase
+        .from('reviews')
+        .upsert(formattedReviews, { 
+          onConflict: 'business_id,platform,reviewer_name,review_created_at',
+          ignoreDuplicates: true 
+        });
+
+      if (error) throw error;
+
+      res.json({ success: true, message: 'Reviews synced successfully', count: formattedReviews.length });
+    } else {
+      res.status(400).json({ error: 'Unsupported platform' });
+    }
+  } catch (error) {
+    console.error('Error syncing reviews:', error);
+    res.status(500).json({ error: 'Failed to sync reviews' });
+  }
+});
+
+// Update review
+app.put('/api/reviews/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { data, error } = await supabase
+      .from('reviews')
+      .update(updateData)
+      .eq('id', id)
+      .eq('created_by', user.email)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, review: data });
+  } catch (error) {
+    console.error('Error updating review:', error);
+    res.status(500).json({ error: 'Failed to update review' });
+  }
+});
+
+// Generate AI review response
+app.post('/api/ai/generate-review-response', async (req, res) => {
+  try {
+    const { review_text, rating, platform, business_name, job_type, sentiment, template_id } = req.body;
+
+    if (!review_text || !rating) {
+      return res.status(400).json({ error: 'Review text and rating are required' });
+    }
+
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+
+    // Create prompt based on rating and sentiment
+    let prompt = `Generate a professional, authentic response to this ${rating}-star review on ${platform}:\n\n`;
+    prompt += `"${review_text}"\n\n`;
+    prompt += `Business: ${business_name || 'Our Business'}\n`;
+    
+    if (job_type) {
+      prompt += `Service: ${job_type}\n`;
+    }
+
+    prompt += `\nGuidelines:\n`;
+    
+    if (rating >= 4) {
+      prompt += `- Express genuine gratitude for the positive feedback\n`;
+      prompt += `- Highlight what made their experience special\n`;
+      prompt += `- Invite them to return or refer others\n`;
+      prompt += `- Keep it warm and personal\n`;
+    } else if (rating === 3) {
+      prompt += `- Acknowledge their feedback professionally\n`;
+      prompt += `- Address any specific concerns mentioned\n`;
+      prompt += `- Show commitment to improvement\n`;
+      prompt += `- Invite them to contact you directly\n`;
+    } else {
+      prompt += `- Apologize sincerely for their experience\n`;
+      prompt += `- Take responsibility without making excuses\n`;
+      prompt += `- Offer to make things right\n`;
+      prompt += `- Provide direct contact information\n`;
+    }
+
+    prompt += `- Keep response under 150 words\n`;
+    prompt += `- Use a professional but friendly tone\n`;
+    prompt += `- Don't sound robotic or templated\n`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a professional business owner who writes authentic, personalized responses to customer reviews. Your responses are warm, genuine, and help build customer relationships.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 200,
+        temperature: 0.7
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'OpenAI API error');
+    }
+
+    const aiResponse = data.choices[0]?.message?.content?.trim();
+    
+    if (!aiResponse) {
+      throw new Error('No response generated');
+    }
+
+    res.json({ success: true, response: aiResponse });
+  } catch (error) {
+    console.error('Error generating AI response:', error);
+    res.status(500).json({ error: 'Failed to generate AI response: ' + error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Local API server running on http://localhost:${PORT}`);
   console.log(`📋 Health check: http://localhost:${PORT}/api/health`);

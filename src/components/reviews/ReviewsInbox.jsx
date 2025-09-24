@@ -1,0 +1,242 @@
+import React, { useState, useEffect } from 'react';
+import { Button } from '../ui/button';
+import { Card, CardContent } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { 
+  Star, 
+  MessageSquare, 
+  Clock, 
+  Filter,
+  Search,
+  RefreshCw,
+  ExternalLink,
+  MoreHorizontal,
+  CheckCircle,
+  AlertCircle
+} from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import ReviewDetailPanel from './ReviewDetailPanel';
+
+const ReviewsInbox = () => {
+  const [reviews, setReviews] = useState([]);
+  const [selectedReview, setSelectedReview] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    loadReviews();
+  }, []);
+
+  const loadReviews = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('created_by', user.email)
+        .order('review_created_at', { ascending: false });
+
+      if (error) throw error;
+      setReviews(data || []);
+    } catch (error) {
+      console.error('Error loading reviews:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredReviews = reviews.filter(review => {
+    const matchesFilter = filter === 'all' || 
+      (filter === 'unread' && review.status === 'unread') ||
+      (filter === 'needs_response' && review.status === 'needs_response') ||
+      (filter === 'responded' && review.status === 'responded');
+    
+    const matchesSearch = !searchQuery || 
+      review.reviewer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      review.review_text.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return matchesFilter && matchesSearch;
+  });
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      unread: { color: 'bg-blue-100 text-blue-800', label: 'Unread' },
+      needs_response: { color: 'bg-yellow-100 text-yellow-800', label: 'Needs Response' },
+      responded: { color: 'bg-green-100 text-green-800', label: 'Responded' },
+      resolved: { color: 'bg-gray-100 text-gray-800', label: 'Resolved' }
+    };
+    
+    const config = statusConfig[status] || statusConfig.unread;
+    return <Badge className={config.color}>{config.label}</Badge>;
+  };
+
+  const getPlatformIcon = (platform) => {
+    switch (platform.toLowerCase()) {
+      case 'google':
+        return '🔍';
+      case 'facebook':
+        return '📘';
+      case 'yelp':
+        return '💛';
+      default:
+        return '📝';
+    }
+  };
+
+  const formatTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const renderStars = (rating) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <Star
+        key={i}
+        className={`h-3 w-3 ${
+          i < rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
+        }`}
+      />
+    ));
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full">
+      {/* Left Sidebar - Reviews List */}
+      <div className="w-1/3 border-r border-gray-200 flex flex-col">
+        {/* Header */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Reviews Inbox</h2>
+            <Button variant="outline" size="sm" onClick={loadReviews}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Search */}
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search reviews..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Filters */}
+          <div className="flex gap-2">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'unread', label: 'Unread' },
+              { key: 'needs_response', label: 'Needs Response' },
+              { key: 'responded', label: 'Responded' }
+            ].map((filterOption) => (
+              <Button
+                key={filterOption.key}
+                variant={filter === filterOption.key ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilter(filterOption.key)}
+              >
+                {filterOption.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Reviews List */}
+        <div className="flex-1 overflow-y-auto">
+          {filteredReviews.length === 0 ? (
+            <div className="p-4 text-center text-gray-500">
+              <MessageSquare className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+              <p>No reviews found</p>
+              <p className="text-sm">Connect your Google Business profile to start importing reviews</p>
+            </div>
+          ) : (
+            filteredReviews.map((review) => (
+              <div
+                key={review.id}
+                className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
+                  selectedReview?.id === review.id ? 'bg-blue-50 border-blue-200' : ''
+                }`}
+                onClick={() => setSelectedReview(review)}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{getPlatformIcon(review.platform)}</span>
+                    <div>
+                      <h4 className="font-medium text-sm">{review.reviewer_name}</h4>
+                      <div className="flex items-center gap-1">
+                        {renderStars(review.rating)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(review.status)}
+                    <span className="text-xs text-gray-500">
+                      {formatTimeAgo(review.review_created_at)}
+                    </span>
+                  </div>
+                </div>
+                
+                <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                  {review.review_text}
+                </p>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500 capitalize">
+                    {review.platform} • {review.sentiment}
+                  </span>
+                  {review.reply_text && (
+                    <div className="flex items-center gap-1 text-xs text-green-600">
+                      <CheckCircle className="h-3 w-3" />
+                      Replied
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Right Panel - Review Detail */}
+      <div className="flex-1">
+        {selectedReview ? (
+          <ReviewDetailPanel 
+            review={selectedReview} 
+            onUpdate={loadReviews}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="text-center">
+              <MessageSquare className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+              <h3 className="text-lg font-medium mb-2">Select a Review</h3>
+              <p>Choose a review from the list to view details and respond</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ReviewsInbox;

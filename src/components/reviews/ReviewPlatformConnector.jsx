@@ -1,568 +1,301 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  MapPin, 
-  Facebook, 
-  Star, 
-  ExternalLink, 
-  RefreshCw, 
-  CheckCircle, 
-  AlertCircle,
-  Loader2,
-  Copy,
-  Search,
-  Link,
-  Plus
-} from 'lucide-react';
-import { supabase } from '@/lib/supabase/browser';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { toast } from 'react-hot-toast';
+import React, { useState } from 'react';
+import { Button } from '../ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Input } from '../ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Search, MapPin, ExternalLink, CheckCircle, AlertCircle } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
-const platformConfig = {
-  google: { 
-    name: 'Google', 
-    icon: '🔍', 
-    color: 'bg-blue-100 text-blue-800',
-    searchPlaceholder: 'Start typing your business name...',
-    urlPlaceholder: 'https://maps.google.com/...'
-  },
-  facebook: { 
-    name: 'Facebook', 
-    icon: '📘', 
-    color: 'bg-blue-100 text-blue-600',
-    searchPlaceholder: 'Start typing your business name...',
-    urlPlaceholder: 'https://facebook.com/yourbusiness'
-  },
-  yelp: { 
-    name: 'Yelp', 
-    icon: '🔴', 
-    color: 'bg-red-100 text-red-800',
-    searchPlaceholder: 'Start typing your business name...',
-    urlPlaceholder: 'https://yelp.com/biz/yourbusiness'
-  }
-};
-
-export default function ReviewPlatformConnector({ onPlatformsConnected }) {
-  const { user } = useAuth();
+const ReviewPlatformConnector = ({ onConnectionSuccess }) => {
   const [activeTab, setActiveTab] = useState('google');
-  const [connectedPlatforms, setConnectedPlatforms] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [connecting, setConnecting] = useState({});
-  
-  // Google-specific state
-  const [googleSearchQuery, setGoogleSearchQuery] = useState('');
-  const [googleSearchResults, setGoogleSearchResults] = useState([]);
-  const [showGoogleSearch, setShowGoogleSearch] = useState(false);
-  const [googleApiLoaded, setGoogleApiLoaded] = useState(false);
-  const [searching, setSearching] = useState(false);
-  
-  // Form data for each platform
-  const [formData, setFormData] = useState({
-    google: { public_url: '', business_name: '', place_id: '' },
-    facebook: { public_url: '', business_name: '' },
-    yelp: { public_url: '', business_name: '', business_id: '' }
-  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [connectedSources, setConnectedSources] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      fetchConnectedPlatforms();
-      loadGoogleMapsAPI();
-    }
-  }, [user]);
+  React.useEffect(() => {
+    loadConnectedSources();
+  }, []);
 
-  // Load Google Maps API dynamically
-  const loadGoogleMapsAPI = () => {
-    if (window.google && window.google.maps && window.google.maps.places) {
-      setGoogleApiLoaded(true);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_PLACES_API_KEY}&libraries=places`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      setGoogleApiLoaded(true);
-      console.log('Google Maps API loaded for reviews');
-    };
-    script.onerror = () => {
-      console.error('Failed to load Google Maps API');
-      toast.error('Failed to load Google Maps API');
-    };
-    document.head.appendChild(script);
-  };
-
-  const fetchConnectedPlatforms = async () => {
+  const loadConnectedSources = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('business_id')
-        .eq('id', user.id)
-        .single();
-
-      if (!profile?.business_id) return;
-
-      const { data: platforms, error } = await supabase
+      const { data, error } = await supabase
         .from('review_sources')
         .select('*')
-        .eq('business_id', profile.business_id);
+        .eq('created_by', user.email)
+        .eq('is_active', true);
 
-      if (error) {
-        console.error('Error fetching platforms:', error);
-        return;
-      }
-
-      setConnectedPlatforms(platforms || []);
+      if (error) throw error;
+      setConnectedSources(data || []);
     } catch (error) {
-      console.error('Error fetching platforms:', error);
+      console.error('Error loading connected sources:', error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const searchGooglePlaces = async (query) => {
-    if (!query.trim()) return;
-    
-    if (!googleApiLoaded) {
-      toast.error('Google Maps API is still loading. Please wait a moment and try again.');
-      return;
-    }
-    
+  const searchGoogleBusiness = async () => {
+    if (!searchQuery.trim()) return;
+
+    setIsSearching(true);
     try {
-      setSearching(true);
-      setShowGoogleSearch(true);
-      
-      const service = new window.google.maps.places.AutocompleteService();
-      const request = {
-        input: query,
-        types: ['establishment'],
-        componentRestrictions: { country: 'us' }
-      };
-      
-      service.getPlacePredictions(request, (predictions, status) => {
-        setSearching(false);
-        
-        if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-          setGoogleSearchResults(predictions);
-          if (predictions.length === 0) {
-            toast.info('No businesses found with that name. Try a different search term.');
-          } else {
-            toast.success(`Found ${predictions.length} businesses`);
-          }
-        } else {
-          if (status === 'ZERO_RESULTS') {
-            setGoogleSearchResults([]);
-            toast.info('No businesses found with that name. Try a different search term.');
-          } else {
-            setGoogleSearchResults([]);
-            toast.error(`Search failed: ${status}`);
-          }
-        }
+      const response = await fetch('/api/reviews/search-business', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          query: searchQuery,
+          platform: 'google'
+        })
       });
-    } catch (error) {
-      console.error('Error searching Google Places:', error);
-      setSearching(false);
-      toast.error('Search failed. Please try again.');
-    }
-  };
 
-  const selectGooglePlace = async (placeId, description) => {
-    try {
-      // Get place details
-      const service = new window.google.maps.places.PlacesService(document.createElement('div'));
-      service.getDetails({
-        placeId: placeId,
-        fields: ['name', 'url', 'place_id', 'formatted_address']
-      }, (place, status) => {
-        if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
-          setFormData(prev => ({
-            ...prev,
-            google: {
-              ...prev.google,
-              business_name: place.name,
-              public_url: place.url,
-              place_id: place.place_id
-            }
-          }));
-          
-          setGoogleSearchQuery(place.name);
-          setShowGoogleSearch(false);
-          setGoogleSearchResults([]);
-          
-          toast.success(`Selected: ${place.name}`);
-        }
-      });
-    } catch (error) {
-      console.error('Error getting place details:', error);
-      toast.error('Failed to get business details');
-    }
-  };
-
-  const handleInputChange = (platform, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [platform]: {
-        ...prev[platform],
-        [field]: value
+      const data = await response.json();
+      if (data.success) {
+        setSearchResults(data.results || []);
+      } else {
+        console.error('Search failed:', data.error);
       }
-    }));
+    } catch (error) {
+      console.error('Error searching businesses:', error);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
-  const connectPlatform = async (platform) => {
-    if (connecting[platform]) return;
-
-    const data = formData[platform];
-    if (!data.public_url) {
-      toast.error('Please enter a valid URL');
-      return;
-    }
-
+  const connectBusiness = async (business) => {
     try {
-      setConnecting(prev => ({ ...prev, [platform]: true }));
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Get user's business_id from profiles table
       const { data: profile } = await supabase
         .from('profiles')
         .select('business_id')
         .eq('id', user.id)
         .single();
 
-      if (!profile?.business_id) return;
+      if (!profile?.business_id) {
+        // If no business_id in profile, get it from businesses table
+        const { data: businessData } = await supabase
+          .from('businesses')
+          .select('id')
+          .eq('created_by', user.email)
+          .limit(1)
+          .single();
 
-      const platformData = {
-        business_id: profile.business_id,
-        platform: platform,
-        public_url: data.public_url,
-        business_name: data.business_name,
-        connection_type: platform === 'google' ? 'places' : platform === 'facebook' ? 'page_oauth' : 'api_key',
-        external_id: platform === 'google' ? data.place_id : platform === 'yelp' ? data.business_id : null,
-        is_active: true
-      };
+        if (!businessData?.id) {
+          throw new Error('No business found for user');
+        }
+
+        // Update profile with business_id
+        await supabase
+          .from('profiles')
+          .update({ business_id: businessData.id })
+          .eq('id', user.id);
+
+        profile.business_id = businessData.id;
+      }
 
       const { error } = await supabase
         .from('review_sources')
-        .upsert(platformData, { 
-          onConflict: 'business_id,platform',
-          ignoreDuplicates: false 
+        .upsert({
+          business_id: profile.business_id,
+          platform: 'google',
+          public_url: business.url,
+          business_name: business.name,
+          external_id: business.place_id,
+          is_active: true,
+          created_by: user.email
         });
 
-      if (error) {
-        console.error('Error connecting platform:', error);
-        toast.error('Failed to connect platform');
-        return;
-      }
+      if (error) throw error;
 
-      toast.success(`${platformConfig[platform].name} connected successfully!`);
+      // Reload connected sources
+      await loadConnectedSources();
       
-      // Clear form
-      setFormData(prev => ({
-        ...prev,
-        [platform]: { public_url: '', business_name: '', place_id: '', business_id: '' }
-      }));
-
-      // Refresh connected platforms
-      await fetchConnectedPlatforms();
+      // Trigger review sync
+      await syncReviews(profile.business_id, business.place_id);
       
-      // Notify parent component
-      if (onPlatformsConnected) {
-        onPlatformsConnected();
+      if (onConnectionSuccess) {
+        onConnectionSuccess();
       }
-
     } catch (error) {
-      console.error('Error connecting platform:', error);
-      toast.error('Failed to connect platform');
-    } finally {
-      setConnecting(prev => ({ ...prev, [platform]: false }));
+      console.error('Error connecting business:', error);
+      alert('Error connecting business: ' + error.message);
     }
   };
 
-  const disconnectPlatform = async (platform) => {
+  const syncReviews = async (businessId, placeId) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const response = await fetch('/api/reviews/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          business_id: businessId,
+          place_id: placeId,
+          platform: 'google'
+        })
+      });
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('business_id')
-        .eq('id', user.id)
-        .single();
+      const data = await response.json();
+      if (!data.success) {
+        console.error('Sync failed:', data.error);
+      }
+    } catch (error) {
+      console.error('Error syncing reviews:', error);
+    }
+  };
 
-      if (!profile?.business_id) return;
-
+  const disconnectSource = async (sourceId) => {
+    try {
       const { error } = await supabase
         .from('review_sources')
-        .delete()
-        .eq('business_id', profile.business_id)
-        .eq('platform', platform);
+        .update({ is_active: false })
+        .eq('id', sourceId);
 
-      if (error) {
-        console.error('Error disconnecting platform:', error);
-        toast.error('Failed to disconnect platform');
-        return;
-      }
-
-      toast.success(`${platformConfig[platform].name} disconnected`);
-      await fetchConnectedPlatforms();
-
+      if (error) throw error;
+      await loadConnectedSources();
     } catch (error) {
-      console.error('Error disconnecting platform:', error);
-      toast.error('Failed to disconnect platform');
+      console.error('Error disconnecting source:', error);
     }
   };
 
-  const isConnected = (platform) => {
-    return connectedPlatforms.some(p => p.platform === platform && p.is_active);
-  };
-
-  const getConnectedPlatform = (platform) => {
-    return connectedPlatforms.find(p => p.platform === platform && p.is_active);
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="w-6 h-6 animate-spin" />
-      </div>
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Connected Platforms Overview */}
-      {connectedPlatforms.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Link className="w-5 h-5" />
-              Connected Review Platforms
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {Object.keys(platformConfig).map(platform => {
-                const connected = isConnected(platform);
-                const platformData = getConnectedPlatform(platform);
-                const config = platformConfig[platform];
-                
-                return (
-                  <div key={platform} className={`p-4 rounded-lg border ${connected ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{config.icon}</span>
-                        <span className="font-medium">{config.name}</span>
-                      </div>
-                      {connected ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Connected
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">Not Connected</Badge>
-                      )}
-                    </div>
-                    
-                    {connected && platformData && (
-                      <div className="text-sm text-gray-600">
-                        <div className="font-medium">{platformData.business_name}</div>
-                        <div className="truncate">{platformData.public_url}</div>
-                      </div>
-                    )}
-                    
-                    {connected && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-2 w-full"
-                        onClick={() => disconnectPlatform(platform)}
-                      >
-                        Disconnect
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
+    <Card>
+      <CardHeader>
+        <CardTitle>Connect Review Platforms</CardTitle>
+        <CardDescription>
+          Connect your business profiles to automatically import reviews
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="google">Google</TabsTrigger>
+            <TabsTrigger value="facebook">Facebook</TabsTrigger>
+            <TabsTrigger value="yelp">Yelp</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="google" className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Search for your business on Google..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && searchGoogleBusiness()}
+              />
+              <Button onClick={searchGoogleBusiness} disabled={isSearching}>
+                <Search className="h-4 w-4" />
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Platform Connection Interface */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            Connect Review Platforms
-          </CardTitle>
-          <p className="text-sm text-gray-600">
-            Connect your business profiles to automatically import reviews into your inbox
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="google" className="flex items-center gap-2">
-                {platformConfig.google.icon} Google
-              </TabsTrigger>
-              <TabsTrigger value="facebook" className="flex items-center gap-2">
-                {platformConfig.facebook.icon} Facebook
-              </TabsTrigger>
-              <TabsTrigger value="yelp" className="flex items-center gap-2">
-                {platformConfig.yelp.icon} Yelp
-              </TabsTrigger>
-            </TabsList>
+            {isSearching && (
+              <div className="flex items-center justify-center p-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              </div>
+            )}
 
-            {Object.keys(platformConfig).map(platform => {
-              const config = platformConfig[platform];
-              const data = formData[platform];
-              const connected = isConnected(platform);
-
-              return (
-                <TabsContent key={platform} value={platform} className="space-y-4">
-                  <div className={`p-4 rounded-lg ${config.color} bg-opacity-10`}>
-                    <h3 className="font-semibold mb-2">{config.name} Review Integration</h3>
-                    <p className="text-sm text-gray-600">
-                      Connect your {config.name} business profile to automatically import reviews
-                    </p>
-                  </div>
-
-                  {connected ? (
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                        <span className="font-medium text-green-800">{config.name} is connected!</span>
+            {searchResults.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-medium">Search Results:</h4>
+                {searchResults.map((business, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <MapPin className="h-4 w-4 text-gray-500" />
+                      <div>
+                        <p className="font-medium">{business.name}</p>
+                        <p className="text-sm text-gray-500">{business.address}</p>
                       </div>
-                      <p className="text-sm text-green-700">
-                        Reviews from {config.name} will be automatically imported into your inbox.
-                      </p>
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {/* Google Places Search (only for Google) */}
-                      {platform === 'google' && (
-                        <div>
-                          <Label>Search for your business</Label>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            Type your business name to find and auto-fill the details below
-                          </p>
-                          
-                          {!googleApiLoaded && (
-                            <div className="mb-2 p-2 bg-yellow-50 text-yellow-700 rounded text-sm">
-                              <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
-                              Loading Google Maps API...
-                            </div>
-                          )}
-                          
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder={config.searchPlaceholder}
-                              value={googleSearchQuery}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                setGoogleSearchQuery(value);
-                                
-                                if (value.length > 2) {
-                                  searchGooglePlaces(value);
-                                } else {
-                                  setShowGoogleSearch(false);
-                                  setGoogleSearchResults([]);
-                                }
-                              }}
-                            />
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                if (googleSearchQuery.trim()) {
-                                  searchGooglePlaces(googleSearchQuery);
-                                }
-                              }}
-                              disabled={searching || !googleApiLoaded}
-                            >
-                              {searching ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Search className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
-                          
-                          {showGoogleSearch && googleSearchResults.length > 0 && (
-                            <div className="mt-2 border rounded-lg max-h-40 overflow-y-auto">
-                              {googleSearchResults.map((prediction) => (
-                                <div
-                                  key={prediction.place_id}
-                                  className="p-2 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
-                                  onClick={() => selectGooglePlace(prediction.place_id, prediction.description)}
-                                >
-                                  <div className="font-medium">{prediction.structured_formatting?.main_text}</div>
-                                  <div className="text-sm text-gray-500">{prediction.structured_formatting?.secondary_text}</div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                    <Button 
+                      size="sm" 
+                      onClick={() => connectBusiness(business)}
+                      disabled={connectedSources.some(s => s.external_id === business.place_id)}
+                    >
+                      {connectedSources.some(s => s.external_id === business.place_id) ? (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Connected
+                        </>
+                      ) : (
+                        'Connect'
                       )}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
 
-                      {/* Business Name */}
+            {connectedSources.filter(s => s.platform === 'google').length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-medium">Connected Google Businesses:</h4>
+                {connectedSources.filter(s => s.platform === 'google').map((source) => (
+                  <div key={source.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
                       <div>
-                        <Label>Business Name</Label>
-                        <Input
-                          placeholder={`Your business name on ${config.name}`}
-                          value={data.business_name}
-                          onChange={(e) => handleInputChange(platform, 'business_name', e.target.value)}
-                        />
+                        <p className="font-medium">{source.business_name}</p>
+                        <a 
+                          href={source.public_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                        >
+                          View on Google <ExternalLink className="h-3 w-3" />
+                        </a>
                       </div>
-
-                      {/* Public URL */}
-                      <div>
-                        <Label>Business URL</Label>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Your business {config.name} page URL
-                        </p>
-                        <Input
-                          placeholder={config.urlPlaceholder}
-                          value={data.public_url}
-                          onChange={(e) => handleInputChange(platform, 'public_url', e.target.value)}
-                        />
-                      </div>
-
-                      {/* Connect Button */}
-                      <Button
-                        onClick={() => connectPlatform(platform)}
-                        disabled={connecting[platform] || !data.public_url}
-                        className="w-full"
-                      >
-                        {connecting[platform] ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Connecting...
-                          </>
-                        ) : (
-                          <>
-                            <Link className="w-4 h-4 mr-2" />
-                            Connect {config.name}
-                          </>
-                        )}
-                      </Button>
                     </div>
-                  )}
-                </TabsContent>
-              );
-            })}
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => disconnectSource(source.id)}
+                    >
+                      Disconnect
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="facebook" className="space-y-4">
+            <div className="text-center p-8">
+              <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+              <h3 className="font-medium mb-2">Facebook Integration Coming Soon</h3>
+              <p className="text-gray-500 text-sm">
+                We're working on Facebook Business integration. Use Zapier for now.
+              </p>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="yelp" className="space-y-4">
+            <div className="text-center p-8">
+              <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+              <h3 className="font-medium mb-2">Yelp Integration Coming Soon</h3>
+              <p className="text-gray-500 text-sm">
+                We're working on Yelp Business integration. Use Zapier for now.
+              </p>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
-}
+};
+
+export default ReviewPlatformConnector;

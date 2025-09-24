@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +27,13 @@ import {
   Mail,
   MoreHorizontal,
   ThumbsUp,
-  Eye
+  Eye,
+  UserPlus,
+  Flag,
+  Share,
+  Archive,
+  RefreshCw,
+  Plus
 } from 'lucide-react';
 
 const platformConfig = {
@@ -92,6 +98,10 @@ export default function ReviewDetailPanel({
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [templates, setTemplates] = useState([]);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [newTag, setNewTag] = useState('');
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const actionsMenuRef = useRef(null);
 
   useEffect(() => {
     if (review) {
@@ -100,6 +110,20 @@ export default function ReviewDetailPanel({
       fetchTemplates();
     }
   }, [review]);
+
+  // Close actions menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
+        setShowActionsMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const fetchTemplates = async () => {
     if (!review?.business_id) return;
@@ -171,6 +195,95 @@ export default function ReviewDetailPanel({
     }
   };
 
+  const handleAssign = async (userId) => {
+    if (!review) return;
+    
+    try {
+      await onUpdateReview(review.id, { assigned_to: userId });
+    } catch (error) {
+      console.error('Error assigning review:', error);
+    }
+  };
+
+  const handleAddTag = async () => {
+    if (!review || !newTag.trim()) return;
+    
+    try {
+      const currentTags = review.tags || [];
+      const updatedTags = [...currentTags, newTag.trim()];
+      await onUpdateReview(review.id, { tags: updatedTags });
+      setNewTag('');
+      setIsAddingTag(false);
+    } catch (error) {
+      console.error('Error adding tag:', error);
+    }
+  };
+
+  const handleRemoveTag = async (tagToRemove) => {
+    if (!review) return;
+    
+    try {
+      const currentTags = review.tags || [];
+      const updatedTags = currentTags.filter(tag => tag !== tagToRemove);
+      await onUpdateReview(review.id, { tags: updatedTags });
+    } catch (error) {
+      console.error('Error removing tag:', error);
+    }
+  };
+
+  const handleMarkResolved = async () => {
+    if (!review) return;
+    
+    try {
+      await onUpdateReview(review.id, { status: 'resolved' });
+    } catch (error) {
+      console.error('Error marking as resolved:', error);
+    }
+  };
+
+  const handleEscalateToFeedback = async () => {
+    if (!review) return;
+    
+    try {
+      await onUpdateReview(review.id, { 
+        status: 'escalated',
+        is_private_feedback: true 
+      });
+      if (onEscalate) {
+        onEscalate(review);
+      }
+    } catch (error) {
+      console.error('Error escalating review:', error);
+    }
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (!review || !responseText.trim()) return;
+    
+    try {
+      const templateData = {
+        name: `Response for ${review.platform} ${review.rating}-star review`,
+        template_text: responseText,
+        platform: review.platform,
+        sentiment: review.sentiment,
+        job_type: review.job_type,
+        business_id: review.business_id
+      };
+      
+      if (onSaveTemplate) {
+        await onSaveTemplate(templateData);
+      }
+    } catch (error) {
+      console.error('Error saving template:', error);
+    }
+  };
+
+  const handleShare = () => {
+    if (review?.review_url) {
+      navigator.clipboard.writeText(review.review_url);
+    }
+  };
+
   if (!review) {
     return (
       <Card className="h-full">
@@ -225,9 +338,62 @@ export default function ReviewDetailPanel({
                   {slaStatus.text}
                 </Badge>
               )}
-              <Button variant="ghost" size="sm">
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
+              <div className="relative" ref={actionsMenuRef}>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowActionsMenu(!showActionsMenu)}
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+                
+                {showActionsMenu && (
+                  <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[200px]">
+                    <div className="p-2">
+                      <button
+                        onClick={() => {
+                          handleAssign('me'); // TODO: Get current user ID
+                          setShowActionsMenu(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        Assign to Me
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleMarkResolved();
+                          setShowActionsMenu(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Mark Resolved
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleEscalateToFeedback();
+                          setShowActionsMenu(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                      >
+                        <Flag className="w-4 h-4" />
+                        Escalate to Feedback
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleShare();
+                          setShowActionsMenu(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                      >
+                        <Share className="w-4 h-4" />
+                        Share Review
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -296,24 +462,59 @@ export default function ReviewDetailPanel({
           </div>
 
           {/* Tags and Topics */}
-          {(review.tags?.length > 0 || review.topics?.length > 0) && (
-            <div className="mb-4">
-              <h4 className="font-medium text-gray-900 mb-2">Classification</h4>
-              <div className="flex flex-wrap gap-2">
-                {review.tags?.map((tag, index) => (
-                  <Badge key={index} variant="outline">
-                    <Tag className="w-3 h-3 mr-1" />
-                    {tag}
-                  </Badge>
-                ))}
-                {review.topics?.map((topic, index) => (
-                  <Badge key={index} variant="secondary">
-                    {topic}
-                  </Badge>
-                ))}
-              </div>
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-medium text-gray-900">Classification</h4>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setIsAddingTag(!isAddingTag)}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Add Tag
+              </Button>
             </div>
-          )}
+            
+            {/* Add Tag Input */}
+            {isAddingTag && (
+              <div className="flex items-center gap-2 mb-3">
+                <input
+                  type="text"
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  placeholder="Enter tag name"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                />
+                <Button size="sm" onClick={handleAddTag}>
+                  Add
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setIsAddingTag(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+            
+            <div className="flex flex-wrap gap-2">
+              {review.tags?.map((tag, index) => (
+                <Badge key={index} variant="outline" className="cursor-pointer group">
+                  <Tag className="w-3 h-3 mr-1" />
+                  {tag}
+                  <button
+                    onClick={() => handleRemoveTag(tag)}
+                    className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              ))}
+              {review.topics?.map((topic, index) => (
+                <Badge key={index} variant="secondary">
+                  {topic}
+                </Badge>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -407,6 +608,10 @@ export default function ReviewDetailPanel({
                 <Button onClick={handleSaveResponse}>
                   <Save className="w-4 h-4 mr-2" />
                   Save Response
+                </Button>
+                <Button variant="outline" onClick={handleSaveAsTemplate}>
+                  <Archive className="w-4 h-4 mr-2" />
+                  Save as Template
                 </Button>
                 <Button variant="outline" onClick={() => setIsEditingResponse(false)}>
                   <X className="w-4 h-4 mr-2" />
