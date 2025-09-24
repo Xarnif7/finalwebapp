@@ -16,7 +16,7 @@ const JobberConnectionCard = ({ userId, businessId }) => {
 
   const checkConnectionStatus = async () => {
     try {
-      const response = await fetch(`/api/crm/jobber/status?businessId=${businessId}`, {
+      const response = await fetch(`/api/crm/jobber/status?business_id=${businessId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
         }
@@ -46,8 +46,8 @@ const JobberConnectionCard = ({ userId, businessId }) => {
           'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
         },
         body: JSON.stringify({ 
-          businessId,
-          userId 
+          business_id: businessId,
+          user_id: userId 
         })
       });
 
@@ -78,7 +78,7 @@ const JobberConnectionCard = ({ userId, businessId }) => {
   const pollForConnection = () => {
     const interval = setInterval(async () => {
       try {
-        const response = await fetch(`/api/crm/jobber/status?businessId=${businessId}`, {
+        const response = await fetch(`/api/crm/jobber/status?business_id=${businessId}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
           }
@@ -116,7 +116,7 @@ const JobberConnectionCard = ({ userId, businessId }) => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
         },
-        body: JSON.stringify({ businessId })
+        body: JSON.stringify({ business_id: businessId })
       });
 
       if (response.ok) {
@@ -159,8 +159,19 @@ const JobberConnectionCard = ({ userId, businessId }) => {
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <div className="p-3 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] rounded-lg">
-              <Settings className="h-6 w-6 text-white" />
+            <div className="w-12 h-12 rounded-lg bg-white border-2 border-gray-100 flex items-center justify-center shadow-sm">
+              <img 
+                src="/images/crm/Jobber ICON.jpg" 
+                alt="Jobber logo"
+                className="w-10 h-10 object-contain rounded"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+              <div className="p-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] rounded" style={{ display: 'none' }}>
+                <Settings className="h-6 w-6 text-white" />
+              </div>
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Connect Jobber CRM</h3>
