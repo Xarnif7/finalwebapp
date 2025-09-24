@@ -10573,6 +10573,75 @@ Generate a perfect response:`;
 });
 
 // Start server
+// Connect a review source
+app.post('/api/reviews/connect-source', async (req, res) => {
+  try {
+    const { platform, public_url, business_name, external_id, place_id } = req.body;
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get user's business_id from businesses table
+    const { data: businessData } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('created_by', user.email)
+      .limit(1)
+      .single();
+
+    if (!businessData?.id) {
+      return res.status(400).json({ error: 'No business found for user' });
+    }
+
+    const businessId = businessData.id;
+
+    // Upsert the review source
+    const { error } = await supabase
+      .from('review_sources')
+      .upsert({
+        business_id: businessId,
+        platform: platform,
+        public_url: public_url,
+        business_name: business_name,
+        external_id: external_id,
+        is_active: true,
+        created_by: user.email
+      });
+
+    if (error) throw error;
+
+    // Trigger review sync (will import only 15 most recent)
+    try {
+      const syncResponse = await fetch(`${req.protocol}://${req.get('host')}/api/reviews/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': req.headers.authorization
+        },
+        body: JSON.stringify({
+          business_id: businessId,
+          place_id: place_id,
+          platform: platform,
+          limit: 15
+        })
+      });
+      
+      const syncData = await syncResponse.json();
+      console.log('Sync result:', syncData);
+    } catch (syncError) {
+      console.error('Error syncing reviews:', syncError);
+      // Don't fail the connection if sync fails
+    }
+
+    res.json({ success: true, message: 'Business connected successfully' });
+  } catch (error) {
+    console.error('Error connecting source:', error);
+    res.status(500).json({ error: 'Failed to connect source' });
+  }
+});
+
 // Get connected review sources
 app.get('/api/reviews/sources', async (req, res) => {
   try {

@@ -39,8 +39,16 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 
   const loadConnectedSources = async () => {
     try {
-      // Use API endpoint instead of direct database access
-      const response = await fetch('/api/reviews/sources');
+      // Get auth token for API calls
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch('/api/reviews/sources', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
       const data = await response.json();
       
       if (data.success) {
@@ -68,9 +76,15 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
     setShowSuggestions(true);
     
     try {
+      // Get auth token for API calls
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const response = await fetch('/api/reviews/search-business', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
         body: JSON.stringify({ 
           query: searchQuery,
           platform: 'google'
@@ -96,6 +110,11 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
     setSelectedBusiness(business);
     setSearchQuery(business.name);
     setShowSuggestions(false);
+    
+    // Force re-render to show selection immediately
+    setTimeout(() => {
+      setShowSuggestions(false);
+    }, 100);
   };
 
   const handleConnect = async () => {
@@ -111,49 +130,33 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 
   const connectBusiness = async (business) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      // Get user's business_id from businesses table using user email
-      const { data: businessData, error: businessError } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('created_by', user.email)
-        .limit(1)
-        .single();
-
-      if (businessError) {
-        console.error('Error getting business data:', businessError);
-        throw new Error('Failed to get business information');
-      }
-
-      if (!businessData?.id) {
-        throw new Error('No business found for user');
-      }
-
-      const businessId = businessData.id;
-
-      const { error } = await supabase
-        .from('review_sources')
-        .upsert({
-          business_id: businessId,
+      // Get auth token for API calls
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Use API endpoint to connect business
+      const response = await fetch('/api/reviews/connect-source', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
           platform: 'google',
           public_url: business.url,
           business_name: business.name,
           external_id: business.place_id,
-          is_active: true,
-          created_by: user.email
-        });
+          place_id: business.place_id
+        })
+      });
 
-      if (error) throw error;
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to connect business');
+      }
 
       // Reload connected sources
       await loadConnectedSources();
-      
-      // Trigger review sync (will import only 15 most recent)
-      await syncReviews(businessId, business.place_id);
       
       if (onConnectionSuccess) {
         onConnectionSuccess();
@@ -246,6 +249,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                       // Delay hiding suggestions to allow clicking
                       setTimeout(() => setShowSuggestions(false), 200);
                     }}
+                    className="w-full"
                   />
                   {isSearching && (
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -256,7 +260,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 
                 {/* Search Results Dropdown */}
                 {showSuggestions && searchResults.length > 0 && (
-                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto">
+                  <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto">
                     {searchResults.map((business, index) => (
                       <div 
                         key={index} 
