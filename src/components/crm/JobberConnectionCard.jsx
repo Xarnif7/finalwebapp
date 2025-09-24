@@ -51,12 +51,24 @@ const JobberConnectionCard = ({ userId, businessId }) => {
       });
 
       if (response.ok) {
-        const { authUrl } = await response.json();
-        // Open OAuth flow in new window
-        window.open(authUrl, 'jobber-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+        const data = await response.json();
+        console.log('🔗 Received OAuth URL from server:', data);
         
-        // Poll for connection completion
-        pollForConnection();
+        if (data.authUrl) {
+          console.log('🚀 Opening Jobber OAuth URL:', data.authUrl);
+          // Open OAuth flow in new window
+          const oauthWindow = window.open(data.authUrl, 'jobber-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+          
+          if (!oauthWindow) {
+            console.error('❌ Popup blocked! Please allow popups for this site');
+            throw new Error('Popup blocked. Please allow popups and try again.');
+          }
+          
+          // Poll for connection completion
+          pollForConnection();
+        } else {
+          throw new Error('No OAuth URL received from server');
+        }
       } else {
         let errorData;
         try {
