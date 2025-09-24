@@ -94,10 +94,12 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       
       if (data.success) {
         setSearchResults(data.results || []);
+        setShowSuggestions(true); // Ensure suggestions are shown
         console.log('Search results:', data.results?.length);
       } else {
         console.error('Search failed:', data.error);
         setSearchResults([]);
+        setShowSuggestions(false);
       }
     } catch (error) {
       console.error('Error searching businesses:', error);
@@ -248,7 +250,10 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                     }}
                     onBlur={() => {
                       // Delay hiding suggestions to allow clicking
-                      setTimeout(() => setShowSuggestions(false), 200);
+                      setTimeout(() => {
+                        console.log('Hiding suggestions due to blur');
+                        setShowSuggestions(false);
+                      }, 300);
                     }}
                     className="w-full"
                   />
@@ -260,6 +265,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                 </div>
 
                 {/* Search Results Dropdown */}
+                {console.log('Render check - showSuggestions:', showSuggestions, 'searchResults.length:', searchResults.length)}
                 {showSuggestions && searchResults.length > 0 && (
                   <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto">
                     {searchResults.map((business, index) => (
