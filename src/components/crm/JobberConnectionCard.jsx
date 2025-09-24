@@ -12,9 +12,33 @@ const JobberConnectionCard = ({ userId, businessId }) => {
   // Debug logging
   console.log('🔧 JobberConnectionCard props:', { userId, businessId });
 
-  // Check connection status on component mount
+  // Check connection status on component mount and when businessId changes
   useEffect(() => {
     checkConnectionStatus();
+  }, [businessId]);
+
+  // Also check status when component becomes visible (user navigates back to modal)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('🔄 Page became visible, checking Jobber connection status...');
+        checkConnectionStatus();
+      }
+    };
+
+    const handleFocus = () => {
+      console.log('🔄 Window focused, checking Jobber connection status...');
+      checkConnectionStatus();
+    };
+
+    // Check when page becomes visible or window gains focus
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [businessId]);
 
   const checkConnectionStatus = async () => {
@@ -37,6 +61,12 @@ const JobberConnectionCard = ({ userId, businessId }) => {
   };
 
   const handleConnect = async () => {
+    // If already connected, don't start OAuth flow
+    if (connectionStatus === 'connected') {
+      console.log('✅ Already connected to Jobber, skipping OAuth flow');
+      return;
+    }
+
     setIsConnecting(true);
     setConnectionStatus('connecting');
 
@@ -232,6 +262,17 @@ const JobberConnectionCard = ({ userId, businessId }) => {
           </div>
           
           <div className="flex items-center space-x-3">
+            {/* Refresh button - always visible */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={checkConnectionStatus}
+              className="flex items-center space-x-2 text-gray-500 hover:text-gray-700"
+              title="Refresh connection status"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            
             {connectionStatus === 'connected' && (
               <>
                 <Button
