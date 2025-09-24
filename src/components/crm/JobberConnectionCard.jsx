@@ -60,28 +60,32 @@ const JobberConnectionCard = ({ userId, businessId }) => {
         if (data.authUrl) {
           console.log('🚀 Opening Jobber OAuth URL:', data.authUrl);
           
-          // Check if popup will be blocked before attempting
-          const testPopup = window.open('', '_blank', 'width=1,height=1');
-          if (!testPopup || testPopup.closed || typeof testPopup.closed == 'undefined') {
-            console.log('⚠️ Popup blocked detected, redirecting current window');
-            window.location.href = data.authUrl;
-            return;
-          } else {
-            testPopup.close(); // Close the test popup
-            console.log('✅ Popup allowed, opening OAuth in popup');
-          }
-          
-          // Open OAuth flow in popup window
-          const oauthWindow = window.open(data.authUrl, 'jobber-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
-          
-          // Double-check the popup opened successfully
-          setTimeout(() => {
+          // Try popup first, with immediate fallback to direct navigation
+          try {
+            const oauthWindow = window.open(data.authUrl, 'jobber-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+            
+            // Check immediately if popup was blocked
             if (!oauthWindow || oauthWindow.closed || typeof oauthWindow.closed == 'undefined') {
-              console.log('⚠️ Popup failed after opening, redirecting current window');
+              console.log('⚠️ Popup blocked, redirecting current window');
               window.location.href = data.authUrl;
               return;
             }
-          }, 100);
+            
+            // Check again after a short delay to catch popups that close immediately
+            setTimeout(() => {
+              if (!oauthWindow || oauthWindow.closed || typeof oauthWindow.closed == 'undefined') {
+                console.log('⚠️ Popup closed immediately, redirecting current window');
+                window.location.href = data.authUrl;
+                return;
+              }
+            }, 500);
+            
+            console.log('✅ Popup opened successfully');
+          } catch (popupError) {
+            console.log('⚠️ Popup error, redirecting current window:', popupError.message);
+            window.location.href = data.authUrl;
+            return;
+          }
           
           // Poll for connection completion
           pollForConnection();
