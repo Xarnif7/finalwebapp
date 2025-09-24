@@ -59,7 +59,12 @@ const JobberConnectionCard = ({ userId, businessId }) => {
         // Poll for connection completion
         pollForConnection();
       } else {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+        }
         console.error('Jobber connection API error:', errorData);
         throw new Error(errorData.error || 'Failed to initiate Jobber connection');
       }

@@ -63,9 +63,14 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Jobber connection error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     return res.status(500).json({ 
       success: false, 
-      error: 'Failed to initiate Jobber connection' 
+      error: error.message || 'Failed to initiate Jobber connection' 
     });
   }
 }

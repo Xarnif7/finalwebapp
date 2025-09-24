@@ -18,7 +18,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
       id: 'jobber',
       name: 'Jobber',
       description: 'Field service management for home services',
-      logo: 'https://app.getjobber.com/favicon.ico', // You can replace with actual logo
+      logo: '/images/crm/jobber-logo.png',
       color: 'from-orange-400 to-orange-600',
       connected: false, // This would come from your connection status
       component: JobberConnectionCard
@@ -27,7 +27,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
       id: 'housecall_pro',
       name: 'Housecall Pro',
       description: 'Home service business management',
-      logo: 'https://housecallpro.com/favicon.ico',
+      logo: '/images/crm/housecall-pro-logo.png',
       color: 'from-blue-500 to-blue-700',
       connected: false,
       component: null // Will implement later
@@ -36,7 +36,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
       id: 'servicetitan',
       name: 'ServiceTitan',
       description: 'Complete business management platform',
-      logo: 'https://servicetitan.com/favicon.ico',
+      logo: '/images/crm/servicetitan-logo.png',
       color: 'from-green-500 to-green-700',
       connected: false,
       component: null // Will implement later
@@ -141,18 +141,16 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
                     <div className="flex flex-col items-center text-center space-y-4">
                       {/* Logo */}
                       <div className={`w-16 h-16 rounded-lg bg-gradient-to-r ${crm.color} flex items-center justify-center`}>
-                        {crm.logo ? (
-                          <img 
-                            src={crm.logo} 
-                            alt={`${crm.name} logo`}
-                            className="w-10 h-10 rounded"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <Settings className="w-8 h-8 text-white" style={{ display: crm.logo ? 'none' : 'flex' }} />
+                        <img 
+                          src={crm.logo} 
+                          alt={`${crm.name} logo`}
+                          className="w-10 h-10 rounded object-contain"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                        <Settings className="w-8 h-8 text-white" style={{ display: 'none' }} />
                       </div>
                       
                       {/* Name */}
