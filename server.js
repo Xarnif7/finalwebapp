@@ -8960,6 +8960,89 @@ async function handleJobCompleted(payload) {
   }
 }
 
+// ============================================================================
+// NOTIFICATIONS API
+// ============================================================================
+
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+    
+    if (!business_id) {
+      return res.status(400).json({ error: 'Business ID required' });
+    }
+
+    // For now, return mock notifications
+    // Later this would query a notifications table
+    const mockNotifications = [
+      {
+        id: 1,
+        type: 'email_sent',
+        title: 'Review request sent',
+        message: 'Email sent to Sarah Johnson for HVAC service',
+        timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+        read: false,
+        route: 'AutomatedRequests'
+      },
+      {
+        id: 2,
+        type: 'review_received',
+        title: 'New 5-star review',
+        message: 'Mike Thompson left a 5-star review on Google',
+        timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        read: false,
+        route: 'ReviewInbox'
+      },
+      {
+        id: 3,
+        type: 'sms_sent',
+        title: 'SMS sent successfully',
+        message: 'Text message delivered to Emily Rodriguez',
+        timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+        read: true,
+        route: 'Conversations'
+      }
+    ];
+
+    const unreadCount = mockNotifications.filter(n => !n.read).length;
+
+    res.json({
+      notifications: mockNotifications,
+      unreadCount: unreadCount
+    });
+
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+app.put('/api/notifications/:id/read', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // For now, just return success
+    // Later this would update the notifications table
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({ error: 'Failed to mark notification as read' });
+  }
+});
+
+app.put('/api/notifications/mark-all-read', async (req, res) => {
+  try {
+    // For now, just return success
+    // Later this would update the notifications table
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
+    res.status(500).json({ error: 'Failed to mark all notifications as read' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Local API server running on http://localhost:${PORT}`);

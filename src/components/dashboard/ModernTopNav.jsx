@@ -14,13 +14,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useDashboard } from "@/components/providers/DashboardProvider";
 import HelpGuide from "@/components/ui/HelpGuide";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
+import FunctionalNotifications from "@/components/ui/FunctionalNotifications";
 
-const mockNotifications = [
-    { text: "New 5-star review from Sarah L.", time: "2m ago", route: "ReviewInbox" },
-    { text: "Customer 'Mike T.' replied via SMS.", time: "1h ago", route: "Conversations" },
-    { text: "12 review requests were sent.", time: "3h ago", route: "AutomatedRequests" },
-    { text: "New customer added: Emily R.", time: "5h ago", route: "Clients" },
-];
 
 const UserAvatar = ({ user, size = "40px" }) => {
   const getInitials = () => {
@@ -49,11 +45,15 @@ export default function ModernTopNav({ onLogout }) {
 
   const handleSwitchAccount = () => onLogout();
   const goToProfile = () => navigate(createPageUrl('Settings'));
-  const handleNotificationClick = (route) => navigate(createPageUrl(route));
-  const viewAllNotifications = () => navigate(createPageUrl('AuditLog'));
     
   return (
-    <header className="h-20 bg-white border-b border-slate-200 px-6 flex items-center justify-end z-40">
+    <header className="h-20 bg-white border-b border-slate-200 px-6 flex items-center justify-between z-40">
+      {/* Left side - Breadcrumbs */}
+      <div className="flex-1">
+        <Breadcrumbs />
+      </div>
+
+      {/* Right side - Actions */}
       <div className="flex items-center gap-3">
         {/* Help Button */}
         <Button
@@ -66,38 +66,15 @@ export default function ModernTopNav({ onLogout }) {
           <HelpCircle className="w-5 h-5" />
         </Button>
 
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative h-12 w-12">
-                  <Bell className="w-5 h-5 text-slate-500" />
-                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500 text-white">
-                    {mockNotifications.length}
-                  </Badge>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 z-50">
-                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {mockNotifications.map((n, index) => (
-                    <DropdownMenuItem key={index} className="flex flex-col items-start p-3 cursor-pointer" onClick={() => handleNotificationClick(n.route)}>
-                        <p className="text-sm text-slate-700">{n.text}</p>
-                        <span className="text-xs text-slate-400">{n.time}</span>
-                    </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                    <button onClick={viewAllNotifications} className="w-full text-center text-blue-600 font-semibold py-2 cursor-pointer">
-                        View all notifications
-                    </button>
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Functional Notifications */}
+        <FunctionalNotifications />
 
+        {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="group" aria-label="User menu">
-                <UserAvatar user={user} size="40px" />
-            </button>
+            <Button variant="ghost" size="icon" className="h-12 w-12">
+              <UserAvatar user={user} size="40px" />
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 z-50">
             <DropdownMenuLabel>My Account {user?.email ? `(${user.email})` : ''}</DropdownMenuLabel>
