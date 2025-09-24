@@ -92,6 +92,7 @@ const JobberConnectionCard = ({ userId, businessId }) => {
           
           // Try popup first, with immediate fallback to direct navigation
           try {
+            console.log('🚀 Attempting to open popup with URL:', data.authUrl);
             const oauthWindow = window.open(data.authUrl, 'jobber-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
             
             // Check immediately if popup was blocked
@@ -101,6 +102,44 @@ const JobberConnectionCard = ({ userId, businessId }) => {
               return;
             }
             
+            console.log('✅ Popup window created successfully');
+            
+            // Add a listener to detect if popup navigates away from OAuth
+            const checkPopupUrl = () => {
+              try {
+                if (oauthWindow.closed) {
+                  console.log('🔄 Popup was closed by user');
+                  return;
+                }
+                
+                const currentUrl = oauthWindow.location.href;
+                console.log('🔍 Popup current URL:', currentUrl);
+                
+                // If popup navigated to myblipp.com instead of staying on Jobber OAuth
+                if (currentUrl.includes('myblipp.com') && !currentUrl.includes('api.getjobber.com')) {
+                  console.log('⚠️ Popup redirected to Blipp instead of Jobber OAuth, closing and redirecting current window');
+                  oauthWindow.close();
+                  window.location.href = data.authUrl;
+                  return;
+                }
+                
+                // If still on Jobber OAuth domain, keep checking
+                if (currentUrl.includes('api.getjobber.com') || currentUrl.includes('getjobber.com')) {
+                  setTimeout(checkPopupUrl, 1000);
+                }
+              } catch (crossOriginError) {
+                // This is normal - we can't access the URL due to cross-origin restrictions
+                console.log('✅ Popup is on OAuth domain (cross-origin access blocked - this is normal)');
+                // Keep checking if popup is still open
+                if (!oauthWindow.closed) {
+                  setTimeout(checkPopupUrl, 1000);
+                }
+              }
+            };
+            
+            // Start monitoring the popup URL
+            setTimeout(checkPopupUrl, 1000);
+            
             // Check again after a short delay to catch popups that close immediately
             setTimeout(() => {
               if (!oauthWindow || oauthWindow.closed || typeof oauthWindow.closed == 'undefined') {
@@ -108,7 +147,20 @@ const JobberConnectionCard = ({ userId, businessId }) => {
                 window.location.href = data.authUrl;
                 return;
               }
-            }, 500);
+              
+              // Check if popup was redirected to wrong URL
+              try {
+                if (oauthWindow.location.href && !oauthWindow.location.href.includes('api.getjobber.com')) {
+                  console.log('⚠️ Popup redirected to wrong URL:', oauthWindow.location.href);
+                  oauthWindow.close();
+                  window.location.href = data.authUrl;
+                  return;
+                }
+              } catch (crossOriginError) {
+                // Can't access popup URL due to cross-origin, this is normal for OAuth
+                console.log('✅ Popup is on OAuth domain (cross-origin access blocked - this is normal)');
+              }
+            }, 1000);
             
             console.log('✅ Popup opened successfully');
           } catch (popupError) {
