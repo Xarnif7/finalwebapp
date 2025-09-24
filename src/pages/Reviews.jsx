@@ -3,7 +3,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import ReviewsInbox from '../components/reviews/ReviewsInbox';
-import ReviewPlatformConnector from '../components/reviews/ReviewPlatformConnector';
+import ReviewConnectionModal from '../components/reviews/ReviewConnectionModal';
 import { Plus, BarChart3, FileText } from 'lucide-react';
 
 const Reviews = () => {
@@ -33,11 +33,18 @@ const Reviews = () => {
 
       {/* Content */}
       <div className="flex-1 overflow-hidden">
-        {showPlatformConnector ? (
-          <div className="p-6 h-full overflow-y-auto">
-            <ReviewPlatformConnector onConnectionSuccess={() => setShowPlatformConnector(false)} />
-          </div>
-        ) : (
+        {/* Modal for connecting platforms */}
+        <ReviewConnectionModal 
+          isOpen={showPlatformConnector}
+          onClose={() => setShowPlatformConnector(false)}
+          onConnectionSuccess={() => {
+            setShowPlatformConnector(false);
+            // Refresh the inbox to show new reviews
+            window.location.reload();
+          }}
+        />
+        
+        {!showPlatformConnector && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
             <div className="px-6 pt-6">
               <TabsList>

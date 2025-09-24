@@ -10576,25 +10576,145 @@ Generate a perfect response:`;
 // Reviews API endpoints
 app.get('/api/reviews', async (req, res) => {
   try {
-    const { business_id } = req.query;
+    const { business_id, limit = 15, before } = req.query;
     const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
     
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('reviews')
       .select('*')
       .eq('created_by', user.email)
-      .order('review_created_at', { ascending: false });
+      .order('review_created_at', { ascending: false })
+      .limit(parseInt(limit));
+
+    // Add pagination cursor if provided
+    if (before) {
+      query = query.lt('review_created_at', before);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
-    res.json({ success: true, reviews: data });
+    // Check if there are more reviews
+    const { count } = await supabase
+      .from('reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('created_by', user.email)
+      .lt('review_created_at', data[data.length - 1]?.review_created_at || new Date().toISOString());
+
+    res.json({ 
+      success: true, 
+      reviews: data,
+      has_more: count > parseInt(limit),
+      total_count: count
+    });
   } catch (error) {
     console.error('Error fetching reviews:', error);
     res.status(500).json({ error: 'Failed to fetch reviews' });
+  }
+});
+
+// Load more reviews endpoint
+app.post('/api/reviews/load-more', async (req, res) => {
+  try {
+    const { business_id, place_id, platform, before_date } = req.body;
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (platform === 'google') {
+      // Use Google Places API to fetch older reviews
+      const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
+      if (!googleApiKey) {
+        return res.status(500).json({ error: 'Google Places API key not configured' });
+      }
+
+      // Get place details to fetch all reviews
+      const placeDetailsResponse = await fetch(
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&fields=name,rating,reviews,user_ratings_total&key=${googleApiKey}`
+      );
+
+      const placeData = await placeDetailsResponse.json();
+      
+      if (placeData.status !== 'OK') {
+        return res.status(400).json({ error: 'Failed to fetch place details: ' + placeData.status });
+      }
+
+      const place = placeData.result;
+      const reviews = place.reviews || [];
+
+      // Sort reviews by date (newest first)
+      const sortedReviews = reviews
+        .sort((a, b) => (b.time || 0) - (a.time || 0));
+
+      // Get user's business_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.business_id) {
+        return res.status(400).json({ error: 'No business ID found' });
+      }
+
+      // Find reviews older than the before_date
+      const olderReviews = sortedReviews.filter(review => {
+        const reviewDate = new Date(review.time * 1000);
+        return reviewDate < new Date(before_date);
+      }).slice(0, 15); // Load 15 more
+
+      // Convert Google reviews to our format
+      const formattedReviews = olderReviews.map(review => ({
+        business_id: profile.business_id,
+        platform: 'google',
+        reviewer_name: review.author_name || 'Anonymous',
+        rating: review.rating || 5,
+        review_text: review.text || '',
+        review_url: review.author_url || `https://www.google.com/maps/place/?q=place_id:${place_id}`,
+        review_created_at: new Date(review.time * 1000).toISOString(),
+        status: 'unread',
+        created_by: user.email
+      }));
+
+      if (formattedReviews.length === 0) {
+        return res.json({ success: true, message: 'No more reviews to load', reviews: [], has_more: false });
+      }
+
+      // Upsert reviews to database
+      const { error } = await supabase
+        .from('reviews')
+        .upsert(formattedReviews, { 
+          onConflict: 'business_id,platform,reviewer_name,review_created_at',
+          ignoreDuplicates: true 
+        });
+
+      if (error) throw error;
+
+      // Check if there are even more reviews
+      const hasMore = sortedReviews.some(review => {
+        const reviewDate = new Date(review.time * 1000);
+        return reviewDate < new Date(formattedReviews[formattedReviews.length - 1].review_created_at);
+      });
+
+      res.json({ 
+        success: true, 
+        reviews: formattedReviews,
+        has_more: hasMore,
+        count: formattedReviews.length
+      });
+    } else {
+      res.status(400).json({ error: 'Unsupported platform' });
+    }
+  } catch (error) {
+    console.error('Error loading more reviews:', error);
+    res.status(500).json({ error: 'Failed to load more reviews' });
   }
 });
 
@@ -10642,7 +10762,7 @@ app.post('/api/reviews/search-business', async (req, res) => {
 // Sync reviews from Google My Business
 app.post('/api/reviews/sync', async (req, res) => {
   try {
-    const { business_id, place_id, platform } = req.body;
+    const { business_id, place_id, platform, limit = 15 } = req.body;
     const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
     
     if (!user) {
@@ -10670,8 +10790,13 @@ app.post('/api/reviews/sync', async (req, res) => {
       const place = placeData.result;
       const reviews = place.reviews || [];
 
+      // Sort reviews by date (newest first) and limit to requested amount
+      const sortedReviews = reviews
+        .sort((a, b) => (b.time || 0) - (a.time || 0))
+        .slice(0, parseInt(limit));
+
       // Convert Google reviews to our format
-      const formattedReviews = reviews.map(review => ({
+      const formattedReviews = sortedReviews.map(review => ({
         business_id,
         platform: 'google',
         reviewer_name: review.author_name || 'Anonymous',
@@ -10697,7 +10822,13 @@ app.post('/api/reviews/sync', async (req, res) => {
 
       if (error) throw error;
 
-      res.json({ success: true, message: 'Reviews synced successfully', count: formattedReviews.length });
+      res.json({ 
+        success: true, 
+        message: `Loaded ${formattedReviews.length} of ${reviews.length} total reviews`, 
+        count: formattedReviews.length,
+        total_available: reviews.length,
+        has_more: reviews.length > parseInt(limit)
+      });
     } else {
       res.status(400).json({ error: 'Unsupported platform' });
     }

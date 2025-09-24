@@ -12,7 +12,8 @@ import {
   ExternalLink,
   MoreHorizontal,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  ChevronDown
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import ReviewDetailPanel from './ReviewDetailPanel';
@@ -23,28 +24,56 @@ const ReviewsInbox = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     loadReviews();
   }, []);
 
-  const loadReviews = async () => {
+  const loadReviews = async (reset = true) => {
     try {
+      if (reset) {
+        setIsLoading(true);
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('reviews')
-        .select('*')
-        .eq('created_by', user.email)
-        .order('review_created_at', { ascending: false });
+      const params = new URLSearchParams({
+        limit: '15'
+      });
 
-      if (error) throw error;
-      setReviews(data || []);
+      if (!reset && reviews.length > 0) {
+        params.append('before', reviews[reviews.length - 1].review_created_at);
+      }
+
+      const response = await fetch(`/api/reviews?${params}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        if (reset) {
+          setReviews(data.reviews || []);
+        } else {
+          setReviews(prev => [...prev, ...(data.reviews || [])]);
+        }
+        setHasMore(data.has_more || false);
+        setTotalCount(data.total_count || 0);
+      }
     } catch (error) {
       console.error('Error loading reviews:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadMoreReviews = async () => {
+    setIsLoadingMore(true);
+    try {
+      await loadReviews(false);
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -171,49 +200,80 @@ const ReviewsInbox = () => {
               <p className="text-sm">Connect your Google Business profile to start importing reviews</p>
             </div>
           ) : (
-            filteredReviews.map((review) => (
-              <div
-                key={review.id}
-                className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
-                  selectedReview?.id === review.id ? 'bg-blue-50 border-blue-200' : ''
-                }`}
-                onClick={() => setSelectedReview(review)}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{getPlatformIcon(review.platform)}</span>
-                    <div>
-                      <h4 className="font-medium text-sm">{review.reviewer_name}</h4>
-                      <div className="flex items-center gap-1">
-                        {renderStars(review.rating)}
+            <>
+              {filteredReviews.map((review) => (
+                <div
+                  key={review.id}
+                  className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
+                    selectedReview?.id === review.id ? 'bg-blue-50 border-blue-200' : ''
+                  }`}
+                  onClick={() => setSelectedReview(review)}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{getPlatformIcon(review.platform)}</span>
+                      <div>
+                        <h4 className="font-medium text-sm">{review.reviewer_name}</h4>
+                        <div className="flex items-center gap-1">
+                          {renderStars(review.rating)}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(review.status)}
+                      <span className="text-xs text-gray-500">
+                        {formatTimeAgo(review.review_created_at)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(review.status)}
-                    <span className="text-xs text-gray-500">
-                      {formatTimeAgo(review.review_created_at)}
+                  
+                  <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                    {review.review_text}
+                  </p>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500 capitalize">
+                      {review.platform} • {review.sentiment}
+                    </span>
+                    {review.reply_text && (
+                      <div className="flex items-center gap-1 text-xs text-green-600">
+                        <CheckCircle className="h-3 w-3" />
+                        Replied
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              
+              {/* Load More Button */}
+              {hasMore && (
+                <div className="p-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-500">
+                      Showing {reviews.length} of {totalCount} reviews
                     </span>
                   </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={loadMoreReviews}
+                    disabled={isLoadingMore}
+                    className="w-full"
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                        Loading more reviews...
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4 mr-2" />
+                        Load More Reviews
+                      </>
+                    )}
+                  </Button>
                 </div>
-                
-                <p className="text-sm text-gray-600 line-clamp-2 mb-2">
-                  {review.review_text}
-                </p>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500 capitalize">
-                    {review.platform} • {review.sentiment}
-                  </span>
-                  {review.reply_text && (
-                    <div className="flex items-center gap-1 text-xs text-green-600">
-                      <CheckCircle className="h-3 w-3" />
-                      Replied
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
+              )}
+            </>
           )}
         </div>
       </div>
