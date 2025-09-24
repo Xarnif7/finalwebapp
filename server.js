@@ -8900,7 +8900,7 @@ async function setupJobberWebhook(accessToken, businessId) {
 // Helper function to handle job completed events
 async function handleJobCompleted(payload) {
   try {
-    console.log('Handling job completed event:', payload);
+    console.log('🎯 Handling job completed event:', payload);
     
     // Extract customer and job information
     const customer = payload.data?.customer;
@@ -8908,9 +8908,16 @@ async function handleJobCompleted(payload) {
     const serviceType = job?.service_type;
     
     if (!customer || !job) {
-      console.error('Missing customer or job data in webhook payload');
+      console.error('❌ Missing customer or job data in webhook payload');
       return;
     }
+
+    console.log('📋 Job details:', {
+      customer: customer.name,
+      email: customer.email,
+      serviceType: serviceType,
+      jobId: job.id
+    });
 
     // Find the business that has this Jobber connection
     const { data: connection } = await supabase
@@ -8920,9 +8927,11 @@ async function handleJobCompleted(payload) {
       .single();
 
     if (!connection) {
-      console.error('No Jobber connection found');
+      console.error('❌ No Jobber connection found');
       return;
     }
+
+    console.log('🏢 Found business connection:', connection.business_id);
 
     // Find the appropriate template based on service type
     const { data: template } = await supabase
@@ -8932,66 +8941,672 @@ async function handleJobCompleted(payload) {
       });
 
     if (!template) {
-      console.error('No template found for service type:', serviceType);
+      console.error('❌ No template found for service type:', serviceType);
       return;
     }
 
-    // Create customer if doesn't exist
+    console.log('📧 Found template:', {
+      id: template.id,
+      name: template.name,
+      serviceTypes: template.service_types
+    });
+
+    // Create or find customer
+    let customerId;
     const { data: existingCustomer } = await supabase
       .from('customers')
-      .select('id')
+      .select('id, full_name, email, phone')
       .eq('email', customer.email)
       .eq('business_id', connection.business_id)
       .single();
 
-    let customerId;
     if (existingCustomer) {
       customerId = existingCustomer.id;
+      console.log('👤 Using existing customer:', existingCustomer.full_name);
     } else {
       const { data: newCustomer, error: customerError } = await supabase
         .from('customers')
         .insert({
           business_id: connection.business_id,
-          name: customer.name,
+          full_name: customer.name,
           email: customer.email,
           phone: customer.phone,
-          created_from: 'jobber_webhook'
+          source: 'jobber_webhook',
+          status: 'active'
         })
-        .select('id')
+        .select('id, full_name')
         .single();
 
       if (customerError) {
-        console.error('Error creating customer:', customerError);
+        console.error('❌ Error creating customer:', customerError);
         return;
       }
       customerId = newCustomer.id;
+      console.log('👤 Created new customer:', newCustomer.full_name);
     }
 
-    // Trigger automation
-    const { error: automationError } = await supabase
-      .from('automation_triggers')
+    // Generate review link
+    const reviewLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/r/${Math.random().toString(36).substring(2, 10)}`;
+
+    // Create review request directly (bypass automation_triggers for now)
+    const { data: reviewRequest, error: reviewRequestError } = await supabase
+      .from('review_requests')
       .insert({
         business_id: connection.business_id,
         customer_id: customerId,
-        template_id: template.id,
+        channel: 'email', // Default to email for now
+        status: 'pending',
+        review_link: reviewLink,
         trigger_type: 'jobber_job_completed',
         trigger_data: {
           jobber_job_id: job.id,
           service_type: serviceType,
           customer_name: customer.name,
           customer_email: customer.email
-        },
-        status: 'pending'
-      });
+        }
+      })
+      .select('id')
+      .single();
 
-    if (automationError) {
-      console.error('Error creating automation trigger:', automationError);
+    if (reviewRequestError) {
+      console.error('❌ Error creating review request:', reviewRequestError);
+      return;
+    }
+
+    console.log('📝 Created review request:', reviewRequest.id);
+
+    // Get template message and customize it
+    const templateMessage = template.config_json?.message || template.custom_message || 
+      `Hi {{customer.name}}, thank you for choosing us for your ${serviceType} service! We hope you were satisfied. Please take a moment to leave us a review at {{review_link}}.`;
+
+    // Replace template variables
+    const customizedMessage = templateMessage
+      .replace(/\{\{customer\.name\}\}/g, customer.name)
+      .replace(/\{\{customer_name\}\}/g, customer.name)
+      .replace(/\{\{business\.name\}\}/g, 'Your Business') // TODO: Get actual business name
+      .replace(/\{\{business_name\}\}/g, 'Your Business')
+      .replace(/\{\{review_link\}\}/g, reviewLink);
+
+    // Send email immediately
+    console.log('📧 Sending email...');
+    
+    // Import Resend functionality
+    const emailResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'noreply@myblipp.com',
+        to: [customer.email],
+        subject: "We'd love your feedback!",
+        html: customizedMessage.replace(/\n/g, '<br>'),
+        text: customizedMessage,
+      }),
+    });
+
+    if (emailResponse.ok) {
+      const emailData = await emailResponse.json();
+      console.log('✅ Email sent successfully:', emailData.id);
+      
+      // Update review request status
+      await supabase
+        .from('review_requests')
+        .update({
+          status: 'sent',
+          sent_at: new Date().toISOString()
+        })
+        .eq('id', reviewRequest.id);
+        
+      console.log('🎉 Jobber integration complete! Email sent to:', customer.email);
     } else {
-      console.log('Automation trigger created for Jobber job completion');
+      const errorData = await emailResponse.text();
+      console.error('❌ Email sending failed:', emailResponse.status, errorData);
+      
+      // Update review request status to failed
+      await supabase
+        .from('review_requests')
+        .update({
+          status: 'failed'
+        })
+        .eq('id', reviewRequest.id);
     }
 
   } catch (error) {
-    console.error('Error handling job completed:', error);
+    console.error('❌ Error handling job completed:', error);
+  }
+}
+
+// ============================================================================
+// EMAIL & SMS SENDING API
+// ============================================================================
+
+// Send email via Resend
+app.post('/api/send-email', async (req, res) => {
+  try {
+    const { to, subject, html, text } = req.body;
+    
+    if (!to || !subject || (!html && !text)) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const emailResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'noreply@myblipp.com',
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        html,
+        text,
+      }),
+    });
+
+    if (emailResponse.ok) {
+      const emailData = await emailResponse.json();
+      res.json({ success: true, messageId: emailData.id });
+    } else {
+      const errorData = await emailResponse.text();
+      console.error('Email sending failed:', emailResponse.status, errorData);
+      res.status(500).json({ error: 'Failed to send email' });
+    }
+  } catch (error) {
+    console.error('Email API error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Send SMS via Twilio
+app.post('/api/send-sms', async (req, res) => {
+  try {
+    const { to, body } = req.body;
+    
+    if (!to || !body) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+
+    if (!accountSid || !authToken || !fromNumber) {
+      return res.status(500).json({ error: 'Twilio not configured' });
+    }
+
+    const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        From: fromNumber,
+        To: to,
+        Body: body,
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      res.json({ success: true, messageId: data.sid });
+    } else {
+      const errorData = await response.text();
+      console.error('SMS sending failed:', response.status, errorData);
+      res.status(500).json({ error: 'Failed to send SMS' });
+    }
+  } catch (error) {
+    console.error('SMS API error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Review request scheduling endpoint
+app.post('/api/review-requests/schedule', async (req, res) => {
+  try {
+    const { businessId, items, dryRun } = req.body;
+    
+    if (!businessId || !Array.isArray(items)) {
+      return res.status(400).json({ error: 'Invalid payload' });
+    }
+
+    // Calculate best send times for magic strategy
+    const previews = items.map((item) => {
+      let bestSendAt = null;
+      if (item.strategy === 'magic') {
+        // Simple magic timing - send 2 hours after job completion or next business day at 10 AM
+        const jobEndTime = item.job_end_at ? new Date(item.job_end_at) : new Date();
+        const sendTime = new Date(jobEndTime.getTime() + 2 * 60 * 60 * 1000); // 2 hours later
+        
+        // If it's after 6 PM, schedule for next day at 10 AM
+        if (sendTime.getHours() >= 18) {
+          sendTime.setDate(sendTime.getDate() + 1);
+          sendTime.setHours(10, 0, 0, 0);
+        }
+        
+        bestSendAt = sendTime.toISOString();
+      }
+      return { 
+        customerId: item.customerId, 
+        strategy: item.strategy, 
+        best_send_at: bestSendAt 
+      };
+    });
+
+    if (dryRun) {
+      return res.json({ previews });
+    }
+
+    // Insert review requests
+    const toInsert = items.map(item => {
+      const bestSendAt = item.strategy === 'magic' ? 
+        (new Date(Date.now() + 2 * 60 * 60 * 1000)).toISOString() : 
+        new Date().toISOString();
+        
+      return {
+        business_id: businessId,
+        customer_id: item.customerId,
+        channel: item.channel || 'email',
+        status: item.strategy === 'magic' ? 'scheduled' : 'pending',
+        best_send_at: item.strategy === 'magic' ? bestSendAt : null,
+        review_link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/r/${Math.random().toString(36).substring(2, 10)}`
+      };
+    });
+
+    const { data: inserted, error } = await supabase
+      .from('review_requests')
+      .insert(toInsert)
+      .select('id, business_id, status, best_send_at');
+
+    if (error) {
+      console.error('Failed to insert review requests:', error);
+      return res.status(500).json({ error: 'Failed to insert review requests' });
+    }
+
+    // Create scheduled jobs for magic strategy
+    const jobs = inserted
+      .filter(r => r.status === 'scheduled' && r.best_send_at)
+      .map(r => ({
+        business_id: r.business_id,
+        job_type: 'send_review_request',
+        payload: { review_request_id: r.id },
+        scheduled_for: r.best_send_at,
+        status: 'queued'
+      }));
+
+    if (jobs.length > 0) {
+      await supabase.from('scheduled_jobs').insert(jobs);
+    }
+
+    res.json({ 
+      success: true, 
+      inserted: inserted.length,
+      previews: previews
+    });
+
+  } catch (error) {
+    console.error('Schedule review requests error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Send review request now endpoint
+app.post('/api/review-requests/send-now', async (req, res) => {
+  try {
+    const { review_request_id } = req.body;
+    
+    if (!review_request_id) {
+      return res.status(400).json({ error: 'Missing review_request_id' });
+    }
+
+    // Get review request with customer and business data
+    const { data: reviewRequest, error: requestError } = await supabase
+      .from('review_requests')
+      .select(`
+        id, business_id, customer_id, channel, review_link,
+        customers!inner(full_name, email, phone),
+        businesses!inner(name, email)
+      `)
+      .eq('id', review_request_id)
+      .single();
+
+    if (requestError || !reviewRequest) {
+      return res.status(404).json({ error: 'Review request not found' });
+    }
+
+    const customer = reviewRequest.customers;
+    const business = reviewRequest.businesses;
+
+    // Prepare message
+    let message, subject;
+    const reviewLink = reviewRequest.review_link;
+    
+    if (reviewRequest.channel === 'email') {
+      subject = "We'd love your feedback!";
+      message = `Hi ${customer.full_name},
+
+Thank you for choosing ${business.name}! We would really appreciate if you could take a moment to share your experience with us.
+
+${reviewLink}
+
+Your feedback helps us improve and serve our customers better.
+
+Best regards,
+${business.name}`;
+    } else {
+      // SMS
+      message = `Hi ${customer.full_name}! Thanks for choosing ${business.name}. We'd love your feedback: ${reviewLink}`;
+    }
+
+    let sendResult;
+    const sentAt = new Date().toISOString();
+
+    // Send via appropriate channel
+    if (reviewRequest.channel === 'email') {
+      const emailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'noreply@myblipp.com',
+          to: [customer.email],
+          subject: subject,
+          html: message.replace(/\n/g, '<br>'),
+          text: message,
+        }),
+      });
+
+      if (emailResponse.ok) {
+        const emailData = await emailResponse.json();
+        sendResult = { messageId: emailData.id };
+      } else {
+        throw new Error('Email sending failed');
+      }
+    } else {
+      // SMS via Twilio
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+
+      const smsResponse = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          From: fromNumber,
+          To: customer.phone,
+          Body: message,
+        }),
+      });
+
+      if (smsResponse.ok) {
+        const smsData = await smsResponse.json();
+        sendResult = { messageId: smsData.sid };
+      } else {
+        throw new Error('SMS sending failed');
+      }
+    }
+
+    // Update review request status
+    await supabase
+      .from('review_requests')
+      .update({
+        status: 'sent',
+        sent_at: sentAt,
+        delivered_at: sentAt
+      })
+      .eq('id', review_request_id);
+
+    res.json({ 
+      success: true, 
+      messageId: sendResult.messageId,
+      sentAt: sentAt
+    });
+
+  } catch (error) {
+    console.error('Send review request error:', error);
+    res.status(500).json({ error: 'Failed to send review request' });
+  }
+});
+
+// ============================================================================
+// AUTOMATION PROCESSOR
+// ============================================================================
+
+// Process scheduled jobs (can be called by cron or manually)
+app.post('/api/cron/process-scheduled-jobs', async (req, res) => {
+  try {
+    const now = new Date().toISOString();
+    console.log('🕐 Processing scheduled jobs at:', now);
+    
+    // Get due jobs
+    const { data: dueJobs, error: jobsError } = await supabase
+      .from('scheduled_jobs')
+      .select('*')
+      .lte('scheduled_for', now)
+      .eq('status', 'queued')
+      .limit(50);
+
+    if (jobsError) {
+      console.error('❌ Error fetching scheduled jobs:', jobsError);
+      return res.status(500).json({ error: 'Failed to fetch scheduled jobs' });
+    }
+
+    if (!dueJobs || dueJobs.length === 0) {
+      console.log('✅ No scheduled jobs to process');
+      return res.json({ success: true, processed: 0 });
+    }
+
+    console.log(`📋 Processing ${dueJobs.length} scheduled jobs`);
+
+    let processed = 0;
+    let failed = 0;
+
+    for (const job of dueJobs) {
+      try {
+        console.log(`🔄 Processing job ${job.id}: ${job.job_type}`);
+        
+        // Update job status to processing
+        await supabase
+          .from('scheduled_jobs')
+          .update({ status: 'processing', started_at: now })
+          .eq('id', job.id);
+
+        let success = false;
+
+        switch (job.job_type) {
+          case 'send_review_request':
+            success = await processSendReviewRequest(job);
+            break;
+          case 'send_review_request_now':
+            success = await processSendReviewRequestNow(job);
+            break;
+          default:
+            console.warn(`⚠️ Unknown job type: ${job.job_type}`);
+            success = false;
+        }
+
+        // Update job status
+        await supabase
+          .from('scheduled_jobs')
+          .update({ 
+            status: success ? 'completed' : 'failed',
+            completed_at: new Date().toISOString(),
+            error_message: success ? null : 'Job processing failed'
+          })
+          .eq('id', job.id);
+
+        if (success) {
+          processed++;
+          console.log(`✅ Job ${job.id} completed successfully`);
+        } else {
+          failed++;
+          console.error(`❌ Job ${job.id} failed`);
+        }
+
+      } catch (jobError) {
+        console.error(`❌ Error processing job ${job.id}:`, jobError);
+        
+        // Update job status to failed
+        await supabase
+          .from('scheduled_jobs')
+          .update({ 
+            status: 'failed',
+            completed_at: new Date().toISOString(),
+            error_message: jobError.message
+          })
+          .eq('id', job.id);
+        
+        failed++;
+      }
+    }
+
+    console.log(`🎉 Processing complete: ${processed} successful, ${failed} failed`);
+    res.json({ 
+      success: true, 
+      processed: processed + failed,
+      successful: processed,
+      failed: failed
+    });
+
+  } catch (error) {
+    console.error('❌ Automation processor error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Helper function to process send review request jobs
+async function processSendReviewRequest(job) {
+  try {
+    const { review_request_id } = job.payload;
+    
+    // Call the send-now endpoint
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/api/review-requests/send-now`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ review_request_id })
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error('Error processing send review request:', error);
+    return false;
+  }
+}
+
+// Helper function to process immediate send review request jobs
+async function processSendReviewRequestNow(job) {
+  try {
+    const { review_request_id } = job.payload;
+    
+    // Get review request data
+    const { data: reviewRequest, error: requestError } = await supabase
+      .from('review_requests')
+      .select(`
+        id, business_id, customer_id, channel, review_link,
+        customers!inner(full_name, email, phone),
+        businesses!inner(name, email)
+      `)
+      .eq('id', review_request_id)
+      .single();
+
+    if (requestError || !reviewRequest) {
+      console.error('Review request not found:', review_request_id);
+      return false;
+    }
+
+    const customer = reviewRequest.customers;
+    const business = reviewRequest.businesses;
+
+    // Prepare message
+    let message, subject;
+    const reviewLink = reviewRequest.review_link;
+    
+    if (reviewRequest.channel === 'email') {
+      subject = "We'd love your feedback!";
+      message = `Hi ${customer.full_name},
+
+Thank you for choosing ${business.name}! We would really appreciate if you could take a moment to share your experience with us.
+
+${reviewLink}
+
+Your feedback helps us improve and serve our customers better.
+
+Best regards,
+${business.name}`;
+    } else {
+      message = `Hi ${customer.full_name}! Thanks for choosing ${business.name}. We'd love your feedback: ${reviewLink}`;
+    }
+
+    // Send email or SMS
+    if (reviewRequest.channel === 'email') {
+      const emailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'noreply@myblipp.com',
+          to: [customer.email],
+          subject: subject,
+          html: message.replace(/\n/g, '<br>'),
+          text: message,
+        }),
+      });
+
+      if (!emailResponse.ok) {
+        console.error('Email sending failed');
+        return false;
+      }
+    } else {
+      // SMS via Twilio
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+
+      const smsResponse = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          From: fromNumber,
+          To: customer.phone,
+          Body: message,
+        }),
+      });
+
+      if (!smsResponse.ok) {
+        console.error('SMS sending failed');
+        return false;
+      }
+    }
+
+    // Update review request status
+    await supabase
+      .from('review_requests')
+      .update({
+        status: 'sent',
+        sent_at: new Date().toISOString()
+      })
+      .eq('id', review_request_id);
+
+    return true;
+
+  } catch (error) {
+    console.error('Error processing immediate send review request:', error);
+    return false;
   }
 }
 
