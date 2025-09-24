@@ -50,6 +50,8 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
   );
 
   const handleCrmSelect = (crm) => {
+    console.log('🔧 CRM Selected:', crm);
+    console.log('🔧 Setting selectedCrm to:', crm.name);
     setSelectedCrm(crm);
   };
 
@@ -59,6 +61,9 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
 
   // If a specific CRM is selected, show its connection interface
   if (selectedCrm) {
+    console.log('🔧 Rendering CRM component for:', selectedCrm.name);
+    console.log('🔧 Component:', selectedCrm.component);
+    console.log('🔧 Props being passed:', { userId, businessId });
     const CrmComponent = selectedCrm.component;
     
     if (!CrmComponent) {
