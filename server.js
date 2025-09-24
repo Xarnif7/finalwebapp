@@ -8739,7 +8739,7 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
     }
 
     // Redirect back to the app with success message
-    const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/dashboard?jobber_connected=true`;
+    const redirectUrl = `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/dashboard?jobber_connected=true`;
     console.log('Jobber OAuth completed successfully, redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
 
@@ -8752,7 +8752,7 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
     });
     
     // Redirect to dashboard with error message instead of JSON
-    const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/dashboard?jobber_error=true&error=${encodeURIComponent(error.message)}`;
+    const redirectUrl = `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/dashboard?jobber_error=true&error=${encodeURIComponent(error.message)}`;
     console.log('Jobber OAuth failed, redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
   }
@@ -8868,7 +8868,7 @@ app.post('/api/crm/jobber/webhook', async (req, res) => {
 
 // Helper function to set up Jobber webhook
 async function setupJobberWebhook(accessToken, businessId) {
-  const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/crm/jobber/webhook`;
+  const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/api/crm/jobber/webhook`;
   
   const webhookResponse = await fetch('https://api.getjobber.com/api/webhooks', {
     method: 'POST',
@@ -8936,7 +8936,7 @@ async function handleJobCompleted(payload) {
     // Use AI to find the best matching template
     console.log('🤖 Using AI to find best template match for:', serviceType);
     
-    const aiMatchResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/api/ai/match-template`, {
+    const aiMatchResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/api/ai/match-template`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -9003,7 +9003,7 @@ async function handleJobCompleted(payload) {
     }
 
     // Generate review link
-    const reviewLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/r/${Math.random().toString(36).substring(2, 10)}`;
+    const reviewLink = `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/r/${Math.random().toString(36).substring(2, 10)}`;
 
     // Create review request directly (bypass automation_triggers for now)
     const { data: reviewRequest, error: reviewRequestError } = await supabase
@@ -9229,7 +9229,7 @@ app.post('/api/review-requests/schedule', async (req, res) => {
         channel: item.channel || 'email',
         status: item.strategy === 'magic' ? 'scheduled' : 'pending',
         best_send_at: item.strategy === 'magic' ? bestSendAt : null,
-        review_link: `${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/r/${Math.random().toString(36).substring(2, 10)}`
+        review_link: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/r/${Math.random().toString(36).substring(2, 10)}`
       };
     });
 
@@ -9505,7 +9505,7 @@ async function processSendReviewRequest(job) {
     const { review_request_id } = job.payload;
     
     // Call the send-now endpoint
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/api/review-requests/send-now`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/api/review-requests/send-now`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
