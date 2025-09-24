@@ -60,23 +60,28 @@ const JobberConnectionCard = ({ userId, businessId }) => {
         if (data.authUrl) {
           console.log('🚀 Opening Jobber OAuth URL:', data.authUrl);
           
-          // Try popup first, fallback to direct navigation if blocked
-          let oauthWindow;
-          try {
-            oauthWindow = window.open(data.authUrl, 'jobber-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
-            
-            if (!oauthWindow || oauthWindow.closed || typeof oauthWindow.closed == 'undefined') {
-              console.log('⚠️ Popup blocked, redirecting current window');
-              // If popup is blocked, redirect the current window
-              window.location.href = data.authUrl;
-              return; // Exit early since we're redirecting
-            }
-          } catch (popupError) {
-            console.log('⚠️ Popup failed, redirecting current window:', popupError.message);
-            // If popup fails, redirect the current window
+          // Check if popup will be blocked before attempting
+          const testPopup = window.open('', '_blank', 'width=1,height=1');
+          if (!testPopup || testPopup.closed || typeof testPopup.closed == 'undefined') {
+            console.log('⚠️ Popup blocked detected, redirecting current window');
             window.location.href = data.authUrl;
-            return; // Exit early since we're redirecting
+            return;
+          } else {
+            testPopup.close(); // Close the test popup
+            console.log('✅ Popup allowed, opening OAuth in popup');
           }
+          
+          // Open OAuth flow in popup window
+          const oauthWindow = window.open(data.authUrl, 'jobber-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+          
+          // Double-check the popup opened successfully
+          setTimeout(() => {
+            if (!oauthWindow || oauthWindow.closed || typeof oauthWindow.closed == 'undefined') {
+              console.log('⚠️ Popup failed after opening, redirecting current window');
+              window.location.href = data.authUrl;
+              return;
+            }
+          }, 100);
           
           // Poll for connection completion
           pollForConnection();
