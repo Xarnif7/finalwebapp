@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, LogOut, Repeat, User as UserIcon } from 'lucide-react';
+import { Bell, LogOut, Repeat, User as UserIcon, HelpCircle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useDashboard } from "@/components/providers/DashboardProvider";
+import HelpGuide from "@/components/ui/HelpGuide";
 
 const mockNotifications = [
     { text: "New 5-star review from Sarah L.", time: "2m ago", route: "ReviewInbox" },
@@ -44,6 +45,7 @@ const UserAvatar = ({ user, size = "40px" }) => {
 export default function ModernTopNav({ onLogout }) {
   const navigate = useNavigate();
   const { user } = useDashboard();
+  const [showHelpGuide, setShowHelpGuide] = React.useState(false);
 
   const handleSwitchAccount = () => onLogout();
   const goToProfile = () => navigate(createPageUrl('Settings'));
@@ -53,6 +55,17 @@ export default function ModernTopNav({ onLogout }) {
   return (
     <header className="h-20 bg-white border-b border-slate-200 px-6 flex items-center justify-end z-40">
       <div className="flex items-center gap-3">
+        {/* Help Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowHelpGuide(true)}
+          className="h-12 w-12 text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+          title="Help & Setup Guide"
+        >
+          <HelpCircle className="w-5 h-5" />
+        </Button>
+
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative h-12 w-12">
@@ -102,6 +115,12 @@ export default function ModernTopNav({ onLogout }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Help Guide Modal */}
+      <HelpGuide 
+        isOpen={showHelpGuide} 
+        onClose={() => setShowHelpGuide(false)} 
+      />
     </header>
   );
 }

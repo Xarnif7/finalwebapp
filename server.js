@@ -8727,10 +8727,13 @@ app.get('/api/crm/jobber/status', async (req, res) => {
   try {
     const { business_id } = req.query;
     
+    console.log('Jobber status check for business_id:', business_id);
+    
     if (!business_id) {
       return res.status(400).json({ error: 'Business ID required' });
     }
 
+    // Check if crm_connections table exists first
     const { data: connection, error } = await supabase
       .from('crm_connections')
       .select('*')
@@ -8738,8 +8741,17 @@ app.get('/api/crm/jobber/status', async (req, res) => {
       .eq('crm_type', 'jobber')
       .single();
 
+    console.log('Database query result:', { connection, error });
+
     if (error && error.code !== 'PGRST116') {
       console.error('Database error:', error);
+      // If table doesn't exist, return not connected
+      if (error.code === '42P01') {
+        return res.json({
+          connected: false,
+          connection: null
+        });
+      }
       return res.status(500).json({ error: 'Database query failed' });
     }
 
