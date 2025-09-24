@@ -92,10 +92,16 @@ const JobberConnectionCard = ({ userId, businessId }) => {
         
         if (data.authUrl) {
           console.log('🚀 Opening Jobber OAuth URL:', data.authUrl);
+          console.log('🔍 Current window location before redirect:', window.location.href);
           
           // Always redirect current window to OAuth URL (no popup)
           console.log('🔄 Redirecting current window to OAuth URL');
-          window.location.assign(data.authUrl);
+          
+          // Add a small delay to ensure logs are captured
+          setTimeout(() => {
+            console.log('🚀 Actually redirecting now...');
+            window.location.assign(data.authUrl);
+          }, 100);
           
           // Poll for connection completion
           pollForConnection();
