@@ -15,7 +15,6 @@ import {
 import { useDashboard } from "@/components/providers/DashboardProvider";
 import HelpGuide from "@/components/ui/HelpGuide";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
-import FunctionalNotifications from "@/components/ui/FunctionalNotifications";
 
 
 const UserAvatar = ({ user, size = "40px" }) => {
@@ -66,8 +65,6 @@ export default function ModernTopNav({ onLogout }) {
           <HelpCircle className="w-5 h-5" />
         </Button>
 
-        {/* Functional Notifications */}
-        <FunctionalNotifications />
 
         {/* User Menu */}
         <DropdownMenu>

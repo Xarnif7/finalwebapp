@@ -23,6 +23,19 @@ const Breadcrumbs = () => {
     '/billing': { name: 'Billing', icon: '💳' },
   };
 
+  // Define sub-route mappings for better breadcrumbs
+  const subRouteMap = {
+    'active-sequences': { name: 'Active Sequences', icon: '📋' },
+    'draft-sequences': { name: 'Draft Sequences', icon: '📝' },
+    'completed-sequences': { name: 'Completed Sequences', icon: '✅' },
+    'templates': { name: 'Templates', icon: '📝' },
+    'create-template': { name: 'Create Template', icon: '➕' },
+    'edit-template': { name: 'Edit Template', icon: '✏️' },
+    'customer-details': { name: 'Customer Details', icon: '👤' },
+    'add-customer': { name: 'Add Customer', icon: '➕' },
+    'import-customers': { name: 'Import Customers', icon: '📥' },
+  };
+
   // Function to generate breadcrumbs based on current path
   const generateBreadcrumbs = () => {
     const pathSegments = location.pathname.split('/').filter(Boolean);
@@ -41,27 +54,14 @@ const Breadcrumbs = () => {
     pathSegments.forEach((segment, index) => {
       currentPath += `/${segment}`;
       
-      // Handle nested routes
-      if (segment === 'edit' && pathSegments[index - 1]) {
-        const parentRoute = routeMap[`/${pathSegments[index - 1]}`];
-        if (parentRoute) {
-          breadcrumbs.push({
-            name: `Edit ${parentRoute.name}`,
-            path: currentPath,
-            icon: '✏️',
-            isClickable: false
-          });
-        }
-      } else if (segment === 'new' && pathSegments[index - 1]) {
-        const parentRoute = routeMap[`/${pathSegments[index - 1]}`];
-        if (parentRoute) {
-          breadcrumbs.push({
-            name: `New ${parentRoute.name}`,
-            path: currentPath,
-            icon: '➕',
-            isClickable: false
-          });
-        }
+      // Handle sub-routes first
+      if (subRouteMap[segment]) {
+        breadcrumbs.push({
+          name: subRouteMap[segment].name,
+          path: currentPath,
+          icon: subRouteMap[segment].icon,
+          isClickable: true
+        });
       } else if (routeMap[currentPath]) {
         breadcrumbs.push({
           name: routeMap[currentPath].name,
@@ -104,8 +104,8 @@ const Breadcrumbs = () => {
             onClick={() => breadcrumb.isClickable && navigate(breadcrumb.path)}
             className={`px-2 py-1 h-auto text-sm font-normal ${
               breadcrumb.isClickable 
-                ? 'text-gray-600 hover:text-gray-900 hover:bg-gray-100' 
-                : 'text-gray-400 cursor-default'
+                ? 'text-gray-800 hover:text-gray-900 hover:bg-gray-100' 
+                : 'text-gray-600 cursor-default'
             }`}
             disabled={!breadcrumb.isClickable}
           >

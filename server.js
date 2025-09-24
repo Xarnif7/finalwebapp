@@ -8715,11 +8715,21 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
     await setupJobberWebhook(tokens.access_token, business_id);
 
     // Redirect back to the app with success message
-    res.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/?jobber_connected=true`);
+    const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/dashboard?jobber_connected=true`;
+    console.log('Redirecting to:', redirectUrl);
+    res.redirect(redirectUrl);
 
   } catch (error) {
     console.error('Jobber callback error:', error);
-    res.status(500).json({ error: 'Callback processing failed' });
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
+    // Redirect to dashboard with error message instead of JSON
+    const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/dashboard?jobber_error=true`;
+    res.redirect(redirectUrl);
   }
 });
 
