@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Mail, MessageSquare, Clock, Settings, ArrowRight, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, Wand2, Eye, User, Link, Building, Calendar, Star, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function TemplateCustomizer({ 
   isOpen, 
@@ -32,6 +33,15 @@ export default function TemplateCustomizer({
       message: '',
       delay_hours: 0,
       steps: []
+    },
+    service_types: [],
+    service_types_text: '',
+    is_default: false,
+    trigger_events: {
+      manual: true,
+      jobber_job_completed: false,
+      housecall_pro_job_completed: false,
+      servicetitan_job_completed: false
     }
   });
   const [saving, setSaving] = useState(false);
@@ -157,6 +167,7 @@ export default function TemplateCustomizer({
         trigger_type: templateData.trigger_type || 'event',
         channels: templateData.channels || ['email'],
         service_types: templateData.service_types || [],
+        service_types_text: templateData.service_types?.join(', ') || '',
         is_default: templateData.is_default || false,
         trigger_events: templateData.trigger_events || [],
         config_json: {
@@ -471,12 +482,34 @@ export default function TemplateCustomizer({
 
   // AI template matching test
   const testAiMatching = async () => {
-    if (!testServiceType.trim() || !businessId) return;
+    if (!testServiceType.trim()) return;
     
     setAiTesting(true);
     setAiTestResult(null);
     
     try {
+      // Get business ID from user's profile
+      let effectiveBusinessId = businessId;
+      if (!effectiveBusinessId && user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('business_id')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          effectiveBusinessId = profile.business_id;
+        }
+      }
+      
+      if (!effectiveBusinessId) {
+        setAiTestResult({
+          confidence: 0,
+          reasoning: 'Unable to determine business ID. Please try again.'
+        });
+        return;
+      }
+
       const response = await fetch('/api/ai/match-template', {
         method: 'POST',
         headers: {
@@ -484,7 +517,7 @@ export default function TemplateCustomizer({
         },
         body: JSON.stringify({
           jobberServiceType: testServiceType,
-          businessId: businessId
+          businessId: effectiveBusinessId
         })
       });
 
@@ -492,6 +525,8 @@ export default function TemplateCustomizer({
         const result = await response.json();
         setAiTestResult(result);
       } else {
+        const errorText = await response.text();
+        console.error('AI matching API error:', response.status, errorText);
         setAiTestResult({
           confidence: 0,
           reasoning: 'Failed to test AI matching. Please try again.'
@@ -951,10 +986,13 @@ export default function TemplateCustomizer({
                   <Label htmlFor="serviceTypes">What types of services should trigger this template?</Label>
                   <Input
                     id="serviceTypes"
-                    value={formData.service_types?.join(', ') || ''}
+                    value={formData.service_types_text || ''}
                     onChange={(e) => {
-                      const serviceTypes = e.target.value.split(',').map(s => s.trim()).filter(s => s);
-                      setFormData(prev => ({ ...prev, service_types: serviceTypes }));
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        service_types_text: e.target.value,
+                        service_types: e.target.value.split(',').map(s => s.trim()).filter(s => s)
+                      }));
                     }}
                     placeholder="e.g., Lawn Care, Tree Trimming, Hedge Trimming"
                   />

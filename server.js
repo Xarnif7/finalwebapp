@@ -8713,7 +8713,7 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
         crm_type: 'jobber',
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
-        expires_at: expiresAt.toISOString(),
+        token_expires_at: expiresAt.toISOString(),
         connected_at: connectedAt.toISOString()
       });
 
@@ -8724,7 +8724,7 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
         crm_type: 'jobber',
         access_token: tokens.access_token ? 'present' : 'missing',
         refresh_token: tokens.refresh_token ? 'present' : 'missing',
-        expires_at: expiresAt.toISOString(),
+        token_expires_at: expiresAt.toISOString(),
         connected_at: connectedAt.toISOString()
       });
       return res.status(500).json({ error: 'Failed to store connection: ' + insertError.message });
