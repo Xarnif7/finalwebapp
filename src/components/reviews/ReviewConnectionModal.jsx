@@ -284,6 +284,8 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       
       // Refresh the inbox if onConnectionSuccess callback exists
       if (onConnectionSuccess) {
+        console.log('=== CONNECTION SUCCESS CALLBACK ===');
+        console.log('Calling onConnectionSuccess...');
         onConnectionSuccess();
       }
       

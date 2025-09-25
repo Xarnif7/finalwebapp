@@ -38,7 +38,7 @@ const ReviewsInbox = ({ onReviewsChange }) => {
     loadReviews();
   }, []);
 
-  // Force cache refresh - v3
+  // Force cache refresh - v4
 
   const loadReviews = async (reset = true) => {
     try {

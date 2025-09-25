@@ -10404,67 +10404,6 @@ app.put('/api/feedback/cases/:id', async (req, res) => {
   }
 });
 
-app.post('/api/ai/generate-review-response', async (req, res) => {
-  try {
-    const { review_text, rating, platform, business_name } = req.body;
-
-    if (!review_text || !rating || !business_name) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    const systemPrompt = `You are a professional customer service representative writing a response to a customer review. 
-
-Business: ${business_name}
-Platform: ${platform}
-Rating: ${rating}/5 stars
-Review: "${review_text}"
-
-Guidelines:
-- Keep responses professional but warm and personal
-- Thank the customer by name if mentioned
-- For 5-star reviews: Express genuine gratitude and invite them back
-- For 4-star reviews: Thank them and mention you'd love to earn that 5th star
-- For 3-star reviews: Acknowledge their feedback and offer to improve
-- Keep responses concise (2-3 sentences max)
-- Match the platform's tone (Google = professional, Facebook = slightly casual)
-- Don't mention specific issues unless the customer did
-- Always invite them to return for future services
-
-Generate a perfect response:`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Generate a response to this review' }
-        ],
-        max_tokens: 150,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const aiResponse = data.choices[0].message.content.trim();
-
-    res.json({ 
-      response: aiResponse,
-      confidence: 'high'
-    });
-  } catch (error) {
-    console.error('AI review response error:', error);
-    res.status(500).json({ error: 'Failed to generate AI response' });
-  }
-});
 
 // AI-powered review classification
 async function classifyReviewWithAI(reviewText, rating) {

@@ -42,8 +42,10 @@ const Reviews = () => {
           isOpen={showPlatformConnector}
           onClose={() => setShowPlatformConnector(false)}
           onConnectionSuccess={() => {
+            console.log('=== REVIEWS PAGE CONNECTION SUCCESS ===');
             setShowPlatformConnector(false);
             // Refresh the inbox to show new reviews
+            console.log('Reloading page to show new reviews...');
             window.location.reload();
           }}
         />

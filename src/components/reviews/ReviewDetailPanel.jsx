@@ -274,9 +274,6 @@ export default function ReviewDetailPanel({
     }
   };
 
-  const handleCopyResponse = () => {
-    navigator.clipboard.writeText(responseText);
-  };
 
   const handleExternalReply = () => {
     const platform = platformConfig[review.platform];
