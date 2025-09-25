@@ -44,7 +44,6 @@ const ReviewsInbox = ({ onReviewsChange }) => {
     try {
       console.log('=== REVIEWS INBOX DEBUG ===');
       console.log('Loading reviews, reset:', reset);
-      console.log('Current user email:', user?.email);
       
       if (reset) {
         setIsLoading(true);
@@ -123,8 +122,8 @@ const ReviewsInbox = ({ onReviewsChange }) => {
     if (review.status === 'unread') {
       console.log('Marking review as read...');
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) {
           console.log('No user found');
           return;
         }
@@ -461,8 +460,8 @@ const ReviewsInbox = ({ onReviewsChange }) => {
                 review={selectedReview} 
                 onUpdateReview={async (reviewId, updates) => {
                   try {
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (!user) return;
+                    const { data: { user: updateUser } } = await supabase.auth.getUser();
+                    if (!updateUser) return;
 
                     const { error } = await supabase
                       .from('reviews')
