@@ -83,9 +83,10 @@ const ReviewsInbox = ({ onReviewsChange }) => {
 
       const url = `/api/reviews?${params}`;
       
+      const { data: { session: sessionData } } = await supabase.auth.getSession();
       const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${sessionData?.access_token}`
         }
       });
       
@@ -134,11 +135,12 @@ const ReviewsInbox = ({ onReviewsChange }) => {
         }
         
         // Use the API endpoint instead of direct Supabase call
+        const { data: { session: updateSession } } = await supabase.auth.getSession();
         const response = await fetch('/api/reviews/update', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+            'Authorization': `Bearer ${updateSession?.access_token}`
           },
           body: JSON.stringify({
             review_id: review.id,
@@ -203,13 +205,17 @@ const ReviewsInbox = ({ onReviewsChange }) => {
           return;
       }
 
+      // Get session token once
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       // Update all selected reviews
       const promises = selectedReviews.map(reviewId => 
         fetch('/api/reviews/update', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             review_id: reviewId,
@@ -405,78 +411,78 @@ const ReviewsInbox = ({ onReviewsChange }) => {
               </Button>
             ))}
           </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            >
-              <Filter className="h-4 w-4 mr-1" />
-              Advanced
-            </Button>
-          </div>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+          >
+            <Filter className="h-4 w-4 mr-1" />
+            Advanced
+          </Button>
+        </div>
 
-          {/* Advanced Filters */}
-          {showAdvancedFilters && (
-            <div className="bg-gray-50 rounded-lg p-3 mb-2">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* Rating Filter */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Rating</label>
-                  <select
-                    value={ratingFilter}
-                    onChange={(e) => setRatingFilter(e.target.value)}
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
-                  >
-                    <option value="all">All Ratings</option>
-                    <option value="5">5 Stars</option>
-                    <option value="4">4 Stars</option>
-                    <option value="3">3 Stars</option>
-                    <option value="2">2 Stars</option>
-                    <option value="1">1 Star</option>
-                    <option value="high">High (4-5 Stars)</option>
-                    <option value="low">Low (1-2 Stars)</option>
-                  </select>
-                </div>
-
-                {/* Platform Filter */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Platform</label>
-                  <select
-                    value={platformFilter}
-                    onChange={(e) => setPlatformFilter(e.target.value)}
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
-                  >
-                    <option value="all">All Platforms</option>
-                    <option value="google">Google</option>
-                    <option value="facebook">Facebook</option>
-                    <option value="yelp">Yelp</option>
-                    <option value="bbb">BBB</option>
-                  </select>
-                </div>
-
-                {/* Date Filter */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
-                  <select
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
-                  >
-                    <option value="all">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">Last 7 Days</option>
-                    <option value="month">Last 30 Days</option>
-                    <option value="quarter">Last 90 Days</option>
-                  </select>
-                </div>
+        {/* Advanced Filters */}
+        {showAdvancedFilters && (
+          <div className="bg-gray-50 rounded-lg p-3 mb-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Rating Filter */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Rating</label>
+                <select
+                  value={ratingFilter}
+                  onChange={(e) => setRatingFilter(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
+                >
+                  <option value="all">All Ratings</option>
+                  <option value="5">5 Stars</option>
+                  <option value="4">4 Stars</option>
+                  <option value="3">3 Stars</option>
+                  <option value="2">2 Stars</option>
+                  <option value="1">1 Star</option>
+                  <option value="high">High (4-5 Stars)</option>
+                  <option value="low">Low (1-2 Stars)</option>
+                </select>
               </div>
-              
-              <div className="mt-2 text-xs text-gray-500">
-                Showing {filteredReviews.length} of {reviews.length} reviews
+
+              {/* Platform Filter */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Platform</label>
+                <select
+                  value={platformFilter}
+                  onChange={(e) => setPlatformFilter(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
+                >
+                  <option value="all">All Platforms</option>
+                  <option value="google">Google</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="yelp">Yelp</option>
+                  <option value="bbb">BBB</option>
+                </select>
+              </div>
+
+              {/* Date Filter */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
+                >
+                  <option value="all">All Time</option>
+                  <option value="today">Today</option>
+                  <option value="week">Last 7 Days</option>
+                  <option value="month">Last 30 Days</option>
+                  <option value="quarter">Last 90 Days</option>
+                </select>
               </div>
             </div>
-          )}
-        </div>
+            
+            <div className="mt-2 text-xs text-gray-500">
+              Showing {filteredReviews.length} of {reviews.length} reviews
+            </div>
+          </div>
+        )}
 
         {/* Reviews List */}
         <div className="flex-1 overflow-y-auto">

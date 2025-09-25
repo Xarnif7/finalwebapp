@@ -40,9 +40,10 @@ const GoogleOAuthConnection = ({ onConnectionChange }) => {
         setBusinessId(businessData.id);
         
         // Check Google OAuth status
+        const { data: { session } } = await supabase.auth.getSession();
         const response = await fetch(`/api/google/oauth/status?business_id=${businessData.id}`, {
           headers: {
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+            'Authorization': `Bearer ${session?.access_token}`
           }
         });
 
@@ -66,9 +67,10 @@ const GoogleOAuthConnection = ({ onConnectionChange }) => {
       setIsLoading(true);
       setError(null);
 
+      const { data: { session: authSession } } = await supabase.auth.getSession();
       const response = await fetch(`/api/google/oauth/authorize?business_id=${businessId}`, {
         headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${authSession?.access_token}`
         }
       });
 
@@ -102,11 +104,12 @@ const GoogleOAuthConnection = ({ onConnectionChange }) => {
       setIsLoading(true);
       setError(null);
 
+      const { data: { session: disconnectSession } } = await supabase.auth.getSession();
       const response = await fetch('/api/google/oauth/disconnect', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${disconnectSession?.access_token}`
         },
         body: JSON.stringify({ business_id: businessId })
       });

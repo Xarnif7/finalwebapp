@@ -609,11 +609,12 @@ export function useCustomersData(initialParams = {}) {
       }
 
       // Use the new API endpoint that handles auto-enrollment
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch('/api/csv/import', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({
           customers: processedRows,
