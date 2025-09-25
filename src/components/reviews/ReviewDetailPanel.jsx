@@ -178,6 +178,46 @@ export default function ReviewDetailPanel({
     }
   };
 
+  const handleCopyResponse = async () => {
+    if (!responseText.trim()) return;
+    
+    try {
+      await navigator.clipboard.writeText(responseText);
+      alert('Response copied to clipboard! Now open the review and paste your reply.');
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = responseText;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      alert('Response copied to clipboard! Now open the review and paste your reply.');
+    }
+  };
+
+  const handleOpenReview = () => {
+    if (!review) return;
+    
+    let url;
+    switch (review.platform.toLowerCase()) {
+      case 'google':
+        url = review.review_url || `https://www.google.com/maps/place/?q=place_id:${review.place_id}`;
+        break;
+      case 'facebook':
+        url = review.review_url || 'https://facebook.com';
+        break;
+      case 'yelp':
+        url = review.review_url || 'https://yelp.com';
+        break;
+      default:
+        url = review.review_url || '#';
+    }
+    
+    window.open(url, '_blank');
+  };
+
   const handlePostReply = async () => {
     if (!review || !responseText.trim()) return;
     
