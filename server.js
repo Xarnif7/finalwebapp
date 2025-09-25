@@ -10530,6 +10530,7 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
   try {
     console.log('=== DIRECT SYNC DEBUG ===');
     console.log('Direct sync params:', { business_id, place_id, platform, limit, user_email });
+    console.log('🔍 PLACE ID BEING USED:', place_id);
     
     if (platform === 'google') {
       // Use Google Places API to fetch real reviews
@@ -10562,6 +10563,8 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
                 console.log('Place name from API:', place.name);
                 console.log('Place rating:', place.rating);
                 console.log('Total ratings:', place.user_ratings_total);
+                console.log('🔍 VERIFYING: Is this the right business?');
+                console.log('Expected business should be "Shirley Dentistry" or similar');
                 
                 if (reviews.length === 0) {
                   console.log('No reviews found in Google Places API for this business');
