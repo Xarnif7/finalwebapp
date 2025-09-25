@@ -82,9 +82,36 @@ const Reviews = () => {
 
       {/* Content */}
       <div className="flex-1 overflow-hidden">
-        {/* Modal for connecting platforms */}
+        {/* Simple inline modal for testing */}
+        {showPlatformConnector && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+              <h2 className="text-xl font-bold mb-4">Connect Review Platforms</h2>
+              <p className="text-gray-600 mb-4">Modal is working! This is a test modal.</p>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setShowPlatformConnector(false)}
+                  className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                >
+                  Close
+                </button>
+                <button 
+                  onClick={() => {
+                    console.log('=== TEST CONNECTION CLICKED ===');
+                    alert('Test connection clicked!');
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Test Connection
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Original Modal for connecting platforms */}
         <ReviewConnectionModal 
-          isOpen={showPlatformConnector}
+          isOpen={false}
           onClose={() => {
             console.log('=== MODAL CLOSED ===');
             setShowPlatformConnector(false);
