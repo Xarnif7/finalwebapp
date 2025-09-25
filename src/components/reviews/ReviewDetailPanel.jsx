@@ -45,7 +45,7 @@ const platformConfig = {
 
 const statusConfig = {
   unread: { name: 'Unread', color: 'bg-red-100 text-red-800', icon: AlertTriangle },
-  needs_response: { name: 'Needs Response', color: 'bg-orange-100 text-orange-800', icon: Clock },
+  needs_response: { name: 'Needs Response', color: 'bg-orange-100 text-orange-800', icon: MessageSquare },
   responded: { name: 'Responded', color: 'bg-green-100 text-green-800', icon: CheckCircle },
   resolved: { name: 'Resolved', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
   edited_since_response: { name: 'Edited Since Response', color: 'bg-purple-100 text-purple-800', icon: Edit }

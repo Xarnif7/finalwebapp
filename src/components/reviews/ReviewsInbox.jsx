@@ -303,7 +303,25 @@ const ReviewsInbox = () => {
         {selectedReview ? (
           <ReviewDetailPanel 
             review={selectedReview} 
-            onUpdate={loadReviews}
+            onUpdateReview={async (reviewId, updates) => {
+              try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+
+                const { error } = await supabase
+                  .from('reviews')
+                  .update(updates)
+                  .eq('id', reviewId)
+                  .eq('created_by', user.email);
+
+                if (error) throw error;
+
+                // Reload reviews to show updated data
+                await loadReviews();
+              } catch (error) {
+                console.error('Error updating review:', error);
+              }
+            }}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-gray-500">

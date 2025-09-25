@@ -10779,25 +10779,24 @@ app.get('/api/reviews', async (req, res) => {
 
     if (error) throw error;
 
-    // Check if there are more reviews
-    let countQuery = supabase
+    // Check if there are more reviews by counting total reviews
+    let totalCountQuery = supabase
       .from('reviews')
-      .select('*', { count: 'exact', head: true })
-      .lt('review_created_at', data[data.length - 1]?.review_created_at || new Date().toISOString());
+      .select('*', { count: 'exact', head: true });
 
     if (targetBusinessId) {
-      countQuery = countQuery.eq('business_id', targetBusinessId);
+      totalCountQuery = totalCountQuery.eq('business_id', targetBusinessId);
     } else {
-      countQuery = countQuery.eq('created_by', user.email);
+      totalCountQuery = totalCountQuery.eq('created_by', user.email);
     }
 
-    const { count } = await countQuery;
+    const { count: totalCount } = await totalCountQuery;
 
     res.json({ 
       success: true, 
       reviews: data,
-      has_more: count > parseInt(limit),
-      total_count: count
+      has_more: data.length >= parseInt(limit) && totalCount > data.length,
+      total_count: totalCount
     });
   } catch (error) {
     console.error('Error fetching reviews:', error);
