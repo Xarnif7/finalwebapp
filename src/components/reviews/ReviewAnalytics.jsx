@@ -16,18 +16,21 @@ import {
 } from 'lucide-react';
 
 const ReviewAnalytics = ({ reviews = [] }) => {
-  const [timeRange, setTimeRange] = useState('30');
+  const [timeRange, setTimeRange] = useState('all');
   const [competitorData, setCompetitorData] = useState(null);
 
   // Calculate metrics
   const calculateMetrics = () => {
     const now = new Date();
-    const days = parseInt(timeRange);
-    const cutoffDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    let filteredReviews = reviews;
     
-    const filteredReviews = reviews.filter(review => 
-      new Date(review.review_created_at) >= cutoffDate
-    );
+    if (timeRange !== 'all') {
+      const days = parseInt(timeRange);
+      const cutoffDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+      filteredReviews = reviews.filter(review => 
+        new Date(review.review_created_at) >= cutoffDate
+      );
+    }
 
     const totalReviews = filteredReviews.length;
     const respondedCount = filteredReviews.filter(r => r.status === 'responded' || r.reply_text).length;
@@ -163,14 +166,19 @@ const ReviewAnalytics = ({ reviews = [] }) => {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Review Analytics</h2>
         <div className="flex gap-2">
-          {['7', '30', '90'].map((days) => (
+          {[
+            { key: 'all', label: 'All Time' },
+            { key: '7', label: '7 Days' },
+            { key: '30', label: '30 Days' },
+            { key: '90', label: '90 Days' }
+          ].map((option) => (
             <Button
-              key={days}
-              variant={timeRange === days ? 'default' : 'outline'}
+              key={option.key}
+              variant={timeRange === option.key ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setTimeRange(days)}
+              onClick={() => setTimeRange(option.key)}
             >
-              {days} days
+              {option.label}
             </Button>
           ))}
         </div>

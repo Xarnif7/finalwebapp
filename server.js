@@ -10781,6 +10781,7 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
         success: true, 
         message: `Loaded ${formattedReviews.length} of ${reviews.length} total reviews`, 
         count: formattedReviews.length,
+        reviews_imported: formattedReviews.length,
         total_available: reviews.length,
         has_more: reviews.length > parseInt(limit)
       };
@@ -10838,6 +10839,7 @@ app.post('/api/reviews/connect-source', async (req, res) => {
     console.log('Business ID:', businessId);
     console.log('Place ID:', place_id);
     console.log('Platform:', platform);
+    console.log('Business Name:', business_name);
     
     try {
       // Call sync directly instead of making HTTP request
@@ -10850,6 +10852,7 @@ app.post('/api/reviews/connect-source', async (req, res) => {
       });
       
       console.log('Direct sync result:', syncResult);
+      console.log('Reviews imported:', syncResult.reviews_imported || 0);
       
       if (!syncResult.success) {
         console.error('Sync failed:', syncResult.error);

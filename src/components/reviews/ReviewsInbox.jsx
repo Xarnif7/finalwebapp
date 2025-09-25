@@ -38,6 +38,8 @@ const ReviewsInbox = ({ onReviewsChange }) => {
     loadReviews();
   }, []);
 
+  // Force cache refresh - v3
+
   const loadReviews = async (reset = true) => {
     try {
       console.log('=== REVIEWS INBOX DEBUG ===');
