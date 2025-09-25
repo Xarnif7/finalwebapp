@@ -14,6 +14,12 @@ const Reviews = () => {
   const [reviews, setReviews] = useState([]);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
 
+  // Debug state changes
+  useEffect(() => {
+    console.log('=== MODAL STATE CHANGED ===');
+    console.log('showPlatformConnector:', showPlatformConnector);
+  }, [showPlatformConnector]);
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -26,12 +32,18 @@ const Reviews = () => {
             </p>
           </div>
           <Button 
-            onClick={() => {
+            onClick={(e) => {
               console.log('=== CONNECT BUTTON CLICKED ===');
-              console.log('Opening platform connector modal...');
+              console.log('Button click event:', e);
+              console.log('Current showPlatformConnector state:', showPlatformConnector);
+              console.log('Setting showPlatformConnector to true...');
               setShowPlatformConnector(true);
+              console.log('Modal state should now be true');
             }}
+            onMouseDown={() => console.log('=== BUTTON MOUSE DOWN ===')}
+            onMouseUp={() => console.log('=== BUTTON MOUSE UP ===')}
             className="bg-blue-600 hover:bg-blue-700"
+            style={{ pointerEvents: 'auto', zIndex: 1000 }}
           >
             <Plus className="h-4 w-4 mr-2" />
             Connect Review Platforms
