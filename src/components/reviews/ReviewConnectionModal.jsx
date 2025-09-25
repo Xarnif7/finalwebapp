@@ -13,6 +13,10 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   const [isSearching, setIsSearching] = useState(false);
   const [connectedSources, setConnectedSources] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  console.log('=== MODAL RENDER DEBUG ===');
+  console.log('Modal isOpen:', isOpen);
+  console.log('Modal props:', { isOpen, onClose: !!onClose, onConnectionSuccess: !!onConnectionSuccess });
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);

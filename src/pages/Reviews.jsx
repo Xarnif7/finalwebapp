@@ -26,7 +26,11 @@ const Reviews = () => {
             </p>
           </div>
           <Button 
-            onClick={() => setShowPlatformConnector(true)}
+            onClick={() => {
+              console.log('=== CONNECT BUTTON CLICKED ===');
+              console.log('Opening platform connector modal...');
+              setShowPlatformConnector(true);
+            }}
             className="bg-blue-600 hover:bg-blue-700"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -40,7 +44,10 @@ const Reviews = () => {
         {/* Modal for connecting platforms */}
         <ReviewConnectionModal 
           isOpen={showPlatformConnector}
-          onClose={() => setShowPlatformConnector(false)}
+          onClose={() => {
+            console.log('=== MODAL CLOSED ===');
+            setShowPlatformConnector(false);
+          }}
           onConnectionSuccess={() => {
             console.log('=== REVIEWS PAGE CONNECTION SUCCESS ===');
             setShowPlatformConnector(false);
