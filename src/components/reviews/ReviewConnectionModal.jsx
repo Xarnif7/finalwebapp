@@ -200,26 +200,40 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       const { data: { session } } = await supabase.auth.getSession();
       
       // Use API endpoint to connect business
+      const requestBody = {
+        platform: 'google',
+        public_url: business.url,
+        business_name: business.name,
+        external_id: business.place_id,
+        place_id: business.place_id
+      };
+      
+      console.log('=== FRONTEND CONNECTION DEBUG ===');
+      console.log('Connecting business:', business);
+      console.log('Request body:', requestBody);
+      console.log('Session token available:', !!session?.access_token);
+      
       const response = await fetch('/api/reviews/connect-source', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`
         },
-        body: JSON.stringify({
-          platform: 'google',
-          public_url: business.url,
-          business_name: business.name,
-          external_id: business.place_id,
-          place_id: business.place_id
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const data = await response.json();
       
+      console.log('=== CONNECTION RESPONSE DEBUG ===');
+      console.log('Response status:', response.status);
+      console.log('Response data:', data);
+      
       if (!data.success) {
+        console.log('Connection failed:', data.error);
         throw new Error(data.error || 'Failed to connect business');
       }
+      
+      console.log('Connection successful, reviews imported:', data.reviews_imported);
 
       // Reload connected sources
       await loadConnectedSources();
