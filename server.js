@@ -10567,8 +10567,11 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
                 console.log('Expected business should be "Shirley Dentistry" or similar');
                 
                 if (reviews.length === 0) {
-                  console.log('No reviews found in Google Places API for this business');
+                  console.log('❌ No reviews found in Google Places API for this business');
                   console.log('This could mean: 1) Business has no reviews, 2) Business name mismatch, 3) API permissions issue');
+                } else {
+                  console.log('✅ Reviews found! Processing reviews...');
+                  console.log('Sample review data:', reviews[0]);
                 }
 
       // Sort reviews by date (newest first) and limit to requested amount
@@ -10618,18 +10621,23 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
         }
       }));
 
-      // Upsert reviews to database
-      console.log('Attempting to upsert reviews to database...');
-      const { error } = await supabase
-        .from('reviews')
-        .upsert(classifiedReviews, { 
-          ignoreDuplicates: true 
-        });
+                // Upsert reviews to database
+                console.log('Attempting to upsert reviews to database...');
+                console.log('Reviews to upsert:', classifiedReviews.length);
+                console.log('Sample review to upsert:', classifiedReviews[0]);
+                
+                const { error } = await supabase
+                  .from('reviews')
+                  .upsert(classifiedReviews, { 
+                    ignoreDuplicates: true 
+                  });
 
-      if (error) {
-        console.error('Database upsert error:', error);
-        throw error;
-      }
+                if (error) {
+                  console.error('❌ Database upsert error:', error);
+                  throw error;
+                } else {
+                  console.log('✅ Reviews successfully upserted to database');
+                }
 
       // Send alerts for negative reviews
       console.log('Checking for negative reviews to alert...');
