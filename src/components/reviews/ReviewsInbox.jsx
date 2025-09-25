@@ -44,6 +44,7 @@ const ReviewsInbox = ({ onReviewsChange }) => {
     try {
       console.log('=== REVIEWS INBOX DEBUG ===');
       console.log('Loading reviews, reset:', reset);
+      console.log('Current user email:', user?.email);
       
       if (reset) {
         setIsLoading(true);
@@ -66,7 +67,8 @@ const ReviewsInbox = ({ onReviewsChange }) => {
 
       const url = `/api/reviews?${params}`;
       console.log('Making API call to:', url);
-
+      console.log('Business ID from profile:', businessId);
+      
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`

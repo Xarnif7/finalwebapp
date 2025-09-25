@@ -11309,6 +11309,10 @@ app.get('/api/reviews', async (req, res) => {
     const { business_id, limit = 15, before } = req.query;
     const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
     
+    console.log('=== REVIEWS API DEBUG ===');
+    console.log('Query params:', { business_id, limit, before });
+    console.log('User email:', user?.email);
+    
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -11316,16 +11320,24 @@ app.get('/api/reviews', async (req, res) => {
     // If business_id is provided, use it. Otherwise, get user's business_id from businesses table
     let targetBusinessId = business_id;
     if (!targetBusinessId) {
-      const { data: businessData } = await supabase
+      console.log('No business_id provided, looking up from businesses table...');
+      const { data: businessData, error: businessError } = await supabase
         .from('businesses')
         .select('id')
         .eq('created_by', user.email)
         .limit(1)
         .single();
       
+      console.log('Business lookup result:', { businessData, businessError });
+      
       if (businessData?.id) {
         targetBusinessId = businessData.id;
+        console.log('Found business_id:', targetBusinessId);
+      } else {
+        console.log('No business found for user:', user.email);
       }
+    } else {
+      console.log('Using provided business_id:', targetBusinessId);
     }
 
     let query = supabase
@@ -11346,7 +11358,16 @@ app.get('/api/reviews', async (req, res) => {
       query = query.lt('review_created_at', before);
     }
 
+    // Also check if there are any review sources for this business
+    const { data: sourcesData } = await supabase
+      .from('review_sources')
+      .select('*')
+      .eq('business_id', targetBusinessId);
+    console.log('Review sources found:', sourcesData?.length || 0, sourcesData);
+
+    console.log('Executing reviews query with business_id:', targetBusinessId);
     const { data, error } = await query;
+    console.log('Query result:', { dataCount: data?.length, error });
 
     if (error) throw error;
 
