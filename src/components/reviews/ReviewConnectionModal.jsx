@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Input } from '../ui/input';
@@ -16,12 +16,33 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const searchContainerRef = useRef(null);
 
   React.useEffect(() => {
     if (isOpen) {
       loadConnectedSources();
     }
   }, [isOpen]);
+
+  // Click outside detection
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        console.log('Click outside search container, hiding suggestions.');
+        setShowSuggestions(false);
+      }
+    };
+
+    if (isOpen && showSuggestions) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, showSuggestions]);
 
   // Debounce search to prevent rapid API calls
   React.useEffect(() => {
@@ -113,11 +134,6 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
     setSelectedBusiness(business);
     setSearchQuery(business.name);
     setShowSuggestions(false);
-    
-    // Force re-render to show selection immediately
-    setTimeout(() => {
-      setShowSuggestions(false);
-    }, 100);
   };
 
   const handleConnect = async () => {
@@ -238,21 +254,14 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 
             <TabsContent value="google" className="space-y-4 mt-6">
               <div className="space-y-4">
-                <div className="relative">
+                <div className="relative" ref={searchContainerRef}>
                   <Input
                     placeholder="Search for your business on Google..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onFocus={() => {
-                      if (searchResults.length > 0) {
+                      if (searchQuery.trim() || searchResults.length > 0) {
                         setShowSuggestions(true);
-                      }
-                    }}
-                    onBlur={() => {
-                      // Only hide suggestions if no search results
-                      if (searchResults.length === 0) {
-                        console.log('Hiding suggestions due to blur - no results');
-                        setShowSuggestions(false);
                       }
                     }}
                     className="w-full"
@@ -267,20 +276,14 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                 {/* Search Results Dropdown */}
                 {console.log('Render check - showSuggestions:', showSuggestions, 'searchResults.length:', searchResults.length)}
                 {showSuggestions && searchResults.length > 0 && (
-                  <div 
-                    className="absolute z-10 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto"
-                    onMouseDown={(e) => e.preventDefault()}
-                  >
+                  <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto">
                     {searchResults.map((business, index) => (
                       <div 
                         key={index} 
                         className={`flex items-start justify-between p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
                           selectedBusiness?.place_id === business.place_id ? 'bg-blue-50 border-blue-200' : ''
                         }`}
-                        onMouseDown={(e) => {
-                          e.preventDefault(); // Prevent input blur
-                          handleBusinessSelect(business);
-                        }}
+                        onClick={() => handleBusinessSelect(business)}
                       >
                         <div className="flex items-start gap-3 flex-1 min-w-0">
                           <MapPin className="h-4 w-4 text-gray-500 mt-1 flex-shrink-0" />
@@ -303,7 +306,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                 )}
 
                 {showSuggestions && searchResults.length === 0 && searchQuery.trim() && !isSearching && (
-                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg p-4">
+                  <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg p-4">
                     <p className="text-gray-500 text-center">No businesses found</p>
                   </div>
                 )}
