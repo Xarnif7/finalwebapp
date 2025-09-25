@@ -10678,6 +10678,76 @@ app.get('/api/reviews/sources', async (req, res) => {
   }
 });
 
+// Disconnect review source and delete all associated reviews
+app.delete('/api/reviews/disconnect-source', async (req, res) => {
+  try {
+    const { source_id } = req.body;
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!source_id) {
+      return res.status(400).json({ error: 'Source ID is required' });
+    }
+
+    // Get user's business_id from businesses table
+    const { data: businessData } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('created_by', user.email)
+      .limit(1)
+      .single();
+
+    if (!businessData?.id) {
+      return res.status(400).json({ error: 'No business found for user' });
+    }
+
+    const businessId = businessData.id;
+
+    // Get the review source to find the platform
+    const { data: sourceData, error: sourceError } = await supabase
+      .from('review_sources')
+      .select('platform')
+      .eq('id', source_id)
+      .eq('business_id', businessId)
+      .single();
+
+    if (sourceError) {
+      return res.status(404).json({ error: 'Review source not found' });
+    }
+
+    // Delete all reviews for this business and platform
+    const { error: reviewsError } = await supabase
+      .from('reviews')
+      .delete()
+      .eq('business_id', businessId)
+      .eq('platform', sourceData.platform);
+
+    if (reviewsError) {
+      console.error('Error deleting reviews:', reviewsError);
+      // Continue with source deletion even if review deletion fails
+    }
+
+    // Delete the review source
+    const { error: sourceDeleteError } = await supabase
+      .from('review_sources')
+      .delete()
+      .eq('id', source_id)
+      .eq('business_id', businessId);
+
+    if (sourceDeleteError) {
+      throw sourceDeleteError;
+    }
+
+    res.json({ success: true, message: 'Source disconnected and reviews deleted successfully' });
+  } catch (error) {
+    console.error('Error disconnecting source:', error);
+    res.status(500).json({ error: 'Failed to disconnect source' });
+  }
+});
+
 // Reviews API endpoints
 app.get('/api/reviews', async (req, res) => {
   try {
@@ -10688,12 +10758,33 @@ app.get('/api/reviews', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    // If business_id is provided, use it. Otherwise, get user's business_id from businesses table
+    let targetBusinessId = business_id;
+    if (!targetBusinessId) {
+      const { data: businessData } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('created_by', user.email)
+        .limit(1)
+        .single();
+      
+      if (businessData?.id) {
+        targetBusinessId = businessData.id;
+      }
+    }
+
     let query = supabase
       .from('reviews')
       .select('*')
-      .eq('created_by', user.email)
       .order('review_created_at', { ascending: false })
       .limit(parseInt(limit));
+
+    // Filter by business_id if available, otherwise by created_by
+    if (targetBusinessId) {
+      query = query.eq('business_id', targetBusinessId);
+    } else {
+      query = query.eq('created_by', user.email);
+    }
 
     // Add pagination cursor if provided
     if (before) {
@@ -10705,11 +10796,18 @@ app.get('/api/reviews', async (req, res) => {
     if (error) throw error;
 
     // Check if there are more reviews
-    const { count } = await supabase
+    let countQuery = supabase
       .from('reviews')
       .select('*', { count: 'exact', head: true })
-      .eq('created_by', user.email)
       .lt('review_created_at', data[data.length - 1]?.review_created_at || new Date().toISOString());
+
+    if (targetBusinessId) {
+      countQuery = countQuery.eq('business_id', targetBusinessId);
+    } else {
+      countQuery = countQuery.eq('created_by', user.email);
+    }
+
+    const { count } = await countQuery;
 
     res.json({ 
       success: true, 

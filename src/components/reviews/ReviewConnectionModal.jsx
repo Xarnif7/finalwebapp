@@ -260,15 +260,37 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 
   const disconnectSource = async (sourceId) => {
     try {
-      const { error } = await supabase
-        .from('review_sources')
-        .update({ is_active: false })
-        .eq('id', sourceId);
+      // Get auth token for API calls
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Call API endpoint to disconnect and delete reviews
+      const response = await fetch('/api/reviews/disconnect-source', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ source_id: sourceId })
+      });
 
-      if (error) throw error;
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to disconnect source');
+      }
+
+      // Reload connected sources
       await loadConnectedSources();
+      
+      // Refresh the inbox if onConnectionSuccess callback exists
+      if (onConnectionSuccess) {
+        onConnectionSuccess();
+      }
+      
+      console.log('Source disconnected successfully');
     } catch (error) {
       console.error('Error disconnecting source:', error);
+      alert('Error disconnecting source: ' + error.message);
     }
   };
 
