@@ -11223,6 +11223,133 @@ app.get('/api/reviews', async (req, res) => {
   }
 });
 
+// Private Feedback API endpoints
+app.post('/api/private-feedback', async (req, res) => {
+  try {
+    const { review_request_id, sentiment, rating, message, category } = req.body;
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    console.log('=== PRIVATE FEEDBACK API DEBUG ===');
+    console.log('Request body:', { review_request_id, sentiment, rating, message, category });
+    console.log('User email:', user?.email);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Validate required fields
+    if (!review_request_id || !sentiment) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Create private feedback record
+    const { data: feedback, error } = await supabase
+      .from('private_feedback')
+      .insert({
+        review_request_id,
+        sentiment,
+        rating: rating || null,
+        message: message || null,
+        category: category || 'general_experience'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating private feedback:', error);
+      throw error;
+    }
+
+    // Log telemetry event
+    try {
+      await supabase.rpc('log_telemetry_event', {
+        p_business_id: null, // Will be populated from review_request
+        p_event_type: 'private_feedback_submitted',
+        p_event_data: {
+          feedback_id: feedback.id,
+          sentiment,
+          rating,
+          has_message: !!message
+        }
+      });
+    } catch (telemetryError) {
+      console.warn('Telemetry logging failed:', telemetryError);
+      // Don't fail the main operation if telemetry fails
+    }
+
+    res.json({
+      success: true,
+      feedback,
+      message: 'Private feedback submitted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error submitting private feedback:', error);
+    res.status(500).json({ error: 'Failed to submit private feedback' });
+  }
+});
+
+// Get private feedback for a business
+app.get('/api/private-feedback', async (req, res) => {
+  try {
+    const { business_id, limit = 50, offset = 0 } = req.query;
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get user's business_id if not provided
+    let targetBusinessId = business_id;
+    if (!targetBusinessId) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile?.business_id) {
+        targetBusinessId = profile.business_id;
+      }
+    }
+
+    if (!targetBusinessId) {
+      return res.status(400).json({ error: 'Business ID required' });
+    }
+
+    // Get private feedback with related data
+    const { data: feedback, error } = await supabase
+      .from('private_feedback')
+      .select(`
+        *,
+        review_requests!inner(
+          id,
+          customer_id,
+          customers!inner(id, full_name, email),
+          businesses!inner(id, name)
+        )
+      `)
+      .eq('review_requests.business_id', targetBusinessId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error('Error fetching private feedback:', error);
+      throw error;
+    }
+
+    res.json({
+      success: true,
+      feedback: feedback || [],
+      count: feedback?.length || 0
+    });
+
+  } catch (error) {
+    console.error('Error fetching private feedback:', error);
+    res.status(500).json({ error: 'Failed to fetch private feedback' });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

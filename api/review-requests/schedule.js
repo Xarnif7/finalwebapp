@@ -212,10 +212,7 @@ export default async function handler(req, res) {
       status = 'pending';
     }
 
-    // Generate review link
-    const reviewLink = `${process.env.APP_BASE_URL}/r/${Math.random().toString(36).substring(2, 10)}`;
-
-    // Create review request
+    // Create review request first to get the ID
     const { data: reviewRequest, error: insertError } = await supabase
       .from('review_requests')
       .insert({
@@ -228,7 +225,7 @@ export default async function handler(req, res) {
         tech_id: tech_id || null,
         job_type: job_type || null,
         job_end_at: job_end_at || null,
-        review_link: reviewLink
+        review_link: 'pending' // Will be updated after creation
       })
       .select()
       .single();
@@ -236,6 +233,20 @@ export default async function handler(req, res) {
     if (insertError) {
       console.error('Error creating review request:', insertError);
       return res.status(500).json({ error: 'Failed to create review request' });
+    }
+
+    // Generate review link using the actual review request ID
+    const reviewLink = `${process.env.APP_BASE_URL}/feedback/${reviewRequest.id}`;
+
+    // Update the review request with the correct link
+    const { error: updateError } = await supabase
+      .from('review_requests')
+      .update({ review_link: reviewLink })
+      .eq('id', reviewRequest.id);
+
+    if (updateError) {
+      console.error('Error updating review link:', updateError);
+      // Don't fail the entire operation, just log the error
     }
 
     // Log telemetry event

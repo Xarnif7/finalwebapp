@@ -134,11 +134,12 @@ export default async function handler(req, res) {
     let message, subject;
     
     if (reviewRequest.channel === 'email') {
-      subject = `We'd love your feedback!`;
+      subject = `How was your experience with ${business.name}?`;
       message = `Hi ${customer.full_name},
 
-Thank you for choosing ${business.name}! We would really appreciate if you could take a moment to share your experience with us.
+Thank you for choosing ${business.name}! We'd love to hear about your experience.
 
+Please take a moment to share your feedback:
 ${reviewRequest.review_link}
 
 Your feedback helps us improve and serve our customers better.
@@ -147,7 +148,7 @@ Best regards,
 ${business.name}`;
     } else {
       // SMS
-      message = `Hi ${customer.full_name}! Thanks for choosing ${business.name}. We'd love your feedback: ${reviewRequest.review_link}`;
+      message = `Hi ${customer.full_name}! Thanks for choosing ${business.name}. How was your experience? Share feedback: ${reviewRequest.review_link}`;
     }
 
     let sendResult;

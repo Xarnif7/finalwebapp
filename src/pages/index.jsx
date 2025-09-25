@@ -35,6 +35,7 @@ import Paywall from "./Paywall";
 import PostCheckout from "./PostCheckout";
 import QRRedirect from "./QRRedirect";
 import PrivateFeedback from "./PrivateFeedback";
+import FeedbackCollection from "./FeedbackCollection";
 import Feedback from "./Feedback";
 import DashboardOverview from "./DashboardOverview";
 import DevOAuthTest from "./DevOAuthTest";
@@ -127,6 +128,7 @@ const PAGES = {
   PostCheckout: PostCheckout,
   QRRedirect: QRRedirect,
   PrivateFeedback: PrivateFeedback,
+  FeedbackCollection: FeedbackCollection,
   Feedback: Feedback,
   DashboardOverview: DashboardOverview,
   NotFound: NotFound,
@@ -325,7 +327,8 @@ const MarketingRoutes = () => (
     
     {/* Public routes */}
     <Route path="/r/:code" element={<TrackedComponent component={QRRedirect} name="QRRedirect" />} />
-    <Route path="/feedback/:requestId" element={<TrackedComponent component={PrivateFeedback} name="PrivateFeedback" />} />
+    <Route path="/feedback/:requestId" element={<TrackedComponent component={FeedbackCollection} name="FeedbackCollection" />} />
+    <Route path="/private-feedback/:requestId" element={<TrackedComponent component={PrivateFeedback} name="PrivateFeedback" />} />
     
     {/* Dev routes */}
     {process.env.NODE_ENV === 'development' && (

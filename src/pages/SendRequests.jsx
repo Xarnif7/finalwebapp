@@ -53,11 +53,11 @@ const SendRequests = () => {
   const [predictedSendTime, setPredictedSendTime] = useState(null);
   const [templates, setTemplates] = useState({
     email: {
-      subject: 'We\'d love your feedback!',
-      body: 'Hi {customer.name},\n\nThank you for choosing our services! We would really appreciate if you could take a moment to share your experience with us.\n\n{review_link}\n\nYour feedback helps us improve and serve our customers better.\n\nBest regards,\n{company_name}'
+      subject: 'How was your experience with {company_name}?',
+      body: 'Hi {customer.name},\n\nThank you for choosing {company_name}! We\'d love to hear about your experience.\n\nPlease take a moment to share your feedback:\n{review_link}\n\nYour feedback helps us improve and serve our customers better.\n\nBest regards,\n{company_name}'
     },
     sms: {
-      body: 'Hi {customer.name}! Thanks for choosing us. We\'d love your feedback: {review_link}'
+      body: 'Hi {customer.name}! Thanks for choosing {company_name}. How was your experience? Share feedback: {review_link}'
     }
   });
   const [editingTemplate, setEditingTemplate] = useState(null);

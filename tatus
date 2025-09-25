@@ -1,0 +1,5 @@
+public/images/landing-autopilot-hero.jpg
+public/images/landing-reviews-hero.jpg
+src/components/reviews/GoogleOAuthConnection.jsx
+src/components/reviews/ReviewsInbox.jsx
+src/hooks/useCustomersData.js
