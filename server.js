@@ -10815,6 +10815,7 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
       // Use Google Places API to fetch real reviews
       const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
       console.log('Google API Key available:', !!googleApiKey);
+      console.log('Google API Key length:', googleApiKey ? googleApiKey.length : 0);
       
       if (!googleApiKey) {
         return { success: false, error: 'Google Places API key not configured' };
@@ -10913,6 +10914,11 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
         }, businessId);
       }
 
+      console.log('=== FINAL SYNC RESULT ===');
+      console.log('Reviews formatted:', formattedReviews.length);
+      console.log('Reviews total available:', reviews.length);
+      console.log('Reviews imported:', formattedReviews.length);
+      
       return { 
         success: true, 
         message: `Loaded ${formattedReviews.length} of ${reviews.length} total reviews`, 
@@ -10976,6 +10982,7 @@ app.post('/api/reviews/connect-source', async (req, res) => {
     console.log('Place ID:', place_id);
     console.log('Platform:', platform);
     console.log('Business Name:', business_name);
+    console.log('User Email:', user.email);
     
     try {
       // Call sync directly instead of making HTTP request
@@ -10987,14 +10994,18 @@ app.post('/api/reviews/connect-source', async (req, res) => {
         user_email: user.email
       });
       
+      console.log('=== SYNC RESULT ===');
       console.log('Direct sync result:', syncResult);
-      console.log('Reviews imported:', syncResult.reviews_imported || 0);
+      console.log('Reviews imported:', syncResult.reviews_imported || syncResult.count || 0);
+      console.log('Total available:', syncResult.total_available || 0);
+      console.log('Success:', syncResult.success);
       
       if (!syncResult.success) {
         console.error('Sync failed:', syncResult.error);
       }
     } catch (syncError) {
       console.error('Error syncing reviews:', syncError);
+      console.error('Sync error stack:', syncError.stack);
       // Don't fail the connection if sync fails
     }
 
@@ -11141,7 +11152,7 @@ app.get('/api/google/oauth/authorize', async (req, res) => {
     }
 
     const googleClientId = process.env.GOOGLE_CLIENT_ID;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.VITE_SUPABASE_URL?.replace('/rest/v1', '')}/api/google/oauth/callback`;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://myblipp.com/api/google/oauth/callback';
     
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${googleClientId}&` +
@@ -11181,7 +11192,7 @@ app.get('/api/google/oauth/callback', async (req, res) => {
         client_secret: process.env.GOOGLE_CLIENT_SECRET,
         code: code,
         grant_type: 'authorization_code',
-        redirect_uri: process.env.GOOGLE_REDIRECT_URI || `${process.env.VITE_SUPABASE_URL?.replace('/rest/v1', '')}/api/google/oauth/callback`
+        redirect_uri: process.env.GOOGLE_REDIRECT_URI || 'https://myblipp.com/api/google/oauth/callback'
       })
     });
 

@@ -54,7 +54,6 @@ const Reviews = () => {
               <TabsList>
                 <TabsTrigger value="inbox">Inbox</TabsTrigger>
                 <TabsTrigger value="analytics">Analytics</TabsTrigger>
-                <TabsTrigger value="templates">Templates</TabsTrigger>
                 <TabsTrigger value="settings">Settings</TabsTrigger>
               </TabsList>
             </div>
@@ -67,28 +66,6 @@ const Reviews = () => {
               <ReviewAnalytics reviews={reviews} />
             </TabsContent>
 
-            <TabsContent value="templates" className="flex-1 mt-0 p-6">
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Response Templates
-                  </CardTitle>
-                  <CardDescription>
-                    Create and manage response templates for different scenarios
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Templates Coming Soon</h3>
-                    <p className="text-gray-500">
-                      Save successful responses as reusable templates
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
 
             <TabsContent value="settings" className="flex-1 mt-0 p-6">
               <div className="space-y-6">
