@@ -259,11 +259,19 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       
       console.log('Connection successful, reviews imported:', data.reviews_imported);
       
+      // Show detailed debugging info
+      console.log('=== CONNECTION DEBUG INFO ===');
+      console.log('Business connected:', business.name);
+      console.log('Place ID used:', business.place_id);
+      console.log('Reviews imported:', data.reviews_imported);
+      console.log('Total available:', data.total_available);
+      console.log('Sync success:', data.sync_success);
+      
       // Show success message
       if (data.reviews_imported > 0) {
         alert(`Success! Connected to ${business.name} and imported ${data.reviews_imported} reviews.`);
       } else {
-        alert(`Success! Connected to ${business.name}. No reviews found for this business.`);
+        alert(`Success! Connected to ${business.name}. No reviews found for this business.\n\nPlace ID: ${business.place_id}\nThis might be the wrong business or location.`);
       }
 
       // Reload connected sources
