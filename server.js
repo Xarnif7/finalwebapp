@@ -11225,6 +11225,68 @@ app.put('/api/reviews/:id', async (req, res) => {
   }
 });
 
+// Reclassify existing reviews
+app.post('/api/reviews/reclassify-all', async (req, res) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get all reviews for this user
+    const { data: reviews, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('created_by', user.email)
+      .order('review_created_at', { ascending: false });
+
+    if (error) throw error;
+
+    let updatedCount = 0;
+
+    for (const review of reviews) {
+      // Apply AI classification logic
+      let newStatus = 'unread';
+      let sentiment = 'positive';
+      
+      if (review.rating <= 2) {
+        newStatus = 'needs_response';
+        sentiment = 'negative';
+      } else if (review.rating >= 4) {
+        newStatus = 'unread';
+        sentiment = 'positive';
+      } else {
+        newStatus = 'unread';
+        sentiment = 'neutral';
+      }
+
+      // Update the review
+      const { error: updateError } = await supabase
+        .from('reviews')
+        .update({
+          status: newStatus,
+          sentiment: sentiment
+        })
+        .eq('id', review.id);
+
+      if (!updateError) {
+        updatedCount++;
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: `Reclassified ${updatedCount} out of ${reviews.length} reviews`,
+      updated_count: updatedCount,
+      total_count: reviews.length
+    });
+  } catch (error) {
+    console.error('Error reclassifying reviews:', error);
+    res.status(500).json({ error: 'Failed to reclassify reviews' });
+  }
+});
+
 // Test AI classification endpoint
 app.post('/api/ai/classify-review', async (req, res) => {
   try {

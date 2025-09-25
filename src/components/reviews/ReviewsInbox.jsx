@@ -229,9 +229,34 @@ const ReviewsInbox = () => {
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Reviews Inbox</h2>
-            <Button variant="outline" size="sm" onClick={loadReviews}>
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/reviews/reclassify-all', {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+                      }
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                      alert(result.message);
+                      loadReviews();
+                    }
+                  } catch (error) {
+                    console.error('Error reclassifying reviews:', error);
+                  }
+                }}
+              >
+                🤖 AI Classify
+              </Button>
+              <Button variant="outline" size="sm" onClick={loadReviews}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Search */}
@@ -356,30 +381,50 @@ const ReviewsInbox = () => {
 
       {/* Right Panel - Review Detail */}
       <div className="flex-1">
-        {selectedReview ? (
-          <ReviewDetailPanel 
-            review={selectedReview} 
-            onUpdateReview={async (reviewId, updates) => {
-              try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) return;
+            {selectedReview ? (
+              <ReviewDetailPanel 
+                review={selectedReview} 
+                onUpdateReview={async (reviewId, updates) => {
+                  try {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) return;
 
-                const { error } = await supabase
-                  .from('reviews')
-                  .update(updates)
-                  .eq('id', reviewId)
-                  .eq('created_by', user.email);
+                    const { error } = await supabase
+                      .from('reviews')
+                      .update(updates)
+                      .eq('id', reviewId)
+                      .eq('created_by', user.email);
 
-                if (error) throw error;
+                    if (error) throw error;
 
-                // Reload reviews to show updated data
-                await loadReviews();
-              } catch (error) {
-                console.error('Error updating review:', error);
-              }
-            }}
-          />
-        ) : (
+                    // Reload reviews to show updated data
+                    await loadReviews();
+                  } catch (error) {
+                    console.error('Error updating review:', error);
+                  }
+                }}
+                onGenerateAIResponse={async (review) => {
+                  console.log('Generating AI response for review:', review.id);
+                  // This will be handled by the ReviewDetailPanel component
+                }}
+                onSaveTemplate={async (template) => {
+                  console.log('Saving template:', template);
+                  // TODO: Implement template saving
+                }}
+                onAssign={async (reviewId, assignee) => {
+                  console.log('Assigning review:', reviewId, 'to', assignee);
+                  // TODO: Implement assignment
+                }}
+                onTag={async (reviewId, tag) => {
+                  console.log('Tagging review:', reviewId, 'with', tag);
+                  // TODO: Implement tagging
+                }}
+                onEscalate={async (reviewId) => {
+                  console.log('Escalating review:', reviewId);
+                  // TODO: Implement escalation
+                }}
+              />
+            ) : (
           <div className="flex items-center justify-center h-full text-gray-500">
             <div className="text-center">
               <MessageSquare className="h-16 w-16 mx-auto mb-4 text-gray-300" />
