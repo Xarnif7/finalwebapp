@@ -10,3 +10,4 @@ console.log('VITE_SUPABASE_URL:', process.env.VITE_SUPABASE_URL);
 console.log('VITE_SUPABASE_ANON_KEY:', process.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set');
 console.log('GOOGLE_PLACES_API_KEY:', process.env.GOOGLE_PLACES_API_KEY ? 'Set' : 'Not set');
 console.log('VITE_GOOGLE_MAPS_KEY:', process.env.VITE_GOOGLE_MAPS_KEY ? 'Set' : 'Not set');
+console.log('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'Set' : 'Not set');

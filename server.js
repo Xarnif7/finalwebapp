@@ -11181,6 +11181,23 @@ app.put('/api/reviews/:id', async (req, res) => {
   }
 });
 
+// Test AI classification endpoint
+app.post('/api/ai/classify-review', async (req, res) => {
+  try {
+    const { review_text, rating } = req.body;
+    
+    if (!review_text || !rating) {
+      return res.status(400).json({ error: 'Review text and rating are required' });
+    }
+    
+    const classification = await classifyReviewWithAI(review_text, rating);
+    res.json({ success: true, classification });
+  } catch (error) {
+    console.error('AI classification test error:', error);
+    res.status(500).json({ error: 'Failed to classify review' });
+  }
+});
+
 // Generate AI review response
 app.post('/api/ai/generate-review-response', async (req, res) => {
   try {

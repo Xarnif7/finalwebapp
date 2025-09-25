@@ -98,14 +98,23 @@ const ReviewsInbox = () => {
   };
 
   const handleReviewSelect = async (review) => {
+    console.log('=== REVIEW SELECT DEBUG ===');
+    console.log('Selected review:', review);
+    console.log('Current status:', review.status);
+    
     setSelectedReview(review);
     
     // Mark as read if it's unread
     if (review.status === 'unread') {
+      console.log('Marking review as read...');
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          console.log('No user found');
+          return;
+        }
 
+        console.log('Updating review status to read...');
         const { error } = await supabase
           .from('reviews')
           .update({ status: 'read' })
@@ -115,6 +124,7 @@ const ReviewsInbox = () => {
         if (error) {
           console.error('Error marking review as read:', error);
         } else {
+          console.log('Successfully marked review as read');
           // Update the review in the local state
           setReviews(prev => prev.map(r => 
             r.id === review.id ? { ...r, status: 'read' } : r
@@ -123,6 +133,8 @@ const ReviewsInbox = () => {
       } catch (error) {
         console.error('Error marking review as read:', error);
       }
+    } else {
+      console.log('Review is already read or not unread');
     }
   };
 
