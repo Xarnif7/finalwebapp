@@ -267,6 +267,17 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       console.log('Total available:', data.total_available);
       console.log('Sync success:', data.sync_success);
       
+      // Show detailed debug info from server
+      if (data.debug_info) {
+        console.log('=== SERVER DEBUG INFO ===');
+        console.log('Place name from Google:', data.debug_info.place_name);
+        console.log('Place rating:', data.debug_info.place_rating);
+        console.log('Total ratings:', data.debug_info.total_ratings);
+        console.log('Reviews found by Google:', data.debug_info.reviews_found);
+        console.log('Reviews processed:', data.debug_info.reviews_processed);
+        console.log('Sample review:', data.debug_info.sample_review);
+      }
+      
       // Show success message
       if (data.reviews_imported > 0) {
         alert(`Success! Connected to ${business.name} and imported ${data.reviews_imported} reviews.`);

@@ -10653,19 +10653,31 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
         }, businessId);
       }
 
-      console.log('=== FINAL SYNC RESULT ===');
-      console.log('Reviews formatted:', formattedReviews.length);
-      console.log('Reviews total available:', reviews.length);
-      console.log('Reviews imported:', formattedReviews.length);
-      
-      return { 
-        success: true, 
-        message: `Loaded ${formattedReviews.length} of ${reviews.length} total reviews`, 
-        count: formattedReviews.length,
-        reviews_imported: formattedReviews.length,
-        total_available: reviews.length,
-        has_more: reviews.length > parseInt(limit)
-      };
+                console.log('=== FINAL SYNC RESULT ===');
+                console.log('Reviews formatted:', formattedReviews.length);
+                console.log('Reviews total available:', reviews.length);
+                console.log('Reviews imported:', formattedReviews.length);
+                
+                return { 
+                  success: true, 
+                  message: `Loaded ${formattedReviews.length} of ${reviews.length} total reviews`, 
+                  count: formattedReviews.length,
+                  reviews_imported: formattedReviews.length,
+                  total_available: reviews.length,
+                  has_more: reviews.length > parseInt(limit),
+                  debug_info: {
+                    place_name: place.name,
+                    place_rating: place.rating,
+                    total_ratings: place.user_ratings_total,
+                    reviews_found: reviews.length,
+                    reviews_processed: formattedReviews.length,
+                    sample_review: formattedReviews[0] ? {
+                      author: formattedReviews[0].reviewer_name,
+                      rating: formattedReviews[0].rating,
+                      text: formattedReviews[0].review_text?.substring(0, 100) + '...'
+                    } : null
+                  }
+                };
     } else {
       return { success: false, error: 'Unsupported platform' };
     }
