@@ -10466,6 +10466,93 @@ Generate a perfect response:`;
   }
 });
 
+// Helper function to sync reviews directly
+async function syncReviewsDirectly({ business_id, place_id, platform, limit, user_email }) {
+  try {
+    console.log('=== DIRECT SYNC DEBUG ===');
+    console.log('Direct sync params:', { business_id, place_id, platform, limit, user_email });
+    
+    if (platform === 'google') {
+      // Use Google Places API to fetch real reviews
+      const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
+      console.log('Google API Key available:', !!googleApiKey);
+      
+      if (!googleApiKey) {
+        return { success: false, error: 'Google Places API key not configured' };
+      }
+
+      // First, get place details to fetch reviews
+      const placeDetailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&fields=name,rating,reviews,user_ratings_total&key=${googleApiKey}`;
+      console.log('Google Places API URL:', placeDetailsUrl);
+      
+      const placeDetailsResponse = await fetch(placeDetailsUrl);
+      const placeData = await placeDetailsResponse.json();
+      
+      console.log('Google Places API response status:', placeData.status);
+      console.log('Place data result:', placeData.result);
+      
+      if (placeData.status !== 'OK') {
+        console.error('Google Places API error:', placeData.status, placeData.error_message);
+        return { success: false, error: 'Failed to fetch place details: ' + placeData.status };
+      }
+
+      const place = placeData.result;
+      const reviews = place.reviews || [];
+      console.log('Reviews found:', reviews.length);
+
+      // Sort reviews by date (newest first) and limit to requested amount
+      const sortedReviews = reviews
+        .sort((a, b) => (b.time || 0) - (a.time || 0))
+        .slice(0, parseInt(limit));
+
+      // Convert Google reviews to our format
+      const formattedReviews = sortedReviews.map(review => ({
+        business_id,
+        platform: 'google',
+        reviewer_name: review.author_name || 'Anonymous',
+        rating: review.rating || 5,
+        review_text: review.text || '',
+        review_url: review.author_url || `https://www.google.com/maps/place/?q=place_id:${place_id}`,
+        review_created_at: new Date(review.time * 1000).toISOString(),
+        status: 'unread',
+        created_by: user_email
+      }));
+
+      console.log('Formatted reviews:', formattedReviews.length);
+
+      if (formattedReviews.length === 0) {
+        return { success: true, message: 'No reviews found for this business', count: 0 };
+      }
+
+      // Upsert reviews to database
+      const { error } = await supabase
+        .from('reviews')
+        .upsert(formattedReviews, { 
+          onConflict: 'business_id,platform,reviewer_name,review_created_at',
+          ignoreDuplicates: true 
+        });
+
+      if (error) {
+        console.error('Database upsert error:', error);
+        throw error;
+      }
+
+      return { 
+        success: true, 
+        message: `Loaded ${formattedReviews.length} of ${reviews.length} total reviews`, 
+        count: formattedReviews.length,
+        total_available: reviews.length,
+        has_more: reviews.length > parseInt(limit)
+      };
+    } else {
+      return { success: false, error: 'Unsupported platform' };
+    }
+  } catch (error) {
+    console.error('Error in direct sync:', error);
+    return { success: false, error: 'Failed to sync reviews: ' + error.message };
+  }
+}
+
 // Start server
 // Connect a review source
 app.post('/api/reviews/connect-source', async (req, res) => {
@@ -10506,36 +10593,26 @@ app.post('/api/reviews/connect-source', async (req, res) => {
 
     if (error) throw error;
 
-    // Trigger review sync (will import only 15 most recent)
+    // Trigger review sync directly (will import only 15 most recent)
     console.log('=== CONNECT SOURCE DEBUG ===');
     console.log('Business ID:', businessId);
     console.log('Place ID:', place_id);
     console.log('Platform:', platform);
     
     try {
-      const syncUrl = `${req.protocol}://${req.get('host')}/api/reviews/sync`;
-      console.log('Sync URL:', syncUrl);
-      
-      const syncResponse = await fetch(syncUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': req.headers.authorization
-        },
-        body: JSON.stringify({
-          business_id: businessId,
-          place_id: place_id,
-          platform: platform,
-          limit: 15
-        })
+      // Call sync directly instead of making HTTP request
+      const syncResult = await syncReviewsDirectly({
+        business_id: businessId,
+        place_id: place_id,
+        platform: platform,
+        limit: 15,
+        user_email: user.email
       });
       
-      console.log('Sync response status:', syncResponse.status);
-      const syncData = await syncResponse.json();
-      console.log('Sync result:', syncData);
+      console.log('Direct sync result:', syncResult);
       
-      if (!syncData.success) {
-        console.error('Sync failed:', syncData.error);
+      if (!syncResult.success) {
+        console.error('Sync failed:', syncResult.error);
       }
     } catch (syncError) {
       console.error('Error syncing reviews:', syncError);
