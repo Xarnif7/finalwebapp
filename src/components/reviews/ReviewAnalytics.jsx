@@ -30,8 +30,8 @@ const ReviewAnalytics = ({ reviews = [] }) => {
     );
 
     const totalReviews = filteredReviews.length;
-    const respondedReviews = filteredReviews.filter(r => r.status === 'responded' || r.reply_text).length;
-    const responseRate = totalReviews > 0 ? (respondedReviews / totalReviews * 100).toFixed(1) : 0;
+    const respondedCount = filteredReviews.filter(r => r.status === 'responded' || r.reply_text).length;
+    const responseRate = totalReviews > 0 ? (respondedCount / totalReviews * 100).toFixed(1) : 0;
     
     // Calculate average rating
     const avgRating = totalReviews > 0 
