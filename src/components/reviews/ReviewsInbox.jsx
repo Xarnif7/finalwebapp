@@ -33,6 +33,7 @@ const ReviewsInbox = ({ onReviewsChange }) => {
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const [connectedSources, setConnectedSources] = useState([]);
 
   useEffect(() => {
     loadReviews();
@@ -65,6 +66,24 @@ const ReviewsInbox = ({ onReviewsChange }) => {
       
       const businessId = profile?.business_id;
       console.log('Business ID from profile:', businessId);
+
+      // Check if there are any connected review sources
+      const { data: sourcesData } = await supabase
+        .from('review_sources')
+        .select('*')
+        .eq('business_id', businessId);
+      
+      console.log('Connected review sources:', sourcesData?.length || 0);
+      setConnectedSources(sourcesData || []);
+      if (sourcesData && sourcesData.length > 0) {
+        console.log('Review sources found:', sourcesData.map(s => ({ 
+          platform: s.platform, 
+          business_name: s.business_name, 
+          is_active: s.is_active 
+        })));
+      } else {
+        console.log('No review sources connected. Need to connect a business first.');
+      }
 
       const params = new URLSearchParams({
         limit: '15'
@@ -271,6 +290,31 @@ const ReviewsInbox = ({ onReviewsChange }) => {
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
+
+          {/* Connected Sources Indicator */}
+          {connectedSources.length > 0 ? (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center text-sm text-green-800">
+                <CheckCircle className="h-4 w-4 mr-2" />
+                <span className="font-medium">
+                  {connectedSources.length} connected source{connectedSources.length > 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-green-600">
+                {connectedSources.map(source => source.business_name).join(', ')}
+              </div>
+            </div>
+          ) : (
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center text-sm text-yellow-800">
+                <AlertCircle className="h-4 w-4 mr-2" />
+                <span className="font-medium">No review sources connected</span>
+              </div>
+              <div className="mt-1 text-xs text-yellow-600">
+                Connect a business to start importing reviews
+              </div>
+            </div>
+          )}
 
           {/* Search */}
           <div className="relative mb-4">
