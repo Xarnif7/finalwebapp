@@ -10633,14 +10633,12 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
         // Basic classification without AI
         const status = review.rating >= 4 ? 'unread' : (review.rating >= 3 ? 'unread' : 'needs_response');
         const sentiment = review.rating >= 4 ? 'positive' : (review.rating >= 3 ? 'neutral' : 'negative');
-        const ai_summary = review.rating >= 4 ? 'Customer had a positive experience' : 
-                          (review.rating >= 3 ? 'Customer had a neutral experience' : 'Customer expressed dissatisfaction with the service');
         
         return {
           ...review,
           status: status,
-          sentiment: sentiment,
-          ai_summary: ai_summary
+          sentiment: sentiment
+          // Removed ai_summary field - doesn't exist in database schema
         };
       });
 
