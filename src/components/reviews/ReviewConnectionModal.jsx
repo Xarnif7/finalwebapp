@@ -18,13 +18,6 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [googleApiLoaded, setGoogleApiLoaded] = useState(false);
 
-  React.useEffect(() => {
-    if (isOpen) {
-      loadConnectedSources();
-      loadGoogleMapsAPI();
-    }
-  }, [isOpen]);
-
   // Load Google Maps API dynamically
   useEffect(() => {
     const loadGoogleMapsAPI = () => {
@@ -62,6 +55,12 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 
     loadGoogleMapsAPI();
   }, []);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      loadConnectedSources();
+    }
+  }, [isOpen]);
 
   // Search when query changes
   React.useEffect(() => {
