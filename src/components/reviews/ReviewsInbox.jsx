@@ -73,7 +73,7 @@ const ReviewsInbox = () => {
       
           if (data.success) {
             console.log('Reviews loaded successfully:', data.reviews?.length);
-            console.log('Review statuses:', data.reviews?.map(r => ({ name: r.reviewer_name, status: r.status, rating: r.rating })));
+            console.log('Review statuses:', data.reviews?.map(r => ({ name: r.reviewer_name, status: r.status, rating: r.rating, sentiment: r.sentiment })));
             if (reset) {
               setReviews(data.reviews || []);
             } else {
@@ -118,20 +118,29 @@ const ReviewsInbox = () => {
         }
 
         console.log('Updating review status to read...');
-        const { error } = await supabase
-          .from('reviews')
-          .update({ status: 'read' })
-          .eq('id', review.id)
-          .eq('created_by', user.email);
+        
+        // Use the API endpoint instead of direct Supabase call
+        const response = await fetch('/api/reviews/update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          },
+          body: JSON.stringify({
+            review_id: review.id,
+            updates: { status: 'read' }
+          })
+        });
 
-        if (error) {
-          console.error('Error marking review as read:', error);
-        } else {
+        if (response.ok) {
           console.log('Successfully marked review as read');
           // Update the review in the local state
           setReviews(prev => prev.map(r => 
             r.id === review.id ? { ...r, status: 'read' } : r
           ));
+        } else {
+          const errorData = await response.json();
+          console.error('Error marking review as read:', errorData);
         }
       } catch (error) {
         console.error('Error marking review as read:', error);

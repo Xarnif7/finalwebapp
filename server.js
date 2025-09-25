@@ -11153,6 +11153,50 @@ app.post('/api/reviews/sync', async (req, res) => {
   }
 });
 
+// Update review (new endpoint for status updates)
+app.post('/api/reviews/update', async (req, res) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { review_id, updates } = req.body;
+
+    if (!review_id || !updates) {
+      return res.status(400).json({ error: 'Review ID and updates are required' });
+    }
+
+    // Get user's business_id
+    const { data: businessData } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('created_by', user.email)
+      .limit(1)
+      .single();
+
+    if (!businessData?.id) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // Update the review
+    const { data, error } = await supabase
+      .from('reviews')
+      .update(updates)
+      .eq('id', review_id)
+      .eq('created_by', user.email)
+      .select();
+
+    if (error) throw error;
+
+    res.json({ success: true, review: data[0] });
+  } catch (error) {
+    console.error('Error updating review:', error);
+    res.status(500).json({ error: 'Failed to update review' });
+  }
+});
+
 // Update review
 app.put('/api/reviews/:id', async (req, res) => {
   try {
