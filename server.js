@@ -10548,17 +10548,25 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
       const placeDetailsResponse = await fetch(placeDetailsUrl);
       const placeData = await placeDetailsResponse.json();
       
-      console.log('Google Places API response status:', placeData.status);
-      console.log('Place data result:', placeData.result);
-      
-      if (placeData.status !== 'OK') {
-        console.error('Google Places API error:', placeData.status, placeData.error_message);
-        return { success: false, error: 'Failed to fetch place details: ' + placeData.status };
-      }
+                console.log('Google Places API response status:', placeData.status);
+                console.log('Place data result:', placeData.result);
+                
+                if (placeData.status !== 'OK') {
+                  console.error('Google Places API error:', placeData.status, placeData.error_message);
+                  return { success: false, error: 'Failed to fetch place details: ' + placeData.status };
+                }
 
-      const place = placeData.result;
-      const reviews = place.reviews || [];
-      console.log('Reviews found:', reviews.length);
+                const place = placeData.result;
+                const reviews = place.reviews || [];
+                console.log('Reviews found:', reviews.length);
+                console.log('Place name from API:', place.name);
+                console.log('Place rating:', place.rating);
+                console.log('Total ratings:', place.user_ratings_total);
+                
+                if (reviews.length === 0) {
+                  console.log('No reviews found in Google Places API for this business');
+                  console.log('This could mean: 1) Business has no reviews, 2) Business name mismatch, 3) API permissions issue');
+                }
 
       // Sort reviews by date (newest first) and limit to requested amount
       const sortedReviews = reviews
