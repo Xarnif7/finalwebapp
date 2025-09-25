@@ -25,6 +25,7 @@ const ReviewsInbox = ({ onReviewsChange }) => {
   const [selectedReview, setSelectedReview] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [sentimentFilter, setSentimentFilter] = useState('all_sentiment');
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingFilter, setRatingFilter] = useState('all');
   const [platformFilter, setPlatformFilter] = useState('all');
@@ -187,7 +188,9 @@ const ReviewsInbox = ({ onReviewsChange }) => {
       (dateFilter === 'month' && (new Date() - new Date(review.review_created_at)) <= 30 * 24 * 60 * 60 * 1000) ||
       (dateFilter === 'quarter' && (new Date() - new Date(review.review_created_at)) <= 90 * 24 * 60 * 60 * 1000);
     
-    return matchesFilter && matchesSearch && matchesRating && matchesPlatform && matchesDate;
+    const matchesSentiment = sentimentFilter === 'all_sentiment' || review.sentiment === sentimentFilter;
+    
+    return matchesFilter && matchesSearch && matchesRating && matchesPlatform && matchesDate && matchesSentiment;
   });
 
   const getStatusBadge = (status) => {
@@ -288,7 +291,7 @@ const ReviewsInbox = ({ onReviewsChange }) => {
           </div>
 
           {/* Basic Filters */}
-          <div className="flex gap-2 mb-2">
+          <div className="flex gap-2 mb-2 flex-wrap">
             {[
               { key: 'all', label: 'All' },
               { key: 'unread', label: 'Unread' },
@@ -305,6 +308,29 @@ const ReviewsInbox = ({ onReviewsChange }) => {
                 {filterOption.label}
               </Button>
             ))}
+          </div>
+          
+          {/* Sentiment Filters */}
+          <div className="flex gap-2 mb-4 flex-wrap">
+            <span className="text-sm text-gray-600 font-medium mr-2">Sentiment:</span>
+            {[
+              { key: 'all_sentiment', label: 'All', icon: null },
+              { key: 'positive', label: 'Positive', icon: '👍' },
+              { key: 'negative', label: 'Negative', icon: '👎' },
+              { key: 'neutral', label: 'Neutral', icon: '😐' }
+            ].map((sentimentOption) => (
+              <Button
+                key={sentimentOption.key}
+                variant={sentimentFilter === sentimentOption.key ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSentimentFilter(sentimentOption.key)}
+                className="flex items-center gap-1"
+              >
+                {sentimentOption.icon && <span>{sentimentOption.icon}</span>}
+                {sentimentOption.label}
+              </Button>
+            ))}
+          </div>
             <Button
               variant="outline"
               size="sm"

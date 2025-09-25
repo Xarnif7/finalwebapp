@@ -10711,6 +10711,80 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
   }
 }
 
+// AI Review Response Generation
+app.post('/api/ai/generate-review-response', async (req, res) => {
+  try {
+    const { review_text, rating, platform, business_name, job_type, sentiment, template_id } = req.body;
+    
+    if (!review_text) {
+      return res.status(400).json({ error: 'Review text is required' });
+    }
+    
+    // Get OpenAI API key
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+    
+    // Create prompt based on review sentiment and rating
+    let prompt = `You are a professional customer service representative responding to a ${rating}-star review on ${platform}. 
+    
+Business: ${business_name || 'Our business'}
+Review: "${review_text}"
+Sentiment: ${sentiment || 'neutral'}
+${job_type ? `Service Type: ${job_type}` : ''}
+
+Please write a professional, helpful response that:
+1. Acknowledges the customer's feedback
+2. Shows appreciation for their business
+3. Addresses any concerns professionally
+4. Maintains a positive brand image
+5. Is concise (2-3 sentences max)
+6. Uses appropriate tone for a ${rating}-star review
+
+Response:`;
+    
+    // Call OpenAI API
+    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 150,
+        temperature: 0.7
+      })
+    });
+    
+    const openaiData = await openaiResponse.json();
+    
+    if (openaiData.choices && openaiData.choices[0] && openaiData.choices[0].message) {
+      const response = openaiData.choices[0].message.content.trim();
+      
+      res.json({
+        success: true,
+        response: response,
+        model: 'gpt-3.5-turbo',
+        usage: openaiData.usage
+      });
+    } else {
+      throw new Error('Invalid response from OpenAI API');
+    }
+    
+  } catch (error) {
+    console.error('Error generating AI response:', error);
+    res.status(500).json({ error: 'Failed to generate AI response: ' + error.message });
+  }
+});
+
 // Start server
 // Connect a review source
 app.post('/api/reviews/connect-source', async (req, res) => {
