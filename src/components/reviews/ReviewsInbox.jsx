@@ -56,6 +56,16 @@ const ReviewsInbox = ({ onReviewsChange }) => {
         return;
       }
 
+      // Get business ID from user's profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', authUser.id)
+        .single();
+      
+      const businessId = profile?.business_id;
+      console.log('Business ID from profile:', businessId);
+
       const params = new URLSearchParams({
         limit: '15'
       });
@@ -66,7 +76,6 @@ const ReviewsInbox = ({ onReviewsChange }) => {
 
       const url = `/api/reviews?${params}`;
       console.log('Making API call to:', url);
-      console.log('Business ID from profile:', businessId);
       
       const response = await fetch(url, {
         headers: {
