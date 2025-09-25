@@ -188,10 +188,12 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   };
 
   const handleConnect = async () => {
+    alert('CONNECT BUTTON CLICKED! Starting connection process...');
     console.log('=== HANDLE CONNECT DEBUG ===');
     console.log('Selected business:', selectedBusiness);
     
     if (!selectedBusiness) {
+      alert('No business selected!');
       console.log('No business selected, returning');
       return;
     }
@@ -257,6 +259,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       }
       
       console.log('Connection successful, reviews imported:', data.reviews_imported);
+      alert(`Connection successful! Reviews imported: ${data.reviews_imported}`);
 
       // Reload connected sources
       console.log('Reloading connected sources...');
