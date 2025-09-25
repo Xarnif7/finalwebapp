@@ -31,23 +31,30 @@ const Reviews = () => {
               Manage and respond to customer reviews from all platforms
             </p>
           </div>
-          <Button 
+          <button 
             onClick={(e) => {
-              console.log('=== CONNECT BUTTON CLICKED ===');
+              console.log('=== NATIVE BUTTON CLICKED ===');
               console.log('Button click event:', e);
               console.log('Current showPlatformConnector state:', showPlatformConnector);
               console.log('Setting showPlatformConnector to true...');
               setShowPlatformConnector(true);
               console.log('Modal state should now be true');
             }}
-            onMouseDown={() => console.log('=== BUTTON MOUSE DOWN ===')}
-            onMouseUp={() => console.log('=== BUTTON MOUSE UP ===')}
-            className="bg-blue-600 hover:bg-blue-700"
-            style={{ pointerEvents: 'auto', zIndex: 1000 }}
+            onMouseDown={() => console.log('=== NATIVE BUTTON MOUSE DOWN ===')}
+            onMouseUp={() => console.log('=== NATIVE BUTTON MOUSE UP ===')}
+            style={{ 
+              pointerEvents: 'auto', 
+              zIndex: 1000,
+              padding: '8px 16px',
+              backgroundColor: '#2563eb',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer'
+            }}
           >
-            <Plus className="h-4 w-4 mr-2" />
             Connect Review Platforms
-          </Button>
+          </button>
         </div>
       </div>
 
