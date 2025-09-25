@@ -34,12 +34,19 @@ const ReviewsInbox = () => {
 
   const loadReviews = async (reset = true) => {
     try {
+      console.log('=== REVIEWS INBOX DEBUG ===');
+      console.log('Loading reviews, reset:', reset);
+      
       if (reset) {
         setIsLoading(true);
       }
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      console.log('User from auth:', user?.email);
+      if (!user) {
+        console.log('No user found, returning');
+        return;
+      }
 
       const params = new URLSearchParams({
         limit: '15'
@@ -49,10 +56,21 @@ const ReviewsInbox = () => {
         params.append('before', reviews[reviews.length - 1].review_created_at);
       }
 
-      const response = await fetch(`/api/reviews?${params}`);
+      const url = `/api/reviews?${params}`;
+      console.log('Making API call to:', url);
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        }
+      });
+      
+      console.log('API response status:', response.status);
       const data = await response.json();
+      console.log('API response data:', data);
       
       if (data.success) {
+        console.log('Reviews loaded successfully:', data.reviews?.length);
         if (reset) {
           setReviews(data.reviews || []);
         } else {
@@ -60,6 +78,8 @@ const ReviewsInbox = () => {
         }
         setHasMore(data.has_more || false);
         setTotalCount(data.total_count || 0);
+      } else {
+        console.error('API returned success: false:', data.error);
       }
     } catch (error) {
       console.error('Error loading reviews:', error);
