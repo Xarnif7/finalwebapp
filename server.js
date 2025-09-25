@@ -10466,6 +10466,86 @@ Generate a perfect response:`;
   }
 });
 
+// AI-powered review classification
+async function classifyReviewWithAI(reviewText, rating) {
+  try {
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    const prompt = `Analyze this customer review and classify it:
+
+Review: "${reviewText}"
+Rating: ${rating}/5 stars
+
+Please classify this review and determine:
+1. Status: Should this be "unread", "needs_response", or "responded"?
+   - "needs_response": Bad reviews (1-2 stars), complaints, issues, or reviews mentioning problems
+   - "unread": Good reviews (4-5 stars) that don't need immediate response
+   - "responded": Already has a response (we'll handle this separately)
+
+2. Sentiment: "positive", "neutral", or "negative"
+3. Needs Response: true if the business owner should respond, false otherwise
+
+Respond in JSON format:
+{
+  "status": "needs_response",
+  "sentiment": "negative", 
+  "needs_response": true,
+  "reason": "Brief explanation of classification"
+}`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 200,
+        temperature: 0.1
+      })
+    });
+
+    const data = await response.json();
+    
+    if (data.choices && data.choices[0]) {
+      const classification = JSON.parse(data.choices[0].message.content);
+      return classification;
+    } else {
+      throw new Error('No classification received from AI');
+    }
+  } catch (error) {
+    console.error('AI classification error:', error);
+    // Fallback classification
+    if (rating <= 2) {
+      return {
+        status: 'needs_response',
+        sentiment: 'negative',
+        needs_response: true,
+        reason: 'Low rating - needs response'
+      };
+    } else if (rating >= 4) {
+      return {
+        status: 'unread',
+        sentiment: 'positive',
+        needs_response: false,
+        reason: 'High rating - no response needed'
+      };
+    } else {
+      return {
+        status: 'unread',
+        sentiment: 'neutral',
+        needs_response: false,
+        reason: 'Neutral rating'
+      };
+    }
+  }
+}
+
 // Helper function to sync reviews directly
 async function syncReviewsDirectly({ business_id, place_id, platform, limit, user_email }) {
   try {
@@ -10524,11 +10604,32 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
         return { success: true, message: 'No reviews found for this business', count: 0 };
       }
 
+      // Classify reviews with AI before saving
+      console.log('Classifying reviews with AI...');
+      const classifiedReviews = await Promise.all(formattedReviews.map(async (review) => {
+        try {
+          const classification = await classifyReviewWithAI(review.review_text, review.rating);
+          return {
+            ...review,
+            status: classification.status,
+            sentiment: classification.sentiment
+          };
+        } catch (error) {
+          console.error('Error classifying review:', error);
+          // Fallback to basic classification
+          return {
+            ...review,
+            status: review.rating >= 4 ? 'unread' : 'needs_response',
+            sentiment: review.rating >= 4 ? 'positive' : (review.rating >= 3 ? 'neutral' : 'negative')
+          };
+        }
+      }));
+
       // Upsert reviews to database
       console.log('Attempting to upsert reviews to database...');
       const { error } = await supabase
         .from('reviews')
-        .upsert(formattedReviews, { 
+        .upsert(classifiedReviews, { 
           ignoreDuplicates: true 
         });
 

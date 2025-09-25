@@ -97,9 +97,39 @@ const ReviewsInbox = () => {
     }
   };
 
+  const handleReviewSelect = async (review) => {
+    setSelectedReview(review);
+    
+    // Mark as read if it's unread
+    if (review.status === 'unread') {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { error } = await supabase
+          .from('reviews')
+          .update({ status: 'read' })
+          .eq('id', review.id)
+          .eq('created_by', user.email);
+
+        if (error) {
+          console.error('Error marking review as read:', error);
+        } else {
+          // Update the review in the local state
+          setReviews(prev => prev.map(r => 
+            r.id === review.id ? { ...r, status: 'read' } : r
+          ));
+        }
+      } catch (error) {
+        console.error('Error marking review as read:', error);
+      }
+    }
+  };
+
   const filteredReviews = reviews.filter(review => {
     const matchesFilter = filter === 'all' || 
       (filter === 'unread' && review.status === 'unread') ||
+      (filter === 'read' && review.status === 'read') ||
       (filter === 'needs_response' && review.status === 'needs_response') ||
       (filter === 'responded' && review.status === 'responded');
     
@@ -113,6 +143,7 @@ const ReviewsInbox = () => {
   const getStatusBadge = (status) => {
     const statusConfig = {
       unread: { color: 'bg-blue-100 text-blue-800', label: 'Unread' },
+      read: { color: 'bg-gray-100 text-gray-800', label: 'Read' },
       needs_response: { color: 'bg-yellow-100 text-yellow-800', label: 'Needs Response' },
       responded: { color: 'bg-green-100 text-green-800', label: 'Responded' },
       resolved: { color: 'bg-gray-100 text-gray-800', label: 'Resolved' }
@@ -196,6 +227,7 @@ const ReviewsInbox = () => {
             {[
               { key: 'all', label: 'All' },
               { key: 'unread', label: 'Unread' },
+              { key: 'read', label: 'Read' },
               { key: 'needs_response', label: 'Needs Response' },
               { key: 'responded', label: 'Responded' }
             ].map((filterOption) => (
@@ -227,7 +259,7 @@ const ReviewsInbox = () => {
                   className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
                     selectedReview?.id === review.id ? 'bg-blue-50 border-blue-200' : ''
                   }`}
-                  onClick={() => setSelectedReview(review)}
+                  onClick={() => handleReviewSelect(review)}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
