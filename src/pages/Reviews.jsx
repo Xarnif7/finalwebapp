@@ -20,6 +20,12 @@ const Reviews = () => {
     console.log('showPlatformConnector:', showPlatformConnector);
   }, [showPlatformConnector]);
 
+  // Debug component rendering
+  useEffect(() => {
+    console.log('=== REVIEWS COMPONENT RENDERED ===');
+    console.log('showPlatformConnector state:', showPlatformConnector);
+  }, []);
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -33,6 +39,7 @@ const Reviews = () => {
           </div>
           <button 
             onClick={(e) => {
+              alert('BUTTON CLICKED!');
               console.log('=== NATIVE BUTTON CLICKED ===');
               console.log('Button click event:', e);
               console.log('Current showPlatformConnector state:', showPlatformConnector);
@@ -40,20 +47,28 @@ const Reviews = () => {
               setShowPlatformConnector(true);
               console.log('Modal state should now be true');
             }}
-            onMouseDown={() => console.log('=== NATIVE BUTTON MOUSE DOWN ===')}
-            onMouseUp={() => console.log('=== NATIVE BUTTON MOUSE UP ===')}
+            onMouseDown={() => {
+              alert('BUTTON MOUSE DOWN!');
+              console.log('=== NATIVE BUTTON MOUSE DOWN ===');
+            }}
+            onMouseUp={() => {
+              alert('BUTTON MOUSE UP!');
+              console.log('=== NATIVE BUTTON MOUSE UP ===');
+            }}
             style={{ 
               pointerEvents: 'auto', 
-              zIndex: 1000,
+              zIndex: 9999,
               padding: '8px 16px',
               backgroundColor: '#2563eb',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold'
             }}
           >
-            Connect Review Platforms
+            🔥 TEST BUTTON - CLICK ME 🔥
           </button>
         </div>
       </div>
