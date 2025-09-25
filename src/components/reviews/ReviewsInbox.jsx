@@ -174,7 +174,7 @@ const ReviewsInbox = () => {
     };
     
     const config = statusConfig[status] || statusConfig.unread;
-    return <Badge className={config.color}>{config.label}</Badge>;
+    return <Badge className={`${config.color} hover:${config.color}`}>{config.label}</Badge>;
   };
 
   const getPlatformIcon = (platform) => {
@@ -229,34 +229,9 @@ const ReviewsInbox = () => {
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Reviews Inbox</h2>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={async () => {
-                  try {
-                    const response = await fetch('/api/reviews/reclassify-all', {
-                      method: 'POST',
-                      headers: {
-                        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-                      }
-                    });
-                    const result = await response.json();
-                    if (result.success) {
-                      alert(result.message);
-                      loadReviews();
-                    }
-                  } catch (error) {
-                    console.error('Error reclassifying reviews:', error);
-                  }
-                }}
-              >
-                🤖 AI Classify
-              </Button>
-              <Button variant="outline" size="sm" onClick={loadReviews}>
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button variant="outline" size="sm" onClick={loadReviews}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
 
           {/* Search */}
@@ -347,7 +322,7 @@ const ReviewsInbox = () => {
               ))}
               
               {/* Load More Button */}
-              {hasMore && (
+              {(hasMore || reviews.length < totalCount) && (
                 <div className="p-4 border-t border-gray-200">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-gray-500">

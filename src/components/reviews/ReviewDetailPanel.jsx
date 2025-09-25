@@ -161,6 +161,14 @@ export default function ReviewDetailPanel({
         setAiDraft(data.response);
         setResponseText(data.response);
         setIsEditingResponse(true);
+        
+        // Save the AI draft to the review (only save ai_draft, not other fields)
+        try {
+          await onUpdateReview(review.id, { ai_draft: data.response });
+        } catch (updateError) {
+          console.error('Error saving AI draft:', updateError);
+          // Don't fail the whole operation if saving fails
+        }
       }
     } catch (error) {
       console.error('Error generating AI response:', error);
@@ -461,39 +469,27 @@ export default function ReviewDetailPanel({
             </div>
           </div>
 
-          {/* Tags and Topics */}
+          {/* Classification and Summary */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium text-gray-900">Classification</h4>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setIsAddingTag(!isAddingTag)}
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Add Tag
-              </Button>
             </div>
             
-            {/* Add Tag Input */}
-            {isAddingTag && (
-              <div className="flex items-center gap-2 mb-3">
-                <input
-                  type="text"
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  placeholder="Enter tag name"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-                />
-                <Button size="sm" onClick={handleAddTag}>
-                  Add
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setIsAddingTag(false)}>
-                  <X className="w-4 h-4" />
-                </Button>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                {statusConfig[review.status]?.icon && (
+                  <statusConfig[review.status].icon className="w-4 h-4 text-gray-600" />
+                )}
+                <Badge className={statusConfig[review.status]?.color || 'bg-gray-100 text-gray-800'}>
+                  {statusConfig[review.status]?.name || review.status}
+                </Badge>
               </div>
-            )}
+              
+              {/* AI Summary */}
+              <p className="text-sm text-gray-600">
+                {review.ai_summary || `This is a ${review.sentiment} review with ${review.rating} stars. ${review.rating <= 2 ? 'The customer expressed dissatisfaction and may need a response.' : review.rating >= 4 ? 'The customer had a positive experience.' : 'The customer had a neutral experience.'}`}
+              </p>
+            </div>
             
             <div className="flex flex-wrap gap-2">
               {review.tags?.map((tag, index) => (

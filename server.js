@@ -10486,13 +10486,13 @@ Please classify this review and determine:
    - "responded": Already has a response (we'll handle this separately)
 
 2. Sentiment: "positive", "neutral", or "negative"
-3. Needs Response: true if the business owner should respond, false otherwise
+3. Summary: A brief 1-2 sentence summary of what the customer is saying
 
 Respond in JSON format:
 {
   "status": "needs_response",
   "sentiment": "negative", 
-  "needs_response": true,
+  "summary": "Customer complained about pricing and service quality",
   "reason": "Brief explanation of classification"
 }`;
 
@@ -10609,18 +10609,20 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
       const classifiedReviews = await Promise.all(formattedReviews.map(async (review) => {
         try {
           const classification = await classifyReviewWithAI(review.review_text, review.rating);
-          return {
-            ...review,
-            status: classification.status,
-            sentiment: classification.sentiment
-          };
+      return {
+        ...review,
+        status: classification.status,
+        sentiment: classification.sentiment,
+        ai_summary: classification.summary || ''
+      };
         } catch (error) {
           console.error('Error classifying review:', error);
           // Fallback to basic classification
           return {
             ...review,
             status: review.rating >= 4 ? 'unread' : 'needs_response',
-            sentiment: review.rating >= 4 ? 'positive' : (review.rating >= 3 ? 'neutral' : 'negative')
+            sentiment: review.rating >= 4 ? 'positive' : (review.rating >= 3 ? 'neutral' : 'negative'),
+            ai_summary: review.rating <= 2 ? 'Customer expressed dissatisfaction with the service' : review.rating >= 4 ? 'Customer had a positive experience' : 'Customer had a neutral experience'
           };
         }
       }));
@@ -11249,16 +11251,20 @@ app.post('/api/reviews/reclassify-all', async (req, res) => {
       // Apply AI classification logic
       let newStatus = 'unread';
       let sentiment = 'positive';
+      let aiSummary = '';
       
       if (review.rating <= 2) {
         newStatus = 'needs_response';
         sentiment = 'negative';
+        aiSummary = 'Customer expressed dissatisfaction with the service';
       } else if (review.rating >= 4) {
         newStatus = 'unread';
         sentiment = 'positive';
+        aiSummary = 'Customer had a positive experience';
       } else {
         newStatus = 'unread';
         sentiment = 'neutral';
+        aiSummary = 'Customer had a neutral experience';
       }
 
       // Update the review
@@ -11266,7 +11272,8 @@ app.post('/api/reviews/reclassify-all', async (req, res) => {
         .from('reviews')
         .update({
           status: newStatus,
-          sentiment: sentiment
+          sentiment: sentiment,
+          ai_summary: aiSummary
         })
         .eq('id', review.id);
 
