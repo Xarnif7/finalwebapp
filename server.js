@@ -10711,6 +10711,8 @@ app.post('/api/reviews/connect-source', async (req, res) => {
     console.log('Platform:', platform);
     console.log('Business Name:', business_name);
     console.log('User Email:', user.email);
+    console.log('Google Places API Key available:', !!process.env.GOOGLE_PLACES_API_KEY);
+    console.log('Supabase client available:', !!supabase);
     
     let syncResult = null;
     try {
@@ -10844,6 +10846,8 @@ app.get('/api/reviews', async (req, res) => {
     console.log('=== REVIEWS API DEBUG ===');
     console.log('Query params:', { business_id, limit, before });
     console.log('User email:', user?.email);
+    console.log('User ID:', user?.id);
+    console.log('Supabase client available:', !!supabase);
     
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -10897,8 +10901,12 @@ app.get('/api/reviews', async (req, res) => {
     console.log('Review sources found:', sourcesData?.length || 0, sourcesData);
 
     console.log('Executing reviews query with business_id:', targetBusinessId);
+    console.log('Query filter:', targetBusinessId ? `business_id = ${targetBusinessId}` : `created_by = ${user.email}`);
     const { data, error } = await query;
     console.log('Query result:', { dataCount: data?.length, error });
+    if (data && data.length > 0) {
+      console.log('Sample review:', { id: data[0].id, business_id: data[0].business_id, reviewer_name: data[0].reviewer_name });
+    }
 
     if (error) throw error;
 
