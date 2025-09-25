@@ -35,6 +35,8 @@ const ReviewsInbox = ({ onReviewsChange }) => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [connectedSources, setConnectedSources] = useState([]);
+  const [selectedReviews, setSelectedReviews] = useState([]);
+  const [showBulkActions, setShowBulkActions] = useState(false);
 
   useEffect(() => {
     loadReviews();
@@ -156,6 +158,78 @@ const ReviewsInbox = ({ onReviewsChange }) => {
       } catch (error) {
         console.error('Error marking review as read:', error);
       }
+    }
+  };
+
+  // Bulk action functions
+  const handleReviewSelection = (reviewId, isSelected) => {
+    if (isSelected) {
+      setSelectedReviews(prev => [...prev, reviewId]);
+    } else {
+      setSelectedReviews(prev => prev.filter(id => id !== reviewId));
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedReviews.length === filteredReviews.length) {
+      setSelectedReviews([]);
+    } else {
+      setSelectedReviews(filteredReviews.map(r => r.id));
+    }
+  };
+
+  const handleBulkAction = async (action) => {
+    if (selectedReviews.length === 0) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const updates = {};
+      switch (action) {
+        case 'mark_read':
+          updates.status = 'read';
+          break;
+        case 'mark_unread':
+          updates.status = 'unread';
+          break;
+        case 'mark_responded':
+          updates.status = 'responded';
+          break;
+        case 'mark_needs_response':
+          updates.status = 'needs_response';
+          break;
+        default:
+          return;
+      }
+
+      // Update all selected reviews
+      const promises = selectedReviews.map(reviewId => 
+        fetch('/api/reviews/update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          },
+          body: JSON.stringify({
+            review_id: reviewId,
+            updates
+          })
+        })
+      );
+
+      await Promise.all(promises);
+
+      // Update local state
+      setReviews(prev => prev.map(r => 
+        selectedReviews.includes(r.id) ? { ...r, ...updates } : r
+      ));
+
+      setSelectedReviews([]);
+      setShowBulkActions(false);
+
+    } catch (error) {
+      console.error('Error performing bulk action:', error);
     }
   };
 
@@ -414,15 +488,107 @@ const ReviewsInbox = ({ onReviewsChange }) => {
             </div>
           ) : (
             <>
+              {/* Bulk Actions Header */}
+              {selectedReviews.length > 0 && (
+                <div className="p-4 bg-blue-50 border-b border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedReviews.length === filteredReviews.length}
+                        onChange={handleSelectAll}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm font-medium text-blue-900">
+                        {selectedReviews.length} review{selectedReviews.length > 1 ? 's' : ''} selected
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleBulkAction('mark_read')}
+                        className="text-xs"
+                      >
+                        Mark Read
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleBulkAction('mark_unread')}
+                        className="text-xs"
+                      >
+                        Mark Unread
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleBulkAction('mark_responded')}
+                        className="text-xs"
+                      >
+                        Mark Responded
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleBulkAction('mark_needs_response')}
+                        className="text-xs"
+                      >
+                        Needs Response
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setSelectedReviews([])}
+                        className="text-xs"
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Reviews List Header */}
+              <div className="p-4 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedReviews.length === filteredReviews.length && filteredReviews.length > 0}
+                      onChange={handleSelectAll}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      Select All ({filteredReviews.length})
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    Click to select individual reviews
+                  </span>
+                </div>
+              </div>
+
               {filteredReviews.map((review) => (
                 <div
                   key={review.id}
-                  className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
+                  className={`p-4 border-b border-gray-100 hover:bg-gray-50 ${
                     selectedReview?.id === review.id ? 'bg-blue-50 border-blue-200' : ''
                   }`}
-                  onClick={() => handleReviewSelect(review)}
                 >
-                  <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedReviews.includes(review.id)}
+                      onChange={(e) => handleReviewSelection(review.id, e.target.checked)}
+                      className="mt-1 rounded border-gray-300"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() => handleReviewSelect(review)}
+                    >
+                      <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{getPlatformIcon(review.platform)}</span>
                       <div>
@@ -454,6 +620,8 @@ const ReviewsInbox = ({ onReviewsChange }) => {
                         Replied
                       </div>
                     )}
+                  </div>
+                    </div>
                   </div>
                 </div>
               ))}

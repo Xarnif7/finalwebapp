@@ -10785,6 +10785,165 @@ Response:`;
   }
 });
 
+// Update review endpoint
+app.post('/api/reviews/update', async (req, res) => {
+  try {
+    const { review_id, updates } = req.body;
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!review_id || !updates) {
+      return res.status(400).json({ error: 'Review ID and updates are required' });
+    }
+
+    // Get user's business ID
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.business_id) {
+      return res.status(400).json({ error: 'Business profile not found' });
+    }
+
+    // Update the review
+    const { data, error } = await supabase
+      .from('reviews')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', review_id)
+      .eq('business_id', profile.business_id)
+      .select();
+
+    if (error) {
+      console.error('Error updating review:', error);
+      return res.status(500).json({ error: 'Failed to update review' });
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Review not found' });
+    }
+
+    res.json({
+      success: true,
+      review: data[0],
+      message: 'Review updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Error in review update:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// AI Classification endpoint
+app.post('/api/ai/classify-review', async (req, res) => {
+  try {
+    const { review_text, rating, platform } = req.body;
+    
+    if (!review_text) {
+      return res.status(400).json({ error: 'Review text is required' });
+    }
+    
+    // Get OpenAI API key
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+    
+    // Create classification prompt
+    const prompt = `Analyze this customer review and classify it:
+
+Review: "${review_text}"
+Rating: ${rating} stars
+Platform: ${platform}
+
+Please provide:
+1. Sentiment: positive, negative, or neutral
+2. Classification: complaint, compliment, question, suggestion, or general
+3. Priority: high, medium, or low
+4. Keywords: 3-5 key topics mentioned
+5. Response needed: yes or no
+
+Format your response as JSON:
+{
+  "sentiment": "positive|negative|neutral",
+  "classification": "complaint|compliment|question|suggestion|general",
+  "priority": "high|medium|low",
+  "keywords": ["keyword1", "keyword2", "keyword3"],
+  "response_needed": true|false,
+  "summary": "Brief 1-sentence summary of the review"
+}`;
+    
+    // Call OpenAI API
+    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 300,
+        temperature: 0.3
+      })
+    });
+    
+    const openaiData = await openaiResponse.json();
+    
+    if (openaiData.choices && openaiData.choices[0] && openaiData.choices[0].message) {
+      const responseText = openaiData.choices[0].message.content.trim();
+      
+      try {
+        const classification = JSON.parse(responseText);
+        
+        res.json({
+          success: true,
+          classification: classification,
+          model: 'gpt-3.5-turbo',
+          usage: openaiData.usage
+        });
+      } catch (parseError) {
+        console.error('Error parsing AI response:', parseError);
+        // Fallback classification based on rating
+        const sentiment = rating >= 4 ? 'positive' : rating <= 2 ? 'negative' : 'neutral';
+        const responseNeeded = rating <= 3;
+        
+        res.json({
+          success: true,
+          classification: {
+            sentiment: sentiment,
+            classification: 'general',
+            priority: rating <= 2 ? 'high' : rating <= 3 ? 'medium' : 'low',
+            keywords: [],
+            response_needed: responseNeeded,
+            summary: `${rating}-star review`
+          },
+          fallback: true
+        });
+      }
+    } else {
+      throw new Error('Invalid response from OpenAI API');
+    }
+    
+  } catch (error) {
+    console.error('Error classifying review:', error);
+    res.status(500).json({ error: 'Failed to classify review: ' + error.message });
+  }
+});
+
 // Start server
 // Connect a review source
 app.post('/api/reviews/connect-source', async (req, res) => {
