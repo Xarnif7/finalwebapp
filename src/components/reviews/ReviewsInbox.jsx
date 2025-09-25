@@ -18,6 +18,8 @@ import {
 import { supabase } from '../../lib/supabase';
 import ReviewDetailPanel from './ReviewDetailPanel';
 
+// Force cache refresh - v2
+
 const ReviewsInbox = () => {
   const [reviews, setReviews] = useState([]);
   const [selectedReview, setSelectedReview] = useState(null);
@@ -69,18 +71,19 @@ const ReviewsInbox = () => {
       const data = await response.json();
       console.log('API response data:', data);
       
-      if (data.success) {
-        console.log('Reviews loaded successfully:', data.reviews?.length);
-        if (reset) {
-          setReviews(data.reviews || []);
-        } else {
-          setReviews(prev => [...prev, ...(data.reviews || [])]);
-        }
-        setHasMore(data.has_more || false);
-        setTotalCount(data.total_count || 0);
-      } else {
-        console.error('API returned success: false:', data.error);
-      }
+          if (data.success) {
+            console.log('Reviews loaded successfully:', data.reviews?.length);
+            console.log('Review statuses:', data.reviews?.map(r => ({ name: r.reviewer_name, status: r.status, rating: r.rating })));
+            if (reset) {
+              setReviews(data.reviews || []);
+            } else {
+              setReviews(prev => [...prev, ...(data.reviews || [])]);
+            }
+            setHasMore(data.has_more || false);
+            setTotalCount(data.total_count || 0);
+          } else {
+            console.error('API returned success: false:', data.error);
+          }
     } catch (error) {
       console.error('Error loading reviews:', error);
     } finally {
