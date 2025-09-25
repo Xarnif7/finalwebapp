@@ -10405,6 +10405,38 @@ app.put('/api/feedback/cases/:id', async (req, res) => {
 });
 
 
+// Send negative review alert
+async function sendNegativeReviewAlert(review, businessId) {
+  try {
+    // Get business owner email from profiles table
+    const { data: businessOwner } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('business_id', businessId)
+      .single();
+
+    if (!businessOwner?.email) {
+      console.log('No business owner email found for business:', businessId);
+      return;
+    }
+
+    // Send email alert (you can implement this with your email service)
+    console.log('Sending negative review alert to:', businessOwner.email, 'for review:', review.id);
+    
+    // For now, just log the alert - you can integrate with Resend or another email service
+    console.log('NEGATIVE REVIEW ALERT:', {
+      businessId,
+      reviewId: review.id,
+      rating: review.rating,
+      reviewerName: review.reviewer_name,
+      reviewText: review.review_text.substring(0, 100) + '...',
+      ownerEmail: businessOwner.email
+    });
+  } catch (error) {
+    console.error('Error sending negative review alert:', error);
+  }
+}
+
 // AI-powered review classification
 async function classifyReviewWithAI(reviewText, rating) {
   try {
