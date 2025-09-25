@@ -38,7 +38,10 @@ const Reviews = () => {
             </p>
           </div>
           <button 
+            type="button"
             onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               alert('BUTTON CLICKED!');
               console.log('=== NATIVE BUTTON CLICKED ===');
               console.log('Button click event:', e);
@@ -48,10 +51,14 @@ const Reviews = () => {
               console.log('Modal state should now be true');
             }}
             onMouseDown={() => {
+              event?.preventDefault?.();
+              event?.stopPropagation?.();
               alert('BUTTON MOUSE DOWN!');
               console.log('=== NATIVE BUTTON MOUSE DOWN ===');
             }}
             onMouseUp={() => {
+              event?.preventDefault?.();
+              event?.stopPropagation?.();
               alert('BUTTON MOUSE UP!');
               console.log('=== NATIVE BUTTON MOUSE UP ===');
             }}
