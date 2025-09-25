@@ -20,12 +20,16 @@ import ReviewDetailPanel from './ReviewDetailPanel';
 
 // Force cache refresh - v2
 
-const ReviewsInbox = () => {
+const ReviewsInbox = ({ onReviewsChange }) => {
   const [reviews, setReviews] = useState([]);
   const [selectedReview, setSelectedReview] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [ratingFilter, setRatingFilter] = useState('all');
+  const [platformFilter, setPlatformFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
@@ -76,6 +80,10 @@ const ReviewsInbox = () => {
             console.log('Review statuses:', data.reviews?.map(r => ({ name: r.reviewer_name, status: r.status, rating: r.rating, sentiment: r.sentiment })));
             if (reset) {
               setReviews(data.reviews || []);
+              // Pass reviews to parent component
+              if (onReviewsChange) {
+                onReviewsChange(data.reviews || []);
+              }
             } else {
               setReviews(prev => [...prev, ...(data.reviews || [])]);
             }
@@ -161,7 +169,25 @@ const ReviewsInbox = () => {
       review.reviewer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       review.review_text.toLowerCase().includes(searchQuery.toLowerCase());
     
-    return matchesFilter && matchesSearch;
+    const matchesRating = ratingFilter === 'all' || 
+      (ratingFilter === '5' && review.rating === 5) ||
+      (ratingFilter === '4' && review.rating === 4) ||
+      (ratingFilter === '3' && review.rating === 3) ||
+      (ratingFilter === '2' && review.rating === 2) ||
+      (ratingFilter === '1' && review.rating === 1) ||
+      (ratingFilter === 'low' && review.rating <= 2) ||
+      (ratingFilter === 'high' && review.rating >= 4);
+    
+    const matchesPlatform = platformFilter === 'all' || 
+      review.platform.toLowerCase() === platformFilter.toLowerCase();
+    
+    const matchesDate = dateFilter === 'all' || 
+      (dateFilter === 'today' && new Date(review.review_created_at).toDateString() === new Date().toDateString()) ||
+      (dateFilter === 'week' && (new Date() - new Date(review.review_created_at)) <= 7 * 24 * 60 * 60 * 1000) ||
+      (dateFilter === 'month' && (new Date() - new Date(review.review_created_at)) <= 30 * 24 * 60 * 60 * 1000) ||
+      (dateFilter === 'quarter' && (new Date() - new Date(review.review_created_at)) <= 90 * 24 * 60 * 60 * 1000);
+    
+    return matchesFilter && matchesSearch && matchesRating && matchesPlatform && matchesDate;
   });
 
   const getStatusBadge = (status) => {
@@ -246,8 +272,8 @@ const ReviewsInbox = () => {
             />
           </div>
 
-          {/* Filters */}
-          <div className="flex gap-2">
+          {/* Basic Filters */}
+          <div className="flex gap-2 mb-2">
             {[
               { key: 'all', label: 'All' },
               { key: 'unread', label: 'Unread' },
@@ -264,7 +290,77 @@ const ReviewsInbox = () => {
                 {filterOption.label}
               </Button>
             ))}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            >
+              <Filter className="h-4 w-4 mr-1" />
+              Advanced
+            </Button>
           </div>
+
+          {/* Advanced Filters */}
+          {showAdvancedFilters && (
+            <div className="bg-gray-50 rounded-lg p-3 mb-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Rating Filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Rating</label>
+                  <select
+                    value={ratingFilter}
+                    onChange={(e) => setRatingFilter(e.target.value)}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
+                  >
+                    <option value="all">All Ratings</option>
+                    <option value="5">5 Stars</option>
+                    <option value="4">4 Stars</option>
+                    <option value="3">3 Stars</option>
+                    <option value="2">2 Stars</option>
+                    <option value="1">1 Star</option>
+                    <option value="high">High (4-5 Stars)</option>
+                    <option value="low">Low (1-2 Stars)</option>
+                  </select>
+                </div>
+
+                {/* Platform Filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Platform</label>
+                  <select
+                    value={platformFilter}
+                    onChange={(e) => setPlatformFilter(e.target.value)}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
+                  >
+                    <option value="all">All Platforms</option>
+                    <option value="google">Google</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="yelp">Yelp</option>
+                    <option value="bbb">BBB</option>
+                  </select>
+                </div>
+
+                {/* Date Filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
+                  <select
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">Last 7 Days</option>
+                    <option value="month">Last 30 Days</option>
+                    <option value="quarter">Last 90 Days</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="mt-2 text-xs text-gray-500">
+                Showing {filteredReviews.length} of {reviews.length} reviews
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Reviews List */}

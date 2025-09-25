@@ -4,11 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import ReviewsInbox from '../components/reviews/ReviewsInbox';
 import ReviewConnectionModal from '../components/reviews/ReviewConnectionModal';
+import ReviewAnalytics from '../components/reviews/ReviewAnalytics';
 import { Plus, BarChart3, FileText } from 'lucide-react';
 
 const Reviews = () => {
   const [activeTab, setActiveTab] = useState('inbox');
   const [showPlatformConnector, setShowPlatformConnector] = useState(false);
+  const [reviews, setReviews] = useState([]);
 
   return (
     <div className="h-full flex flex-col">
@@ -55,30 +57,11 @@ const Reviews = () => {
             </div>
 
             <TabsContent value="inbox" className="flex-1 mt-0 p-6">
-              <ReviewsInbox />
+              <ReviewsInbox onReviewsChange={setReviews} />
             </TabsContent>
 
             <TabsContent value="analytics" className="flex-1 mt-0 p-6">
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
-                    Review Analytics
-                  </CardTitle>
-                  <CardDescription>
-                    Track your review performance and response metrics
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <BarChart3 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Analytics Coming Soon</h3>
-                    <p className="text-gray-500">
-                      Track response rates, average ratings, and review trends
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+              <ReviewAnalytics reviews={reviews} />
             </TabsContent>
 
             <TabsContent value="templates" className="flex-1 mt-0 p-6">

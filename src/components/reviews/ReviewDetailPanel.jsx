@@ -98,6 +98,7 @@ export default function ReviewDetailPanel({
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [templates, setTemplates] = useState([]);
+  const [isPostingReply, setIsPostingReply] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [newTag, setNewTag] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
@@ -174,6 +175,43 @@ export default function ReviewDetailPanel({
       console.error('Error generating AI response:', error);
     } finally {
       setIsGeneratingAI(false);
+    }
+  };
+
+  const handlePostReply = async () => {
+    if (!review || !responseText.trim()) return;
+    
+    setIsPostingReply(true);
+    try {
+      const response = await fetch('/api/reviews/post-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          review_id: review.id,
+          reply_text: responseText,
+          platform: review.platform
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        // Update the review with the posted reply
+        await onUpdateReview(review.id, { 
+          reply_text: responseText,
+          status: 'responded',
+          reply_posted_at: new Date().toISOString()
+        });
+        
+        setIsEditingResponse(false);
+        alert('Reply posted successfully!');
+      } else {
+        alert(`Failed to post reply: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error posting reply:', error);
+      alert('Failed to post reply. Please try again.');
+    } finally {
+      setIsPostingReply(false);
     }
   };
 
@@ -469,28 +507,6 @@ export default function ReviewDetailPanel({
             </div>
           </div>
 
-          {/* Classification and Summary */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="font-medium text-gray-900">Classification</h4>
-            </div>
-            
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                {(() => {
-                  const IconComponent = statusConfig[review.status]?.icon;
-                  return IconComponent ? <IconComponent className="w-4 h-4 text-gray-600" /> : null;
-                })()}
-                <Badge className={statusConfig[review.status]?.color || 'bg-gray-100 text-gray-800'}>
-                  {statusConfig[review.status]?.name || review.status}
-                </Badge>
-              </div>
-              
-              {/* AI Summary */}
-              <p className="text-sm text-gray-600">
-                {review.ai_summary || `This is a ${review.sentiment} review with ${review.rating} stars. ${review.rating <= 2 ? 'The customer expressed dissatisfaction and may need a response.' : review.rating >= 4 ? 'The customer had a positive experience.' : 'The customer had a neutral experience.'}`}
-              </p>
-            </div>
             
             <div className="flex flex-wrap gap-2">
               {review.tags?.map((tag, index) => (
@@ -601,10 +617,27 @@ export default function ReviewDetailPanel({
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button onClick={handleSaveResponse}>
                   <Save className="w-4 h-4 mr-2" />
                   Save Response
+                </Button>
+                <Button 
+                  variant="default" 
+                  onClick={handlePostReply} 
+                  disabled={isPostingReply}
+                >
+                  {isPostingReply ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Posting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Post Reply
+                    </>
+                  )}
                 </Button>
                 <Button variant="outline" onClick={handleSaveAsTemplate}>
                   <Archive className="w-4 h-4 mr-2" />
@@ -627,14 +660,31 @@ export default function ReviewDetailPanel({
               <div className="flex-1 bg-gray-50 rounded-lg p-4 mb-4">
                 <p className="text-gray-700 leading-relaxed">{responseText}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button onClick={() => setIsEditingResponse(true)}>
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Response
                 </Button>
+                <Button 
+                  variant="default" 
+                  onClick={handlePostReply} 
+                  disabled={isPostingReply}
+                >
+                  {isPostingReply ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Posting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Post Reply
+                    </>
+                  )}
+                </Button>
                 <Button variant="outline" onClick={handleExternalReply}>
-                  <Send className="w-4 h-4 mr-2" />
-                  Post Response
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Reply on Platform
                 </Button>
               </div>
             </div>
