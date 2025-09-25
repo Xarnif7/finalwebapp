@@ -477,9 +477,10 @@ export default function ReviewDetailPanel({
             
             <div className="bg-gray-50 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-2">
-                {statusConfig[review.status]?.icon && (
-                  <statusConfig[review.status].icon className="w-4 h-4 text-gray-600" />
-                )}
+                {(() => {
+                  const IconComponent = statusConfig[review.status]?.icon;
+                  return IconComponent ? <IconComponent className="w-4 h-4 text-gray-600" /> : null;
+                })()}
                 <Badge className={statusConfig[review.status]?.color || 'bg-gray-100 text-gray-800'}>
                   {statusConfig[review.status]?.name || review.status}
                 </Badge>
