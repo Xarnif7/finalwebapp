@@ -188,20 +188,35 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   };
 
   const handleConnect = async () => {
-    if (!selectedBusiness) return;
+    console.log('=== HANDLE CONNECT DEBUG ===');
+    console.log('Selected business:', selectedBusiness);
+    
+    if (!selectedBusiness) {
+      console.log('No business selected, returning');
+      return;
+    }
     
     setIsConnecting(true);
     try {
+      console.log('Starting connection process...');
       await connectBusiness(selectedBusiness);
+      console.log('Connection process completed');
+    } catch (error) {
+      console.error('Connection failed:', error);
     } finally {
       setIsConnecting(false);
+      console.log('Connection process finished');
     }
   };
 
   const connectBusiness = async (business) => {
     try {
+      console.log('=== CONNECT BUSINESS START ===');
+      
       // Get auth token for API calls
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('Session retrieved:', !!session);
+      console.log('Access token available:', !!session?.access_token);
       
       // Use API endpoint to connect business
       const requestBody = {
@@ -217,6 +232,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       console.log('Request body:', requestBody);
       console.log('Session token available:', !!session?.access_token);
       
+      console.log('Making fetch request to /api/reviews/connect-source...');
       const response = await fetch('/api/reviews/connect-source', {
         method: 'POST',
         headers: {
@@ -226,6 +242,9 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
         body: JSON.stringify(requestBody)
       });
 
+      console.log('Fetch response received, status:', response.status);
+      console.log('Response ok:', response.ok);
+      
       const data = await response.json();
       
       console.log('=== CONNECTION RESPONSE DEBUG ===');
@@ -240,14 +259,20 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       console.log('Connection successful, reviews imported:', data.reviews_imported);
 
       // Reload connected sources
+      console.log('Reloading connected sources...');
       await loadConnectedSources();
+      console.log('Connected sources reloaded');
       
       if (onConnectionSuccess) {
+        console.log('Calling onConnectionSuccess callback...');
         onConnectionSuccess();
+        console.log('onConnectionSuccess callback completed');
       }
       
       // Close modal
+      console.log('Closing modal...');
       onClose();
+      console.log('Modal closed');
     } catch (error) {
       console.error('Error connecting business:', error);
       alert('Error connecting business: ' + error.message);
