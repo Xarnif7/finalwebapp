@@ -42,6 +42,25 @@ const ReviewsInbox = ({ onReviewsChange }) => {
     loadReviews();
   }, []);
 
+  // Infinite scroll effect
+  useEffect(() => {
+    const handleScroll = (e) => {
+      const { scrollTop, scrollHeight, clientHeight } = e.target;
+      const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
+      
+      // Load more when user scrolls to 80% of the content
+      if (scrollPercentage > 0.8 && hasMore && !isLoadingMore) {
+        loadMoreReviews();
+      }
+    };
+
+    const scrollContainer = document.querySelector('.reviews-scroll-container');
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    }
+  }, [hasMore, isLoadingMore]);
+
   // Force cache refresh - v4
 
   const loadReviews = async (reset = true) => {
@@ -74,7 +93,7 @@ const ReviewsInbox = ({ onReviewsChange }) => {
       setConnectedSources(sourcesData || []);
 
       const params = new URLSearchParams({
-        limit: '15'
+        limit: '50'
       });
 
       if (!reset && reviews.length > 0) {
@@ -337,10 +356,20 @@ const ReviewsInbox = ({ onReviewsChange }) => {
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Reviews Inbox</h2>
-            <Button variant="outline" size="sm" onClick={loadReviews}>
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold">Reviews Inbox</h2>
+              {totalCount > 0 && (
+                <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                  {totalCount} total
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => loadReviews(true)} disabled={isLoading}>
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <span className="ml-1 hidden sm:inline">Refresh</span>
+              </Button>
+            </div>
           </div>
 
           {/* Connected Sources Indicator */}
@@ -485,12 +514,28 @@ const ReviewsInbox = ({ onReviewsChange }) => {
         )}
 
         {/* Reviews List */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto reviews-scroll-container">
           {filteredReviews.length === 0 ? (
             <div className="p-4 text-center text-gray-500">
               <MessageSquare className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-              <p>No reviews found</p>
-              <p className="text-sm">Connect your Google Business profile to start importing reviews</p>
+              <p className="font-medium">No reviews found</p>
+              <p className="text-sm mb-3">
+                {reviews.length === 0 
+                  ? "Connect your Google Business profile to start importing reviews" 
+                  : "Try adjusting your filters to see more reviews"
+                }
+              </p>
+              {reviews.length === 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => loadReviews(true)}
+                  className="mt-2"
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Check for Reviews
+                </Button>
+              )}
             </div>
           ) : (
             <>
@@ -632,14 +677,21 @@ const ReviewsInbox = ({ onReviewsChange }) => {
                 </div>
               ))}
               
-              {/* Load More Button */}
-              {(hasMore || reviews.length < totalCount) && (
-                <div className="p-4 border-t border-gray-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-500">
-                      Showing {reviews.length} of {totalCount} reviews
+              {/* Load More Section */}
+              <div className="p-4 border-t border-gray-200">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-gray-500">
+                    Showing {reviews.length} of {totalCount} reviews
+                  </span>
+                  {hasMore && (
+                    <span className="text-xs text-blue-600">
+                      Scroll down to load more automatically
                     </span>
-                  </div>
+                  )}
+                </div>
+                
+                {/* Manual Load More Button */}
+                {(hasMore || reviews.length < totalCount) && (
                   <Button 
                     variant="outline" 
                     onClick={loadMoreReviews}
@@ -654,12 +706,19 @@ const ReviewsInbox = ({ onReviewsChange }) => {
                     ) : (
                       <>
                         <ChevronDown className="h-4 w-4 mr-2" />
-                        Load More Reviews
+                        Load More Reviews ({totalCount - reviews.length} remaining)
                       </>
                     )}
                   </Button>
-                </div>
-              )}
+                )}
+                
+                {/* End of results indicator */}
+                {!hasMore && reviews.length > 0 && (
+                  <div className="text-center text-sm text-gray-400 mt-2">
+                    🎉 You've reached the end! All {totalCount} reviews loaded.
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>

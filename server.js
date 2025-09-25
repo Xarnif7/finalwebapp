@@ -11128,7 +11128,7 @@ app.delete('/api/reviews/disconnect-source', async (req, res) => {
 // Reviews API endpoints
 app.get('/api/reviews', async (req, res) => {
   try {
-    const { business_id, limit = 15, before } = req.query;
+    const { business_id, limit = 50, before } = req.query;
     const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
     
     console.log('=== REVIEWS API DEBUG ===');
