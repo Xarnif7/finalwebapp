@@ -188,13 +188,12 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   };
 
   const handleConnect = async () => {
-    alert('CONNECT BUTTON CLICKED! Starting connection process...');
     console.log('=== HANDLE CONNECT DEBUG ===');
     console.log('Selected business:', selectedBusiness);
     
     if (!selectedBusiness) {
-      alert('No business selected!');
       console.log('No business selected, returning');
+      alert('Please select a business first');
       return;
     }
     
@@ -259,7 +258,13 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       }
       
       console.log('Connection successful, reviews imported:', data.reviews_imported);
-      alert(`Connection successful! Reviews imported: ${data.reviews_imported}`);
+      
+      // Show success message
+      if (data.reviews_imported > 0) {
+        alert(`Success! Connected to ${business.name} and imported ${data.reviews_imported} reviews.`);
+      } else {
+        alert(`Success! Connected to ${business.name}. No reviews found for this business.`);
+      }
 
       // Reload connected sources
       console.log('Reloading connected sources...');
