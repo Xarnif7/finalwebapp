@@ -188,8 +188,12 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   };
 
   const handleConnect = async () => {
+    alert('🚨 CONNECT BUTTON CLICKED! Starting connection...');
     console.log('=== HANDLE CONNECT DEBUG ===');
     console.log('Selected business:', selectedBusiness);
+    console.log('Business place_id:', selectedBusiness?.place_id);
+    console.log('Business name:', selectedBusiness?.name);
+    console.log('Business URL:', selectedBusiness?.url);
     
     if (!selectedBusiness) {
       console.log('No business selected, returning');
@@ -200,10 +204,12 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
     setIsConnecting(true);
     try {
       console.log('Starting connection process...');
+      console.log('About to call connectBusiness with:', selectedBusiness);
       await connectBusiness(selectedBusiness);
       console.log('Connection process completed');
     } catch (error) {
       console.error('Connection failed:', error);
+      console.error('Error details:', error.message, error.stack);
     } finally {
       setIsConnecting(false);
       console.log('Connection process finished');
@@ -250,12 +256,24 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       
       console.log('=== CONNECTION RESPONSE DEBUG ===');
       console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
       console.log('Response data:', data);
+      console.log('Response data success:', data.success);
+      console.log('Response data error:', data.error);
+      console.log('Response data reviews_imported:', data.reviews_imported);
+      console.log('Response data total_available:', data.total_available);
+      console.log('Response data debug_info:', data.debug_info);
       
       if (!data.success) {
-        console.log('Connection failed:', data.error);
+        console.log('❌ CONNECTION FAILED:', data.error);
+        console.log('Full error response:', data);
         throw new Error(data.error || 'Failed to connect business');
       }
+      
+      console.log('✅ CONNECTION SUCCESSFUL');
+      console.log('Reviews imported:', data.reviews_imported);
+      console.log('Total available:', data.total_available);
       
       console.log('Connection successful, reviews imported:', data.reviews_imported);
       
