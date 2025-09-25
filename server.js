@@ -10891,22 +10891,21 @@ app.post('/api/reviews/connect-source', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Get user's business_id from businesses table
-    const { data: businessData, error: businessError } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('created_by', user.email)
-      .limit(1)
+    // Get user's business_id from profiles table
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('id', user.id)
       .single();
 
-    console.log('Business lookup result:', { businessData, businessError });
+    console.log('Profile lookup result:', { profileData, profileError });
 
-    if (!businessData?.id) {
-      console.log('No business found for user:', user.email);
+    if (!profileData?.business_id) {
+      console.log('No business_id found in profile for user:', user.email);
       return res.status(400).json({ error: 'No business found for user' });
     }
 
-    const businessId = businessData.id;
+    const businessId = profileData.business_id;
     console.log('Using business ID:', businessId);
 
     // Upsert the review source
@@ -10932,9 +10931,10 @@ app.post('/api/reviews/connect-source', async (req, res) => {
     console.log('Business Name:', business_name);
     console.log('User Email:', user.email);
     
+    let syncResult = null;
     try {
       // Call sync directly instead of making HTTP request
-      const syncResult = await syncReviewsDirectly({
+      syncResult = await syncReviewsDirectly({
         business_id: businessId,
         place_id: place_id,
         platform: platform,
@@ -10957,7 +10957,13 @@ app.post('/api/reviews/connect-source', async (req, res) => {
       // Don't fail the connection if sync fails
     }
 
-    res.json({ success: true, message: 'Business connected successfully' });
+    res.json({ 
+      success: true, 
+      message: 'Business connected successfully',
+      reviews_imported: syncResult?.reviews_imported || syncResult?.count || 0,
+      total_available: syncResult?.total_available || 0,
+      sync_success: syncResult?.success || false
+    });
   } catch (error) {
     console.error('Error connecting source:', error);
     res.status(500).json({ error: 'Failed to connect source' });
@@ -11326,24 +11332,23 @@ app.get('/api/reviews', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // If business_id is provided, use it. Otherwise, get user's business_id from businesses table
+    // If business_id is provided, use it. Otherwise, get user's business_id from profiles table
     let targetBusinessId = business_id;
     if (!targetBusinessId) {
-      console.log('No business_id provided, looking up from businesses table...');
-      const { data: businessData, error: businessError } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('created_by', user.email)
-        .limit(1)
+      console.log('No business_id provided, looking up from profiles table...');
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
         .single();
       
-      console.log('Business lookup result:', { businessData, businessError });
+      console.log('Profile lookup result:', { profileData, profileError });
       
-      if (businessData?.id) {
-        targetBusinessId = businessData.id;
-        console.log('Found business_id:', targetBusinessId);
+      if (profileData?.business_id) {
+        targetBusinessId = profileData.business_id;
+        console.log('Found business_id from profile:', targetBusinessId);
       } else {
-        console.log('No business found for user:', user.email);
+        console.log('No business_id found in profile for user:', user.email);
       }
     } else {
       console.log('Using provided business_id:', targetBusinessId);
