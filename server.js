@@ -10551,34 +10551,170 @@ async function postReplyToPlatform(platform, replyText, reviewId, businessId) {
   try {
     switch (platform.toLowerCase()) {
       case 'google':
-        // For Google My Business API integration
         console.log(`Posting reply to Google for review ${reviewId}: ${replyText.substring(0, 50)}...`);
         
-        // In a real implementation, you would:
-        // 1. Get the Google My Business access token from the business settings
-        // 2. Use the Google My Business API to post the reply
-        // 3. Handle rate limiting and error responses
-        
-        // For now, we'll simulate a successful post
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-        
-        // Log the reply attempt
-        await supabase
-          .from('review_reply_logs')
-          .insert({
-            business_id: businessId,
-            review_id: reviewId,
-            platform: 'google',
-            reply_text: replyText,
-            status: 'posted',
-            posted_at: new Date().toISOString()
+        // Get Google OAuth tokens for this business
+        const { data: tokenData, error: tokenError } = await supabase
+          .from('google_oauth_tokens')
+          .select('*')
+          .eq('business_id', businessId)
+          .single();
+
+        if (tokenError || !tokenData) {
+          return {
+            success: false,
+            error: 'Google account not connected. Please connect your Google My Business account to post replies.'
+          };
+        }
+
+        // Check if token is expired and refresh if needed
+        const now = new Date();
+        const expiresAt = new Date(tokenData.expires_at);
+        let accessToken = tokenData.access_token;
+
+        if (now >= expiresAt) {
+          console.log('Google token expired, refreshing...');
+          try {
+            const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: new URLSearchParams({
+                client_id: process.env.GOOGLE_CLIENT_ID,
+                client_secret: process.env.GOOGLE_CLIENT_SECRET,
+                refresh_token: tokenData.refresh_token,
+                grant_type: 'refresh_token'
+              })
+            });
+
+            const newTokens = await refreshResponse.json();
+            if (newTokens.access_token) {
+              accessToken = newTokens.access_token;
+              
+              // Update token in database
+              await supabase
+                .from('google_oauth_tokens')
+                .update({
+                  access_token: newTokens.access_token,
+                  expires_at: new Date(Date.now() + (newTokens.expires_in * 1000)).toISOString(),
+                  updated_at: new Date().toISOString()
+                })
+                .eq('business_id', businessId);
+            } else {
+              return {
+                success: false,
+                error: 'Failed to refresh Google token. Please reconnect your Google account.'
+              };
+            }
+          } catch (refreshError) {
+            console.error('Error refreshing Google token:', refreshError);
+            return {
+              success: false,
+              error: 'Failed to refresh Google token. Please reconnect your Google account.'
+            };
+          }
+        }
+
+        // Get the review details to find the Google review ID
+        const { data: reviewData, error: reviewError } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('id', reviewId)
+          .single();
+
+        if (reviewError || !reviewData) {
+          return {
+            success: false,
+            error: 'Review not found'
+          };
+        }
+
+        // For Google My Business, we need to use the Google My Business API
+        // Note: The actual API endpoint depends on the Google My Business API version
+        // This is a simplified version - in production you'd need to:
+        // 1. Get the business account ID
+        // 2. Get the location ID
+        // 3. Get the review ID from Google's system
+        // 4. Post the reply using the correct API endpoint
+
+        try {
+          // This is a placeholder for the actual Google My Business API call
+          // In reality, you'd need to make a POST request to:
+          // https://mybusiness.googleapis.com/v4/accounts/{accountId}/locations/{locationId}/reviews/{reviewId}/reply
+          
+          const replyResponse = await fetch(`https://mybusiness.googleapis.com/v4/accounts/{accountId}/locations/{locationId}/reviews/{reviewId}/reply`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              comment: replyText
+            })
           });
-        
-        return {
-          success: true,
-          message: 'Reply posted to Google My Business',
-          platform: 'google'
-        };
+
+          if (replyResponse.ok) {
+            // Log successful reply
+            await supabase
+              .from('review_reply_logs')
+              .insert({
+                business_id: businessId,
+                review_id: reviewId,
+                platform: 'google',
+                reply_text: replyText,
+                status: 'posted',
+                posted_at: new Date().toISOString()
+              });
+
+            return {
+              success: true,
+              message: 'Reply posted to Google My Business',
+              platform: 'google'
+            };
+          } else {
+            const errorData = await replyResponse.text();
+            console.error('Google My Business API error:', replyResponse.status, errorData);
+            
+            // Log failed reply
+            await supabase
+              .from('review_reply_logs')
+              .insert({
+                business_id: businessId,
+                review_id: reviewId,
+                platform: 'google',
+                reply_text: replyText,
+                status: 'failed',
+                error_message: `HTTP ${replyResponse.status}: ${errorData}`,
+                posted_at: new Date().toISOString()
+              });
+
+            return {
+              success: false,
+              error: `Failed to post reply: ${replyResponse.status} ${errorData}`
+            };
+          }
+        } catch (apiError) {
+          console.error('Google My Business API call failed:', apiError);
+          
+          // Log failed reply
+          await supabase
+            .from('review_reply_logs')
+            .insert({
+              business_id: businessId,
+              review_id: reviewId,
+              platform: 'google',
+              reply_text: replyText,
+              status: 'failed',
+              error_message: apiError.message,
+              posted_at: new Date().toISOString()
+            });
+
+          return {
+            success: false,
+            error: 'Failed to post reply to Google My Business: ' + apiError.message
+          };
+        }
       
       case 'facebook':
         // For Facebook Graph API integration
@@ -10972,6 +11108,248 @@ app.delete('/api/reviews/disconnect-source', async (req, res) => {
   } catch (error) {
     console.error('Error disconnecting source:', error);
     res.status(500).json({ error: 'Failed to disconnect source' });
+  }
+});
+
+// Google OAuth for Business Owners
+app.get('/api/google/oauth/authorize', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get user's business_id if not provided
+    let targetBusinessId = business_id;
+    if (!targetBusinessId) {
+      const { data: businessData } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('created_by', user.email)
+        .limit(1)
+        .single();
+      
+      if (businessData?.id) {
+        targetBusinessId = businessData.id;
+      }
+    }
+
+    if (!targetBusinessId) {
+      return res.status(400).json({ error: 'Business ID required' });
+    }
+
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.VITE_SUPABASE_URL?.replace('/rest/v1', '')}/api/google/oauth/callback`;
+    
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${googleClientId}&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+      `scope=${encodeURIComponent('https://www.googleapis.com/auth/business.manage https://www.googleapis.com/auth/plus.business.manage')}&` +
+      `response_type=code&` +
+      `access_type=offline&` +
+      `prompt=consent&` +
+      `state=${encodeURIComponent(JSON.stringify({ business_id: targetBusinessId, user_email: user.email }))}`;
+
+    res.json({ auth_url: authUrl });
+  } catch (error) {
+    console.error('Error generating Google OAuth URL:', error);
+    res.status(500).json({ error: 'Failed to generate OAuth URL' });
+  }
+});
+
+app.get('/api/google/oauth/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    
+    if (!code || !state) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'https://myblipp.com'}/reviews?google_error=missing_params`);
+    }
+
+    const stateData = JSON.parse(decodeURIComponent(state));
+    const { business_id, user_email } = stateData;
+
+    // Exchange code for tokens
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        code: code,
+        grant_type: 'authorization_code',
+        redirect_uri: process.env.GOOGLE_REDIRECT_URI || `${process.env.VITE_SUPABASE_URL?.replace('/rest/v1', '')}/api/google/oauth/callback`
+      })
+    });
+
+    const tokens = await tokenResponse.json();
+
+    if (!tokens.access_token) {
+      console.error('Google OAuth token exchange failed:', tokens);
+      return res.redirect(`${process.env.FRONTEND_URL || 'https://myblipp.com'}/reviews?google_error=token_exchange_failed`);
+    }
+
+    // Store tokens in database
+    const { error } = await supabase
+      .from('google_oauth_tokens')
+      .upsert({
+        business_id: business_id,
+        user_email: user_email,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        token_type: tokens.token_type || 'Bearer',
+        expires_at: new Date(Date.now() + (tokens.expires_in * 1000)).toISOString(),
+        scope: tokens.scope,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) {
+      console.error('Error storing Google OAuth tokens:', error);
+      return res.redirect(`${process.env.FRONTEND_URL || 'https://myblipp.com'}/reviews?google_error=storage_failed`);
+    }
+
+    // Redirect back to reviews page with success
+    res.redirect(`${process.env.FRONTEND_URL || 'https://myblipp.com'}/reviews?google_connected=true`);
+  } catch (error) {
+    console.error('Google OAuth callback error:', error);
+    res.redirect(`${process.env.FRONTEND_URL || 'https://myblipp.com'}/reviews?google_error=callback_failed`);
+  }
+});
+
+app.get('/api/google/oauth/status', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get user's business_id if not provided
+    let targetBusinessId = business_id;
+    if (!targetBusinessId) {
+      const { data: businessData } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('created_by', user.email)
+        .limit(1)
+        .single();
+      
+      if (businessData?.id) {
+        targetBusinessId = businessData.id;
+      }
+    }
+
+    if (!targetBusinessId) {
+      return res.json({ connected: false, error: 'Business ID required' });
+    }
+
+    // Check if tokens exist and are valid
+    const { data: tokenData, error } = await supabase
+      .from('google_oauth_tokens')
+      .select('*')
+      .eq('business_id', targetBusinessId)
+      .single();
+
+    if (error || !tokenData) {
+      return res.json({ connected: false });
+    }
+
+    // Check if token is expired
+    const now = new Date();
+    const expiresAt = new Date(tokenData.expires_at);
+    
+    if (now >= expiresAt) {
+      // Try to refresh the token
+      try {
+        const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            client_id: process.env.GOOGLE_CLIENT_ID,
+            client_secret: process.env.GOOGLE_CLIENT_SECRET,
+            refresh_token: tokenData.refresh_token,
+            grant_type: 'refresh_token'
+          })
+        });
+
+        const newTokens = await refreshResponse.json();
+
+        if (newTokens.access_token) {
+          // Update tokens in database
+          await supabase
+            .from('google_oauth_tokens')
+            .update({
+              access_token: newTokens.access_token,
+              expires_at: new Date(Date.now() + (newTokens.expires_in * 1000)).toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('business_id', targetBusinessId);
+
+          return res.json({ connected: true, token_valid: true });
+        }
+      } catch (refreshError) {
+        console.error('Error refreshing Google token:', refreshError);
+      }
+
+      return res.json({ connected: true, token_valid: false });
+    }
+
+    res.json({ connected: true, token_valid: true });
+  } catch (error) {
+    console.error('Error checking Google OAuth status:', error);
+    res.status(500).json({ error: 'Failed to check OAuth status' });
+  }
+});
+
+app.delete('/api/google/oauth/disconnect', async (req, res) => {
+  try {
+    const { business_id } = req.body;
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get user's business_id if not provided
+    let targetBusinessId = business_id;
+    if (!targetBusinessId) {
+      const { data: businessData } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('created_by', user.email)
+        .limit(1)
+        .single();
+      
+      if (businessData?.id) {
+        targetBusinessId = businessData.id;
+      }
+    }
+
+    if (!targetBusinessId) {
+      return res.status(400).json({ error: 'Business ID required' });
+    }
+
+    // Delete tokens from database
+    const { error } = await supabase
+      .from('google_oauth_tokens')
+      .delete()
+      .eq('business_id', targetBusinessId);
+
+    if (error) {
+      throw error;
+    }
+
+    res.json({ success: true, message: 'Google account disconnected successfully' });
+  } catch (error) {
+    console.error('Error disconnecting Google OAuth:', error);
+    res.status(500).json({ error: 'Failed to disconnect Google account' });
   }
 });
 

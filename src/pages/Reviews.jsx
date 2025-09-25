@@ -5,12 +5,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import ReviewsInbox from '../components/reviews/ReviewsInbox';
 import ReviewConnectionModal from '../components/reviews/ReviewConnectionModal';
 import ReviewAnalytics from '../components/reviews/ReviewAnalytics';
-import { Plus, BarChart3, FileText } from 'lucide-react';
+import GoogleOAuthConnection from '../components/reviews/GoogleOAuthConnection';
+import { Plus, BarChart3, FileText, Settings } from 'lucide-react';
 
 const Reviews = () => {
   const [activeTab, setActiveTab] = useState('inbox');
   const [showPlatformConnector, setShowPlatformConnector] = useState(false);
   const [reviews, setReviews] = useState([]);
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
 
   return (
     <div className="h-full flex flex-col">
@@ -53,6 +55,7 @@ const Reviews = () => {
                 <TabsTrigger value="inbox">Inbox</TabsTrigger>
                 <TabsTrigger value="analytics">Analytics</TabsTrigger>
                 <TabsTrigger value="templates">Templates</TabsTrigger>
+                <TabsTrigger value="settings">Settings</TabsTrigger>
               </TabsList>
             </div>
 
@@ -85,6 +88,24 @@ const Reviews = () => {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="settings" className="flex-1 mt-0 p-6">
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Review Platform Connections</CardTitle>
+                    <CardDescription>
+                      Connect your review platforms to enable direct reply functionality
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <GoogleOAuthConnection 
+                      onConnectionChange={setIsGoogleConnected}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
         )}

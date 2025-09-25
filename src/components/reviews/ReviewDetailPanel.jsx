@@ -203,9 +203,13 @@ export default function ReviewDetailPanel({
         });
         
         setIsEditingResponse(false);
-        alert('Reply posted successfully!');
+        alert('Reply posted successfully to ' + review.platform + '!');
       } else {
-        alert(`Failed to post reply: ${data.error}`);
+        if (data.error && data.error.includes('Google account not connected')) {
+          alert('Google account not connected. Please go to Settings > Review Platform Connections to connect your Google My Business account.');
+        } else {
+          alert(`Failed to post reply: ${data.error}`);
+        }
       }
     } catch (error) {
       console.error('Error posting reply:', error);
