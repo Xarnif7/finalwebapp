@@ -10882,23 +10882,32 @@ app.post('/api/reviews/connect-source', async (req, res) => {
     const { platform, public_url, business_name, external_id, place_id } = req.body;
     const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
     
+    console.log('=== CONNECT SOURCE DEBUG ===');
+    console.log('Request body:', { platform, public_url, business_name, external_id, place_id });
+    console.log('User:', user?.email);
+    
     if (!user) {
+      console.log('No user found, returning 401');
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
     // Get user's business_id from businesses table
-    const { data: businessData } = await supabase
+    const { data: businessData, error: businessError } = await supabase
       .from('businesses')
       .select('id')
       .eq('created_by', user.email)
       .limit(1)
       .single();
 
+    console.log('Business lookup result:', { businessData, businessError });
+
     if (!businessData?.id) {
+      console.log('No business found for user:', user.email);
       return res.status(400).json({ error: 'No business found for user' });
     }
 
     const businessId = businessData.id;
+    console.log('Using business ID:', businessId);
 
     // Upsert the review source
     const { error } = await supabase
