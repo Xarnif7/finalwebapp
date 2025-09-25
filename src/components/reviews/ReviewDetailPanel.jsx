@@ -507,7 +507,8 @@ export default function ReviewDetailPanel({
             </div>
           </div>
 
-            
+          {/* Tags */}
+          <div className="mb-4">
             <div className="flex flex-wrap gap-2">
               {review.tags?.map((tag, index) => (
                 <Badge key={index} variant="outline" className="cursor-pointer group">
