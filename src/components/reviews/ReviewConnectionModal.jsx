@@ -14,9 +14,6 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   const [connectedSources, setConnectedSources] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  console.log('=== MODAL RENDER DEBUG ===');
-  console.log('Modal isOpen:', isOpen);
-  console.log('Modal props:', { isOpen, onClose: !!onClose, onConnectionSuccess: !!onConnectionSuccess });
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -107,12 +104,6 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   const searchGooglePlaces = async () => {
     if (!searchQuery.trim()) return;
     
-    console.log('=== SEARCH DEBUG ===');
-    console.log('Query:', searchQuery);
-    console.log('Google API loaded:', googleApiLoaded);
-    console.log('Window google exists:', !!window.google);
-    console.log('Google maps exists:', !!(window.google && window.google.maps));
-    console.log('Google places exists:', !!(window.google && window.google.maps && window.google.maps.places));
     
     if (!googleApiLoaded) {
       console.log('API not loaded yet');
@@ -127,8 +118,6 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
     try {
       setIsSearching(true);
       setShowSuggestions(true);
-      console.log('Starting search for:', searchQuery);
-      
       const service = new window.google.maps.places.AutocompleteService();
       const request = {
         input: searchQuery,
@@ -136,34 +125,13 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
         componentRestrictions: { country: 'us' }
       };
       
-      console.log('Making Places API request:', request);
-      
       service.getPlacePredictions(request, (predictions, status) => {
-        console.log('=== PLACES API RESPONSE ===');
-        console.log('Status:', status);
-        console.log('Status OK constant:', window.google.maps.places.PlacesServiceStatus.OK);
-        console.log('Status comparison:', status === window.google.maps.places.PlacesServiceStatus.OK);
-        console.log('Predictions count:', predictions?.length);
-        console.log('Predictions:', predictions);
-        
         setIsSearching(false);
         
         if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-          console.log('Success! Setting results...');
           setSearchResults(predictions);
-          if (predictions.length === 0) {
-            console.log('No businesses found');
-          } else {
-            console.log(`Found ${predictions.length} businesses`);
-          }
         } else {
-          if (status === 'ZERO_RESULTS') {
-            setSearchResults([]);
-            console.log('No businesses found with that name');
-          } else {
-            setSearchResults([]);
-            console.error(`Search failed: ${status}`);
-          }
+          setSearchResults([]);
         }
       });
     } catch (error) {
@@ -188,42 +156,25 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   };
 
   const handleConnect = async () => {
-    alert('🚨 CONNECT BUTTON CLICKED! Starting connection...');
-    console.log('=== HANDLE CONNECT DEBUG ===');
-    console.log('Selected business:', selectedBusiness);
-    console.log('Business place_id:', selectedBusiness?.place_id);
-    console.log('Business name:', selectedBusiness?.name);
-    console.log('Business URL:', selectedBusiness?.url);
-    
     if (!selectedBusiness) {
-      console.log('No business selected, returning');
       alert('Please select a business first');
       return;
     }
     
     setIsConnecting(true);
     try {
-      console.log('Starting connection process...');
-      console.log('About to call connectBusiness with:', selectedBusiness);
       await connectBusiness(selectedBusiness);
-      console.log('Connection process completed');
     } catch (error) {
       console.error('Connection failed:', error);
-      console.error('Error details:', error.message, error.stack);
     } finally {
       setIsConnecting(false);
-      console.log('Connection process finished');
     }
   };
 
   const connectBusiness = async (business) => {
     try {
-      console.log('=== CONNECT BUSINESS START ===');
-      
       // Get auth token for API calls
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('Session retrieved:', !!session);
-      console.log('Access token available:', !!session?.access_token);
       
       // Use API endpoint to connect business
       const requestBody = {
@@ -234,12 +185,6 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
         place_id: business.place_id
       };
       
-      console.log('=== FRONTEND CONNECTION DEBUG ===');
-      console.log('Connecting business:', business);
-      console.log('Request body:', requestBody);
-      console.log('Session token available:', !!session?.access_token);
-      
-      console.log('Making fetch request to /api/reviews/connect-source...');
       const response = await fetch('/api/reviews/connect-source', {
         method: 'POST',
         headers: {
@@ -248,76 +193,29 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
         },
         body: JSON.stringify(requestBody)
       });
-
-      console.log('Fetch response received, status:', response.status);
-      console.log('Response ok:', response.ok);
       
       const data = await response.json();
       
-      console.log('=== CONNECTION RESPONSE DEBUG ===');
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-      console.log('Response data:', data);
-      console.log('Response data success:', data.success);
-      console.log('Response data error:', data.error);
-      console.log('Response data reviews_imported:', data.reviews_imported);
-      console.log('Response data total_available:', data.total_available);
-      console.log('Response data debug_info:', data.debug_info);
-      
       if (!data.success) {
-        console.log('❌ CONNECTION FAILED:', data.error);
-        console.log('Full error response:', data);
         throw new Error(data.error || 'Failed to connect business');
-      }
-      
-      console.log('✅ CONNECTION SUCCESSFUL');
-      console.log('Reviews imported:', data.reviews_imported);
-      console.log('Total available:', data.total_available);
-      
-      console.log('Connection successful, reviews imported:', data.reviews_imported);
-      
-      // Show detailed debugging info
-      console.log('=== CONNECTION DEBUG INFO ===');
-      console.log('Business connected:', business.name);
-      console.log('Place ID used:', business.place_id);
-      console.log('Reviews imported:', data.reviews_imported);
-      console.log('Total available:', data.total_available);
-      console.log('Sync success:', data.sync_success);
-      
-      // Show detailed debug info from server
-      if (data.debug_info) {
-        console.log('=== SERVER DEBUG INFO ===');
-        console.log('Place name from Google:', data.debug_info.place_name);
-        console.log('Place rating:', data.debug_info.place_rating);
-        console.log('Total ratings:', data.debug_info.total_ratings);
-        console.log('Reviews found by Google:', data.debug_info.reviews_found);
-        console.log('Reviews processed:', data.debug_info.reviews_processed);
-        console.log('Sample review:', data.debug_info.sample_review);
       }
       
       // Show success message
       if (data.reviews_imported > 0) {
         alert(`Success! Connected to ${business.name} and imported ${data.reviews_imported} reviews.`);
       } else {
-        alert(`Success! Connected to ${business.name}. No reviews found for this business.\n\nPlace ID: ${business.place_id}\nThis might be the wrong business or location.`);
+        alert(`Success! Connected to ${business.name}. No reviews found for this business.`);
       }
 
       // Reload connected sources
-      console.log('Reloading connected sources...');
       await loadConnectedSources();
-      console.log('Connected sources reloaded');
       
       if (onConnectionSuccess) {
-        console.log('Calling onConnectionSuccess callback...');
         onConnectionSuccess();
-        console.log('onConnectionSuccess callback completed');
       }
       
       // Close modal
-      console.log('Closing modal...');
       onClose();
-      console.log('Modal closed');
     } catch (error) {
       console.error('Error connecting business:', error);
       alert('Error connecting business: ' + error.message);
@@ -372,12 +270,8 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       
       // Refresh the inbox if onConnectionSuccess callback exists
       if (onConnectionSuccess) {
-        console.log('=== CONNECTION SUCCESS CALLBACK ===');
-        console.log('Calling onConnectionSuccess...');
         onConnectionSuccess();
       }
-      
-      console.log('Source disconnected successfully');
     } catch (error) {
       console.error('Error disconnecting source:', error);
       alert('Error disconnecting source: ' + error.message);

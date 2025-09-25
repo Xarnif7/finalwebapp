@@ -43,17 +43,13 @@ const ReviewsInbox = ({ onReviewsChange }) => {
 
   const loadReviews = async (reset = true) => {
     try {
-      console.log('=== REVIEWS INBOX DEBUG ===');
-      console.log('Loading reviews, reset:', reset);
       
       if (reset) {
         setIsLoading(true);
       }
 
       const { data: { user: authUser } } = await supabase.auth.getUser();
-      console.log('User from auth:', authUser?.email);
       if (!authUser) {
-        console.log('No user found, returning');
         return;
       }
 
@@ -65,7 +61,6 @@ const ReviewsInbox = ({ onReviewsChange }) => {
         .single();
       
       const businessId = profile?.business_id;
-      console.log('Business ID from profile:', businessId);
 
       // Check if there are any connected review sources
       const { data: sourcesData } = await supabase
@@ -73,17 +68,7 @@ const ReviewsInbox = ({ onReviewsChange }) => {
         .select('*')
         .eq('business_id', businessId);
       
-      console.log('Connected review sources:', sourcesData?.length || 0);
       setConnectedSources(sourcesData || []);
-      if (sourcesData && sourcesData.length > 0) {
-        console.log('Review sources found:', sourcesData.map(s => ({ 
-          platform: s.platform, 
-          business_name: s.business_name, 
-          is_active: s.is_active 
-        })));
-      } else {
-        console.log('No review sources connected. Need to connect a business first.');
-      }
 
       const params = new URLSearchParams({
         limit: '15'
@@ -94,7 +79,6 @@ const ReviewsInbox = ({ onReviewsChange }) => {
       }
 
       const url = `/api/reviews?${params}`;
-      console.log('Making API call to:', url);
       
       const response = await fetch(url, {
         headers: {
@@ -102,13 +86,9 @@ const ReviewsInbox = ({ onReviewsChange }) => {
         }
       });
       
-      console.log('API response status:', response.status);
       const data = await response.json();
-      console.log('API response data:', data);
       
           if (data.success) {
-            console.log('Reviews loaded successfully:', data.reviews?.length);
-            console.log('Review statuses:', data.reviews?.map(r => ({ name: r.reviewer_name, status: r.status, rating: r.rating, sentiment: r.sentiment })));
             if (reset) {
               setReviews(data.reviews || []);
               // Pass reviews to parent component
@@ -140,23 +120,15 @@ const ReviewsInbox = ({ onReviewsChange }) => {
   };
 
   const handleReviewSelect = async (review) => {
-    console.log('=== REVIEW SELECT DEBUG ===');
-    console.log('Selected review:', review);
-    console.log('Current status:', review.status);
-    
     setSelectedReview(review);
     
     // Mark as read if it's unread
     if (review.status === 'unread') {
-      console.log('Marking review as read...');
       try {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (!currentUser) {
-          console.log('No user found');
           return;
         }
-
-        console.log('Updating review status to read...');
         
         // Use the API endpoint instead of direct Supabase call
         const response = await fetch('/api/reviews/update', {
@@ -172,7 +144,6 @@ const ReviewsInbox = ({ onReviewsChange }) => {
         });
 
         if (response.ok) {
-          console.log('Successfully marked review as read');
           // Update the review in the local state
           setReviews(prev => prev.map(r => 
             r.id === review.id ? { ...r, status: 'read' } : r
@@ -184,8 +155,6 @@ const ReviewsInbox = ({ onReviewsChange }) => {
       } catch (error) {
         console.error('Error marking review as read:', error);
       }
-    } else {
-      console.log('Review is already read or not unread');
     }
   };
 
@@ -292,7 +261,7 @@ const ReviewsInbox = ({ onReviewsChange }) => {
           </div>
 
           {/* Connected Sources Indicator */}
-          {connectedSources.length > 0 ? (
+          {connectedSources.length > 0 && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center text-sm text-green-800">
                 <CheckCircle className="h-4 w-4 mr-2" />
@@ -302,16 +271,6 @@ const ReviewsInbox = ({ onReviewsChange }) => {
               </div>
               <div className="mt-1 text-xs text-green-600">
                 {connectedSources.map(source => source.business_name).join(', ')}
-              </div>
-            </div>
-          ) : (
-            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="flex items-center text-sm text-yellow-800">
-                <AlertCircle className="h-4 w-4 mr-2" />
-                <span className="font-medium">No review sources connected</span>
-              </div>
-              <div className="mt-1 text-xs text-yellow-600">
-                Connect a business to start importing reviews
               </div>
             </div>
           )}
@@ -531,23 +490,18 @@ const ReviewsInbox = ({ onReviewsChange }) => {
                   }
                 }}
                 onGenerateAIResponse={async (review) => {
-                  console.log('Generating AI response for review:', review.id);
                   // This will be handled by the ReviewDetailPanel component
                 }}
                 onSaveTemplate={async (template) => {
-                  console.log('Saving template:', template);
                   // TODO: Implement template saving
                 }}
                 onAssign={async (reviewId, assignee) => {
-                  console.log('Assigning review:', reviewId, 'to', assignee);
                   // TODO: Implement assignment
                 }}
                 onTag={async (reviewId, tag) => {
-                  console.log('Tagging review:', reviewId, 'with', tag);
                   // TODO: Implement tagging
                 }}
                 onEscalate={async (reviewId) => {
-                  console.log('Escalating review:', reviewId);
                   // TODO: Implement escalation
                 }}
               />

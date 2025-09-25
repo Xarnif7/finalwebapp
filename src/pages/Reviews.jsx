@@ -14,17 +14,6 @@ const Reviews = () => {
   const [reviews, setReviews] = useState([]);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
 
-  // Debug state changes
-  useEffect(() => {
-    console.log('=== MODAL STATE CHANGED ===');
-    console.log('showPlatformConnector:', showPlatformConnector);
-  }, [showPlatformConnector]);
-
-  // Debug component rendering
-  useEffect(() => {
-    console.log('=== REVIEWS COMPONENT RENDERED ===');
-    console.log('showPlatformConnector state:', showPlatformConnector);
-  }, []);
 
   return (
     <div className="h-full flex flex-col">
