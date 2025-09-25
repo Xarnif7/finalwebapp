@@ -50,9 +50,9 @@ const ReviewsInbox = ({ onReviewsChange }) => {
         setIsLoading(true);
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('User from auth:', user?.email);
-      if (!user) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      console.log('User from auth:', authUser?.email);
+      if (!authUser) {
         console.log('No user found, returning');
         return;
       }
