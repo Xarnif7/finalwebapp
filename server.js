@@ -10543,7 +10543,7 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
       }
 
       // First, get place details to fetch reviews
-      const placeDetailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&fields=name,rating,reviews,user_ratings_total&key=${googleApiKey}`;
+      const placeDetailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&fields=name,rating,reviews,user_ratings_total,formatted_address&key=${googleApiKey}`;
       console.log('Google Places API URL:', placeDetailsUrl);
       
       const placeDetailsResponse = await fetch(placeDetailsUrl);
@@ -10566,6 +10566,22 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
                 console.log('🔍 VERIFYING: Is this the right business?');
                 console.log('Expected business should be "Shirley Dentistry" or similar');
                 
+                // Debug the reviews array structure
+                if (reviews.length > 0) {
+                  console.log('✅ Reviews array exists with', reviews.length, 'items');
+                  console.log('First review structure:', {
+                    hasAuthor: !!reviews[0].author_name,
+                    hasRating: !!reviews[0].rating,
+                    hasText: !!reviews[0].text,
+                    hasTime: !!reviews[0].time,
+                    authorName: reviews[0].author_name,
+                    rating: reviews[0].rating
+                  });
+                } else {
+                  console.log('❌ Reviews array is empty or undefined');
+                  console.log('Place object keys:', Object.keys(place));
+                }
+                
                 if (reviews.length === 0) {
                   console.log('❌ No reviews found in Google Places API for this business');
                   console.log('This could mean: 1) Business has no reviews, 2) Business name mismatch, 3) API permissions issue');
@@ -10580,19 +10596,32 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
         .slice(0, parseInt(limit));
 
       // Convert Google reviews to our format
-      const formattedReviews = sortedReviews.map(review => ({
-        business_id,
-        platform: 'google',
-        reviewer_name: review.author_name || 'Anonymous',
-        rating: review.rating || 5,
-        review_text: review.text || '',
-        review_url: review.author_url || `https://www.google.com/maps/place/?q=place_id:${place_id}`,
-        review_created_at: new Date(review.time * 1000).toISOString(),
-        status: 'unread',
-        created_by: user_email
-      }));
+      console.log('Converting reviews to our format...');
+      console.log('Sorted reviews count:', sortedReviews.length);
+      
+      const formattedReviews = sortedReviews.map((review, index) => {
+        console.log(`Processing review ${index + 1}:`, {
+          author_name: review.author_name,
+          rating: review.rating,
+          text_length: review.text?.length || 0,
+          time: review.time
+        });
+        
+        return {
+          business_id,
+          platform: 'google',
+          reviewer_name: review.author_name || 'Anonymous',
+          rating: review.rating || 5,
+          review_text: review.text || '',
+          review_url: review.author_url || `https://www.google.com/maps/place/?q=place_id:${place_id}`,
+          review_created_at: new Date(review.time * 1000).toISOString(),
+          status: 'unread',
+          created_by: user_email
+        };
+      });
 
       console.log('Formatted reviews:', formattedReviews.length);
+      console.log('Sample formatted review:', formattedReviews[0]);
 
       if (formattedReviews.length === 0) {
         return { success: true, message: 'No reviews found for this business', count: 0 };
