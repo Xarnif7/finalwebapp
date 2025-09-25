@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Input } from '../ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Search, MapPin, ExternalLink, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { Search, MapPin, ExternalLink, CheckCircle, AlertCircle, X, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
@@ -16,47 +16,62 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const searchContainerRef = useRef(null);
+  const [googleApiLoaded, setGoogleApiLoaded] = useState(false);
 
   React.useEffect(() => {
     if (isOpen) {
       loadConnectedSources();
+      loadGoogleMapsAPI();
     }
   }, [isOpen]);
 
-  // Click outside detection
+  // Load Google Maps API dynamically
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
-        console.log('Click outside search container, hiding suggestions.');
-        setShowSuggestions(false);
+    const loadGoogleMapsAPI = () => {
+      // Check if already loaded
+      if (window.google && window.google.maps && window.google.maps.places) {
+        console.log('Google Maps API already loaded');
+        setGoogleApiLoaded(true);
+        return;
       }
+
+      // Get API key from environment
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+      if (!apiKey) {
+        console.error('Google Maps API key not found in environment variables');
+        return;
+      }
+
+      // Create script element
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        console.log('Google Maps API loaded successfully');
+        setGoogleApiLoaded(true);
+      };
+      
+      script.onerror = () => {
+        console.error('Failed to load Google Maps API');
+      };
+      
+      document.head.appendChild(script);
     };
 
-    if (isOpen && showSuggestions) {
-      document.addEventListener('mousedown', handleClickOutside);
-    } else {
-      document.removeEventListener('mousedown', handleClickOutside);
-    }
+    loadGoogleMapsAPI();
+  }, []);
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen, showSuggestions]);
-
-  // Debounce search to prevent rapid API calls
+  // Search when query changes
   React.useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchQuery.trim()) {
-        searchGoogleBusiness();
-      } else {
-        setSearchResults([]);
-        setShowSuggestions(false);
-      }
-    }, 300); // 300ms delay
-
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+    if (searchQuery.length > 2 && googleApiLoaded) {
+      searchGooglePlaces();
+    } else if (searchQuery.length <= 2) {
+      setSearchResults([]);
+      setShowSuggestions(false);
+    }
+  }, [searchQuery, googleApiLoaded]);
 
   const loadConnectedSources = async () => {
     try {
@@ -86,51 +101,84 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
     }
   };
 
-  const searchGoogleBusiness = async () => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      setShowSuggestions(false);
+  const searchGooglePlaces = async () => {
+    if (!searchQuery.trim()) return;
+    
+    console.log('=== SEARCH DEBUG ===');
+    console.log('Query:', searchQuery);
+    console.log('Google API loaded:', googleApiLoaded);
+    console.log('Window google exists:', !!window.google);
+    console.log('Google maps exists:', !!(window.google && window.google.maps));
+    console.log('Google places exists:', !!(window.google && window.google.maps && window.google.maps.places));
+    
+    if (!googleApiLoaded) {
+      console.log('API not loaded yet');
       return;
     }
-
-    setIsSearching(true);
-    setShowSuggestions(true);
+    
+    if (!window.google || !window.google.maps || !window.google.maps.places) {
+      console.log('Google API not available');
+      return;
+    }
     
     try {
-      console.log('Searching for:', searchQuery);
+      setIsSearching(true);
+      setShowSuggestions(true);
+      console.log('Starting search for:', searchQuery);
       
-      const response = await fetch('/api/reviews/search-business', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
-          query: searchQuery,
-          platform: 'google'
-        })
+      const service = new window.google.maps.places.AutocompleteService();
+      const request = {
+        input: searchQuery,
+        types: ['establishment'],
+        componentRestrictions: { country: 'us' }
+      };
+      
+      console.log('Making Places API request:', request);
+      
+      service.getPlacePredictions(request, (predictions, status) => {
+        console.log('=== PLACES API RESPONSE ===');
+        console.log('Status:', status);
+        console.log('Status OK constant:', window.google.maps.places.PlacesServiceStatus.OK);
+        console.log('Status comparison:', status === window.google.maps.places.PlacesServiceStatus.OK);
+        console.log('Predictions count:', predictions?.length);
+        console.log('Predictions:', predictions);
+        
+        setIsSearching(false);
+        
+        if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+          console.log('Success! Setting results...');
+          setSearchResults(predictions);
+          if (predictions.length === 0) {
+            console.log('No businesses found');
+          } else {
+            console.log(`Found ${predictions.length} businesses`);
+          }
+        } else {
+          if (status === 'ZERO_RESULTS') {
+            setSearchResults([]);
+            console.log('No businesses found with that name');
+          } else {
+            setSearchResults([]);
+            console.error(`Search failed: ${status}`);
+          }
+        }
       });
-
-      const data = await response.json();
-      console.log('Search response:', data);
-      
-      if (data.success) {
-        setSearchResults(data.results || []);
-        setShowSuggestions(true); // Ensure suggestions are shown
-        console.log('Search results:', data.results?.length);
-      } else {
-        console.error('Search failed:', data.error);
-        setSearchResults([]);
-        setShowSuggestions(false);
-      }
     } catch (error) {
-      console.error('Error searching businesses:', error);
-      setSearchResults([]);
-    } finally {
+      console.error('Error in searchGooglePlaces:', error);
       setIsSearching(false);
+      setSearchResults([]);
     }
   };
 
-  const handleBusinessSelect = (business) => {
+  const handleBusinessSelect = (prediction) => {
+    // Convert Google Places prediction to our business format
+    const business = {
+      place_id: prediction.place_id,
+      name: prediction.structured_formatting?.main_text || prediction.description,
+      address: prediction.structured_formatting?.secondary_text || '',
+      url: `https://www.google.com/maps/place/?q=place_id:${prediction.place_id}`
+    };
+    
     setSelectedBusiness(business);
     setSearchQuery(business.name);
     setShowSuggestions(false);
@@ -254,60 +302,63 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
 
             <TabsContent value="google" className="space-y-4 mt-6">
               <div className="space-y-4">
-                <div className="relative" ref={searchContainerRef}>
-                  <Input
-                    placeholder="Search for your business on Google..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onFocus={() => {
-                      if (searchQuery.trim() || searchResults.length > 0) {
-                        setShowSuggestions(true);
-                      }
-                    }}
-                    className="w-full"
-                  />
-                  {isSearching && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    </div>
-                  )}
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Start typing your business name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => {
+                        if (searchResults.length > 0) {
+                          setShowSuggestions(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowSuggestions(false), 200);
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={searchGooglePlaces}
+                      disabled={isSearching || !googleApiLoaded || !searchQuery.trim()}
+                    >
+                      {isSearching ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Search Results Dropdown */}
-                {console.log('Render check - showSuggestions:', showSuggestions, 'searchResults.length:', searchResults.length)}
                 {showSuggestions && searchResults.length > 0 && (
-                  <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto">
-                    {searchResults.map((business, index) => (
-                      <div 
-                        key={index} 
-                        className={`flex items-start justify-between p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                          selectedBusiness?.place_id === business.place_id ? 'bg-blue-50 border-blue-200' : ''
-                        }`}
-                        onClick={() => handleBusinessSelect(business)}
+                  <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto">
+                    {searchResults.map((prediction) => (
+                      <div
+                        key={prediction.place_id}
+                        className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                        onClick={() => handleBusinessSelect(prediction)}
                       >
-                        <div className="flex items-start gap-3 flex-1 min-w-0">
-                          <MapPin className="h-4 w-4 text-gray-500 mt-1 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 truncate">{business.name}</p>
-                            <p className="text-sm text-gray-500 mt-1 line-clamp-2">{business.address}</p>
-                            <div className="flex items-center gap-2 mt-2">
-                              <span className="text-sm text-gray-600">
-                                {business.rating}/5 ({business.user_ratings_total} reviews)
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-sm text-gray-500 ml-4 flex-shrink-0">
-                          {selectedBusiness?.place_id === business.place_id ? 'Selected' : 'Click to select'}
-                        </div>
+                        <div className="font-medium text-gray-900">{prediction.structured_formatting?.main_text}</div>
+                        <div className="text-sm text-gray-500">{prediction.structured_formatting?.secondary_text}</div>
                       </div>
                     ))}
                   </div>
                 )}
 
+                {showSuggestions && searchResults.length === 0 && isSearching && (
+                  <div className="mt-2 p-3 text-sm text-gray-500">
+                    <Loader2 className="h-4 w-4 inline animate-spin mr-2" />
+                    Searching...
+                  </div>
+                )}
+
                 {showSuggestions && searchResults.length === 0 && searchQuery.trim() && !isSearching && (
-                  <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg p-4">
-                    <p className="text-gray-500 text-center">No businesses found</p>
+                  <div className="mt-2 p-3 text-sm text-gray-500">
+                    No businesses found. Try a different search term.
                   </div>
                 )}
 
@@ -320,9 +371,6 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                       <div>
                         <p className="font-medium text-blue-900">{selectedBusiness.name}</p>
                         <p className="text-sm text-blue-700">{selectedBusiness.address}</p>
-                        <p className="text-sm text-blue-600">
-                          {selectedBusiness.rating}/5 ({selectedBusiness.user_ratings_total} reviews)
-                        </p>
                       </div>
                     </div>
                   </div>
