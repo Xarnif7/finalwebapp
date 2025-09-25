@@ -10598,45 +10598,42 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
         return { success: true, message: 'No reviews found for this business', count: 0 };
       }
 
-      // Classify reviews with AI before saving
-      console.log('Classifying reviews with AI...');
-      const classifiedReviews = await Promise.all(formattedReviews.map(async (review) => {
-        try {
-          const classification = await classifyReviewWithAI(review.review_text, review.rating);
-          return {
-            ...review,
-            status: classification.status,
-            sentiment: classification.sentiment,
-            ai_summary: classification.summary || ''
-          };
-        } catch (error) {
-          console.error('Error classifying review:', error);
-          // Fallback to basic classification
-          return {
-            ...review,
-            status: review.rating >= 4 ? 'unread' : 'needs_response',
-            sentiment: review.rating >= 4 ? 'positive' : (review.rating >= 3 ? 'neutral' : 'negative'),
-            ai_summary: review.rating <= 2 ? 'Customer expressed dissatisfaction with the service' : review.rating >= 4 ? 'Customer had a positive experience' : 'Customer had a neutral experience'
-          };
-        }
-      }));
+      // Classify reviews with basic logic (skip AI for now to avoid blocking)
+      console.log('Classifying reviews with basic logic...');
+      const classifiedReviews = formattedReviews.map(review => {
+        // Basic classification without AI
+        const status = review.rating >= 4 ? 'unread' : (review.rating >= 3 ? 'unread' : 'needs_response');
+        const sentiment = review.rating >= 4 ? 'positive' : (review.rating >= 3 ? 'neutral' : 'negative');
+        const ai_summary = review.rating >= 4 ? 'Customer had a positive experience' : 
+                          (review.rating >= 3 ? 'Customer had a neutral experience' : 'Customer expressed dissatisfaction with the service');
+        
+        return {
+          ...review,
+          status: status,
+          sentiment: sentiment,
+          ai_summary: ai_summary
+        };
+      });
 
                 // Upsert reviews to database
                 console.log('Attempting to upsert reviews to database...');
                 console.log('Reviews to upsert:', classifiedReviews.length);
                 console.log('Sample review to upsert:', classifiedReviews[0]);
                 
-                const { error } = await supabase
+                const { data: upsertData, error } = await supabase
                   .from('reviews')
                   .upsert(classifiedReviews, { 
                     ignoreDuplicates: true 
-                  });
+                  })
+                  .select();
 
                 if (error) {
                   console.error('❌ Database upsert error:', error);
+                  console.error('Error details:', error.message, error.details, error.hint);
                   throw error;
                 } else {
                   console.log('✅ Reviews successfully upserted to database');
+                  console.log('Upsert result:', upsertData?.length || 'no data returned');
                 }
 
       // Send alerts for negative reviews
@@ -10752,7 +10749,7 @@ app.post('/api/reviews/connect-source', async (req, res) => {
         business_id: businessId,
         place_id: place_id,
         platform: platform,
-        limit: 15,
+        limit: 50, // Import up to 50 reviews (Google Places API limit)
         user_email: user.email
       });
       
