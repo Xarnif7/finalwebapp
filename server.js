@@ -10507,8 +10507,16 @@ app.post('/api/reviews/connect-source', async (req, res) => {
     if (error) throw error;
 
     // Trigger review sync (will import only 15 most recent)
+    console.log('=== CONNECT SOURCE DEBUG ===');
+    console.log('Business ID:', businessId);
+    console.log('Place ID:', place_id);
+    console.log('Platform:', platform);
+    
     try {
-      const syncResponse = await fetch(`${req.protocol}://${req.get('host')}/api/reviews/sync`, {
+      const syncUrl = `${req.protocol}://${req.get('host')}/api/reviews/sync`;
+      console.log('Sync URL:', syncUrl);
+      
+      const syncResponse = await fetch(syncUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -10522,8 +10530,13 @@ app.post('/api/reviews/connect-source', async (req, res) => {
         })
       });
       
+      console.log('Sync response status:', syncResponse.status);
       const syncData = await syncResponse.json();
       console.log('Sync result:', syncData);
+      
+      if (!syncData.success) {
+        console.error('Sync failed:', syncData.error);
+      }
     } catch (syncError) {
       console.error('Error syncing reviews:', syncError);
       // Don't fail the connection if sync fails
@@ -10871,7 +10884,11 @@ app.post('/api/reviews/search-business', async (req, res) => {
 app.post('/api/reviews/sync', async (req, res) => {
   try {
     const { business_id, place_id, platform, limit = 15 } = req.body;
+    console.log('=== SYNC DEBUG ===');
+    console.log('Sync request:', { business_id, place_id, platform, limit });
+    
     const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    console.log('User:', user?.email);
     
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -10880,23 +10897,30 @@ app.post('/api/reviews/sync', async (req, res) => {
     if (platform === 'google') {
       // Use Google Places API to fetch real reviews
       const googleApiKey = process.env.GOOGLE_PLACES_API_KEY;
+      console.log('Google API Key available:', !!googleApiKey);
+      
       if (!googleApiKey) {
         return res.status(500).json({ error: 'Google Places API key not configured' });
       }
 
       // First, get place details to fetch reviews
-      const placeDetailsResponse = await fetch(
-        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&fields=name,rating,reviews,user_ratings_total&key=${googleApiKey}`
-      );
-
+      const placeDetailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&fields=name,rating,reviews,user_ratings_total&key=${googleApiKey}`;
+      console.log('Google Places API URL:', placeDetailsUrl);
+      
+      const placeDetailsResponse = await fetch(placeDetailsUrl);
       const placeData = await placeDetailsResponse.json();
       
+      console.log('Google Places API response status:', placeData.status);
+      console.log('Place data result:', placeData.result);
+      
       if (placeData.status !== 'OK') {
+        console.error('Google Places API error:', placeData.status, placeData.error_message);
         return res.status(400).json({ error: 'Failed to fetch place details: ' + placeData.status });
       }
 
       const place = placeData.result;
       const reviews = place.reviews || [];
+      console.log('Reviews found:', reviews.length);
 
       // Sort reviews by date (newest first) and limit to requested amount
       const sortedReviews = reviews
