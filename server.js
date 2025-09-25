@@ -10525,10 +10525,10 @@ async function syncReviewsDirectly({ business_id, place_id, platform, limit, use
       }
 
       // Upsert reviews to database
+      console.log('Attempting to upsert reviews to database...');
       const { error } = await supabase
         .from('reviews')
         .upsert(formattedReviews, { 
-          onConflict: 'business_id,platform,reviewer_name,review_created_at',
           ignoreDuplicates: true 
         });
 
@@ -10878,14 +10878,17 @@ app.post('/api/reviews/load-more', async (req, res) => {
       }
 
       // Upsert reviews to database
+      console.log('Attempting to upsert reviews to database...');
       const { error } = await supabase
         .from('reviews')
         .upsert(formattedReviews, { 
-          onConflict: 'business_id,platform,reviewer_name,review_created_at',
           ignoreDuplicates: true 
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database upsert error:', error);
+        throw error;
+      }
 
       // Check if there are even more reviews
       const hasMore = sortedReviews.some(review => {
@@ -11022,14 +11025,17 @@ app.post('/api/reviews/sync', async (req, res) => {
       }
 
       // Upsert reviews to database
+      console.log('Attempting to upsert reviews to database...');
       const { error } = await supabase
         .from('reviews')
         .upsert(formattedReviews, { 
-          onConflict: 'business_id,platform,reviewer_name,review_created_at',
           ignoreDuplicates: true 
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database upsert error:', error);
+        throw error;
+      }
 
       res.json({ 
         success: true, 
