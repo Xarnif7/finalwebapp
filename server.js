@@ -11227,15 +11227,12 @@ app.get('/api/reviews', async (req, res) => {
 app.post('/api/private-feedback', async (req, res) => {
   try {
     const { review_request_id, sentiment, rating, message, category } = req.body;
-    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
     
     console.log('=== PRIVATE FEEDBACK API DEBUG ===');
     console.log('Request body:', { review_request_id, sentiment, rating, message, category });
-    console.log('User email:', user?.email);
     
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+    // For public feedback collection, we don't require authentication
+    // The review_request_id provides the security context
 
     // Validate required fields
     if (!review_request_id || !sentiment) {
@@ -11260,18 +11257,27 @@ app.post('/api/private-feedback', async (req, res) => {
       throw error;
     }
 
-    // Log telemetry event
+    // Log telemetry event (if available)
     try {
-      await supabase.rpc('log_telemetry_event', {
-        p_business_id: null, // Will be populated from review_request
-        p_event_type: 'private_feedback_submitted',
-        p_event_data: {
-          feedback_id: feedback.id,
-          sentiment,
-          rating,
-          has_message: !!message
-        }
-      });
+      // Get business_id from review_request for telemetry
+      const { data: reviewRequest } = await supabase
+        .from('review_requests')
+        .select('business_id')
+        .eq('id', review_request_id)
+        .single();
+        
+      if (reviewRequest?.business_id) {
+        await supabase.rpc('log_telemetry_event', {
+          p_business_id: reviewRequest.business_id,
+          p_event_type: 'private_feedback_submitted',
+          p_event_data: {
+            feedback_id: feedback.id,
+            sentiment,
+            rating,
+            has_message: !!message
+          }
+        });
+      }
     } catch (telemetryError) {
       console.warn('Telemetry logging failed:', telemetryError);
       // Don't fail the main operation if telemetry fails

@@ -73,12 +73,11 @@ export default function FeedbackCollection() {
 
     try {
       // Store the private feedback using the API endpoint
-      const { data: { session } } = await supabase.auth.getSession();
+      // No authentication needed for public feedback collection
       const response = await fetch('/api/private-feedback', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           review_request_id: requestId,
