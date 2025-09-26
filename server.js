@@ -8061,6 +8061,19 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             .eq('id', reviewRequestId)
             .single();
 
+          // Fix review link if it's in the old format
+          let reviewLink = reviewRequest.review_link;
+          if (!reviewLink || reviewLink.includes('/r/') || reviewLink === 'pending') {
+            // Generate the correct feedback collection link
+            reviewLink = `${process.env.APP_BASE_URL || 'https://myblipp.com'}/feedback/${reviewRequest.id}`;
+            
+            // Update the review request with the correct link
+            await supabase
+              .from('review_requests')
+              .update({ review_link: reviewLink })
+              .eq('id', reviewRequest.id);
+          }
+
           if (requestError) {
             console.error(`Error fetching review request ${reviewRequestId}:`, requestError);
             await supabase
@@ -8090,7 +8103,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             
             // Replace common variables
             processedMessage = processedMessage
-              .replace(/\{\{review_link\}\}/g, reviewRequest.review_link)
+              .replace(/\{\{review_link\}\}/g, reviewLink)
               .replace(/\{\{customer\.name\}\}/g, reviewRequest.customers.full_name || 'Customer')
               .replace(/\{\{customer_name\}\}/g, reviewRequest.customers.full_name || 'Customer')
               .replace(/\{\{business\.name\}\}/g, reviewRequest.businesses.name || 'Our Business')
@@ -8149,7 +8162,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                         
                         <!-- CTA Button -->
                         <div style="text-align: center; margin: 35px 0;">
-                          <a href="${reviewRequest.review_link}" 
+                          <a href="${reviewLink}" 
                              style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); transition: all 0.2s ease;">
                             Leave a Review
                           </a>
