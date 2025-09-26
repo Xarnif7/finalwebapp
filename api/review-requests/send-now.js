@@ -99,7 +99,7 @@ export default async function handler(req, res) {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .single();
 
     if (profileError || !profile?.business_id) {
@@ -111,7 +111,7 @@ export default async function handler(req, res) {
       .from('review_requests')
       .select(`
         *,
-        customers!inner(full_name, email, phone),
+        customers!inner(first_name, last_name, email, phone),
         businesses!inner(name, email)
       `)
       .eq('id', review_request_id)
@@ -133,9 +133,14 @@ export default async function handler(req, res) {
     // Prepare message based on channel
     let message, subject;
     
+    // Construct customer name from first_name and last_name
+    const customerName = customer.first_name && customer.last_name 
+      ? `${customer.first_name} ${customer.last_name}`
+      : customer.first_name || customer.last_name || 'Valued Customer';
+
     if (reviewRequest.channel === 'email') {
       subject = `How was your experience with ${business.name}?`;
-      message = `Hi ${customer.full_name},
+      message = `Hi ${customerName},
 
 Thank you for choosing ${business.name}! We'd love to hear about your experience.
 
@@ -148,7 +153,7 @@ Best regards,
 ${business.name}`;
     } else {
       // SMS
-      message = `Hi ${customer.full_name}! Thanks for choosing ${business.name}. How was your experience? Share feedback: ${reviewRequest.review_link}`;
+      message = `Hi ${customerName}! Thanks for choosing ${business.name}. How was your experience? Share feedback: ${reviewRequest.review_link}`;
     }
 
     let sendResult;

@@ -32,22 +32,33 @@ export default function FeedbackCollection() {
 
   const fetchBusinessData = async () => {
     try {
-      // Try to get business data from review request
+      // Get review request data first
       const { data: reviewData, error: reviewError } = await supabase
         .from('review_requests')
-        .select(`
-          *,
-          businesses!inner(id, name, industry, city, phone, email),
-          customers!inner(id, full_name, email)
-        `)
+        .select('*')
         .eq('id', requestId)
         .single();
 
-      if (reviewData && !reviewError) {
-        setBusiness(reviewData.businesses);
-      } else {
-        setError('Business information not found');
+      if (reviewError || !reviewData) {
+        setError('Review request not found');
+        setLoading(false);
+        return;
       }
+
+      // Get business data using the business_id
+      const { data: businessData, error: businessError } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', reviewData.business_id)
+        .single();
+
+      if (businessError || !businessData) {
+        setError('Business information not found');
+        setLoading(false);
+        return;
+      }
+
+      setBusiness(businessData);
     } catch (err) {
       console.error('Error fetching business data:', err);
       setError('Failed to load business information');

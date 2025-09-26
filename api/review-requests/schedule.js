@@ -168,7 +168,7 @@ export default async function handler(req, res) {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .single();
 
     if (profileError || !profile?.business_id) {
@@ -178,7 +178,7 @@ export default async function handler(req, res) {
     // Verify customer belongs to business
     const { data: customer, error: customerError } = await supabase
       .from('customers')
-      .select('id, full_name, email, phone')
+      .select('id, first_name, last_name, email, phone')
       .eq('id', customer_id)
       .eq('business_id', profile.business_id)
       .single();
