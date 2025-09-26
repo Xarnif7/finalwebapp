@@ -91,7 +91,7 @@ export default function FeedbackStandalone() {
           console.log('Looking for business data with business_id:', reviewData.business_id);
           const { data: businessData, error: businessError } = await supabase
             .from('businesses')
-            .select('name, website, google_place_id')
+            .select('name, website, google_place_id, google_review_url')
             .eq('id', reviewData.business_id)
             .maybeSingle();
           
@@ -178,16 +178,20 @@ export default function FeedbackStandalone() {
 
   const handlePublicReviewClick = () => {
     console.log('Google review clicked, business data:', business);
-    if (business?.google_place_id) {
-      // Use the Google Maps review URL format
+    if (business?.google_review_url) {
+      // Use the direct Google review URL from settings
+      console.log('Opening Google review URL from settings:', business.google_review_url);
+      window.open(business.google_review_url, '_blank');
+    } else if (business?.google_place_id) {
+      // Fallback to Google Maps review URL format
       const googleUrl = `https://www.google.com/maps/place/?q=place_id:${business.google_place_id}&hl=en&entry=ttu`;
       console.log('Opening Google Maps URL:', googleUrl);
       window.open(googleUrl, '_blank');
     } else if (business?.website) {
-      console.log('No Google place ID, opening website:', business.website);
+      console.log('No Google review URL or place ID, opening website:', business.website);
       window.open(business.website, '_blank');
     } else {
-      console.log('No Google place ID or website, closing window');
+      console.log('No Google review URL, place ID, or website, closing window');
       window.close();
     }
   };

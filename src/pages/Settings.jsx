@@ -182,6 +182,7 @@ const BusinessSettings = () => {
     const { toast } = useToast();
     const [businessName, setBusinessName] = useState("");
     const [website, setWebsite] = useState("");
+    const [googleReviewUrl, setGoogleReviewUrl] = useState("");
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -204,13 +205,14 @@ const BusinessSettings = () => {
 
             const { data: biz } = await supabase
                 .from('businesses')
-                .select('id, name, website')
+                .select('id, name, website, google_review_url')
                 .eq('id', businessId)
                 .maybeSingle();
 
             if (biz) {
                 setBusinessName(biz.name || "");
                 setWebsite(biz.website || "");
+                setGoogleReviewUrl(biz.google_review_url || "");
             }
         } catch (e) {
             console.warn('Error loading business', e);
@@ -222,7 +224,7 @@ const BusinessSettings = () => {
     const saveBusiness = async () => {
         try {
             setLoading(true);
-            console.log('Saving business:', { name: businessName, website });
+            console.log('Saving business:', { name: businessName, website, googleReviewUrl });
             const { data: { session } } = await supabase.auth.getSession();
             const resp = await fetch('/api/business/save', {
                 method: 'POST',
@@ -230,7 +232,7 @@ const BusinessSettings = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session?.access_token || ''}`
                 },
-                body: JSON.stringify({ name: businessName, website })
+                body: JSON.stringify({ name: businessName, website, google_review_url: googleReviewUrl })
             });
             const result = await resp.json();
             console.log('Save response:', result);
@@ -262,9 +264,14 @@ const BusinessSettings = () => {
                     <Input id="website" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://yourcompany.com" />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="googleUrl">Google Review URL (optional)</Label>
-                    <Input id="googleUrl" placeholder="Managed via Reviews → Google connection" disabled />
-                    <p className="text-xs text-gray-500">This comes from your connected Google source in Reviews.</p>
+                    <Label htmlFor="googleReviewUrl">Google Review URL</Label>
+                    <Input 
+                        id="googleReviewUrl" 
+                        value={googleReviewUrl} 
+                        onChange={(e) => setGoogleReviewUrl(e.target.value)} 
+                        placeholder="https://www.google.com/maps/place/your-business" 
+                    />
+                    <p className="text-xs text-gray-500">Direct link to your Google Maps review page. This will be used when customers click "Leave a Google Review".</p>
                 </div>
                 <div className="flex justify-end">
                     <Button onClick={saveBusiness} disabled={loading}>{loading ? 'Saving...' : 'Save Business Info'}</Button>

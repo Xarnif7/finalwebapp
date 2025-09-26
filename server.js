@@ -662,8 +662,8 @@ app.post('/api/business/save', async (req, res) => {
     const { data: { user } } = await supabase.auth.getUser(token);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    const { name, website } = req.body || {};
-    console.log('Business save request:', { name, website, userId: user.id });
+    const { name, website, google_review_url } = req.body || {};
+    console.log('Business save request:', { name, website, google_review_url, userId: user.id });
 
     // Get or create business_id from profile
     const { data: profile } = await supabase
@@ -688,6 +688,7 @@ app.post('/api/business/save', async (req, res) => {
         .insert({ 
           name: name || 'New Business', 
           website: website || null,
+          google_review_url: google_review_url || null,
           created_by: userEmail
         })
         .select('id')
@@ -706,6 +707,7 @@ app.post('/api/business/save', async (req, res) => {
         .update({ 
           name: name || null, 
           website: website || null,
+          google_review_url: google_review_url || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', businessId);
@@ -8315,6 +8317,24 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             }
           } catch (_) {}
 
+          // Get template data if template_id exists in job payload
+          let templateMessage = null;
+          if (job.payload.template_id) {
+            try {
+              const { data: templateData } = await supabase
+                .from('automation_templates')
+                .select('message')
+                .eq('id', job.payload.template_id)
+                .maybeSingle();
+              if (templateData?.message) {
+                templateMessage = templateData.message;
+                console.log('📝 Found template message:', templateMessage);
+              }
+            } catch (e) {
+              console.log('Error fetching template message:', e);
+            }
+          }
+
           if (reviewRequest && reviewRequest.customers && reviewRequest.customers.email) {
             console.log(`📧 Sending automation email for job ${job.id} to ${reviewRequest.customers.email}`);
             
@@ -8331,9 +8351,9 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             console.log('✅ RESEND_API_KEY available, length:', process.env.RESEND_API_KEY.length);
 
             // Process the message to replace variables
-            let processedMessage = reviewRequest.message || 'Thank you for your business! Please consider leaving us a review.';
+            let processedMessage = templateMessage || reviewRequest.message || 'Thank you for your business! Please consider leaving us a review.';
             
-            // If the message is the default, try to get it from form settings
+            // If the message is still the default, try to get it from form settings
             if (processedMessage === 'Thank you for your business! Please consider leaving us a review.' && formSettings.email_message) {
               processedMessage = formSettings.email_message;
             }
