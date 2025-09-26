@@ -8333,17 +8333,15 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             // Process the message to replace variables
             let processedMessage = reviewRequest.message || 'Thank you for your business! Please consider leaving us a review.';
             
-            const firstName = reviewRequest.customers.first_name || '';
-            const lastName = reviewRequest.customers.last_name || '';
-            const customerName = (firstName && lastName) ? `${firstName} ${lastName}` : (firstName || lastName || 'Customer');
+            const customerName = reviewRequest.customers.full_name || 'Customer';
 
             // Replace common variables (add company_* and granular customer names)
             processedMessage = processedMessage
               .replace(/\{\{review_link\}\}/g, reviewLink)
               .replace(/\{\{customer\.name\}\}/g, customerName)
               .replace(/\{\{customer_name\}\}/g, customerName)
-              .replace(/\{\{customer\.first_name\}\}/g, firstName)
-              .replace(/\{\{customer\.last_name\}\}/g, lastName)
+              .replace(/\{\{customer\.first_name\}\}/g, customerName.split(' ')[0] || '')
+              .replace(/\{\{customer\.last_name\}\}/g, customerName.split(' ').slice(1).join(' ') || '')
               .replace(/\{\{customer\.full_name\}\}/g, customerName)
               .replace(/\{\{business\.name\}\}/g, companyName)
               .replace(/\{\{business_name\}\}/g, companyName)

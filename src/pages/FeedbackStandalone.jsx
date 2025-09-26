@@ -107,6 +107,7 @@ export default function FeedbackStandalone() {
         };
       }
 
+      console.log('Business info loaded:', businessInfo);
       setBusiness(businessInfo);
     } catch (err) {
       console.error('Error fetching business data:', err);
@@ -157,20 +158,28 @@ export default function FeedbackStandalone() {
   };
 
   const handleMaybeLaterClick = () => {
+    console.log('Maybe Later clicked, business data:', business);
     if (business?.website) {
+      console.log('Opening website:', business.website);
       window.open(business.website, '_blank');
     } else {
+      console.log('No website found, closing window');
       window.close();
     }
   };
 
   const handlePublicReviewClick = () => {
+    console.log('Google review clicked, business data:', business);
     if (business?.google_place_id) {
       // Use the Google Maps review URL format
-      window.open(`https://www.google.com/maps/place/?q=place_id:${business.google_place_id}&hl=en&entry=ttu`, '_blank');
+      const googleUrl = `https://www.google.com/maps/place/?q=place_id:${business.google_place_id}&hl=en&entry=ttu`;
+      console.log('Opening Google Maps URL:', googleUrl);
+      window.open(googleUrl, '_blank');
     } else if (business?.website) {
+      console.log('No Google place ID, opening website:', business.website);
       window.open(business.website, '_blank');
     } else {
+      console.log('No Google place ID or website, closing window');
       window.close();
     }
   };
