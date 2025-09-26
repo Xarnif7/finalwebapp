@@ -6,6 +6,7 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Star, MessageSquare, Clock, User, Filter, Search } from 'lucide-react';
 import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 
 export default function PrivateFeedbackInbox() {
   const [feedback, setFeedback] = useState([]);
@@ -14,6 +15,8 @@ export default function PrivateFeedbackInbox() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sentimentFilter, setSentimentFilter] = useState('all');
   const [selectedFeedback, setSelectedFeedback] = useState(null);
+  const [showEmailComposer, setShowEmailComposer] = useState(false);
+  const [emailComposerData, setEmailComposerData] = useState(null);
 
   useEffect(() => {
     fetchPrivateFeedback();
@@ -97,6 +100,17 @@ export default function PrivateFeedbackInbox() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handleSendFollowup = (feedback) => {
+    setEmailComposerData({
+      customerName: feedback.customer_name,
+      customerEmail: feedback.customer_email,
+      originalMessage: feedback.message,
+      rating: feedback.rating,
+      sentiment: feedback.sentiment
+    });
+    setShowEmailComposer(true);
   };
 
   const filteredFeedback = feedback.filter(item => {
@@ -325,8 +339,8 @@ export default function PrivateFeedbackInbox() {
               <div className="pt-4 border-t">
                 <h4 className="font-medium text-gray-900 mb-2">Response Actions:</h4>
                 <div className="flex gap-2">
-                  <Button size="sm">
-                    Send Follow-up
+                  <Button size="sm" onClick={() => handleSendFollowup(selectedFeedback)}>
+                    Send Follow-up Email
                   </Button>
                   <Button variant="outline" size="sm">
                     Mark as Resolved
@@ -340,6 +354,138 @@ export default function PrivateFeedbackInbox() {
           </Card>
         </div>
       )}
+
+      {/* Email Composer Modal */}
+      {showEmailComposer && emailComposerData && (
+        <EmailComposerModal
+          data={emailComposerData}
+          onClose={() => {
+            setShowEmailComposer(false);
+            setEmailComposerData(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Email Composer Modal Component
+function EmailComposerModal({ data, onClose }) {
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    // Pre-fill subject and message based on sentiment
+    if (data.sentiment === 'negative') {
+      setSubject(`We're sorry about your experience - Let's make it right`);
+      setMessage(`Hi ${data.customerName},
+
+Thank you for taking the time to share your feedback about your recent experience with us. We sincerely apologize that we didn't meet your expectations.
+
+We take all feedback seriously and would like to make this right. Could you please give us a call at [YOUR_PHONE] or reply to this email so we can discuss how we can improve your experience?
+
+We value your business and want to ensure you're completely satisfied.
+
+Best regards,
+[YOUR_NAME]
+[YOUR_BUSINESS_NAME]`);
+    } else {
+      setSubject(`Thank you for your feedback!`);
+      setMessage(`Hi ${data.customerName},
+
+Thank you for taking the time to share your feedback with us. We're glad to hear about your experience and appreciate your input.
+
+If there's anything else we can do for you, please don't hesitate to reach out.
+
+Best regards,
+[YOUR_NAME]
+[YOUR_BUSINESS_NAME]`);
+    }
+  }, [data]);
+
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      const response = await fetch('/api/send-followup-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: data.customerEmail,
+          subject: subject,
+          message: message,
+          customerName: data.customerName
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to send email');
+
+      alert('Follow-up email sent successfully!');
+      onClose();
+    } catch (err) {
+      console.error('Error sending follow-up email:', err);
+      alert('Failed to send email: ' + err.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Send Follow-up Email</CardTitle>
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <h4 className="font-medium text-gray-900 mb-2">Customer Details:</h4>
+            <p className="text-sm text-gray-600">
+              <strong>Name:</strong> {data.customerName}<br/>
+              <strong>Email:</strong> {data.customerEmail}<br/>
+              <strong>Rating:</strong> {data.rating}/5 stars<br/>
+              <strong>Original Message:</strong> {data.originalMessage}
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="subject">Subject</Label>
+            <Input
+              id="subject"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Email subject"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="message">Message</Label>
+            <Textarea
+              id="message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Your message to the customer"
+              rows={8}
+            />
+          </div>
+
+          <div className="flex gap-2 pt-4">
+            <Button onClick={handleSend} disabled={sending}>
+              {sending ? 'Sending...' : 'Send Email'}
+            </Button>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
