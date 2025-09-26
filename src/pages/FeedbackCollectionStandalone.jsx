@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase/browser';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Textarea } from '../components/ui/textarea';
 import { Star, MessageSquare, CheckCircle, ExternalLink } from 'lucide-react';
 
-export default function FeedbackCollection() {
+export default function FeedbackCollectionStandalone() {
   const { requestId } = useParams();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [business, setBusiness] = useState(null);
@@ -48,7 +47,7 @@ export default function FeedbackCollection() {
       // Get business data using the business_id
       const { data: businessData, error: businessError } = await supabase
         .from('businesses')
-        .select('*')
+        .select('id, name, website, google_place_id, google_review_url')
         .eq('id', reviewData.business_id)
         .single();
 
@@ -84,7 +83,6 @@ export default function FeedbackCollection() {
 
     try {
       // Store the private feedback using the API endpoint
-      // No authentication needed for public feedback collection
       const response = await fetch('/api/private-feedback', {
         method: 'POST',
         headers: {
@@ -188,8 +186,8 @@ export default function FeedbackCollection() {
             <p className="text-gray-600 mb-4">
               {error || 'Unable to load feedback form.'}
             </p>
-            <Button onClick={() => navigate('/')} variant="outline">
-              Go to Homepage
+            <Button onClick={() => window.close()} variant="outline">
+              Close
             </Button>
           </CardContent>
         </Card>
@@ -226,6 +224,10 @@ export default function FeedbackCollection() {
             <div className="text-xs text-gray-500">
               <p>Your feedback is confidential and will be used for internal improvement.</p>
             </div>
+
+            <Button onClick={() => window.close()} variant="outline" className="w-full">
+              Close
+            </Button>
           </CardContent>
         </Card>
       </div>
