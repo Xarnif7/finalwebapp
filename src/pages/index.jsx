@@ -247,6 +247,14 @@ function PagesContent() {
     'Integrations', 'RevenueImpact', 'Conversations', 'ReviewPerformance', 'PrivateFeedback', 'Feedback'
   ].includes(currentPage);
 
+  // Check if this is a feedback route that should bypass Layout
+  const isFeedbackRoute = currentPage === 'FeedbackCollection';
+
+  if (isFeedbackRoute) {
+    // Render feedback route without Layout wrapper
+    return <MarketingRoutes />;
+  }
+
   if (isDashboardRoute) {
     return (
       <Layout currentPageName={currentPage}>
