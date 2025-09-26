@@ -5,7 +5,28 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Set CORS headers based on request origin
+function setCorsHeaders(req, res) {
+  const origin = req.headers.origin || '';
+  const allowedOrigin = origin.includes('localhost:5173')
+    ? 'http://localhost:5173'
+    : 'https://myblipp.com';
+  
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store');
+}
+
 export default async function handler(req, res) {
+  setCorsHeaders(req, res);
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
