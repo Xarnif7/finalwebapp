@@ -177,26 +177,102 @@ const ProfileSettings = () => {
     );
 };
 
-const BusinessSettings = () => (
-    <Card className="rounded-2xl">
-        <CardHeader><CardTitle>Business Profile</CardTitle><CardDescription>Manage your main business details.</CardDescription></CardHeader>
-        <CardContent className="space-y-4">
-            <div className="space-y-2">
-                <Label htmlFor="businessName">Business Name</Label>
-                <Input id="businessName" defaultValue="Downtown Dental" />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Textarea id="address" defaultValue="123 Smile St, Denver, CO" />
-            </div>
-             <div className="space-y-2">
-                <Label htmlFor="googleUrl">Google Review URL</Label>
-                <Input id="googleUrl" defaultValue="https://g.page/r/..." />
-            </div>
-            <div className="flex justify-end"><Button>Save Business Info</Button></div>
-        </CardContent>
-    </Card>
-);
+const BusinessSettings = () => {
+    const { user } = useDashboard();
+    const { toast } = useToast();
+    const [businessName, setBusinessName] = useState("");
+    const [website, setWebsite] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (user) {
+            loadBusiness();
+        }
+    }, [user]);
+
+    const loadBusiness = async () => {
+        try {
+            setLoading(true);
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('business_id')
+                .eq('user_id', user.id)
+                .single();
+
+            const businessId = profile?.business_id;
+            if (!businessId) return;
+
+            const { data: biz } = await supabase
+                .from('businesses')
+                .select('id, name, website')
+                .eq('id', businessId)
+                .maybeSingle();
+
+            if (biz) {
+                setBusinessName(biz.name || "");
+                setWebsite(biz.website || "");
+            }
+        } catch (e) {
+            console.warn('Error loading business', e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const saveBusiness = async () => {
+        try {
+            setLoading(true);
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('business_id')
+                .eq('user_id', user.id)
+                .single();
+            const businessId = profile?.business_id;
+            if (!businessId) throw new Error('No business linked to profile');
+
+            const { error } = await supabase
+                .from('businesses')
+                .upsert({ id: businessId, name: businessName || null, website: website || null })
+                .select('id')
+                .single();
+
+            if (error) throw error;
+            toast({ title: 'Saved', description: 'Business details updated.' });
+        } catch (e) {
+            console.error('Save business error', e);
+            toast({ title: 'Error', description: e.message || 'Failed to save', variant: 'destructive' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Card className="rounded-2xl">
+            <CardHeader>
+                <CardTitle>Business Profile</CardTitle>
+                <CardDescription>Manage your main business details.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="businessName">Business Name</Label>
+                    <Input id="businessName" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Shirley Dentistry" />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="website">Company Website</Label>
+                    <Input id="website" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.com" />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="googleUrl">Google Review URL (optional)</Label>
+                    <Input id="googleUrl" placeholder="https://g.page/r/..." disabled />
+                    <p className="text-xs text-gray-500">This comes from your connected Google source in Reviews.</p>
+                </div>
+                <div className="flex justify-end">
+                    <Button onClick={saveBusiness} disabled={loading}>{loading ? 'Saving...' : 'Save Business Info'}</Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
 
 const BillingSettings = () => (
     <Card className="rounded-2xl">

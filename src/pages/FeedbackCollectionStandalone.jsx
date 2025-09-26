@@ -52,22 +52,35 @@ export default function FeedbackCollectionStandalone() {
         .eq('platform', 'google')
         .single();
 
-      if (businessError || !businessData) {
-        setError('Business information not found');
-        setLoading(false);
-        return;
+      let transformedBusiness = null;
+
+      if (!businessError && businessData) {
+        transformedBusiness = {
+          id: reviewData.business_id,
+          name: businessData.business_name,
+          website: businessData.public_url,
+          google_place_id: businessData.external_id,
+          google_review_url: businessData.public_url
+        };
+      } else {
+        // Fallback: try businesses table, then generic name
+        const { data: fallbackBiz } = await supabase
+          .from('businesses')
+          .select('id, name, website, google_place_id')
+          .eq('id', reviewData.business_id)
+          .maybeSingle();
+
+        // Transform the data to match expected structure
+        const transformedBusiness = {
+          id: reviewData.business_id,
+          name: fallbackBiz?.name || businessData.business_name,
+          website: fallbackBiz?.website || businessData.public_url,
+          google_place_id: businessData.external_id,
+          google_review_url: businessData.public_url
+        };
+
+        setBusiness(transformedBusiness);
       }
-
-      // Transform the data to match expected structure
-      const transformedBusiness = {
-        id: reviewData.business_id,
-        name: businessData.business_name,
-        website: businessData.public_url,
-        google_place_id: businessData.external_id,
-        google_review_url: businessData.public_url
-      };
-
-      setBusiness(transformedBusiness);
     } catch (err) {
       console.error('Error fetching business data:', err);
       setError('Failed to load business information');
