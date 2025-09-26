@@ -58,6 +58,8 @@ export function useCurrentBusinessId() {
                 .select('id')
                 .single();
 
+              console.log('[tenancy] Raw Supabase response:', { data: newBusiness, error: businessCreateError });
+
               console.log('[tenancy] Business creation result:', { newBusiness, businessCreateError });
               console.log('[tenancy] Business creation result type:', typeof newBusiness);
               console.log('[tenancy] Business creation result keys:', newBusiness ? Object.keys(newBusiness) : 'null');
