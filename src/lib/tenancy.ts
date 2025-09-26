@@ -61,6 +61,7 @@ export function useCurrentBusinessId() {
               console.log('[tenancy] Business creation result:', { newBusiness, businessCreateError });
               console.log('[tenancy] Business creation result type:', typeof newBusiness);
               console.log('[tenancy] Business creation result keys:', newBusiness ? Object.keys(newBusiness) : 'null');
+              console.log('[tenancy] Business creation result stringified:', JSON.stringify({ newBusiness, businessCreateError }));
 
               if (businessCreateError) {
                 console.error('[tenancy] Error creating business:', businessCreateError);
