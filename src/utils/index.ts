@@ -10,16 +10,18 @@ export function createPageUrl(pageName: string) {
     
     const result = '/' + kebabCase;
     
-    // Navigation helper validation
-    console.log(`[NAV-HELPER] createPageUrl("${pageName}") → "${result}"`);
-    
-    // Track usage for performance analysis
-    if (typeof window !== 'undefined') {
-        const currentPath = window.location.pathname;
-        if (currentPath === result) {
-            console.log(`[NAV-HELPER] ✓ Route match: "${result}" matches current path`);
-        } else {
-            console.log(`[NAV-HELPER] ⚠ Route mismatch: "${result}" vs current "${currentPath}"`);
+    // Navigation helper validation (only in development)
+    if (process.env.NODE_ENV === 'development') {
+        console.log(`[NAV-HELPER] createPageUrl("${pageName}") → "${result}"`);
+        
+        // Track usage for performance analysis
+        if (typeof window !== 'undefined') {
+            const currentPath = window.location.pathname;
+            if (currentPath === result) {
+                console.log(`[NAV-HELPER] ✓ Route match: "${result}" matches current path`);
+            } else {
+                console.log(`[NAV-HELPER] ⚠ Route mismatch: "${result}" vs current "${currentPath}"`);
+            }
         }
     }
     
