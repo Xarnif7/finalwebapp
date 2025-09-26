@@ -8055,11 +8055,20 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
               channel,
               message,
               review_link,
-              customers!inner(full_name, email, phone),
+              customers!inner(first_name, last_name, email, phone),
               businesses!inner(name, email)
             `)
             .eq('id', reviewRequestId)
             .single();
+
+          if (requestError) {
+            console.error(`Error fetching review request ${reviewRequestId}:`, requestError);
+            await supabase
+              .from('scheduled_jobs')
+              .update({ status: 'failed' })
+              .eq('id', job.id);
+            continue;
+          }
 
           // Fix review link if it's in the old format
           let reviewLink = reviewRequest.review_link;
@@ -8072,15 +8081,6 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
               .from('review_requests')
               .update({ review_link: reviewLink })
               .eq('id', reviewRequest.id);
-          }
-
-          if (requestError) {
-            console.error(`Error fetching review request ${reviewRequestId}:`, requestError);
-            await supabase
-              .from('scheduled_jobs')
-              .update({ status: 'failed' })
-              .eq('id', job.id);
-            continue;
           }
 
           if (reviewRequest && reviewRequest.customers && reviewRequest.customers.email) {
@@ -8101,11 +8101,16 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             // Process the message to replace variables
             let processedMessage = reviewRequest.message || 'Thank you for your business! Please consider leaving us a review.';
             
+            // Construct customer name from first_name and last_name
+            const customerName = reviewRequest.customers.first_name && reviewRequest.customers.last_name 
+              ? `${reviewRequest.customers.first_name} ${reviewRequest.customers.last_name}`
+              : reviewRequest.customers.first_name || reviewRequest.customers.last_name || 'Customer';
+
             // Replace common variables
             processedMessage = processedMessage
               .replace(/\{\{review_link\}\}/g, reviewLink)
-              .replace(/\{\{customer\.name\}\}/g, reviewRequest.customers.full_name || 'Customer')
-              .replace(/\{\{customer_name\}\}/g, reviewRequest.customers.full_name || 'Customer')
+              .replace(/\{\{customer\.name\}\}/g, customerName)
+              .replace(/\{\{customer_name\}\}/g, customerName)
               .replace(/\{\{business\.name\}\}/g, reviewRequest.businesses.name || 'Our Business')
               .replace(/\{\{business_name\}\}/g, reviewRequest.businesses.name || 'Our Business');
 
@@ -8147,7 +8152,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                       <!-- Main Content -->
                       <div style="padding: 40px 30px;">
                         <h2 style="color: #1e293b; margin: 0 0 20px 0; font-size: 24px; font-weight: 600;">
-                          Hi ${reviewRequest.customers.full_name},
+                          Hi ${customerName},
                         </h2>
                         
                         <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
