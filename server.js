@@ -678,13 +678,13 @@ app.post('/api/business/save', async (req, res) => {
 
     if (!businessId) {
       console.log('Creating new business...');
-      // Insert business (service role will enforce RLS bypass; here we rely on public client so ensure RLS allows owner insert or use RPC)
+      // Insert business using email for created_by (matching RLS policies)
       const { data: created, error: createErr } = await supabase
         .from('businesses')
         .insert({ 
           name: name || 'New Business', 
           website: website || null,
-          created_by: user.id
+          created_by: user.email
         })
         .select('id')
         .single();
@@ -758,7 +758,11 @@ app.post('/api/feedback-form-settings', async (req, res) => {
     if (!businessId) {
       const { data: created, error: createErr } = await supabase
         .from('businesses')
-        .insert({ name: 'My Business', website: null })
+        .insert({ 
+          name: 'My Business', 
+          website: null,
+          created_by: user.email
+        })
         .select('id')
         .single();
       if (createErr) return res.status(403).json({ error: 'RLS prevented creating business', details: createErr });
@@ -1265,7 +1269,7 @@ app.post('/api/zapier/event', async (req, res) => {
         .from('businesses')
         .insert({
           name: 'Default Business',
-          created_by: 'system'
+          created_by: user.email
         })
         .select('id')
         .single();
