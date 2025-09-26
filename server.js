@@ -681,7 +681,13 @@ app.post('/api/business/save', async (req, res) => {
       // Insert business (service role will enforce RLS bypass; here we rely on public client so ensure RLS allows owner insert or use RPC)
       const { data: created, error: createErr } = await supabase
         .from('businesses')
-        .insert({ name: name || 'New Business', website: website || null })
+        .insert({ 
+          name: name || 'New Business', 
+          website: website || null,
+          created_by: user.id,
+          owner_id: user.id,
+          created_by_user_id: user.id
+        })
         .select('id')
         .single();
       if (createErr) {
@@ -695,7 +701,11 @@ app.post('/api/business/save', async (req, res) => {
       console.log('Updating existing business:', businessId);
       const { error: upErr } = await supabase
         .from('businesses')
-        .update({ name: name || null, website: website || null })
+        .update({ 
+          name: name || null, 
+          website: website || null,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', businessId);
       if (upErr) {
         console.error('Business update error:', upErr);
