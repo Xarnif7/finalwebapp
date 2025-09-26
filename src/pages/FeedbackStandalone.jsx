@@ -54,7 +54,10 @@ export default function FeedbackStandalone() {
           .maybeSingle();
         
         if (settings?.settings) {
+          console.log('Form settings loaded:', settings.settings);
           setFormSettings(settings.settings);
+        } else {
+          console.log('No form settings found for business_id:', reviewData.business_id);
         }
       } catch (e) {
         console.log('No form settings found, using defaults');
@@ -100,6 +103,8 @@ export default function FeedbackStandalone() {
           if (businessData) {
             businessInfo = businessData;
             console.log('Using business table data:', businessInfo);
+          } else {
+            console.log('No business data found, businessError:', businessError);
           }
         } catch (e) {
           console.log('Error fetching business data:', e);
@@ -115,7 +120,13 @@ export default function FeedbackStandalone() {
         };
       }
 
-      console.log('Business info loaded:', businessInfo);
+      console.log('Final business info loaded:', businessInfo);
+      console.log('Business info details:', {
+        name: businessInfo.name,
+        website: businessInfo.website,
+        google_place_id: businessInfo.google_place_id,
+        google_review_url: businessInfo.google_review_url
+      });
       setBusiness(businessInfo);
     } catch (err) {
       console.error('Error fetching business data:', err);

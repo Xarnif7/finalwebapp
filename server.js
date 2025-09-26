@@ -8323,12 +8323,12 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             try {
               const { data: templateData } = await supabase
                 .from('automation_templates')
-                .select('message')
+                .select('config_json')
                 .eq('id', job.payload.template_id)
                 .maybeSingle();
-              if (templateData?.message) {
-                templateMessage = templateData.message;
-                console.log('📝 Found template message:', templateMessage);
+              if (templateData?.config_json?.message) {
+                templateMessage = templateData.config_json.message;
+                console.log('📝 Found template message from config_json:', templateMessage);
               }
             } catch (e) {
               console.log('Error fetching template message:', e);
