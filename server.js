@@ -663,6 +663,7 @@ app.post('/api/business/save', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     const { name, website } = req.body || {};
+    console.log('Business save request:', { name, website, userId: user.id });
 
     // Get or create business_id from profile
     const { data: profile } = await supabase
@@ -671,24 +672,36 @@ app.post('/api/business/save', async (req, res) => {
       .eq('user_id', user.id)
       .single();
 
+    console.log('Profile data:', profile);
+
     let businessId = profile?.business_id || null;
 
     if (!businessId) {
+      console.log('Creating new business...');
       // Insert business (service role will enforce RLS bypass; here we rely on public client so ensure RLS allows owner insert or use RPC)
       const { data: created, error: createErr } = await supabase
         .from('businesses')
         .insert({ name: name || 'New Business', website: website || null })
         .select('id')
         .single();
-      if (createErr) return res.status(403).json({ error: 'RLS prevented creating business', details: createErr });
+      if (createErr) {
+        console.error('Business creation error:', createErr);
+        return res.status(403).json({ error: 'RLS prevented creating business', details: createErr });
+      }
       businessId = created.id;
+      console.log('Created business with ID:', businessId);
       await supabase.from('profiles').update({ business_id: businessId }).eq('user_id', user.id);
     } else {
+      console.log('Updating existing business:', businessId);
       const { error: upErr } = await supabase
         .from('businesses')
         .update({ name: name || null, website: website || null })
         .eq('id', businessId);
-      if (upErr) return res.status(403).json({ error: 'RLS prevented updating business', details: upErr });
+      if (upErr) {
+        console.error('Business update error:', upErr);
+        return res.status(403).json({ error: 'RLS prevented updating business', details: upErr });
+      }
+      console.log('Business updated successfully');
     }
 
     res.json({ success: true, business_id: businessId });

@@ -222,6 +222,7 @@ const BusinessSettings = () => {
     const saveBusiness = async () => {
         try {
             setLoading(true);
+            console.log('Saving business:', { name: businessName, website });
             const { data: { session } } = await supabase.auth.getSession();
             const resp = await fetch('/api/business/save', {
                 method: 'POST',
@@ -232,8 +233,11 @@ const BusinessSettings = () => {
                 body: JSON.stringify({ name: businessName, website })
             });
             const result = await resp.json();
+            console.log('Save response:', result);
             if (!resp.ok) throw (result || { error: 'Failed to save' });
             toast({ title: 'Saved', description: 'Business details updated.' });
+            // Reload business data after saving
+            loadBusiness();
         } catch (e) {
             console.error('Save business error', e);
             toast({ title: 'Error', description: e.message || e.error || 'Failed to save', variant: 'destructive' });
