@@ -72,17 +72,14 @@ export default async function handler(req, res) {
     if (trigger_type === 'manual_trigger') {
       const { template_id, template_name, template_message, delay_hours, channels } = trigger_data;
       
-      // Generate review link
-      const reviewLink = `${process.env.APP_BASE_URL || 'https://myblipp.com'}/r/${Math.random().toString(36).substring(2, 10)}`;
-      
-      // Create review request entry
+      // Create review request entry first to get the ID
       const { data: reviewRequest, error: requestError } = await supabase
         .from('review_requests')
         .insert({
           business_id: business.id,
           customer_id: customer_id,
           channel: channels?.[0] || 'email',
-          review_link: reviewLink,
+          review_link: 'pending', // Will be updated after creation
           message: template_message || 'Thank you for your business! Please consider leaving us a review.',
           status: 'pending',
           send_at: new Date().toISOString()
@@ -93,6 +90,20 @@ export default async function handler(req, res) {
       if (requestError) {
         console.error('Error creating review request:', requestError);
         return res.status(500).json({ error: 'Failed to create review request' });
+      }
+
+      // Generate review link using the actual review request ID
+      const reviewLink = `${process.env.APP_BASE_URL || 'https://myblipp.com'}/feedback/${reviewRequest.id}`;
+
+      // Update the review request with the correct link
+      const { error: updateError } = await supabase
+        .from('review_requests')
+        .update({ review_link: reviewLink })
+        .eq('id', reviewRequest.id);
+
+      if (updateError) {
+        console.error('Error updating review link:', updateError);
+        // Don't fail the entire operation, just log the error
       }
 
       // Schedule the email to be sent after the delay
