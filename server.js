@@ -8333,6 +8333,11 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             // Process the message to replace variables
             let processedMessage = reviewRequest.message || 'Thank you for your business! Please consider leaving us a review.';
             
+            // If the message is the default, try to get it from form settings
+            if (processedMessage === 'Thank you for your business! Please consider leaving us a review.' && formSettings.email_message) {
+              processedMessage = formSettings.email_message;
+            }
+            
             const customerName = reviewRequest.customers.full_name || 'Customer';
 
             // Replace common variables (add company_* and granular customer names)
@@ -9676,13 +9681,26 @@ app.post('/api/review-requests/send-now', async (req, res) => {
     const customer = reviewRequest.customers;
     const business = reviewRequest.businesses;
 
+    // Get form settings for this business
+    let formSettings = {};
+    try {
+      const { data: settings } = await supabase
+        .from('feedback_form_settings')
+        .select('settings')
+        .eq('business_id', reviewRequest.business_id)
+        .maybeSingle();
+      if (settings?.settings) {
+        formSettings = settings.settings;
+      }
+    } catch (_) {}
+
     // Prepare message
     let message, subject;
     const reviewLink = reviewRequest.review_link;
     
     if (reviewRequest.channel === 'email') {
-      subject = "We'd love your feedback!";
-      message = `Hi ${customer.full_name},
+      subject = formSettings.email_subject || "We'd love your feedback!";
+      message = formSettings.email_message || `Hi ${customer.full_name},
 
 Thank you for choosing ${business.name}! We would really appreciate if you could take a moment to share your experience with us.
 

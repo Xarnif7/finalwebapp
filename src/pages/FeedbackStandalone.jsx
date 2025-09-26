@@ -63,12 +63,15 @@ export default function FeedbackStandalone() {
       // Try to get business info from review_sources first (Google connection)
       let businessInfo = null;
       try {
-        const { data: sourceData } = await supabase
+        console.log('Looking for review_sources with business_id:', reviewData.business_id);
+        const { data: sourceData, error: sourceError } = await supabase
           .from('review_sources')
           .select('business_name, public_url, external_id')
           .eq('business_id', reviewData.business_id)
           .eq('platform', 'google')
           .maybeSingle();
+        
+        console.log('Review source query result:', { sourceData, sourceError });
         
         if (sourceData) {
           businessInfo = {
@@ -76,25 +79,30 @@ export default function FeedbackStandalone() {
             website: sourceData.public_url,
             google_place_id: sourceData.external_id
           };
+          console.log('Using review source data:', businessInfo);
         }
       } catch (e) {
-        console.log('No review source data found');
+        console.log('Error fetching review source data:', e);
       }
 
       // Fallback to businesses table
       if (!businessInfo) {
         try {
-          const { data: businessData } = await supabase
+          console.log('Looking for business data with business_id:', reviewData.business_id);
+          const { data: businessData, error: businessError } = await supabase
             .from('businesses')
             .select('name, website, google_place_id')
             .eq('id', reviewData.business_id)
             .maybeSingle();
           
+          console.log('Business data query result:', { businessData, businessError });
+          
           if (businessData) {
             businessInfo = businessData;
+            console.log('Using business table data:', businessInfo);
           }
         } catch (e) {
-          console.log('No business data found');
+          console.log('Error fetching business data:', e);
         }
       }
 
