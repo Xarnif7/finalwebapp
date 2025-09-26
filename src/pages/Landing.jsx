@@ -2,7 +2,7 @@
 
 
 import React, { useEffect, useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { motion, useScroll, useTransform, MotionConfig, useInView } from "framer-motion";
@@ -134,13 +134,22 @@ const CountUpNumber = ({ end, duration = 2000 }) => {
 };
 
 export default function Landing() {
-  const { user } = useAuth();
-  const subscriptionStatus = useSubscriptionStatus();
-  const { hasActive: hasSubscription, loading: subLoading } = subscriptionStatus;
+  const navigate = useNavigate();
+  const { user, status: authStatus } = useAuth();
+  const { hasActive: hasSubscription, loading: subLoading } = useSubscriptionStatus();
   
   console.log('[LANDING] User:', user);
-  console.log('[LANDING] Subscription status:', subscriptionStatus);
+  console.log('[LANDING] Subscription status:', { hasActive: hasSubscription, loading: subLoading });
   console.log('[LANDING] Has subscription:', hasSubscription, 'Loading:', subLoading);
+
+  // Auto-redirect signed-in users with active subscription
+  useEffect(() => {
+    if (authStatus === 'signedIn' && !subLoading && hasSubscription) {
+      console.log('[LANDING] User has subscription, redirecting to dashboard');
+      navigate('/reporting', { replace: true });
+    }
+  }, [authStatus, subLoading, hasSubscription, navigate]);
+
   const { scrollYProgress } = useScroll();
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
@@ -262,7 +271,7 @@ export default function Landing() {
                     Loading...
                   </Button>
                 ) : hasSubscription ? (
-                  <Link to="/dashboard">
+                  <Link to="/reporting">
                     <Button 
                       size="lg" 
                       className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 text-lg font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
