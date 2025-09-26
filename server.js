@@ -8055,7 +8055,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
               channel,
               message,
               review_link,
-              customers!inner(first_name, last_name, email, phone),
+              customers!inner(full_name, email, phone),
               businesses!inner(name, email)
             `)
             .eq('id', reviewRequestId)
