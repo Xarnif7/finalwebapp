@@ -13,6 +13,7 @@ export default function FeedbackCollectionStandalone() {
   const [business, setBusiness] = useState(null);
   const [error, setError] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  const [formSettings, setFormSettings] = useState(null);
   
   // Form state
   const [rating, setRating] = useState(0);
@@ -44,43 +45,40 @@ export default function FeedbackCollectionStandalone() {
         return;
       }
 
+      // Load form settings for business
+      try {
+        const { data: settings } = await supabase
+          .from('feedback_form_settings')
+          .select('settings')
+          .eq('business_id', reviewData.business_id)
+          .maybeSingle();
+        if (settings?.settings) setFormSettings(settings.settings);
+      } catch (_) {}
+
       // Get business data from review_sources table
       const { data: businessData, error: businessError } = await supabase
         .from('review_sources')
         .select('business_name, public_url, external_id')
         .eq('business_id', reviewData.business_id)
         .eq('platform', 'google')
-        .single();
+        .maybeSingle();
 
-      let transformedBusiness = null;
+      // Fallback: try businesses table
+      const { data: fallbackBiz } = await supabase
+        .from('businesses')
+        .select('id, name, website, google_place_id')
+        .eq('id', reviewData.business_id)
+        .maybeSingle();
 
-      if (!businessError && businessData) {
-        transformedBusiness = {
-          id: reviewData.business_id,
-          name: businessData.business_name,
-          website: businessData.public_url,
-          google_place_id: businessData.external_id,
-          google_review_url: businessData.public_url
-        };
-      } else {
-        // Fallback: try businesses table, then generic name
-        const { data: fallbackBiz } = await supabase
-          .from('businesses')
-          .select('id, name, website, google_place_id')
-          .eq('id', reviewData.business_id)
-          .maybeSingle();
+      const transformedBusiness = {
+        id: reviewData.business_id,
+        name: (fallbackBiz?.name || businessData?.business_name || 'Your Business'),
+        website: (fallbackBiz?.website || businessData?.public_url || null),
+        google_place_id: (businessData?.external_id || fallbackBiz?.google_place_id || null),
+        google_review_url: (businessData?.public_url || null)
+      };
 
-        // Transform the data to match expected structure
-        const transformedBusiness = {
-          id: reviewData.business_id,
-          name: fallbackBiz?.name || businessData.business_name,
-          website: fallbackBiz?.website || businessData.public_url,
-          google_place_id: businessData.external_id,
-          google_review_url: businessData.public_url
-        };
-
-        setBusiness(transformedBusiness);
-      }
+      setBusiness(transformedBusiness);
     } catch (err) {
       console.error('Error fetching business data:', err);
       setError('Failed to load business information');
@@ -317,7 +315,10 @@ export default function FeedbackCollectionStandalone() {
           <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
             <MessageSquare className="w-8 h-8 text-white" />
           </div>
-          <CardTitle className="text-xl">How was your experience?</CardTitle>
+          <CardTitle className="text-xl">{formSettings?.title || 'How was your experience?'}</CardTitle>
+          {formSettings?.subtitle && (
+            <p className="text-gray-600 text-sm">{formSettings.subtitle}</p>
+          )}
           <p className="text-gray-600 text-sm">
             {business.name}
           </p>
@@ -337,7 +338,7 @@ export default function FeedbackCollectionStandalone() {
                 {renderStars()}
               </div>
               <p className="text-sm text-gray-600">
-                {rating === 0 ? 'Rate your experience' : 
+                {rating === 0 ? (formSettings?.showRatingLabels ? 'Rate your experience' : '') : 
                  rating === 1 ? 'Poor' :
                  rating === 2 ? 'Fair' :
                  rating === 3 ? 'Good' :
@@ -352,7 +353,7 @@ export default function FeedbackCollectionStandalone() {
               </label>
               <Textarea
                 id="comment"
-                placeholder="What made your experience great? Or how could we improve?"
+                placeholder={formSettings?.commentPlaceholder || 'What made your experience great? Or how could we improve?'}
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 rows={3}
@@ -365,7 +366,7 @@ export default function FeedbackCollectionStandalone() {
               className="w-full" 
               disabled={submitting || rating === 0}
             >
-              {submitting ? 'Submitting...' : 'Submit Feedback'}
+              {submitting ? 'Submitting...' : (formSettings?.submitButtonText || 'Submit Feedback')}
             </Button>
           </form>
 

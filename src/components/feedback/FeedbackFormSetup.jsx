@@ -295,7 +295,7 @@ export default function FeedbackFormSetup() {
                 checked={formSettings.showRatingLabels}
                 onCheckedChange={(checked) => handleInputChange('showRatingLabels', checked)}
               />
-              <Label htmlFor="showRatingLabels">Show rating labels (Poor, Fair, Good, Great, Excellent)</Label>
+              <Label htmlFor="showRatingLabels">Show rating labels based on number of stars selected</Label>
             </div>
           </CardContent>
         </Card>

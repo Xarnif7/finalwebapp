@@ -222,14 +222,31 @@ const BusinessSettings = () => {
     const saveBusiness = async () => {
         try {
             setLoading(true);
+            // Find current business_id
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('business_id')
                 .eq('user_id', user.id)
                 .single();
-            const businessId = profile?.business_id;
-            if (!businessId) throw new Error('No business linked to profile');
 
+            let businessId = profile?.business_id || null;
+
+            // If no business linked, create one then link it
+            if (!businessId) {
+                const { data: created, error: createErr } = await supabase
+                    .from('businesses')
+                    .insert({ name: businessName || 'New Business', website: website || null })
+                    .select('id')
+                    .single();
+                if (createErr) throw createErr;
+                businessId = created.id;
+                await supabase
+                    .from('profiles')
+                    .update({ business_id: businessId })
+                    .eq('user_id', user.id);
+            }
+
+            // Upsert details
             const { error } = await supabase
                 .from('businesses')
                 .upsert({ id: businessId, name: businessName || null, website: website || null })
@@ -255,15 +272,15 @@ const BusinessSettings = () => {
             <CardContent className="space-y-4">
                 <div className="space-y-2">
                     <Label htmlFor="businessName">Business Name</Label>
-                    <Input id="businessName" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Shirley Dentistry" />
+                    <Input id="businessName" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Enter your business name as you want it to appear in review request forms" />
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="website">Company Website</Label>
-                    <Input id="website" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.com" />
+                    <Input id="website" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://yourcompany.com" />
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="googleUrl">Google Review URL (optional)</Label>
-                    <Input id="googleUrl" placeholder="https://g.page/r/..." disabled />
+                    <Input id="googleUrl" placeholder="Managed via Reviews → Google connection" disabled />
                     <p className="text-xs text-gray-500">This comes from your connected Google source in Reviews.</p>
                 </div>
                 <div className="flex justify-end">
