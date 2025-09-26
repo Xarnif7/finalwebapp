@@ -723,14 +723,27 @@ app.post('/api/feedback-form-settings', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     const { settings } = req.body || {};
-    // Resolve business_id from profile
-    const { data: profile } = await supabase
+    
+    // Get or create business_id from profile
+    let { data: profile } = await supabase
       .from('profiles')
       .select('business_id')
       .eq('user_id', user.id)
       .single();
-    const businessId = profile?.business_id;
-    if (!businessId) return res.status(400).json({ error: 'No business linked' });
+    
+    let businessId = profile?.business_id;
+    
+    // If no business_id, create one
+    if (!businessId) {
+      const { data: created, error: createErr } = await supabase
+        .from('businesses')
+        .insert({ name: 'My Business', website: null })
+        .select('id')
+        .single();
+      if (createErr) return res.status(403).json({ error: 'RLS prevented creating business', details: createErr });
+      businessId = created.id;
+      await supabase.from('profiles').update({ business_id: businessId }).eq('user_id', user.id);
+    }
 
     const { error } = await supabase
       .from('feedback_form_settings')
@@ -11434,7 +11447,7 @@ app.get('/api/private-feedback', async (req, res) => {
     // Get user's business_id if not provided
     let targetBusinessId = business_id;
     if (!targetBusinessId) {
-      const { data: profile } = await supabase
+      let { data: profile } = await supabase
         .from('profiles')
         .select('business_id')
         .eq('user_id', user.id)
@@ -11442,6 +11455,16 @@ app.get('/api/private-feedback', async (req, res) => {
       
       if (profile?.business_id) {
         targetBusinessId = profile.business_id;
+      } else {
+        // If no business_id, create one
+        const { data: created, error: createErr } = await supabase
+          .from('businesses')
+          .insert({ name: 'My Business', website: null })
+          .select('id')
+          .single();
+        if (createErr) return res.status(403).json({ error: 'RLS prevented creating business', details: createErr });
+        targetBusinessId = created.id;
+        await supabase.from('profiles').update({ business_id: targetBusinessId }).eq('user_id', user.id);
       }
     }
 
