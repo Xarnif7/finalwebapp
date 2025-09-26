@@ -166,7 +166,8 @@ export default function FeedbackStandalone() {
 
   const handlePublicReviewClick = () => {
     if (business?.google_place_id) {
-      window.open(`https://www.google.com/maps/place/?q=place_id:${business.google_place_id}`, '_blank');
+      // Use the Google Maps review URL format
+      window.open(`https://www.google.com/maps/place/?q=place_id:${business.google_place_id}&hl=en&entry=ttu`, '_blank');
     } else if (business?.website) {
       window.open(business.website, '_blank');
     } else {

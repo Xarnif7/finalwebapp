@@ -11564,9 +11564,14 @@ app.get('/api/private-feedback', async (req, res) => {
         targetBusinessId = profile.business_id;
       } else {
         // If no business_id, create one
+        const userEmail = user.email || user.user_metadata?.email || user.user_metadata?.full_name || 'unknown@example.com';
         const { data: created, error: createErr } = await supabase
           .from('businesses')
-          .insert({ name: 'My Business', website: null })
+          .insert({ 
+            name: 'My Business', 
+            website: null,
+            created_by: userEmail
+          })
           .select('id')
           .single();
         if (createErr) return res.status(403).json({ error: 'RLS prevented creating business', details: createErr });
@@ -11588,7 +11593,7 @@ app.get('/api/private-feedback', async (req, res) => {
           id,
           customer_id,
           business_id,
-          customers!inner(id, first_name, last_name, email)
+          customers!inner(id, full_name, email)
         )
       `)
       .eq('review_requests.business_id', targetBusinessId)
