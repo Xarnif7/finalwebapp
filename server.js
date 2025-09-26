@@ -673,11 +673,13 @@ app.post('/api/business/save', async (req, res) => {
       .single();
 
     console.log('Profile data:', profile);
+    console.log('User data:', { id: user.id, email: user.email });
 
     let businessId = profile?.business_id || null;
 
     if (!businessId) {
       console.log('Creating new business...');
+      console.log('Inserting with created_by:', user.email);
       // Insert business using email for created_by (matching RLS policies)
       const { data: created, error: createErr } = await supabase
         .from('businesses')
