@@ -685,8 +685,7 @@ app.post('/api/business/save', async (req, res) => {
           name: name || 'New Business', 
           website: website || null,
           created_by: user.id,
-          owner_id: user.id,
-          created_by_user_id: user.id
+          owner_id: user.id
         })
         .select('id')
         .single();
