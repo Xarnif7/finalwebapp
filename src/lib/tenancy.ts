@@ -67,17 +67,23 @@ export function useCurrentBusinessId() {
               const businessId = newBusiness.id;
               console.log('[tenancy] Created new business:', businessId);
 
-              // Create profile linked to the new business
-              const { error: profileCreateError } = await supabase
-                .from('profiles')
-                .insert({
-                  id: user.id,
-                  business_id: businessId,
-                  role: 'owner'
-                });
+              // Create profile linked to the new business via API
+              const response = await fetch('/api/business/save', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+                },
+                body: JSON.stringify({
+                  name: `${user.email?.split('@')[0] || 'User'}'s Business`,
+                  website: null,
+                  google_review_url: null
+                })
+              });
 
-              if (profileCreateError) {
-                console.error('[tenancy] Error creating profile for new business:', profileCreateError);
+              if (!response.ok) {
+                const errorData = await response.json();
+                console.error('[tenancy] Error creating profile for new business:', errorData);
                 setError('Failed to create user profile');
                 setBusinessId(null);
                 return;
