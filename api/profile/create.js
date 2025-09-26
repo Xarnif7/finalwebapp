@@ -5,104 +5,55 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Set CORS headers
-function setCorsHeaders(req, res) {
-  const origin = req.headers.origin || '';
-  const allowedOrigin = origin.includes('localhost:5173')
-    ? 'http://localhost:5173'
-    : 'https://myblipp.com';
-  
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Content-Type', 'application/json');
-}
-
 export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
-    // Handle CORS preflight requests
-    if (req.method === 'OPTIONS') {
-      setCorsHeaders(req, res);
-      res.statusCode = 204;
-      res.end();
-      return;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized: No token provided' });
     }
 
-    if (req.method !== 'POST') {
-      setCorsHeaders(req, res);
-      res.statusCode = 405;
-      res.end(JSON.stringify({ error: 'Method not allowed' }));
-      return;
-    }
-
-    // Get user from Authorization header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error('[PROFILE_CREATE] No authorization header');
-      setCorsHeaders(req, res);
-      res.statusCode = 401;
-      res.end(JSON.stringify({ error: 'auth_required' }));
-      return;
-    }
-
-    const token = authHeader.split(' ')[1];
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
     if (authError || !user) {
-      console.error('[PROFILE_CREATE] Auth error:', authError);
-      setCorsHeaders(req, res);
-      res.statusCode = 401;
-      res.end(JSON.stringify({ error: 'auth_required' }));
-      return;
+      console.error('[API] Profile creation auth error:', authError);
+      return res.status(401).json({ error: 'Unauthorized: Invalid token' });
     }
 
     const { business_id } = req.body;
-    
+
     if (!business_id) {
-      setCorsHeaders(req, res);
-      res.statusCode = 400;
-      res.end(JSON.stringify({ error: 'business_id is required' }));
-      return;
+      return res.status(400).json({ error: 'Missing business_id' });
     }
 
-    console.log('[PROFILE_CREATE] Creating profile for user:', user.id, 'business:', business_id);
+    console.log(`[API] Creating profile for user ${user.id} with business_id ${business_id}`);
 
-    // Create profile using service role (bypasses RLS)
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
       .insert({
         id: user.id,
+        user_id: user.id, // Ensure user_id is also set
+        email: user.email,
+        full_name: user.user_metadata?.full_name || user.email,
         business_id: business_id,
-        role: 'owner'
+        role: 'owner',
+        onboarding_completed: false // Set to false initially
       })
-      .select('id, business_id, role')
+      .select()
       .single();
 
-    if (profileError) {
-      console.error('[PROFILE_CREATE] Error creating profile:', profileError);
-      setCorsHeaders(req, res);
-      res.statusCode = 500;
-      res.end(JSON.stringify({ error: 'Failed to create profile', details: profileError }));
-      return;
+    if (error) {
+      console.error('[API] Error creating profile:', error);
+      return res.status(500).json({ error: 'Failed to create profile', details: error.message });
     }
 
-    console.log('[PROFILE_CREATE] Successfully created profile:', profile);
+    console.log('[API] Profile created successfully:', profile);
+    return res.status(201).json({ success: true, profile });
 
-    setCorsHeaders(req, res);
-    res.statusCode = 200;
-    res.end(JSON.stringify({ 
-      success: true, 
-      profile: profile 
-    }));
-
-  } catch (error) {
-    console.error('[PROFILE_CREATE] Error:', error);
-    setCorsHeaders(req, res);
-    res.statusCode = 500;
-    res.end(JSON.stringify({ 
-      error: 'Internal server error',
-      details: error.message 
-    }));
+  } catch (e) {
+    console.error('[API] Unexpected error in profile creation:', e);
+    return res.status(500).json({ error: 'Internal server error', details: e.message });
   }
 }
