@@ -130,6 +130,19 @@ export default async function handler(req, res) {
     const customer = reviewRequest.customers;
     const business = reviewRequest.businesses;
 
+    // Fix review link if it's in the old format
+    let reviewLink = reviewRequest.review_link;
+    if (!reviewLink || reviewLink.includes('/r/') || reviewLink === 'pending') {
+      // Generate the correct feedback collection link
+      reviewLink = `${process.env.APP_BASE_URL || 'https://myblipp.com'}/feedback/${reviewRequest.id}`;
+      
+      // Update the review request with the correct link
+      await supabase
+        .from('review_requests')
+        .update({ review_link: reviewLink })
+        .eq('id', reviewRequest.id);
+    }
+
     // Prepare message based on channel
     let message, subject;
     
@@ -145,7 +158,7 @@ export default async function handler(req, res) {
 Thank you for choosing ${business.name}! We'd love to hear about your experience.
 
 Please take a moment to share your feedback:
-${reviewRequest.review_link}
+${reviewLink}
 
 Your feedback helps us improve and serve our customers better.
 
@@ -153,7 +166,7 @@ Best regards,
 ${business.name}`;
     } else {
       // SMS
-      message = `Hi ${customerName}! Thanks for choosing ${business.name}. How was your experience? Share feedback: ${reviewRequest.review_link}`;
+      message = `Hi ${customerName}! Thanks for choosing ${business.name}. How was your experience? Share feedback: ${reviewLink}`;
     }
 
     let sendResult;
