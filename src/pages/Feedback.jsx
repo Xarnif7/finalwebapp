@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { MessageCircle, Settings, Eye, Code } from 'lucide-react';
 import PrivateFeedbackInbox from '../components/feedback/PrivateFeedbackInbox';
+import FeedbackFormSetup from '../components/feedback/FeedbackFormSetup';
 
 const Feedback = () => {
   const location = useLocation();
@@ -38,48 +39,7 @@ const Feedback = () => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'form-setup':
-        return (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg border p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Feedback Form Preview</h3>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <MessageCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <p className="text-gray-500">Form preview will appear here</p>
-                <p className="text-sm text-gray-400 mt-2">Configure your branded feedback form settings below</p>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg border p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Form Settings</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Form Title</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="How was your experience?"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Branding Color</label>
-                  <input 
-                    type="color" 
-                    className="w-20 h-10 border border-gray-300 rounded-md"
-                    defaultValue="#3B82F6"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Custom Message</label>
-                  <textarea 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={3}
-                    placeholder="Thank you for your feedback..."
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+        return <FeedbackFormSetup />;
 
       case 'collected':
         return <PrivateFeedbackInbox />;

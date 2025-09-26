@@ -44,11 +44,12 @@ export default function FeedbackCollectionStandalone() {
         return;
       }
 
-      // Get business data using the business_id
+      // Get business data from review_sources table
       const { data: businessData, error: businessError } = await supabase
-        .from('businesses')
-        .select('id, name, website, google_place_id, google_review_url')
-        .eq('id', reviewData.business_id)
+        .from('review_sources')
+        .select('business_name, public_url, external_id')
+        .eq('business_id', reviewData.business_id)
+        .eq('platform', 'google')
         .single();
 
       if (businessError || !businessData) {
@@ -57,7 +58,16 @@ export default function FeedbackCollectionStandalone() {
         return;
       }
 
-      setBusiness(businessData);
+      // Transform the data to match expected structure
+      const transformedBusiness = {
+        id: reviewData.business_id,
+        name: businessData.business_name,
+        website: businessData.public_url,
+        google_place_id: businessData.external_id,
+        google_review_url: businessData.public_url
+      };
+
+      setBusiness(transformedBusiness);
     } catch (err) {
       console.error('Error fetching business data:', err);
       setError('Failed to load business information');

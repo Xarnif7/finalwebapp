@@ -49,8 +49,7 @@ export default function PrivateFeedbackInbox() {
         customer_name: item.review_requests?.customers ? 
           `${item.review_requests.customers.first_name || ''} ${item.review_requests.customers.last_name || ''}`.trim() || 
           'Unknown Customer' : 'Unknown Customer',
-        customer_email: item.review_requests?.customers?.email || '',
-        business_name: item.review_requests?.businesses?.name || 'Unknown Business'
+        customer_email: item.review_requests?.customers?.email || ''
       }));
       setFeedback(transformedFeedback);
     } catch (err) {

@@ -11349,8 +11349,7 @@ app.get('/api/private-feedback', async (req, res) => {
         review_requests!inner(
           id,
           customer_id,
-          customers!inner(id, first_name, last_name, email),
-          businesses!inner(id, name)
+          customers!inner(id, first_name, last_name, email)
         )
       `)
       .eq('review_requests.business_id', targetBusinessId)
