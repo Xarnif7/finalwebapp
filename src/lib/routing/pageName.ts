@@ -87,9 +87,9 @@ export function getPageNameFromPath(pathname: string): string {
     return 'QRRedirect';
   }
   
-  // Handle private feedback (feedback/{requestId})
+  // Handle feedback collection (feedback/{requestId}) - public customer page
   if (normalizedPath.includes('/feedback/')) {
-    return 'PrivateFeedback';
+    return 'FeedbackCollection';
   }
   
   // Convert kebab-case to PascalCase for matching
