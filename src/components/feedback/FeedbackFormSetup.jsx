@@ -30,37 +30,17 @@ export default function FeedbackFormSetup() {
   const loadFormSettings = async () => {
     try {
       setLoading(true);
-      
-      // Get user's session
+      // Get user's business_id to read settings (or later provide via GET with business_id)
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        return;
-      }
-
-      // Get user's business_id
       const { data: profile } = await supabase
         .from('profiles')
         .select('business_id')
-        .eq('user_id', session.user.id)
+        .eq('user_id', session?.user?.id)
         .single();
-
-      if (!profile?.business_id) {
-        return;
-      }
-
-      // Load form settings from database (if they exist)
-      const { data: settings } = await supabase
-        .from('feedback_form_settings')
-        .select('*')
-        .eq('business_id', profile.business_id)
-        .single();
-
-      if (settings) {
-        setFormSettings({
-          ...formSettings,
-          ...settings.settings
-        });
-      }
+      if (!profile?.business_id) { setLoading(false); return; }
+      const resp = await fetch(`/api/feedback-form-settings?business_id=${profile.business_id}`);
+      const result = await resp.json();
+      if (result?.settings) setFormSettings({ ...formSettings, ...result.settings });
     } catch (err) {
       console.error('Error loading form settings:', err);
     } finally {
@@ -71,41 +51,18 @@ export default function FeedbackFormSetup() {
   const saveFormSettings = async () => {
     try {
       setSaving(true);
-      
-      // Get user's session
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        return;
-      }
-
-      // Get user's business_id
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('business_id')
-        .eq('user_id', session.user.id)
-        .single();
-
-      if (!profile?.business_id) {
-        return;
-      }
-
-      // Save form settings to database
-      const { error } = await supabase
-        .from('feedback_form_settings')
-        .upsert({
-          business_id: profile.business_id,
-          settings: formSettings,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) {
-        throw error;
-      }
-
+      const resp = await fetch('/api/feedback-form-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
+        body: JSON.stringify({ settings: formSettings })
+      });
+      const result = await resp.json();
+      if (!resp.ok) throw (result || { error: 'Failed to save form settings' });
       alert('Form settings saved successfully!');
     } catch (err) {
       console.error('Error saving form settings:', err);
-      alert('Error saving form settings: ' + err.message);
+      alert('Error saving form settings: ' + (err.message || err.error));
     } finally {
       setSaving(false);
     }

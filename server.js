@@ -654,6 +654,97 @@ app.get('/api/debug-customers', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 });
+
+// Securely save business name/website and link profile
+app.post('/api/business/save', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { name, website } = req.body || {};
+
+    // Get or create business_id from profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('user_id', user.id)
+      .single();
+
+    let businessId = profile?.business_id || null;
+
+    if (!businessId) {
+      // Insert business (service role will enforce RLS bypass; here we rely on public client so ensure RLS allows owner insert or use RPC)
+      const { data: created, error: createErr } = await supabase
+        .from('businesses')
+        .insert({ name: name || 'New Business', website: website || null })
+        .select('id')
+        .single();
+      if (createErr) return res.status(403).json({ error: 'RLS prevented creating business', details: createErr });
+      businessId = created.id;
+      await supabase.from('profiles').update({ business_id: businessId }).eq('user_id', user.id);
+    } else {
+      const { error: upErr } = await supabase
+        .from('businesses')
+        .update({ name: name || null, website: website || null })
+        .eq('id', businessId);
+      if (upErr) return res.status(403).json({ error: 'RLS prevented updating business', details: upErr });
+    }
+
+    res.json({ success: true, business_id: businessId });
+  } catch (e) {
+    console.error('Business save error', e);
+    res.status(500).json({ error: 'Failed to save business' });
+  }
+});
+
+// Feedback form settings API
+app.get('/api/feedback-form-settings', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+    if (!business_id) return res.status(400).json({ error: 'business_id required' });
+    const { data, error } = await supabase
+      .from('feedback_form_settings')
+      .select('settings')
+      .eq('business_id', business_id)
+      .maybeSingle();
+    if (error) throw error;
+    res.json({ success: true, settings: data?.settings || null });
+  } catch (e) {
+    console.error('Load form settings error', e);
+    res.status(500).json({ error: 'Failed to load form settings' });
+  }
+});
+
+app.post('/api/feedback-form-settings', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { settings } = req.body || {};
+    // Resolve business_id from profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('user_id', user.id)
+      .single();
+    const businessId = profile?.business_id;
+    if (!businessId) return res.status(400).json({ error: 'No business linked' });
+
+    const { error } = await supabase
+      .from('feedback_form_settings')
+      .upsert({ business_id: businessId, settings: settings || {}, updated_at: new Date().toISOString() })
+      .select('business_id')
+      .single();
+    if (error) throw error;
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Save form settings error', e);
+    res.status(500).json({ error: 'Failed to save form settings' });
+  }
+});
 app.post('/api/zapier/upsert-customer', async (req, res) => {
   try {
     // Validate Zapier token (check both header and URL param)
@@ -8679,7 +8770,6 @@ app.post('/api/crm/jobber/connect', async (req, res) => {
     });
   }
 });
-
 app.get('/api/crm/jobber/callback', async (req, res) => {
   try {
     console.log('Jobber callback received:', req.query);
@@ -9468,7 +9558,6 @@ Thank you for choosing ${business.name}! We would really appreciate if you could
 ${reviewLink}
 
 Your feedback helps us improve and serve our customers better.
-
 Best regards,
 ${business.name}`;
     } else {
@@ -10255,7 +10344,6 @@ app.get('/api/reviews/templates', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 // Create response template
 app.post('/api/reviews/templates', async (req, res) => {
   try {
@@ -10970,7 +11058,6 @@ Format your response as JSON:
     res.status(500).json({ error: 'Failed to classify review: ' + error.message });
   }
 });
-
 // Start server
 // Connect a review source
 app.post('/api/reviews/connect-source', async (req, res) => {

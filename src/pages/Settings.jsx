@@ -222,42 +222,21 @@ const BusinessSettings = () => {
     const saveBusiness = async () => {
         try {
             setLoading(true);
-            // Find current business_id
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('business_id')
-                .eq('user_id', user.id)
-                .single();
-
-            let businessId = profile?.business_id || null;
-
-            // If no business linked, create one then link it
-            if (!businessId) {
-                const { data: created, error: createErr } = await supabase
-                    .from('businesses')
-                    .insert({ name: businessName || 'New Business', website: website || null })
-                    .select('id')
-                    .single();
-                if (createErr) throw createErr;
-                businessId = created.id;
-                await supabase
-                    .from('profiles')
-                    .update({ business_id: businessId })
-                    .eq('user_id', user.id);
-            }
-
-            // Upsert details
-            const { error } = await supabase
-                .from('businesses')
-                .upsert({ id: businessId, name: businessName || null, website: website || null })
-                .select('id')
-                .single();
-
-            if (error) throw error;
+            const { data: { session } } = await supabase.auth.getSession();
+            const resp = await fetch('/api/business/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token || ''}`
+                },
+                body: JSON.stringify({ name: businessName, website })
+            });
+            const result = await resp.json();
+            if (!resp.ok) throw (result || { error: 'Failed to save' });
             toast({ title: 'Saved', description: 'Business details updated.' });
         } catch (e) {
             console.error('Save business error', e);
-            toast({ title: 'Error', description: e.message || 'Failed to save', variant: 'destructive' });
+            toast({ title: 'Error', description: e.message || e.error || 'Failed to save', variant: 'destructive' });
         } finally {
             setLoading(false);
         }
