@@ -913,11 +913,14 @@ export default function TemplateCustomizer({
                   <Label className="text-sm font-medium">Insert Variables</Label>
                   <div className="flex flex-wrap gap-2">
                     {[
-                      { key: '{{customer.name}}', label: 'Customer Name', icon: User },
-                      { key: '{{review_link}}', label: 'Review Link', icon: Link },
-                      { key: '{{business.name}}', label: 'Business Name', icon: Building },
+                      { key: '{{customer.first_name}}', label: 'Customer First Name', icon: User },
+                      { key: '{{customer.last_name}}', label: 'Customer Last Name', icon: User },
+                      { key: '{{customer.full_name}}', label: 'Customer Full Name', icon: User },
+                      { key: '{{company_name}}', label: 'Company Name', icon: Building },
+                      { key: '{{company_website}}', label: 'Company Website', icon: Link },
                       { key: '{{service_date}}', label: 'Service Date', icon: Calendar },
-                      { key: '{{amount}}', label: 'Amount', icon: Star }
+                      { key: '{{amount}}', label: 'Amount', icon: Star },
+                      { key: '{{review_link}}', label: 'Review Link (legacy)', icon: Link }
                     ].map((variable) => (
                       <Button
                         key={variable.key}

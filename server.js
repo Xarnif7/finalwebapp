@@ -654,7 +654,6 @@ app.get('/api/debug-customers', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 });
-
 app.post('/api/zapier/upsert-customer', async (req, res) => {
   try {
     // Validate Zapier token (check both header and URL param)
@@ -1417,7 +1416,6 @@ async function createScheduledJobWithDeduplication(businessId, templateId, runAt
     return { success: false, error: error.message };
   }
 }
-
 // Provision default templates for a business
 async function provisionDefaultTemplates(businessId) {
   try {
@@ -2133,7 +2131,7 @@ app.put('/api/templates/:template_id/status', async (req, res) => {
             for (const days of followUpDays) {
               const followUpTime = new Date(serviceDate);
               followUpTime.setDate(followUpTime.getDate() + days);
-              
+
               const followUpPayload = {
                 ...mainJobPayload,
                 reminder_type: 'followup',
@@ -2193,7 +2191,6 @@ app.put('/api/templates/:template_id/status', async (req, res) => {
     });
   }
 });
-
 // API endpoint to fetch active sequences
 // Add alias for the frontend hook
 app.get('/api/active-sequences/:businessId', async (req, res) => {
@@ -2944,7 +2941,6 @@ async function checkQuietHours(business, businessId) {
     return { allowed: true }; // Default to allowing if check fails
   }
 }
-
 // Rate limiting checking
 async function checkRateLimits(template, businessId) {
   try {
@@ -3742,7 +3738,6 @@ app.get('/api/health', async (req, res) => {
     });
   }
 });
-
 // API endpoint to test provisionDefaultTemplates
 app.post('/api/templates/provision-defaults', async (req, res) => {
   try {
@@ -4333,7 +4328,6 @@ function checkFailureThreshold(businessId) {
   }
   return false;
 }
-
 // Defaults initialization function
 async function initializeDefaultsForBusiness(businessId) {
   try {
@@ -4955,8 +4949,6 @@ async function checkExitRules(enrollment, businessId) {
     return { shouldStop: false, reason: null };
   }
 }
-
-
 // Process a message step (send_email or send_sms)
 async function processMessageStep(enrollment, sequence, business, currentStep, channel, now) {
   try {
@@ -5693,7 +5685,6 @@ app.post('/api/sequences/:id/resume', async (req, res) => {
     res.status(500).json({ ok: false, error: 'Internal server error' });
   }
 });
-
 app.post('/api/sequences/:id/duplicate', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -6456,7 +6447,6 @@ app.get('/api/message-templates', async (req, res) => {
     res.status(500).json({ ok: false, error: 'Internal server error' });
   }
 });
-
 // Test send message
 app.post('/api/sequences/:id/test-send', async (req, res) => {
   try {
@@ -7203,7 +7193,6 @@ app.post('/api/zapier/generate-token', async (req, res) => {
     res.status(500).json({ ok: false, error: 'Internal server error' });
   }
 });
-
 // Auto-enrollment helper function
 async function handleAutoEnrollment(businessId, customers, autoEnrollParams, userId) {
   const { sequenceId, backfillWindow, requireServiceDate } = autoEnrollParams;
@@ -7987,7 +7976,6 @@ app.get('/api/business-integrations', async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
-
 // Cron endpoint for automation execution
 app.post('/api/_cron/automation-executor', async (req, res) => {
   try {
@@ -8075,13 +8063,33 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
           if (!reviewLink || reviewLink.includes('/r/') || reviewLink === 'pending') {
             // Generate the correct feedback collection link
             reviewLink = `${process.env.APP_BASE_URL || 'https://myblipp.com'}/feedback/${reviewRequest.id}`;
-            
-            // Update the review request with the correct link
-            await supabase
-              .from('review_requests')
-              .update({ review_link: reviewLink })
-              .eq('id', reviewRequest.id);
+            await supabase.from('review_requests').update({ review_link: reviewLink }).eq('id', reviewRequest.id);
           }
+
+          // Resolve business name/website (prefer businesses table, fallback to review_sources)
+          let companyName = reviewRequest?.businesses?.name || 'Our Business';
+          let companyWebsite = null;
+          try {
+            const { data: biz } = await supabase
+              .from('businesses')
+              .select('id, name, website')
+              .eq('id', reviewRequest.business_id)
+              .maybeSingle();
+            if (biz) {
+              companyName = biz.name || companyName;
+              companyWebsite = biz.website || null;
+            }
+            if (!companyWebsite) {
+              const { data: source } = await supabase
+                .from('review_sources')
+                .select('public_url, business_name')
+                .eq('business_id', reviewRequest.business_id)
+                .eq('platform', 'google')
+                .maybeSingle();
+              companyWebsite = source?.public_url || companyWebsite;
+              companyName = biz?.name || source?.business_name || companyName;
+            }
+          } catch (_) {}
 
           if (reviewRequest && reviewRequest.customers && reviewRequest.customers.email) {
             console.log(`📧 Sending automation email for job ${job.id} to ${reviewRequest.customers.email}`);
@@ -8101,18 +8109,22 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             // Process the message to replace variables
             let processedMessage = reviewRequest.message || 'Thank you for your business! Please consider leaving us a review.';
             
-            // Construct customer name from first_name and last_name
-            const customerName = reviewRequest.customers.first_name && reviewRequest.customers.last_name 
-              ? `${reviewRequest.customers.first_name} ${reviewRequest.customers.last_name}`
-              : reviewRequest.customers.first_name || reviewRequest.customers.last_name || 'Customer';
+            const firstName = reviewRequest.customers.first_name || '';
+            const lastName = reviewRequest.customers.last_name || '';
+            const customerName = (firstName && lastName) ? `${firstName} ${lastName}` : (firstName || lastName || 'Customer');
 
-            // Replace common variables
+            // Replace common variables (add company_* and granular customer names)
             processedMessage = processedMessage
               .replace(/\{\{review_link\}\}/g, reviewLink)
               .replace(/\{\{customer\.name\}\}/g, customerName)
               .replace(/\{\{customer_name\}\}/g, customerName)
-              .replace(/\{\{business\.name\}\}/g, reviewRequest.businesses.name || 'Our Business')
-              .replace(/\{\{business_name\}\}/g, reviewRequest.businesses.name || 'Our Business');
+              .replace(/\{\{customer\.first_name\}\}/g, firstName)
+              .replace(/\{\{customer\.last_name\}\}/g, lastName)
+              .replace(/\{\{customer\.full_name\}\}/g, customerName)
+              .replace(/\{\{business\.name\}\}/g, companyName)
+              .replace(/\{\{business_name\}\}/g, companyName)
+              .replace(/\{\{company_name\}\}/g, companyName)
+              .replace(/\{\{company_website\}\}/g, companyWebsite || '');
 
             console.log('📝 Original message:', reviewRequest.message);
             console.log('📝 Processed message:', processedMessage);
@@ -8127,7 +8139,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
               body: JSON.stringify({
                 from: 'Blipp <noreply@myblipp.com>',
                 to: [reviewRequest.customers.email],
-                subject: `Thanks for choosing ${reviewRequest.businesses.name}!`,
+                subject: `Thanks for choosing ${companyName}!`,
                 html: `
                   <!DOCTYPE html>
                   <html>
@@ -8169,14 +8181,14 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                         <div style="text-align: center; margin: 35px 0;">
                           <a href="${reviewLink}" 
                              style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); transition: all 0.2s ease;">
-                            Leave a Review
+                            Leave Feedback
                           </a>
                         </div>
                         
                         <div style="border-top: 1px solid #e2e8f0; margin: 35px 0 25px 0;"></div>
                         
                         <p style="color: #64748b; margin: 0; font-size: 14px; text-align: center;">
-                          Thank you for choosing <strong style="color: #1e293b;">${reviewRequest.businesses.name}</strong>
+                          Thank you for choosing <strong style="color: #1e293b;">${companyName}</strong>${companyWebsite ? ` • <a href="${companyWebsite}" style="color: #3b82f6; text-decoration: none;">Website</a>` : ''}
                         </p>
                       </div>
                       
@@ -8186,7 +8198,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                           This email was sent by Blipp - Review Automation Platform
                         </p>
                         <p style="color: #94a3b8; margin: 5px 0 0 0; font-size: 12px;">
-                          If you have any questions, please contact ${reviewRequest.businesses.name} directly.
+                          If you have any questions, please contact ${companyName} directly.
                         </p>
                       </div>
                       
@@ -8775,7 +8787,6 @@ app.get('/api/crm/jobber/callback', async (req, res) => {
     res.redirect(redirectUrl);
   }
 });
-
 app.get('/api/crm/jobber/status', async (req, res) => {
   try {
     const { business_id } = req.query;
@@ -9543,7 +9554,6 @@ ${business.name}`;
 // ============================================================================
 // AUTOMATION PROCESSOR
 // ============================================================================
-
 // Process scheduled jobs (can be called by cron or manually)
 app.post('/api/cron/process-scheduled-jobs', async (req, res) => {
   try {
@@ -10325,7 +10335,6 @@ app.put('/api/reviews/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 // Feedback Cases API
 app.get('/api/feedback/cases', async (req, res) => {
   try {
@@ -11093,7 +11102,6 @@ app.get('/api/reviews/sources', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch review sources' });
   }
 });
-
 // Disconnect review source and delete all associated reviews
 app.delete('/api/reviews/disconnect-source', async (req, res) => {
   try {
