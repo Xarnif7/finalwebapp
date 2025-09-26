@@ -76,10 +76,58 @@ export function useCurrentBusinessId() {
                 setError(null);
                 console.log('[tenancy] Successfully created profile for existing business');
               } else {
-                // No business exists - let other hooks handle business creation
-                console.log('[tenancy] No existing business found - business creation will be handled by onboarding or other hooks');
-                setError('No business found. Please complete onboarding first.');
-                setBusinessId(null);
+                // No business exists - create one automatically
+                console.log('[tenancy] No existing business found - creating new business and profile automatically');
+                
+                try {
+                  // Create a new business
+                  const { data: newBusiness, error: businessCreateError } = await supabase
+                    .from('businesses')
+                    .insert({
+                      name: `${user.email?.split('@')[0] || 'User'}'s Business`,
+                      created_by: user.email,
+                      industry: 'General',
+                      address: 'Unknown',
+                      phone: '',
+                      email: user.email
+                    })
+                    .select('id')
+                    .single();
+
+                  if (businessCreateError) {
+                    console.error('[tenancy] Error creating business:', businessCreateError);
+                    setError('Failed to create business');
+                    setBusinessId(null);
+                    return;
+                  }
+
+                  const businessId = newBusiness.id;
+                  console.log('[tenancy] Created new business:', businessId);
+
+                  // Create profile linked to the new business
+                  const { error: profileCreateError } = await supabase
+                    .from('profiles')
+                    .insert({
+                      id: user.id,
+                      business_id: businessId,
+                      role: 'owner'
+                    });
+
+                  if (profileCreateError) {
+                    console.error('[tenancy] Error creating profile for new business:', profileCreateError);
+                    setError('Failed to create user profile');
+                    setBusinessId(null);
+                    return;
+                  }
+
+                  setBusinessId(businessId);
+                  setError(null);
+                  console.log('[tenancy] Successfully created business and profile automatically');
+                } catch (createErr) {
+                  console.error('[tenancy] Error during automatic business creation:', createErr);
+                  setError('Failed to set up account automatically');
+                  setBusinessId(null);
+                }
               }
             } catch (createErr) {
               console.error('[tenancy] Error during profile creation:', createErr);

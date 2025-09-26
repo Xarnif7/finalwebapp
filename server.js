@@ -689,7 +689,11 @@ app.post('/api/business/save', async (req, res) => {
           name: name || 'New Business', 
           website: website || null,
           google_review_url: google_review_url || null,
-          created_by: userEmail
+          created_by: userEmail,
+          industry: 'General',
+          address: 'Unknown',
+          phone: '',
+          email: user.email
         })
         .select('id')
         .single();
