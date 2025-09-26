@@ -44,6 +44,7 @@ export function useCurrentBusinessId() {
             
             try {
               // Create a new business
+              console.log('[tenancy] Starting business creation...');
               const { data: newBusiness, error: businessCreateError } = await supabase
                 .from('businesses')
                 .insert({
@@ -57,9 +58,18 @@ export function useCurrentBusinessId() {
                 .select('id')
                 .single();
 
+              console.log('[tenancy] Business creation result:', { newBusiness, businessCreateError });
+
               if (businessCreateError) {
                 console.error('[tenancy] Error creating business:', businessCreateError);
                 setError('Failed to create business');
+                setBusinessId(null);
+                return;
+              }
+
+              if (!newBusiness || !newBusiness.id) {
+                console.error('[tenancy] Business created but no ID returned:', newBusiness);
+                setError('Business created but no ID returned');
                 setBusinessId(null);
                 return;
               }
@@ -68,6 +78,7 @@ export function useCurrentBusinessId() {
               console.log('[tenancy] Created new business:', businessId);
 
               // Create profile linked to the new business via API
+              console.log('[tenancy] Creating profile for business:', businessId);
               const response = await fetch('/api/profile/create', {
                 method: 'POST',
                 headers: {
@@ -79,6 +90,8 @@ export function useCurrentBusinessId() {
                 })
               });
 
+              console.log('[tenancy] Profile creation response status:', response.status);
+
               if (!response.ok) {
                 const errorData = await response.json();
                 console.error('[tenancy] Error creating profile for new business:', errorData);
@@ -86,6 +99,9 @@ export function useCurrentBusinessId() {
                 setBusinessId(null);
                 return;
               }
+
+              const profileData = await response.json();
+              console.log('[tenancy] Profile creation successful:', profileData);
 
               setBusinessId(businessId);
               setError(null);
