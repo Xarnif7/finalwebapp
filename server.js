@@ -8182,6 +8182,19 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             }
           } catch (_) {}
 
+          // Get form settings for this business
+          let formSettings = {};
+          try {
+            const { data: settings } = await supabase
+              .from('feedback_form_settings')
+              .select('settings')
+              .eq('business_id', reviewRequest.business_id)
+              .maybeSingle();
+            if (settings?.settings) {
+              formSettings = settings.settings;
+            }
+          } catch (_) {}
+
           if (reviewRequest && reviewRequest.customers && reviewRequest.customers.email) {
             console.log(`📧 Sending automation email for job ${job.id} to ${reviewRequest.customers.email}`);
             
@@ -8230,7 +8243,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
               body: JSON.stringify({
                 from: 'Blipp <noreply@myblipp.com>',
                 to: [reviewRequest.customers.email],
-                subject: `Thanks for choosing ${companyName}!`,
+                subject: formSettings.email_subject || `Thanks for choosing ${companyName}!`,
                 html: `
                   <!DOCTYPE html>
                   <html>
@@ -8245,10 +8258,10 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                       <!-- Header -->
                       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
                         <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">
-                          Thank You
+                          ${formSettings.email_header || 'Thank You'}
                         </h1>
                         <p style="color: #e2e8f0; margin: 10px 0 0 0; font-size: 16px; font-weight: 300;">
-                          We appreciate your business
+                          ${formSettings.email_subheader || 'We appreciate your business'}
                         </p>
                       </div>
                       
@@ -8260,7 +8273,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                         
                         <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
                           <p style="color: #334155; margin: 0; font-size: 16px; line-height: 1.6;">
-                            ${processedMessage}
+                            ${formSettings.email_message || processedMessage}
                           </p>
                         </div>
                         
@@ -8272,7 +8285,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                         <div style="text-align: center; margin: 35px 0;">
                           <a href="${reviewLink}" 
                              style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); transition: all 0.2s ease;">
-                            Leave Feedback
+                            ${formSettings.email_button_text || 'Leave Feedback'}
                           </a>
                         </div>
                         
@@ -11444,6 +11457,7 @@ app.get('/api/private-feedback', async (req, res) => {
         review_requests!inner(
           id,
           customer_id,
+          business_id,
           customers!inner(id, first_name, last_name, email)
         )
       `)

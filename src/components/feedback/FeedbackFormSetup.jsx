@@ -17,7 +17,12 @@ export default function FeedbackFormSetup() {
     successMessagePositive: 'Thanks for your feedback! Would you also share it publicly?',
     successMessageNegative: 'Thanks for your feedback! Our team will review this privately and work to improve your experience.',
     showCommentField: true,
-    showRatingLabels: true
+    showRatingLabels: true,
+    email_subject: 'Thanks for choosing our business!',
+    email_header: 'Thank You',
+    email_subheader: 'We appreciate your business',
+    email_message: 'We hope you had a great experience with us! Your feedback is incredibly valuable and helps us continue to provide excellent service.',
+    email_button_text: 'Leave Feedback'
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -282,6 +287,65 @@ export default function FeedbackFormSetup() {
                 onChange={(e) => handleInputChange('successMessageNegative', e.target.value)}
                 placeholder="Thanks for your feedback! Our team will review this privately and work to improve your experience."
                 rows={2}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Email Template Settings */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Email Template Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="email_subject">Email Subject</Label>
+              <Input
+                id="email_subject"
+                value={formSettings.email_subject}
+                onChange={(e) => handleInputChange('email_subject', e.target.value)}
+                placeholder="Thanks for choosing our business!"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email_header">Email Header</Label>
+              <Input
+                id="email_header"
+                value={formSettings.email_header}
+                onChange={(e) => handleInputChange('email_header', e.target.value)}
+                placeholder="Thank You"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email_subheader">Email Subheader</Label>
+              <Input
+                id="email_subheader"
+                value={formSettings.email_subheader}
+                onChange={(e) => handleInputChange('email_subheader', e.target.value)}
+                placeholder="We appreciate your business"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email_message">Email Message</Label>
+              <Textarea
+                id="email_message"
+                value={formSettings.email_message}
+                onChange={(e) => handleInputChange('email_message', e.target.value)}
+                placeholder="We hope you had a great experience with us! Your feedback is incredibly valuable and helps us continue to provide excellent service."
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email_button_text">Email Button Text</Label>
+              <Input
+                id="email_button_text"
+                value={formSettings.email_button_text}
+                onChange={(e) => handleInputChange('email_button_text', e.target.value)}
+                placeholder="Leave Feedback"
               />
             </div>
           </CardContent>
