@@ -673,20 +673,22 @@ app.post('/api/business/save', async (req, res) => {
       .single();
 
     console.log('Profile data:', profile);
-    console.log('User data:', { id: user.id, email: user.email });
+    console.log('User data:', { id: user.id, email: user.email, user_metadata: user.user_metadata });
 
     let businessId = profile?.business_id || null;
 
     if (!businessId) {
       console.log('Creating new business...');
-      console.log('Inserting with created_by:', user.email);
+      // Use email from user_metadata if user.email is undefined
+      const userEmail = user.email || user.user_metadata?.email || user.user_metadata?.full_name || 'unknown@example.com';
+      console.log('Inserting with created_by:', userEmail);
       // Insert business using email for created_by (matching RLS policies)
       const { data: created, error: createErr } = await supabase
         .from('businesses')
         .insert({ 
           name: name || 'New Business', 
           website: website || null,
-          created_by: user.email
+          created_by: userEmail
         })
         .select('id')
         .single();
@@ -758,12 +760,13 @@ app.post('/api/feedback-form-settings', async (req, res) => {
     
     // If no business_id, create one
     if (!businessId) {
+      const userEmail = user.email || user.user_metadata?.email || user.user_metadata?.full_name || 'unknown@example.com';
       const { data: created, error: createErr } = await supabase
         .from('businesses')
         .insert({ 
           name: 'My Business', 
           website: null,
-          created_by: user.email
+          created_by: userEmail
         })
         .select('id')
         .single();
@@ -830,7 +833,7 @@ app.post('/api/send-followup-email', async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'Blipp <noreply@myblipp.com>',
+        from: `${businessName} <noreply@myblipp.com>`,
         to: [to],
         subject: subject,
         html: `
@@ -1271,7 +1274,7 @@ app.post('/api/zapier/event', async (req, res) => {
         .from('businesses')
         .insert({
           name: 'Default Business',
-          created_by: user.email
+          created_by: user.email || user.user_metadata?.email || 'system@blipp.com'
         })
         .select('id')
         .single();
@@ -8358,7 +8361,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                from: 'Blipp <noreply@myblipp.com>',
+                from: `${companyName} <noreply@myblipp.com>`,
                 to: [reviewRequest.customers.email],
                 subject: formSettings.email_subject || `Thanks for choosing ${companyName}!`,
                 html: `
