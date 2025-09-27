@@ -96,6 +96,7 @@ export default async function handler(req, res) {
     }
     
     console.log('[SUBSCRIPTION_STATUS] Cookie check:', { granted, grantedUserId, currentUserId: user.id, cookies: cookies.substring(0, 50) + '...' });
+    console.log('[SUBSCRIPTION_STATUS] User ID:', user.id);
 
     // Query for active or trialing subscription - optimized query
     const { data: subscription, error } = await supabase
@@ -103,7 +104,9 @@ export default async function handler(req, res) {
       .select('status, plan_tier')
       .eq('user_id', user.id)
       .in('status', ['active', 'trialing'])
-      .single();
+      .maybeSingle();
+
+    console.log('[SUBSCRIPTION_STATUS] Subscription query result:', { subscription, error });
 
     if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
       console.error('[SUBSCRIPTION_STATUS] Database error:', error);
@@ -140,6 +143,8 @@ export default async function handler(req, res) {
       onboarding_completed: profile?.onboarding_completed || false,
       cookie: granted
     };
+
+    console.log('[SUBSCRIPTION_STATUS] Final result:', result);
 
     console.log('[SUBSCRIPTION_STATUS] Final result:', {
       user_id: user.id,
