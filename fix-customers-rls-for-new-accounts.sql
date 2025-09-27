@@ -61,6 +61,10 @@ DROP POLICY IF EXISTS "Users can view their own businesses" ON businesses;
 DROP POLICY IF EXISTS "Users can insert their own businesses" ON businesses;
 DROP POLICY IF EXISTS "Users can update their own businesses" ON businesses;
 DROP POLICY IF EXISTS "Users can delete their own businesses" ON businesses;
+DROP POLICY IF EXISTS "Users can view their businesses" ON businesses;
+DROP POLICY IF EXISTS "Users can insert their businesses" ON businesses;
+DROP POLICY IF EXISTS "Users can update their businesses" ON businesses;
+DROP POLICY IF EXISTS "Users can delete their businesses" ON businesses;
 
 CREATE POLICY "Users can view their businesses" ON businesses
 FOR SELECT USING (
