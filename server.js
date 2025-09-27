@@ -4071,9 +4071,10 @@ app.post('/api/templates/reset-defaults', async (req, res) => {
 // AI API Routes
 // AI message generation
 app.post('/api/ai/generate-message', async (req, res) => {
+  // Extract variables at function scope level
+  const { template_name, template_type, business_id, automation_type } = req.body || {};
+  
   try {
-    const { template_name, template_type, business_id, automation_type } = req.body;
-
     if (!template_name || !business_id) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -4104,16 +4105,16 @@ app.post('/api/ai/generate-message', async (req, res) => {
         'job_completed': `Create a professional follow-up email ${businessContext} after a job/service is completed. The message should:
         - Thank the customer for choosing the business
         - Express hope that they were satisfied with the service
-        - Politely request a review
-        - Include {{customer.name}} and {{review_link}} variables
+        - Mention that their feedback is valuable
+        - Include {{customer.name}} variable
         - Be warm but professional
         - Keep it concise (2-3 sentences)`,
         
         'invoice_paid': `Create a professional thank you email ${businessContext} after an invoice is paid. The message should:
         - Thank the customer for their payment
         - Express appreciation for their business
-        - Politely request a review
-        - Include {{customer.name}} and {{review_link}} variables
+        - Mention that their feedback is valuable
+        - Include {{customer.name}} variable
         - Be warm but professional
         - Keep it concise (2-3 sentences)`,
         
@@ -4198,9 +4199,7 @@ app.post('/api/ai/generate-message', async (req, res) => {
     if (!finalMessage.includes('{{customer.name}}')) {
       finalMessage = `{{customer.name}}, ${finalMessage}`;
     }
-    if (!finalMessage.includes('{{review_link}}') && (template_type === 'job_completed' || template_type === 'invoice_paid')) {
-      finalMessage += ' Please leave us a review at {{review_link}}.';
-    }
+    // No need to add review_link since email has Leave Review button
 
     console.log('[AI] Sending successful response:', {
       template_name,
@@ -4226,13 +4225,13 @@ app.post('/api/ai/generate-message', async (req, res) => {
     
     // Fallback to default message if AI fails
     const fallbackMessages = {
-      'job_completed': 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review at {{review_link}}.',
-      'invoice_paid': 'Thank you for your payment, {{customer.name}}! We appreciate your business. Please consider leaving us a review at {{review_link}}.',
+      'job_completed': 'Thank you for choosing us! We hope you were satisfied with our service. Your feedback helps us continue to provide excellent service.',
+      'invoice_paid': 'Thank you for your payment, {{customer.name}}! We appreciate your business and look forward to serving you again.',
       'service_reminder': 'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!'
     };
 
     const fallbackMessage = fallbackMessages[template_type || 'job_completed'] || 
-      'Thank you for your business! Please leave us a review at {{review_link}}.';
+      'Thank you for your business! Your feedback is incredibly valuable and helps us continue to provide excellent service.';
 
     res.status(200).json({
       success: true,
@@ -4247,9 +4246,10 @@ app.post('/api/ai/generate-message', async (req, res) => {
 
 // AI message enhancement
 app.post('/api/ai/enhance-message', async (req, res) => {
+  // Extract variables at function scope level
+  const { current_message, template_name, template_type, business_id } = req.body || {};
+  
   try {
-    const { current_message, template_name, template_type, business_id } = req.body;
-
     if (!current_message || !business_id) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
