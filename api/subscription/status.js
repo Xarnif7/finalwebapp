@@ -48,43 +48,38 @@ export default async function handler(req, res) {
     if (req.method !== 'GET') {
       setCorsHeaders(req, res);
       res.statusCode = 405;
-      res.end(JSON.stringify({ 
-        error: 'Method not allowed',
-        code: 'METHOD_NOT_ALLOWED'
-      }));
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
       return;
     }
 
-    // Get user from Authorization header
+    // Get authorization header
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error('[SUBSCRIPTION_STATUS] No authorization header');
       setCorsHeaders(req, res);
       res.statusCode = 401;
       res.end(JSON.stringify({ 
-        error: 'auth_required',
-        code: 'NO_AUTH_HEADER'
+        error: 'Authorization header required',
+        code: 'AUTH_REQUIRED'
       }));
       return;
     }
 
-    const token = authHeader.split(' ')[1];
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Verify token with Supabase
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      console.error('[SUBSCRIPTION_STATUS] Auth error:', authError);
       setCorsHeaders(req, res);
       res.statusCode = 401;
       res.end(JSON.stringify({ 
-        error: 'auth_required',
+        error: 'Invalid token',
         code: 'INVALID_TOKEN'
       }));
       return;
     }
 
-    console.log('[SUBSCRIPTION_STATUS] User identified:', user.id, 'at', new Date().toISOString());
-
-    // Check for temporary subscription grant cookie (user-scoped)
+    // Check for temporary subscription grant via cookie
     const cookies = req.headers.cookie || '';
     const cookieMatch = cookies.match(/sub_granted_uid=([^;]+)/);
     const grantedUserId = cookieMatch ? cookieMatch[1] : null;
@@ -94,11 +89,8 @@ export default async function handler(req, res) {
     if (cookies.includes('sub_granted=')) {
       res.setHeader('Set-Cookie', 'sub_granted=; Max-Age=0; Path=/; SameSite=Lax; Secure');
     }
-    
-    console.log('[SUBSCRIPTION_STATUS] Cookie check:', { granted, grantedUserId, currentUserId: user.id, cookies: cookies.substring(0, 50) + '...' });
-    console.log('[SUBSCRIPTION_STATUS] User ID:', user.id);
 
-    // Query for active or trialing subscription - optimized query
+    // Query for active or trialing subscription
     const { data: subscription, error } = await supabase
       .from('subscriptions')
       .select('status, plan_tier')
@@ -106,9 +98,7 @@ export default async function handler(req, res) {
       .in('status', ['active', 'trialing'])
       .maybeSingle();
 
-    console.log('[SUBSCRIPTION_STATUS] Subscription query result:', { subscription, error });
-
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+    if (error && error.code !== 'PGRST116') {
       console.error('[SUBSCRIPTION_STATUS] Database error:', error);
       setCorsHeaders(req, res);
       res.statusCode = 500;
@@ -120,7 +110,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Get onboarding completion status - optimized query
+    // Get onboarding completion status
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('onboarding_completed')
@@ -143,15 +133,6 @@ export default async function handler(req, res) {
       onboarding_completed: profile?.onboarding_completed || false,
       cookie: granted
     };
-
-    console.log('[SUBSCRIPTION_STATUS] Final result:', {
-      user_id: user.id,
-      active: result.active,
-      status: result.status,
-      plan_tier: result.plan_tier,
-      onboarding_completed: result.onboarding_completed,
-      cookie: result.cookie
-    });
     
     // Set cache headers for better performance
     res.setHeader('Cache-Control', 'private, max-age=30'); // Cache for 30 seconds
