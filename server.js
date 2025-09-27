@@ -8751,12 +8751,35 @@ app.post('/api/automation/trigger', async (req, res) => {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    // Get user's business_id using email-based lookup
-    const { data: business, error: businessError } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('created_by', user.email)
+    // Get user's business_id using profile-based lookup (with email fallback)
+    let business = null;
+    let businessError = null;
+
+    // Try profile-based lookup first (for new accounts)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('user_id', user.id)
       .single();
+
+    if (profile?.business_id) {
+      const { data: businessData, error: businessErr } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('id', profile.business_id)
+        .single();
+      business = businessData;
+      businessError = businessErr;
+    } else {
+      // Fallback to email-based lookup (for old accounts)
+      const { data: businessData, error: businessErr } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('created_by', user.email)
+        .single();
+      business = businessData;
+      businessError = businessErr;
+    }
 
     if (businessError || !business) {
       return res.status(400).json({ error: 'User not associated with a business' });
