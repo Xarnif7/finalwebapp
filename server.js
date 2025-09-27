@@ -9517,11 +9517,21 @@ async function handleJobCompleted(payload) {
       if (settings?.settings) {
         formSettings = settings.settings;
       }
-    } catch (_) {}
+    } catch (e) {
+      console.log('Error fetching form settings:', e);
+    }
 
     // Get business info for email
     const companyName = business.name || 'Our Business';
     const companyWebsite = business.website || '';
+    
+    console.log('📧 Email details:', {
+      companyName,
+      companyWebsite,
+      customerEmail: customer.email,
+      reviewLink,
+      customizedMessage: customizedMessage.substring(0, 100) + '...'
+    });
     
     // Use the same HTML template as automation executor
     const emailHtml = `
@@ -9588,38 +9598,52 @@ async function handleJobCompleted(payload) {
       </html>
     `;
     
-    const emailResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: `${companyName} <noreply@myblipp.com>`,
-        to: [customer.email],
-        subject: formSettings.email_subject || "We'd love your feedback!",
-        html: emailHtml,
-        text: customizedMessage,
-      }),
-    });
+    try {
+      const emailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: `${companyName} <noreply@myblipp.com>`,
+          to: [customer.email],
+          subject: formSettings.email_subject || "We'd love your feedback!",
+          html: emailHtml,
+          text: customizedMessage,
+        }),
+      });
 
-    if (emailResponse.ok) {
-      const emailData = await emailResponse.json();
-      console.log('✅ Email sent successfully:', emailData.id);
-      
-      // Update review request status
-      await supabase
-        .from('review_requests')
-        .update({
-          status: 'sent',
-          sent_at: new Date().toISOString()
-        })
-        .eq('id', reviewRequest.id);
+      console.log('📧 Email response status:', emailResponse.status);
+
+      if (emailResponse.ok) {
+        const emailData = await emailResponse.json();
+        console.log('✅ Email sent successfully:', emailData.id);
         
-      console.log('🎉 Jobber integration complete! Email sent to:', customer.email);
-    } else {
-      const errorData = await emailResponse.text();
-      console.error('❌ Email sending failed:', emailResponse.status, errorData);
+        // Update review request status
+        await supabase
+          .from('review_requests')
+          .update({
+            status: 'sent',
+            sent_at: new Date().toISOString()
+          })
+          .eq('id', reviewRequest.id);
+          
+        console.log('🎉 Manual trigger complete! Email sent to:', customer.email);
+      } else {
+        const errorData = await emailResponse.text();
+        console.error('❌ Email sending failed:', emailResponse.status, errorData);
+        
+        // Update review request status to failed
+        await supabase
+          .from('review_requests')
+          .update({
+            status: 'failed'
+          })
+          .eq('id', reviewRequest.id);
+      }
+    } catch (emailError) {
+      console.error('❌ Email sending error:', emailError);
       
       // Update review request status to failed
       await supabase
