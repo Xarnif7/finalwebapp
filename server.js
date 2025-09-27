@@ -9859,6 +9859,54 @@ app.post('/api/review-requests/schedule', async (req, res) => {
 });
 
 // Send review request now endpoint
+// Get review requests for debugging
+app.get('/api/review-requests', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    // Get user's business_id
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!profile?.business_id) {
+      return res.status(400).json({ error: 'No business linked to profile' });
+    }
+
+    // Get recent review requests
+    const { data: reviewRequests, error } = await supabase
+      .from('review_requests')
+      .select(`
+        id,
+        status,
+        trigger_type,
+        send_at,
+        sent_at,
+        review_link,
+        message,
+        trigger_data,
+        customers!inner(id, full_name, email)
+      `)
+      .eq('business_id', profile.business_id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error('Error fetching review requests:', error);
+      return res.status(500).json({ error: 'Failed to fetch review requests' });
+    }
+
+    res.json({ reviewRequests });
+  } catch (e) {
+    console.error('Review requests API error:', e);
+    res.status(500).json({ error: 'Internal server error: ' + e.message });
+  }
+});
+
 app.post('/api/review-requests/send-now', async (req, res) => {
   try {
     const { review_request_id } = req.body;

@@ -178,8 +178,13 @@ export default function FeedbackStandalone() {
   const handleMaybeLaterClick = () => {
     console.log('Maybe Later clicked, business data:', business);
     if (business?.website) {
-      console.log('Opening website:', business.website);
-      window.open(business.website, '_blank');
+      // Ensure the website URL has a protocol
+      let websiteUrl = business.website;
+      if (!websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
+        websiteUrl = 'https://' + websiteUrl;
+      }
+      console.log('Opening website:', websiteUrl);
+      window.open(websiteUrl, '_blank');
     } else {
       console.log('No website found, closing window');
       window.close();
