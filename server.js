@@ -8821,6 +8821,39 @@ app.post('/api/automation/trigger', async (req, res) => {
     if (trigger_type === 'manual_trigger') {
       const { template_id, template_name, template_message, delay_hours, channels } = trigger_data;
       
+      // Fetch the template from database to get the custom_message
+      let template = null;
+      if (template_id) {
+        try {
+          const { data: templateData, error: templateError } = await supabase
+            .from('automation_templates')
+            .select('id, name, custom_message, config_json')
+            .eq('id', template_id)
+            .eq('business_id', business.id)
+            .single();
+          
+          if (templateData) {
+            template = templateData;
+            console.log('📝 Fetched template from database:', {
+              id: template.id,
+              name: template.name,
+              custom_message: template.custom_message,
+              config_json_message: template.config_json?.message
+            });
+          }
+        } catch (e) {
+          console.log('Error fetching template:', e);
+        }
+      }
+      
+      // Get the message to use (priority: template_message from request, custom_message from DB, config_json.message, default)
+      const finalMessage = template_message || 
+        (template?.custom_message) || 
+        (template?.config_json?.message) || 
+        'Thank you for your business! Please consider leaving us a review.';
+      
+      console.log('📝 Final message for manual trigger:', finalMessage);
+      
       // Generate review link
       const reviewLink = `${process.env.APP_BASE_URL || 'https://myblipp.com'}/r/${Math.random().toString(36).substring(2, 10)}`;
       
@@ -8832,7 +8865,7 @@ app.post('/api/automation/trigger', async (req, res) => {
           customer_id: customer_id,
           channel: channels?.[0] || 'email',
           review_link: reviewLink,
-          message: template_message || 'Thank you for your business! Please consider leaving us a review.',
+          message: finalMessage,
           status: 'pending',
           send_at: new Date().toISOString(),
           user_id: user.id
@@ -10292,7 +10325,7 @@ app.post('/api/ai/match-template', async (req, res) => {
     // Get all active templates for this business
     const { data: templates, error: templatesError } = await supabase
       .from('automation_templates')
-      .select('id, name, service_types, is_default, config_json')
+      .select('id, name, service_types, is_default, config_json, custom_message')
       .eq('business_id', businessId)
       .eq('status', 'active');
 
