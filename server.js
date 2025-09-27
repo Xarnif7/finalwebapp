@@ -8198,17 +8198,6 @@ app.get('/api/health', (req, res) => {
 app.post('/api/_cron/automation-executor', async (req, res) => {
   try {
     console.log('Starting automation execution...');
-    
-    // Execute scheduled automations
-    const { data: processedCount, error: executeError } = await supabase
-      .rpc('execute_scheduled_automations');
-
-    if (executeError) {
-      console.error('Error executing automations:', executeError);
-      return res.status(500).json({ error: 'Failed to execute automations' });
-    }
-
-    console.log(`Processed ${processedCount} automation executions`);
 
     // Get pending scheduled automation emails
     console.log('🔍 DEBUG: Fetching automation_email jobs...');
