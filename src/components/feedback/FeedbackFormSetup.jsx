@@ -42,10 +42,21 @@ export default function FeedbackFormSetup() {
         .select('business_id')
         .eq('user_id', session?.user?.id)
         .single();
-      if (!profile?.business_id) { setLoading(false); return; }
+      if (!profile?.business_id) { 
+        console.log('🔍 No business_id found for user');
+        setLoading(false); 
+        return; 
+      }
+      console.log('🔍 Loading form settings for business_id:', profile.business_id);
       const resp = await fetch(`/api/feedback-form-settings?business_id=${profile.business_id}`);
       const result = await resp.json();
-      if (result?.settings) setFormSettings(result.settings);
+      console.log('🔍 Form settings API response:', result);
+      if (result?.settings) {
+        console.log('✅ Loaded form settings:', result.settings);
+        setFormSettings(result.settings);
+      } else {
+        console.log('⚠️ No settings found in API response');
+      }
     } catch (err) {
       console.error('Error loading form settings:', err);
     } finally {
@@ -56,6 +67,7 @@ export default function FeedbackFormSetup() {
   const saveFormSettings = async () => {
     try {
       setSaving(true);
+      console.log('💾 Saving form settings:', formSettings);
       const { data: { session } } = await supabase.auth.getSession();
       const resp = await fetch('/api/feedback-form-settings', {
         method: 'POST',
@@ -63,6 +75,7 @@ export default function FeedbackFormSetup() {
         body: JSON.stringify({ settings: formSettings })
       });
       const result = await resp.json();
+      console.log('💾 Save response:', result);
       if (!resp.ok) throw (result || { error: 'Failed to save form settings' });
       alert('Form settings saved successfully!');
     } catch (err) {

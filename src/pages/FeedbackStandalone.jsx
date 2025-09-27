@@ -151,6 +151,7 @@ export default function FeedbackStandalone() {
       // If there's a message, use AI to analyze sentiment
       if (comment && comment.trim()) {
         try {
+          console.log('🤖 Calling AI sentiment analysis API...', { text: comment, rating });
           const aiResponse = await fetch('/api/ai/analyze-sentiment', {
             method: 'POST',
             headers: {
@@ -162,15 +163,21 @@ export default function FeedbackStandalone() {
             })
           });
           
+          console.log('🤖 AI API response status:', aiResponse.status);
+          
           if (aiResponse.ok) {
             const aiResult = await aiResponse.json();
+            console.log('🤖 AI API result:', aiResult);
             if (aiResult.sentiment) {
               sentiment = aiResult.sentiment;
-              console.log('AI sentiment analysis:', { text: comment, rating, aiSentiment: sentiment });
+              console.log('✅ AI sentiment analysis successful:', { text: comment, rating, aiSentiment: sentiment });
             }
+          } else {
+            const errorText = await aiResponse.text();
+            console.error('❌ AI sentiment analysis API error:', aiResponse.status, errorText);
           }
         } catch (aiError) {
-          console.log('AI sentiment analysis failed, using rating-based sentiment:', aiError);
+          console.error('❌ AI sentiment analysis failed, using rating-based sentiment:', aiError);
         }
       }
 
