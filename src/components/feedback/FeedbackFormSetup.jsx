@@ -45,7 +45,7 @@ export default function FeedbackFormSetup() {
       if (!profile?.business_id) { setLoading(false); return; }
       const resp = await fetch(`/api/feedback-form-settings?business_id=${profile.business_id}`);
       const result = await resp.json();
-      if (result?.settings) setFormSettings({ ...formSettings, ...result.settings });
+      if (result?.settings) setFormSettings(result.settings);
     } catch (err) {
       console.error('Error loading form settings:', err);
     } finally {
