@@ -8313,6 +8313,9 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
 
           // Get template data if template_id exists in job payload
           let templateMessage = null;
+          console.log('🔍 DEBUG: Job payload:', job.payload);
+          console.log('🔍 DEBUG: Template ID from payload:', job.payload.template_id);
+          
           if (job.payload.template_id) {
             try {
               const { data: templateData } = await supabase
@@ -8321,6 +8324,8 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                 .eq('id', job.payload.template_id)
                 .maybeSingle();
               
+              console.log('🔍 DEBUG: Template data from DB:', templateData);
+              
               // Priority: 1) custom_message, 2) config_json.message
               if (templateData?.custom_message) {
                 templateMessage = templateData.custom_message;
@@ -8328,10 +8333,14 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
               } else if (templateData?.config_json?.message) {
                 templateMessage = templateData.config_json.message;
                 console.log('📝 Found template message from config_json:', templateMessage);
+              } else {
+                console.log('🔍 DEBUG: No template message found in template data');
               }
             } catch (e) {
               console.log('Error fetching template message:', e);
             }
+          } else {
+            console.log('🔍 DEBUG: No template_id in job payload');
           }
 
           if (reviewRequest && reviewRequest.customers && reviewRequest.customers.email) {
