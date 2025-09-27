@@ -215,10 +215,12 @@ export default function TemplateCustomizer({
     // Immediate preview for common variables
     const immediatePreview = (message || '')
       .replace(/\{\{customer\.name\}\}/g, 'John Smith')
+      .replace(/\{\{customer\.first_name\}\}/g, 'John')
+      .replace(/\{\{customer\.last_name\}\}/g, 'Smith')
+      .replace(/\{\{customer\.full_name\}\}/g, 'John Smith')
       .replace(/\{\{business\.name\}\}/g, 'Your Business')
-      .replace(/\{\{review_link\}\}/g, 'https://g.page/your-business/review')
-      .replace(/\{\{service_date\}\}/g, 'Tomorrow at 2:00 PM')
-      .replace(/\{\{amount\}\}/g, '$150.00');
+      .replace(/\{\{company_name\}\}/g, 'Your Business')
+      .replace(/\{\{company_website\}\}/g, 'https://yourbusiness.com');
     
     setMessagePreview(immediatePreview);
     
@@ -250,19 +252,23 @@ export default function TemplateCustomizer({
         
         const preview = (message || '')
           .replace(/\{\{customer\.name\}\}/g, previewData.customer_name)
-          .replace(/\{\{review_link\}\}/g, previewData.review_link)
+          .replace(/\{\{customer\.first_name\}\}/g, previewData.customer_name?.split(' ')[0] || 'John')
+          .replace(/\{\{customer\.last_name\}\}/g, previewData.customer_name?.split(' ').slice(1).join(' ') || 'Smith')
+          .replace(/\{\{customer\.full_name\}\}/g, previewData.customer_name)
           .replace(/\{\{business\.name\}\}/g, previewData.business_name)
-          .replace(/\{\{service_date\}\}/g, previewData.service_date)
-          .replace(/\{\{amount\}\}/g, previewData.amount);
+          .replace(/\{\{company_name\}\}/g, previewData.business_name)
+          .replace(/\{\{company_website\}\}/g, previewData.company_website || 'https://yourbusiness.com');
         setMessagePreview(preview);
       } else {
         // Fallback to sample data
         const preview = (message || '')
           .replace(/\{\{customer\.name\}\}/g, 'John Smith')
-          .replace(/\{\{review_link\}\}/g, 'https://reviews.example.com/review/abc123')
+          .replace(/\{\{customer\.first_name\}\}/g, 'John')
+          .replace(/\{\{customer\.last_name\}\}/g, 'Smith')
+          .replace(/\{\{customer\.full_name\}\}/g, 'John Smith')
           .replace(/\{\{business\.name\}\}/g, 'Your Business Name')
-          .replace(/\{\{service_date\}\}/g, 'January 15, 2024')
-          .replace(/\{\{amount\}\}/g, '$150.00');
+          .replace(/\{\{company_name\}\}/g, 'Your Business Name')
+          .replace(/\{\{company_website\}\}/g, 'https://yourbusiness.com');
         setMessagePreview(preview);
       }
     } catch (error) {
@@ -270,10 +276,12 @@ export default function TemplateCustomizer({
       // Fallback to sample data
       const preview = (message || '')
         .replace(/\{\{customer\.name\}\}/g, 'John Smith')
-        .replace(/\{\{review_link\}\}/g, 'https://reviews.example.com/review/abc123')
+        .replace(/\{\{customer\.first_name\}\}/g, 'John')
+        .replace(/\{\{customer\.last_name\}\}/g, 'Smith')
+        .replace(/\{\{customer\.full_name\}\}/g, 'John Smith')
         .replace(/\{\{business\.name\}\}/g, 'Your Business Name')
-        .replace(/\{\{service_date\}\}/g, 'January 15, 2024')
-        .replace(/\{\{amount\}\}/g, '$150.00');
+        .replace(/\{\{company_name\}\}/g, 'Your Business Name')
+        .replace(/\{\{company_website\}\}/g, 'https://yourbusiness.com');
       setMessagePreview(preview);
     }
   };
@@ -917,10 +925,7 @@ export default function TemplateCustomizer({
                       { key: '{{customer.last_name}}', label: 'Customer Last Name', icon: User },
                       { key: '{{customer.full_name}}', label: 'Customer Full Name', icon: User },
                       { key: '{{company_name}}', label: 'Company Name', icon: Building },
-                      { key: '{{company_website}}', label: 'Company Website', icon: Link },
-                      { key: '{{service_date}}', label: 'Service Date', icon: Calendar },
-                      { key: '{{amount}}', label: 'Amount', icon: Star },
-                      { key: '{{review_link}}', label: 'Review Link (legacy)', icon: Link }
+                      { key: '{{company_website}}', label: 'Company Website', icon: Link }
                     ].map((variable) => (
                       <Button
                         key={variable.key}

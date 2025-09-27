@@ -4231,7 +4231,7 @@ app.post('/api/ai/generate-message', async (req, res) => {
       'service_reminder': 'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!'
     };
 
-    const fallbackMessage = fallbackMessages[template_type] || 
+    const fallbackMessage = fallbackMessages[template_type || 'job_completed'] || 
       'Thank you for your business! Please leave us a review at {{review_link}}.';
 
     res.status(200).json({
@@ -4358,7 +4358,7 @@ Enhanced message:`;
     // Return original message if enhancement fails
     res.status(200).json({
       success: true,
-      enhanced_message: current_message,
+      enhanced_message: current_message || 'Thank you for your business! Please leave us a review.',
       template_name,
       template_type,
       fallback: true,
