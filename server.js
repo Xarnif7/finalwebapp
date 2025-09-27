@@ -9468,7 +9468,7 @@ async function handleJobCompleted(payload) {
     });
 
     // Customize the message with customer and business data
-    const customizedMessage = manualTemplateMessage
+    const manualCustomizedMessage = manualTemplateMessage
       .replace(/\{\{customer\.name\}\}/g, customer.name)
       .replace(/\{\{customer_name\}\}/g, customer.name)
       .replace(/\{\{customer\.first_name\}\}/g, customer.name.split(' ')[0] || '')
@@ -9489,7 +9489,7 @@ async function handleJobCompleted(payload) {
         status: 'pending',
         send_at: new Date().toISOString(), // Set send_at to now for immediate processing
         review_link: reviewLink,
-        message: customizedMessage, // Store the customized message here
+        message: manualCustomizedMessage, // Store the customized message here
         trigger_type: 'manual_trigger',
         trigger_data: {
           template_id: template.id,
@@ -9520,7 +9520,7 @@ async function handleJobCompleted(payload) {
     });
 
     // Replace template variables
-    const customizedMessage = jobberTemplateMessage
+    const jobberCustomizedMessage = jobberTemplateMessage
       .replace(/\{\{customer\.name\}\}/g, customer.name)
       .replace(/\{\{customer_name\}\}/g, customer.name)
       .replace(/\{\{business\.name\}\}/g, 'Your Business') // TODO: Get actual business name
@@ -9554,7 +9554,7 @@ async function handleJobCompleted(payload) {
       companyWebsite,
       customerEmail: customer.email,
       reviewLink,
-      customizedMessage: customizedMessage.substring(0, 100) + '...'
+      customizedMessage: manualCustomizedMessage.substring(0, 100) + '...'
     });
     
     // Use the same HTML template as automation executor
@@ -9587,7 +9587,7 @@ async function handleJobCompleted(payload) {
             
             <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
               <p style="color: #334155; margin: 0; font-size: 16px; line-height: 1.6;">
-                ${customizedMessage}
+                ${manualCustomizedMessage}
               </p>
             </div>
             
@@ -9634,7 +9634,7 @@ async function handleJobCompleted(payload) {
           to: [customer.email],
           subject: formSettings.email_subject || "We'd love your feedback!",
           html: emailHtml,
-          text: customizedMessage,
+          text: manualCustomizedMessage,
         }),
       });
 
