@@ -7,7 +7,10 @@ const supabase = createClient(
 
 export default async function handler(req, res) {
   try {
-    console.log('Starting automation execution...', { method: req.method, url: req.url });
+    console.log('🔄 Automation executor cron job triggered');
+    console.log('🔍 DEBUG: Method:', req.method);
+    console.log('🔍 DEBUG: URL:', req.url);
+    console.log('🔍 DEBUG: Headers:', req.headers);
 
     // Get pending scheduled automation emails
     console.log('🔍 DEBUG: Fetching automation_email jobs...');
@@ -91,7 +94,6 @@ export default async function handler(req, res) {
               // Send email directly via Resend API
               console.log('📧 Sending email to:', request.customers.email);
               console.log('🔑 RESEND_API_KEY available:', !!process.env.RESEND_API_KEY);
-              console.log('🔑 RESEND_API_KEY length:', process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.length : 0);
               
               if (!process.env.RESEND_API_KEY) {
                 console.error('❌ RESEND_API_KEY is not available in environment');
@@ -129,7 +131,6 @@ export default async function handler(req, res) {
 
               console.log('📧 Email response status:', emailResponse.status);
               console.log('📧 Email response data:', emailData);
-              console.log('📧 Email response headers:', Object.fromEntries(emailResponse.headers.entries()));
               
               if (emailResponse.ok) {
                 console.log(`✅ Automation email sent to ${request.customers.email} via Resend`);
@@ -189,7 +190,6 @@ export default async function handler(req, res) {
     }
 
     // Get pending review requests and send them (existing functionality)
-    // But EXCLUDE review requests that have corresponding automation jobs
     const { data: allPendingRequests, error: requestsError } = await supabase
       .from('review_requests')
       .select(`
@@ -209,25 +209,9 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to fetch pending requests' });
     }
 
-    // Filter out review requests that have corresponding automation jobs
-    const pendingRequests = [];
-    for (const request of allPendingRequests || []) {
-      const { data: hasJob, error: jobCheckError } = await supabase
-        .from('scheduled_jobs')
-        .select('id')
-        .eq('job_type', 'automation_email')
-        .contains('payload', { review_request_id: request.id })
-        .limit(1);
-        
-      if (!jobCheckError && (!hasJob || hasJob.length === 0)) {
-        // No automation job found, so this is a regular review request
-        pendingRequests.push(request);
-      }
-    }
-
     let sentCount = 0;
     
-    for (const request of pendingRequests || []) {
+    for (const request of allPendingRequests || []) {
       try {
         // Skip SMS for now (as requested)
         if (request.channel === 'sms') {
@@ -236,37 +220,32 @@ export default async function handler(req, res) {
 
         // Send email
         if (request.channel === 'email' && request.customers.email) {
-          const emailData = {
-            to: request.customers.email,
-            from: request.businesses.email || 'noreply@myblipp.com',
-            subject: 'Thank you for your business!',
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2>Thank you for your business!</h2>
-                <p>Hi ${request.customers.full_name || 'Customer'},</p>
-                <p>${request.message}</p>
-                <p><a href="${request.review_link}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Leave a Review</a></p>
-                <p>Best regards,<br>${request.businesses.name}</p>
-              </div>
-            `
-          };
-
-          // Call the send-now API internally
-          const sendResponse = await fetch(`${process.env.APP_BASE_URL}/api/review-requests/send-now`, {
+          const emailResponse = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
+              'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
             },
             body: JSON.stringify({
-              review_request_id: request.id,
-              channel: 'email'
+              from: request.businesses.email || 'noreply@myblipp.com',
+              to: [request.customers.email],
+              subject: 'Thank you for your business!',
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2>Thank you for your business!</h2>
+                  <p>Hi ${request.customers.full_name || 'Customer'},</p>
+                  <p>${request.message}</p>
+                  <p><a href="${request.review_link}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Leave a Review</a></p>
+                  <p>Best regards,<br>${request.businesses.name}</p>
+                </div>
+              `,
+              text: `Hi ${request.customers.full_name || 'Customer'},\n\n${request.message}\n\n${request.review_link}\n\nBest regards,\n${request.businesses.name}`
             })
           });
 
-          if (sendResponse.ok) {
+          if (emailResponse.ok) {
             sentCount++;
-            console.log(`Sent email to ${request.customers.email}`);
+            console.log(`✅ Sent email to ${request.customers.email}`);
             
             // Mark review request as sent
             await supabase
@@ -277,7 +256,7 @@ export default async function handler(req, res) {
               })
               .eq('id', request.id);
           } else {
-            console.error(`Failed to send email to ${request.customers.email}`);
+            console.error(`❌ Failed to send email to ${request.customers.email}`);
           }
         }
       } catch (error) {
@@ -293,7 +272,7 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log(`Sent ${sentCount} emails`);
+    console.log(`✅ Automation executor completed. Sent ${sentCount} emails`);
 
     return res.status(200).json({ 
       success: true, 
@@ -302,7 +281,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Error in automation executor:', error);
+    console.error('❌ Error in automation executor:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }

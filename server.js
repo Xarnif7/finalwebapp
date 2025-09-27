@@ -817,7 +817,10 @@ app.post('/api/feedback-form-settings', async (req, res) => {
     console.log('💾 Upserting form settings for business_id:', businessId);
     const { data, error } = await supabase
       .from('feedback_form_settings')
-      .upsert({ business_id: businessId, settings: settings || {}, updated_at: new Date().toISOString() })
+      .upsert(
+        { business_id: businessId, settings: settings || {}, updated_at: new Date().toISOString() },
+        { onConflict: 'business_id' }
+      )
       .select('business_id')
       .single();
     if (error) {
