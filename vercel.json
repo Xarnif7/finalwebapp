@@ -61,7 +61,7 @@
   ],
   "crons": [
     {
-      "path": "/api/_cron/automation-executor",
+      "path": "/api/automation-executor",
       "schedule": "*/1 * * * *"
     }
   ]
