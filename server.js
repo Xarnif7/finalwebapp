@@ -9457,7 +9457,29 @@ async function handleJobCompleted(payload) {
     // Generate review link
     const reviewLink = `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/r/${Math.random().toString(36).substring(2, 10)}`;
 
-    // Create review request directly (bypass automation_triggers for now)
+    // Create scheduled job with template_id for automation executor
+    const jobPayload = {
+      customer_id: customerId,
+      customer_name: customer.name,
+      customer_email: customer.email,
+      template_id: template.id,
+      template_name: template.name,
+      template_message: template.custom_message || template.config_json?.message
+    };
+
+    const jobResult = await createScheduledJob(
+      connection.business_id,
+      template.id,
+      new Date().toISOString(), // Run immediately
+      jobPayload
+    );
+
+    if (!jobResult.success) {
+      console.error('❌ Error creating scheduled job:', jobResult.error);
+      return res.status(500).json({ error: 'Failed to create scheduled job' });
+    }
+
+    // Create review request linked to the job
     const { data: reviewRequest, error: reviewRequestError } = await supabase
       .from('review_requests')
       .insert({
@@ -9467,10 +9489,11 @@ async function handleJobCompleted(payload) {
         status: 'pending',
         send_at: new Date().toISOString(), // Set send_at to now for immediate processing
         review_link: reviewLink,
-        trigger_type: 'jobber_job_completed',
+        trigger_type: 'manual_trigger',
         trigger_data: {
-          jobber_job_id: job.id,
-          service_type: serviceType,
+          job_id: jobResult.job.id,
+          template_id: template.id,
+          template_name: template.name,
           customer_name: customer.name,
           customer_email: customer.email
         }
