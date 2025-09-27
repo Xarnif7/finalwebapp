@@ -9458,17 +9458,17 @@ async function handleJobCompleted(payload) {
 
     // Get template message and customize it
     // Priority: 1) custom_message, 2) config_json.message, 3) default
-    const templateMessage = template.custom_message || template.config_json?.message || 
+    const manualTemplateMessage = template.custom_message || template.config_json?.message || 
       `Hi {{customer.name}}, thank you for choosing us for your ${serviceType} service! We hope you were satisfied. Please take a moment to leave us a review at {{review_link}}.`;
 
     console.log('📝 Manual trigger template message:', {
       custom_message: template.custom_message,
       config_json_message: template.config_json?.message,
-      final_message: templateMessage
+      final_message: manualTemplateMessage
     });
 
     // Customize the message with customer and business data
-    const customizedMessage = templateMessage
+    const customizedMessage = manualTemplateMessage
       .replace(/\{\{customer\.name\}\}/g, customer.name)
       .replace(/\{\{customer_name\}\}/g, customer.name)
       .replace(/\{\{customer\.first_name\}\}/g, customer.name.split(' ')[0] || '')
@@ -9510,17 +9510,17 @@ async function handleJobCompleted(payload) {
 
     // Get template message and customize it
     // Priority: 1) custom_message, 2) config_json.message, 3) default
-    const templateMessage = template.custom_message || template.config_json?.message || 
+    const jobberTemplateMessage = template.custom_message || template.config_json?.message || 
       `Hi {{customer.name}}, thank you for choosing us for your ${serviceType} service! We hope you were satisfied. Please take a moment to leave us a review at {{review_link}}.`;
     
     console.log('📝 Manual trigger template message:', {
       custom_message: template.custom_message,
       config_json_message: template.config_json?.message,
-      final_message: templateMessage
+      final_message: jobberTemplateMessage
     });
 
     // Replace template variables
-    const customizedMessage = templateMessage
+    const customizedMessage = jobberTemplateMessage
       .replace(/\{\{customer\.name\}\}/g, customer.name)
       .replace(/\{\{customer_name\}\}/g, customer.name)
       .replace(/\{\{business\.name\}\}/g, 'Your Business') // TODO: Get actual business name
