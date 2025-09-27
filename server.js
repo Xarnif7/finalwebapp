@@ -48,6 +48,7 @@ Object.keys(process.env).filter(key => key.includes('SUPABASE')).forEach(key => 
 
 // Debug: Log OpenAI API key status
 console.log('[SERVER] OpenAI API Key:', process.env.OPENAI_API_KEY ? `Set (${process.env.OPENAI_API_KEY.substring(0, 10)}...)` : 'Missing');
+console.log('[SERVER] Environment Variables:', Object.keys(process.env).filter(key => key.includes('OPENAI')));
 
 // Create Supabase client for user authentication (only if anon key available)
 let supabaseAuth = null;
@@ -4180,6 +4181,58 @@ app.post('/api/ai/generate-message', async (req, res) => {
         statusText: openaiResponse.statusText,
         body: errorData
       });
+      
+      // Handle rate limiting with retry
+      if (openaiResponse.status === 429) {
+        console.log('[AI] Rate limit hit, waiting 2 seconds and retrying...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Retry once with longer timeout
+        const retryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a professional email copywriter specializing in customer follow-up messages. Create clear, concise, and professional messages that maintain a warm tone while being respectful of the customer\'s time.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            max_tokens: 200,
+            temperature: 0.7,
+          }),
+          signal: controller.signal
+        });
+        
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          const generatedMessage = retryData.choices[0]?.message?.content?.trim();
+          console.log('[AI] Retry successful:', generatedMessage);
+          
+          // Ensure variables are included if they weren't in the AI response
+          let finalMessage = generatedMessage;
+          if (!finalMessage.includes('{{customer.name}}')) {
+            finalMessage = `{{customer.name}}, ${finalMessage}`;
+          }
+
+          res.status(200).json({
+            success: true,
+            message: finalMessage,
+            template_name,
+            template_type
+          });
+          return;
+        }
+      }
+      
       throw new Error(`OpenAI API request failed: ${openaiResponse.status} ${openaiResponse.statusText}`);
     }
 
@@ -4357,7 +4410,57 @@ Enhanced message:`;
 
     if (!openaiResponse.ok) {
       const errorData = await openaiResponse.text();
-      console.error('OpenAI API error:', errorData);
+      console.error('[AI] Enhancement API error:', {
+        status: openaiResponse.status,
+        statusText: openaiResponse.statusText,
+        body: errorData
+      });
+      
+      // Handle rate limiting with retry for enhancement
+      if (openaiResponse.status === 429) {
+        console.log('[AI] Enhancement rate limit hit, waiting 2 seconds and retrying...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Retry enhancement once
+        const retryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a professional email copywriter. Enhance messages to be more professional, engaging, and effective while maintaining the original meaning and tone. Always preserve variable placeholders like {{customer.name}} exactly as they are.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            max_tokens: 200,
+            temperature: 0.5,
+          }),
+          signal: controller.signal
+        });
+        
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          const enhancedMessage = retryData.choices[0]?.message?.content?.trim();
+          console.log('[AI] Enhancement retry successful:', enhancedMessage);
+          
+          res.status(200).json({
+            success: true,
+            enhanced_message: enhancedMessage,
+            template_name,
+            template_type
+          });
+          return;
+        }
+      }
+      
       throw new Error('OpenAI API request failed');
     }
 
