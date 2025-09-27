@@ -361,7 +361,7 @@ app.get('/api/subscription/status', async (req, res) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('onboarding_completed')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .single();
     
     const isActive = !!subscription;
