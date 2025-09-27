@@ -8362,6 +8362,13 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             // Process the message to replace variables
             // Priority: 1) Custom template message, 2) Form settings email_message, 3) Review request message, 4) Default
             let processedMessage;
+            console.log('🔍 DEBUG: Template message sources:', {
+              templateMessage,
+              formSettings_email_message: formSettings.email_message,
+              reviewRequest_message: reviewRequest.message,
+              job_payload: job.payload
+            });
+            
             if (templateMessage) {
               // Use custom template message if available
               processedMessage = templateMessage;
