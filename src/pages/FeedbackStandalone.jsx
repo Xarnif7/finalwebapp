@@ -145,6 +145,35 @@ export default function FeedbackStandalone() {
 
     setSubmitting(true);
     try {
+      // Determine sentiment using AI analysis if there's a message, otherwise use rating
+      let sentiment = rating <= 3 ? 'negative' : rating === 4 ? 'neutral' : 'positive';
+      
+      // If there's a message, use AI to analyze sentiment
+      if (comment && comment.trim()) {
+        try {
+          const aiResponse = await fetch('/api/ai/analyze-sentiment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text: comment,
+              rating: rating
+            })
+          });
+          
+          if (aiResponse.ok) {
+            const aiResult = await aiResponse.json();
+            if (aiResult.sentiment) {
+              sentiment = aiResult.sentiment;
+              console.log('AI sentiment analysis:', { text: comment, rating, aiSentiment: sentiment });
+            }
+          }
+        } catch (aiError) {
+          console.log('AI sentiment analysis failed, using rating-based sentiment:', aiError);
+        }
+      }
+
       const response = await fetch('/api/private-feedback', {
         method: 'POST',
         headers: {
@@ -154,7 +183,7 @@ export default function FeedbackStandalone() {
           review_request_id: requestId,
           rating: rating,
           message: comment,
-          sentiment: rating <= 3 ? 'negative' : rating === 4 ? 'neutral' : 'positive'
+          sentiment: sentiment
         })
       });
 

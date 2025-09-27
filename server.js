@@ -10461,6 +10461,130 @@ Find the best matching template for the Jobber service type.`
 });
 
 // ============================================================================
+// AI SENTIMENT ANALYSIS API
+// ============================================================================
+
+// AI-powered sentiment analysis endpoint
+app.post('/api/ai/analyze-sentiment', async (req, res) => {
+  try {
+    const { text, rating } = req.body;
+    
+    if (!text) {
+      return res.status(400).json({ error: 'Text is required for sentiment analysis' });
+    }
+
+    console.log('🤖 AI Sentiment Analysis Request:', { text: text.substring(0, 100) + '...', rating });
+
+    // Get OpenAI API key
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+      console.log('⚠️ OpenAI API key not available, using rating-based sentiment');
+      // Fallback to rating-based sentiment
+      const sentiment = rating <= 3 ? 'negative' : rating === 4 ? 'neutral' : 'positive';
+      return res.json({ sentiment, confidence: 0.5, method: 'rating_fallback' });
+    }
+
+    // Call OpenAI to analyze sentiment
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini', // Use the cheaper model
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert at analyzing customer feedback sentiment. 
+
+Analyze the sentiment of customer feedback text, considering both the text content AND the star rating provided.
+
+IMPORTANT: A customer can give 5 stars but still have negative sentiment in their text (like "YOU DID A TERRIBLE JOB"). In such cases, prioritize the text sentiment over the rating.
+
+Return ONLY a JSON object with this exact structure:
+{
+  "sentiment": "positive|negative|neutral",
+  "confidence": 0.0_to_1.0,
+  "reasoning": "brief explanation of why this sentiment was chosen"
+}`
+          },
+          {
+            role: 'user',
+            content: `Customer Feedback:
+Rating: ${rating} stars
+Text: "${text}"
+
+Analyze the sentiment considering both the rating and the text content.`
+          }
+        ],
+        max_tokens: 150,
+        temperature: 0.1
+      })
+    });
+
+    if (!aiResponse.ok) {
+      console.error('❌ OpenAI API error:', aiResponse.status, await aiResponse.text());
+      // Fallback to rating-based sentiment
+      const sentiment = rating <= 3 ? 'negative' : rating === 4 ? 'neutral' : 'positive';
+      return res.json({ sentiment, confidence: 0.5, method: 'rating_fallback' });
+    }
+
+    const aiData = await aiResponse.json();
+    const aiChoice = aiData.choices[0]?.message?.content;
+
+    if (!aiChoice) {
+      console.error('❌ No AI response received');
+      // Fallback to rating-based sentiment
+      const sentiment = rating <= 3 ? 'negative' : rating === 4 ? 'neutral' : 'positive';
+      return res.json({ sentiment, confidence: 0.5, method: 'rating_fallback' });
+    }
+
+    // Parse AI response
+    let aiResult;
+    try {
+      aiResult = JSON.parse(aiChoice);
+    } catch (parseError) {
+      console.error('❌ Failed to parse AI response:', aiChoice);
+      // Fallback to rating-based sentiment
+      const sentiment = rating <= 3 ? 'negative' : rating === 4 ? 'neutral' : 'positive';
+      return res.json({ sentiment, confidence: 0.5, method: 'rating_fallback' });
+    }
+
+    // Validate sentiment value
+    const validSentiments = ['positive', 'negative', 'neutral'];
+    if (!validSentiments.includes(aiResult.sentiment)) {
+      console.error('❌ Invalid sentiment from AI:', aiResult.sentiment);
+      // Fallback to rating-based sentiment
+      const sentiment = rating <= 3 ? 'negative' : rating === 4 ? 'neutral' : 'positive';
+      return res.json({ sentiment, confidence: 0.5, method: 'rating_fallback' });
+    }
+
+    console.log('🎯 AI Sentiment Analysis Result:', {
+      text: text.substring(0, 50) + '...',
+      rating,
+      sentiment: aiResult.sentiment,
+      confidence: aiResult.confidence,
+      reasoning: aiResult.reasoning
+    });
+
+    res.json({
+      sentiment: aiResult.sentiment,
+      confidence: aiResult.confidence || 0.8,
+      reasoning: aiResult.reasoning || 'AI analysis completed',
+      method: 'ai_analysis'
+    });
+
+  } catch (error) {
+    console.error('❌ AI Sentiment Analysis Error:', error);
+    // Fallback to rating-based sentiment
+    const { rating } = req.body;
+    const sentiment = rating <= 3 ? 'negative' : rating === 4 ? 'neutral' : 'positive';
+    res.json({ sentiment, confidence: 0.5, method: 'error_fallback' });
+  }
+});
+
+// ============================================================================
 // NOTIFICATIONS API
 // ============================================================================
 
