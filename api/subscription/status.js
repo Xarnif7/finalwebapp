@@ -144,8 +144,6 @@ export default async function handler(req, res) {
       cookie: granted
     };
 
-    console.log('[SUBSCRIPTION_STATUS] Final result:', result);
-
     console.log('[SUBSCRIPTION_STATUS] Final result:', {
       user_id: user.id,
       active: result.active,
