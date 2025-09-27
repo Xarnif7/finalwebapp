@@ -4102,21 +4102,23 @@ app.post('/api/ai/generate-message', async (req, res) => {
       const businessContext = businessInfo ? `for ${businessInfo.name} (${businessInfo.business_type || 'business'})` : 'for a business';
       
       const prompts = {
-        'job_completed': `Create a professional follow-up email ${businessContext} after a job/service is completed. The message should:
-        - Thank the customer for choosing the business
-        - Express hope that they were satisfied with the service
-        - Mention that their feedback is valuable
-        - Include {{customer.name}} variable
-        - Be warm but professional
-        - Keep it concise (2-3 sentences)`,
+        'job_completed': `Create a unique, personalized follow-up email ${businessContext} after a job/service is completed. Be creative and vary your approach each time. The message should:
+        - Thank the customer for choosing the business in a warm, personal way
+        - Express genuine hope that they were satisfied with the service
+        - Mention that their feedback helps improve services for future customers
+        - Include {{customer.name}} variable naturally in the message
+        - Use a friendly, conversational tone that feels authentic
+        - Be 2-3 sentences but vary the structure and wording each time
+        - Avoid generic phrases like "We hope you were satisfied" - be more specific and engaging`,
         
-        'invoice_paid': `Create a professional thank you email ${businessContext} after an invoice is paid. The message should:
-        - Thank the customer for their payment
-        - Express appreciation for their business
-        - Mention that their feedback is valuable
-        - Include {{customer.name}} variable
-        - Be warm but professional
-        - Keep it concise (2-3 sentences)`,
+        'invoice_paid': `Create a unique, personalized thank you email ${businessContext} after an invoice is paid. Be creative and vary your approach each time. The message should:
+        - Thank the customer for their payment in a warm, personal way
+        - Express genuine appreciation for their business and trust
+        - Mention that their feedback helps improve services for future customers
+        - Include {{customer.name}} variable naturally in the message
+        - Use a friendly, conversational tone that feels authentic
+        - Be 2-3 sentences but vary the structure and wording each time
+        - Avoid generic phrases - be more specific and engaging`,
         
         'service_reminder': `Create a friendly reminder email ${businessContext} for an upcoming service appointment. The message should:
         - Be warm and friendly
@@ -4223,15 +4225,41 @@ app.post('/api/ai/generate-message', async (req, res) => {
       console.log('[AI] Request timed out, using fallback message');
     }
     
-    // Fallback to default message if AI fails
+    // Smart fallback messages - multiple unique variations for each type
     const fallbackMessages = {
-      'job_completed': 'Thank you for choosing us! We hope you were satisfied with our service. Your feedback helps us continue to provide excellent service.',
-      'invoice_paid': 'Thank you for your payment, {{customer.name}}! We appreciate your business and look forward to serving you again.',
-      'service_reminder': 'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!'
+      'job_completed': [
+        'Thank you for choosing us for your recent service! We hope everything met your expectations. Your feedback helps us serve you and others even better.',
+        'We appreciate you trusting us with your recent project. How did everything turn out? Your insights help us continue improving our service.',
+        'Thank you for letting us serve you! We hope your experience was smooth and satisfying. Your feedback is valuable to us and our future customers.',
+        'We hope you\'re pleased with the work we completed for you. Your feedback helps us maintain our high standards and improve where needed.',
+        'Thank you for choosing our team! We hope your recent service exceeded expectations. Your input helps us grow and serve you better.'
+      ],
+      'invoice_paid': [
+        'Thank you for your prompt payment, {{customer.name}}! We appreciate your business and look forward to serving you again soon.',
+        'We received your payment - thank you, {{customer.name}}! Your trust in our services means everything to us.',
+        'Payment confirmed! Thank you, {{customer.name}}, for choosing us. We hope to earn your business again in the future.',
+        'Thank you for your payment, {{customer.name}}! We\'re grateful for your business and the opportunity to serve you.',
+        'Payment received with gratitude, {{customer.name}}! We appreciate your business and look forward to our next opportunity to serve you.'
+      ],
+      'service_reminder': [
+        'Hi {{customer.name}}, this is a friendly reminder about your upcoming service appointment. We look forward to serving you!',
+        'Hello {{customer.name}}! Just a quick reminder about your scheduled service. We\'re excited to see you soon!',
+        'Hi {{customer.name}}, we\'re looking forward to your upcoming appointment. See you soon!',
+        'Hello {{customer.name}}! Your service appointment is coming up. We can\'t wait to help you!',
+        'Hi {{customer.name}}, just a heads up about your scheduled service. We\'ll see you soon!'
+      ]
     };
 
-    const fallbackMessage = fallbackMessages[template_type || 'job_completed'] || 
-      'Thank you for your business! Your feedback is incredibly valuable and helps us continue to provide excellent service.';
+    // Select a random message from the appropriate category
+    const messageArray = fallbackMessages[template_type || 'job_completed'] || [
+      'Thank you for your business! Your feedback is incredibly valuable and helps us continue to provide excellent service.',
+      'We appreciate your trust in our services. Your feedback helps us grow and improve.',
+      'Thank you for choosing us! Your input is valuable and helps us serve you and others better.',
+      'We\'re grateful for your business. Your feedback helps us maintain our high standards.',
+      'Thank you for your support! Your insights help us continue providing excellent service.'
+    ];
+    
+    const fallbackMessage = messageArray[Math.floor(Math.random() * messageArray.length)];
 
     res.status(200).json({
       success: true,
@@ -4355,10 +4383,23 @@ Enhanced message:`;
       console.log('[AI] Enhancement request timed out, returning original message');
     }
     
-    // Return original message if enhancement fails
+    // Provide a simple enhancement suggestion when AI fails
+    let enhancedMessage = current_message || 'Thank you for your business! Please leave us a review.';
+    
+    // Simple enhancement suggestions when AI is unavailable
+    if (current_message && !current_message.includes('{{customer.name}}')) {
+      // Add customer name if missing
+      enhancedMessage = `{{customer.name}}, ${current_message}`;
+    }
+    
+    if (current_message && current_message.length < 50) {
+      // Add more context for short messages
+      enhancedMessage = `${current_message} Your feedback helps us continue providing excellent service.`;
+    }
+    
     res.status(200).json({
       success: true,
-      enhanced_message: current_message || 'Thank you for your business! Please leave us a review.',
+      enhanced_message: enhancedMessage,
       template_name,
       template_type,
       fallback: true,
