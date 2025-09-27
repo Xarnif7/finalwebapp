@@ -8355,11 +8355,20 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             console.log('✅ RESEND_API_KEY available, length:', process.env.RESEND_API_KEY.length);
 
             // Process the message to replace variables
-            let processedMessage = templateMessage || reviewRequest.message || 'Thank you for your business! Please consider leaving us a review.';
-            
-            // If the message is still the default, try to get it from form settings
-            if (processedMessage === 'Thank you for your business! Please consider leaving us a review.' && formSettings.email_message) {
+            // Priority: 1) Custom template message, 2) Form settings email_message, 3) Review request message, 4) Default
+            let processedMessage;
+            if (templateMessage) {
+              // Use custom template message if available
+              processedMessage = templateMessage;
+              console.log('📝 Using custom template message:', processedMessage);
+            } else if (formSettings.email_message) {
+              // Use form settings message if no custom template
               processedMessage = formSettings.email_message;
+              console.log('📝 Using form settings message:', processedMessage);
+            } else {
+              // Fallback to review request message or default
+              processedMessage = reviewRequest.message || 'Thank you for your business! Please consider leaving us a review.';
+              console.log('📝 Using fallback message:', processedMessage);
             }
             
             const customerName = reviewRequest.customers.full_name || 'Customer';
@@ -8420,7 +8429,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                         
                         <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
                           <p style="color: #334155; margin: 0; font-size: 16px; line-height: 1.6;">
-                            ${formSettings.email_message || processedMessage}
+                            ${processedMessage}
                           </p>
                         </div>
                         
