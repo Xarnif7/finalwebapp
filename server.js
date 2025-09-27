@@ -8273,30 +8273,27 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             await supabase.from('review_requests').update({ review_link: reviewLink }).eq('id', reviewRequest.id);
           }
 
-          // Resolve business name/website (prefer businesses table, fallback to review_sources)
-          let companyName = reviewRequest?.businesses?.name || 'Our Business';
+          // Get business name/website from Settings -> Business (the correct source)
+          let companyName = 'Our Business';
           let companyWebsite = null;
           try {
-            const { data: biz } = await supabase
+            const { data: business } = await supabase
               .from('businesses')
-              .select('id, name, website')
+              .select('name, website')
               .eq('id', reviewRequest.business_id)
-              .maybeSingle();
-            if (biz) {
-              companyName = biz.name || companyName;
-              companyWebsite = biz.website || null;
+              .single();
+            
+            if (business?.name) {
+              companyName = business.name;
             }
-            if (!companyWebsite) {
-              const { data: source } = await supabase
-                .from('review_sources')
-                .select('public_url, business_name')
-                .eq('business_id', reviewRequest.business_id)
-                .eq('platform', 'google')
-                .maybeSingle();
-              companyWebsite = source?.public_url || companyWebsite;
-              companyName = biz?.name || source?.business_name || companyName;
+            if (business?.website) {
+              companyWebsite = business.website;
             }
-          } catch (_) {}
+            
+            console.log('🏢 Business info from Settings:', { companyName, companyWebsite });
+          } catch (error) {
+            console.log('⚠️ Could not fetch business info from Settings:', error);
+          }
 
           // Get form settings for this business
           let formSettings = {};
@@ -8359,17 +8356,21 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             console.log('✅ RESEND_API_KEY available, length:', process.env.RESEND_API_KEY.length);
 
             // Process the message to replace variables
-            // Priority: 1) Custom template message, 2) Form settings email_message, 3) Review request message, 4) Default
+            // Priority: 1) Review request message (already has variables replaced), 2) Custom template message, 3) Form settings email_message, 4) Default
             let processedMessage;
             console.log('🔍 DEBUG: Template message sources:', {
+              reviewRequest_message: reviewRequest.message,
               templateMessage,
               formSettings_email_message: formSettings.email_message,
-              reviewRequest_message: reviewRequest.message,
               job_payload: job.payload
             });
             
-            if (templateMessage) {
-              // Use custom template message if available
+            if (reviewRequest.message && reviewRequest.message.trim()) {
+              // Use review request message first (already has variables replaced)
+              processedMessage = reviewRequest.message;
+              console.log('📝 Using review request message (variables already replaced):', processedMessage);
+            } else if (templateMessage) {
+              // Use custom template message if no review request message
               processedMessage = templateMessage;
               console.log('📝 Using custom template message:', processedMessage);
             } else if (formSettings.email_message) {
@@ -8377,8 +8378,8 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
               processedMessage = formSettings.email_message;
               console.log('📝 Using form settings message:', processedMessage);
             } else {
-              // Fallback to review request message or default
-              processedMessage = reviewRequest.message || 'Thank you for your business! Please consider leaving us a review.';
+              // Fallback to default
+              processedMessage = 'Thank you for your business! Please consider leaving us a review.';
               console.log('📝 Using fallback message:', processedMessage);
             }
             
