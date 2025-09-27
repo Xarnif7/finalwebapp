@@ -9458,8 +9458,35 @@ async function handleJobCompleted(payload) {
     // Generate review link
     const reviewLink = `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/r/${Math.random().toString(36).substring(2, 10)}`;
 
-    // Create scheduled job with template_id for automation executor
+    // Create review request first
+    const { data: reviewRequest, error: reviewRequestError } = await supabase
+      .from('review_requests')
+      .insert({
+        business_id: connection.business_id,
+        customer_id: customerId,
+        channel: 'email', // Default to email for now
+        status: 'pending',
+        send_at: new Date().toISOString(), // Set send_at to now for immediate processing
+        review_link: reviewLink,
+        trigger_type: 'manual_trigger',
+        trigger_data: {
+          template_id: template.id,
+          template_name: template.name,
+          customer_name: customer.name,
+          customer_email: customer.email
+        }
+      })
+      .select('id')
+      .single();
+
+    if (reviewRequestError) {
+      console.error('❌ Error creating review request:', reviewRequestError);
+      return res.status(500).json({ error: 'Failed to create review request' });
+    }
+
+    // Create scheduled job with review_request_id for automation executor
     const jobPayload = {
+      review_request_id: reviewRequest.id,
       customer_id: customerId,
       customer_name: customer.name,
       customer_email: customer.email,
@@ -9478,33 +9505,6 @@ async function handleJobCompleted(payload) {
     if (!jobResult.success) {
       console.error('❌ Error creating scheduled job:', jobResult.error);
       return res.status(500).json({ error: 'Failed to create scheduled job' });
-    }
-
-    // Create review request linked to the job
-    const { data: reviewRequest, error: reviewRequestError } = await supabase
-      .from('review_requests')
-      .insert({
-        business_id: connection.business_id,
-        customer_id: customerId,
-        channel: 'email', // Default to email for now
-        status: 'pending',
-        send_at: new Date().toISOString(), // Set send_at to now for immediate processing
-        review_link: reviewLink,
-        trigger_type: 'manual_trigger',
-        trigger_data: {
-          job_id: jobResult.job.id,
-          template_id: template.id,
-          template_name: template.name,
-          customer_name: customer.name,
-          customer_email: customer.email
-        }
-      })
-      .select('id')
-      .single();
-
-    if (reviewRequestError) {
-      console.error('❌ Error creating review request:', reviewRequestError);
-      return;
     }
 
     console.log('📝 Created review request:', reviewRequest.id);
