@@ -8,17 +8,6 @@ const supabase = createClient(
 export default async function handler(req, res) {
   try {
     console.log('Starting automation execution...');
-    
-    // Execute scheduled automations
-    const { data: processedCount, error: executeError } = await supabase
-      .rpc('execute_scheduled_automations');
-
-    if (executeError) {
-      console.error('Error executing automations:', executeError);
-      return res.status(500).json({ error: 'Failed to execute automations' });
-    }
-
-    console.log(`Processed ${processedCount} automation executions`);
 
     // Get pending scheduled automation emails
     console.log('🔍 DEBUG: Fetching automation_email jobs...');
@@ -308,9 +297,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ 
       success: true, 
-      processed_automations: processedCount,
       sent_emails: sentCount,
-      message: `Processed ${processedCount} automations and sent ${sentCount} emails`
+      message: `Sent ${sentCount} emails`
     });
 
   } catch (error) {

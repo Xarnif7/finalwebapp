@@ -175,9 +175,33 @@ export default function FeedbackStandalone() {
           } else {
             const errorText = await aiResponse.text();
             console.error('❌ AI sentiment analysis API error:', aiResponse.status, errorText);
+            
+            // Smart fallback: analyze text for negative keywords
+            const negativeKeywords = ['bad', 'terrible', 'awful', 'horrible', 'worst', 'disappointed', 'hate', 'angry', 'frustrated', 'poor', 'unacceptable', 'sucks', 'garbage', 'trash', 'waste', 'regret', 'never again', 'awful service', 'bad service', 'terrible job', 'did a terrible job'];
+            const text = comment.toLowerCase();
+            const hasNegativeKeywords = negativeKeywords.some(keyword => text.includes(keyword));
+            
+            if (hasNegativeKeywords) {
+              sentiment = 'negative';
+              console.log('🧠 Smart fallback detected negative sentiment from keywords:', { text: comment, sentiment });
+            } else {
+              console.log('🧠 Smart fallback using rating-based sentiment:', { text: comment, rating, sentiment });
+            }
           }
         } catch (aiError) {
-          console.error('❌ AI sentiment analysis failed, using rating-based sentiment:', aiError);
+          console.error('❌ AI sentiment analysis failed, using smart fallback:', aiError);
+          
+          // Smart fallback: analyze text for negative keywords
+          const negativeKeywords = ['bad', 'terrible', 'awful', 'horrible', 'worst', 'disappointed', 'hate', 'angry', 'frustrated', 'poor', 'unacceptable', 'sucks', 'garbage', 'trash', 'waste', 'regret', 'never again', 'awful service', 'bad service', 'terrible job', 'did a terrible job'];
+          const text = comment.toLowerCase();
+          const hasNegativeKeywords = negativeKeywords.some(keyword => text.includes(keyword));
+          
+          if (hasNegativeKeywords) {
+            sentiment = 'negative';
+            console.log('🧠 Smart fallback detected negative sentiment from keywords:', { text: comment, sentiment });
+          } else {
+            console.log('🧠 Smart fallback using rating-based sentiment:', { text: comment, rating, sentiment });
+          }
         }
       }
 
