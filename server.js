@@ -9456,7 +9456,30 @@ async function handleJobCompleted(payload) {
     // Generate review link
     const reviewLink = `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/r/${Math.random().toString(36).substring(2, 10)}`;
 
-    // Create review request first
+    // Get template message and customize it
+    // Priority: 1) custom_message, 2) config_json.message, 3) default
+    const templateMessage = template.custom_message || template.config_json?.message || 
+      `Hi {{customer.name}}, thank you for choosing us for your ${serviceType} service! We hope you were satisfied. Please take a moment to leave us a review at {{review_link}}.`;
+
+    console.log('📝 Manual trigger template message:', {
+      custom_message: template.custom_message,
+      config_json_message: template.config_json?.message,
+      final_message: templateMessage
+    });
+
+    // Customize the message with customer and business data
+    const customizedMessage = templateMessage
+      .replace(/\{\{customer\.name\}\}/g, customer.name)
+      .replace(/\{\{customer_name\}\}/g, customer.name)
+      .replace(/\{\{customer\.first_name\}\}/g, customer.name.split(' ')[0] || '')
+      .replace(/\{\{customer\.last_name\}\}/g, customer.name.split(' ').slice(1).join(' ') || '')
+      .replace(/\{\{customer\.full_name\}\}/g, customer.name)
+      .replace(/\{\{business\.name\}\}/g, business.name || 'Our Business')
+      .replace(/\{\{business_name\}\}/g, business.name || 'Our Business')
+      .replace(/\{\{company_name\}\}/g, business.name || 'Our Business')
+      .replace(/\{\{review_link\}\}/g, reviewLink);
+
+    // Create review request with the customized message
     const { data: reviewRequest, error: reviewRequestError } = await supabase
       .from('review_requests')
       .insert({
@@ -9466,6 +9489,7 @@ async function handleJobCompleted(payload) {
         status: 'pending',
         send_at: new Date().toISOString(), // Set send_at to now for immediate processing
         review_link: reviewLink,
+        message: customizedMessage, // Store the customized message here
         trigger_type: 'manual_trigger',
         trigger_data: {
           template_id: template.id,
@@ -9480,29 +9504,6 @@ async function handleJobCompleted(payload) {
     if (reviewRequestError) {
       console.error('❌ Error creating review request:', reviewRequestError);
       return res.status(500).json({ error: 'Failed to create review request' });
-    }
-
-    // Create scheduled job with review_request_id for automation executor
-    const jobPayload = {
-      review_request_id: reviewRequest.id,
-      customer_id: customerId,
-      customer_name: customer.name,
-      customer_email: customer.email,
-      template_id: template.id,
-      template_name: template.name,
-      template_message: template.custom_message || template.config_json?.message
-    };
-
-    const jobResult = await createScheduledJob(
-      connection.business_id,
-      template.id,
-      new Date().toISOString(), // Run immediately
-      jobPayload
-    );
-
-    if (!jobResult.success) {
-      console.error('❌ Error creating scheduled job:', jobResult.error);
-      return res.status(500).json({ error: 'Failed to create scheduled job' });
     }
 
     console.log('📝 Created review request:', reviewRequest.id);
