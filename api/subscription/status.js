@@ -121,7 +121,7 @@ export default async function handler(req, res) {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('onboarding_completed')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .single();
 
     if (profileError && profileError.code !== 'PGRST116') {
