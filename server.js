@@ -9503,10 +9503,91 @@ async function handleJobCompleted(payload) {
       .replace(/\{\{business_name\}\}/g, 'Your Business')
       .replace(/\{\{review_link\}\}/g, reviewLink);
 
-    // Send email immediately
+    // Send email immediately using the same HTML template as automation executor
     console.log('📧 Sending email...');
     
-    // Import Resend functionality
+    // Get form settings for consistent email styling
+    let formSettings = {};
+    try {
+      const { data: settings } = await supabase
+        .from('feedback_form_settings')
+        .select('settings')
+        .eq('business_id', business.id)
+        .maybeSingle();
+      if (settings?.settings) {
+        formSettings = settings.settings;
+      }
+    } catch (_) {}
+
+    // Get business info for email
+    const companyName = business.name || 'Our Business';
+    const companyWebsite = business.website || '';
+    
+    // Use the same HTML template as automation executor
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Thank You</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc; line-height: 1.6;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">
+              ${formSettings.email_header || 'Thank You'}
+            </h1>
+            <p style="color: #e2e8f0; margin: 10px 0 0 0; font-size: 16px; font-weight: 300;">
+              ${formSettings.email_subheader || 'We appreciate your business'}
+            </p>
+          </div>
+          
+          <!-- Content -->
+          <div style="padding: 40px 30px;">
+            <h2 style="color: #1e293b; margin: 0 0 20px 0; font-size: 24px; font-weight: 600;">
+              Hi ${customer.name},
+            </h2>
+            
+            <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+              <p style="color: #334155; margin: 0; font-size: 16px; line-height: 1.6;">
+                ${customizedMessage}
+              </p>
+            </div>
+            
+            <p style="color: #64748b; margin: 25px 0; font-size: 16px; line-height: 1.6;">
+              Your feedback helps us improve our services and assists other customers in making informed decisions.
+            </p>
+            
+            <!-- CTA Button -->
+            <div style="text-align: center; margin: 35px 0;">
+              <a href="${reviewLink}" 
+                 style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); transition: all 0.2s ease;">
+                ${formSettings.email_button_text || 'Leave Feedback'}
+              </a>
+            </div>
+            
+            <div style="border-top: 1px solid #e2e8f0; margin: 35px 0 25px 0;"></div>
+            
+            <p style="color: #64748b; margin: 0; font-size: 14px; text-align: center;">
+              Thank you for choosing ${companyName}${companyWebsite ? ` • <a href="${companyWebsite}" style="color: #3b82f6; text-decoration: none;">Website</a>` : ''}
+            </p>
+          </div>
+          
+          <!-- Footer -->
+          <div style="background-color: #f8fafc; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;">
+            <p style="color: #94a3b8; margin: 0; font-size: 12px; text-align: center;">
+              This email was sent by Blipp - Review Automation Platform<br>
+              If you have any questions, please contact ${companyName} directly.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    
     const emailResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -9514,10 +9595,10 @@ async function handleJobCompleted(payload) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'noreply@myblipp.com',
+        from: `${companyName} <noreply@myblipp.com>`,
         to: [customer.email],
-        subject: "We'd love your feedback!",
-        html: customizedMessage.replace(/\n/g, '<br>'),
+        subject: formSettings.email_subject || "We'd love your feedback!",
+        html: emailHtml,
         text: customizedMessage,
       }),
     });
