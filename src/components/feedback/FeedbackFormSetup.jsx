@@ -68,19 +68,35 @@ export default function FeedbackFormSetup() {
     try {
       setSaving(true);
       console.log('💾 Saving form settings:', formSettings);
+      
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No authentication token found');
+      }
+      
+      console.log('💾 Session token available:', session.access_token.substring(0, 20) + '...');
+      
       const resp = await fetch('/api/feedback-form-settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session.access_token}` 
+        },
         body: JSON.stringify({ settings: formSettings })
       });
+      
+      console.log('💾 Response status:', resp.status);
       const result = await resp.json();
       console.log('💾 Save response:', result);
-      if (!resp.ok) throw (result || { error: 'Failed to save form settings' });
+      
+      if (!resp.ok) {
+        throw new Error(result.error || `HTTP ${resp.status}: Failed to save form settings`);
+      }
+      
       alert('Form settings saved successfully!');
     } catch (err) {
       console.error('Error saving form settings:', err);
-      alert('Error saving form settings: ' + (err.message || err.error));
+      alert('Error saving form settings: ' + (err.message || err.error || 'Unknown error'));
     } finally {
       setSaving(false);
     }

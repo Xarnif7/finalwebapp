@@ -750,23 +750,43 @@ app.get('/api/feedback-form-settings', async (req, res) => {
 
 app.post('/api/feedback-form-settings', async (req, res) => {
   try {
+    console.log('💾 Form settings save request received');
+    
     const token = req.headers.authorization?.replace('Bearer ', '');
-    const { data: { user } } = await supabase.auth.getUser(token);
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    if (!token) {
+      console.log('💾 No token provided');
+      return res.status(401).json({ error: 'No authorization token provided' });
+    }
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      console.log('💾 Auth error:', authError);
+      return res.status(401).json({ error: 'Unauthorized', details: authError?.message });
+    }
+    
+    console.log('💾 User authenticated:', user.id);
 
     const { settings } = req.body || {};
+    console.log('💾 Settings to save:', settings);
     
     // Get or create business_id from profile
-    let { data: profile } = await supabase
+    let { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('business_id')
       .eq('user_id', user.id)
       .single();
     
+    if (profileError) {
+      console.log('💾 Profile error:', profileError);
+      return res.status(500).json({ error: 'Failed to get user profile', details: profileError.message });
+    }
+    
     let businessId = profile?.business_id;
+    console.log('💾 Current business_id:', businessId);
     
     // If no business_id, create one
     if (!businessId) {
+      console.log('💾 Creating new business...');
       const userEmail = user.email || user.user_metadata?.email || user.user_metadata?.full_name || 'unknown@example.com';
       const { data: created, error: createErr } = await supabase
         .from('businesses')
@@ -777,22 +797,39 @@ app.post('/api/feedback-form-settings', async (req, res) => {
         })
         .select('id')
         .single();
-      if (createErr) return res.status(403).json({ error: 'RLS prevented creating business', details: createErr });
+      if (createErr) {
+        console.log('💾 Business creation error:', createErr);
+        return res.status(403).json({ error: 'RLS prevented creating business', details: createErr.message });
+      }
       businessId = created.id;
-      await supabase.from('profiles').update({ business_id: businessId }).eq('user_id', user.id);
+      console.log('💾 Created business_id:', businessId);
+      
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ business_id: businessId })
+        .eq('user_id', user.id);
+      if (updateErr) {
+        console.log('💾 Profile update error:', updateErr);
+        return res.status(500).json({ error: 'Failed to update profile', details: updateErr.message });
+      }
     }
 
-    const { error } = await supabase
+    console.log('💾 Upserting form settings for business_id:', businessId);
+    const { data, error } = await supabase
       .from('feedback_form_settings')
       .upsert({ business_id: businessId, settings: settings || {}, updated_at: new Date().toISOString() })
       .select('business_id')
       .single();
-    if (error) throw error;
+    if (error) {
+      console.log('💾 Upsert error:', error);
+      throw error;
+    }
 
-    res.json({ success: true });
+    console.log('💾 Form settings saved successfully:', data);
+    res.json({ success: true, business_id: businessId });
   } catch (e) {
-    console.error('Save form settings error', e);
-    res.status(500).json({ error: 'Failed to save form settings' });
+    console.error('💾 Save form settings error:', e);
+    res.status(500).json({ error: 'Failed to save form settings', details: e.message });
   }
 });
 
