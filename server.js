@@ -1561,7 +1561,8 @@ async function createScheduledJob(businessId, templateId, runAt, payload) {
         template_id: templateId,
         run_at: runAt,
         payload: payload,
-        status: 'pending'
+        status: 'queued',
+        job_type: 'automation_email'
       })
       .select()
       .single();
