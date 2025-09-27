@@ -8847,12 +8847,42 @@ app.post('/api/automation/trigger', async (req, res) => {
       }
       
       // Get the message to use (priority: template_message from request, custom_message from DB, config_json.message, default)
-      const finalMessage = template_message || 
+      let finalMessage = template_message || 
         (template?.custom_message) || 
         (template?.config_json?.message) || 
         'Thank you for your business! Please consider leaving us a review.';
       
-      console.log('📝 Final message for manual trigger:', finalMessage);
+      console.log('📝 Raw message for manual trigger:', finalMessage);
+      
+      // Get customer data for variable replacement
+      const { data: customerData, error: customerError } = await supabase
+        .from('customers')
+        .select('full_name, email')
+        .eq('id', customer_id)
+        .single();
+      
+      if (customerError) {
+        console.error('Error fetching customer data:', customerError);
+        return res.status(500).json({ error: 'Failed to fetch customer data' });
+      }
+      
+      // Replace variables in the message
+      const customerName = customerData.full_name || 'Customer';
+      const businessName = business.name || 'Our Business';
+      const businessWebsite = business.website || '';
+      
+      finalMessage = finalMessage
+        .replace(/\{\{customer\.name\}\}/g, customerName)
+        .replace(/\{\{customer_name\}\}/g, customerName)
+        .replace(/\{\{customer\.first_name\}\}/g, customerName.split(' ')[0] || '')
+        .replace(/\{\{customer\.last_name\}\}/g, customerName.split(' ').slice(1).join(' ') || '')
+        .replace(/\{\{customer\.full_name\}\}/g, customerName)
+        .replace(/\{\{business\.name\}\}/g, businessName)
+        .replace(/\{\{business_name\}\}/g, businessName)
+        .replace(/\{\{company_name\}\}/g, businessName)
+        .replace(/\{\{company_website\}\}/g, businessWebsite);
+      
+      console.log('📝 Final message after variable replacement:', finalMessage);
       
       // Generate review link
       const reviewLink = `${process.env.APP_BASE_URL || 'https://myblipp.com'}/r/${Math.random().toString(36).substring(2, 10)}`;
@@ -9500,6 +9530,10 @@ async function handleJobCompleted(payload) {
       final_message: manualTemplateMessage
     });
 
+    // Get business info for variable replacement
+    const businessName = business.name || 'Our Business';
+    const businessWebsite = business.website || '';
+    
     // Customize the message with customer and business data
     const manualCustomizedMessage = manualTemplateMessage
       .replace(/\{\{customer\.name\}\}/g, customer.name)
@@ -9507,9 +9541,10 @@ async function handleJobCompleted(payload) {
       .replace(/\{\{customer\.first_name\}\}/g, customer.name.split(' ')[0] || '')
       .replace(/\{\{customer\.last_name\}\}/g, customer.name.split(' ').slice(1).join(' ') || '')
       .replace(/\{\{customer\.full_name\}\}/g, customer.name)
-      .replace(/\{\{business\.name\}\}/g, business.name || 'Our Business')
-      .replace(/\{\{business_name\}\}/g, business.name || 'Our Business')
-      .replace(/\{\{company_name\}\}/g, business.name || 'Our Business')
+      .replace(/\{\{business\.name\}\}/g, businessName)
+      .replace(/\{\{business_name\}\}/g, businessName)
+      .replace(/\{\{company_name\}\}/g, businessName)
+      .replace(/\{\{company_website\}\}/g, businessWebsite)
       .replace(/\{\{review_link\}\}/g, reviewLink);
 
     // Create review request with the customized message

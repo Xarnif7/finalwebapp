@@ -7,7 +7,7 @@ const supabase = createClient(
 
 export default async function handler(req, res) {
   try {
-    console.log('Starting automation execution...');
+    console.log('Starting automation execution...', { method: req.method, url: req.url });
 
     // Get pending scheduled automation emails
     console.log('🔍 DEBUG: Fetching automation_email jobs...');
