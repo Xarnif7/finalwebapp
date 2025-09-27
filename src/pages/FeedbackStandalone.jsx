@@ -294,8 +294,8 @@ export default function FeedbackStandalone() {
   if (submitted) {
     const settings = formSettings || {};
     const successMessage = rating <= 3 
-      ? (settings.negative_success_message || 'Thanks for your feedback! Our team will review this privately and work to improve your experience.')
-      : (settings.positive_success_message || 'Thanks for your feedback! Would you also share it publicly?');
+      ? (settings.successMessageNegative || 'Thanks for your feedback! Our team will review this privately and work to improve your experience.')
+      : (settings.successMessagePositive || 'Thanks for your feedback! Would you also share it publicly?');
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -351,10 +351,10 @@ export default function FeedbackStandalone() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-gray-900">
-            {settings.form_title || 'How was your experience?'}
+            {settings.title || 'How was your experience?'}
           </CardTitle>
-          {settings.form_subtitle && (
-            <p className="text-gray-600 mt-2">{settings.form_subtitle}</p>
+          {settings.subtitle && (
+            <p className="text-gray-600 mt-2">{settings.subtitle}</p>
           )}
           {business?.name && (
             <p className="text-sm text-gray-500 mt-1">with {business.name}</p>
@@ -380,7 +380,7 @@ export default function FeedbackStandalone() {
                   </button>
                 ))}
               </div>
-              {settings.show_rating_labels && (
+              {settings.showRatingLabels && (
                 <p className="text-sm text-gray-600">
                   {rating === 0 && 'Rate your experience'}
                   {rating === 1 && 'Poor'}
@@ -401,7 +401,7 @@ export default function FeedbackStandalone() {
                 id="comment"
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder={settings.comment_placeholder || 'What made your experience great? Or how could we improve?'}
+                placeholder={settings.commentPlaceholder || 'What made your experience great? Or how could we improve?'}
                 rows={3}
                 className="resize-none"
               />
@@ -412,7 +412,7 @@ export default function FeedbackStandalone() {
               disabled={rating === 0 || submitting}
               className="w-full"
             >
-              {submitting ? 'Submitting...' : (settings.submit_button_text || 'Submit Feedback')}
+              {submitting ? 'Submitting...' : (settings.submitButtonText || 'Submit Feedback')}
             </Button>
           </form>
         </CardContent>
