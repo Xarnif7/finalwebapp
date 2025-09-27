@@ -9465,6 +9465,7 @@ async function handleJobCompleted(payload) {
         customer_id: customerId,
         channel: 'email', // Default to email for now
         status: 'pending',
+        send_at: new Date().toISOString(), // Set send_at to now for immediate processing
         review_link: reviewLink,
         trigger_type: 'jobber_job_completed',
         trigger_data: {
