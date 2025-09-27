@@ -142,9 +142,9 @@ export default function Landing() {
   console.log('[LANDING] Subscription status:', { hasActive: hasSubscription, loading: subLoading });
   console.log('[LANDING] Has subscription:', hasSubscription, 'Loading:', subLoading);
 
-  // Auto-redirect signed-in users with active subscription
+  // Auto-redirect signed-in users with active subscription (only if they're on the landing page)
   useEffect(() => {
-    if (authStatus === 'signedIn' && !subLoading && hasSubscription) {
+    if (authStatus === 'signedIn' && !subLoading && hasSubscription && window.location.pathname === '/') {
       console.log('[LANDING] User has subscription, redirecting to dashboard');
       navigate('/reporting', { replace: true });
     }

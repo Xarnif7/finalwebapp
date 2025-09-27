@@ -8327,10 +8327,15 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             try {
               const { data: templateData } = await supabase
                 .from('automation_templates')
-                .select('config_json')
+                .select('config_json, custom_message')
                 .eq('id', job.payload.template_id)
                 .maybeSingle();
-              if (templateData?.config_json?.message) {
+              
+              // Priority: 1) custom_message, 2) config_json.message
+              if (templateData?.custom_message) {
+                templateMessage = templateData.custom_message;
+                console.log('📝 Found template message from custom_message:', templateMessage);
+              } else if (templateData?.config_json?.message) {
                 templateMessage = templateData.config_json.message;
                 console.log('📝 Found template message from config_json:', templateMessage);
               }
@@ -9473,8 +9478,15 @@ async function handleJobCompleted(payload) {
     console.log('📝 Created review request:', reviewRequest.id);
 
     // Get template message and customize it
-    const templateMessage = template.config_json?.message || template.custom_message || 
+    // Priority: 1) custom_message, 2) config_json.message, 3) default
+    const templateMessage = template.custom_message || template.config_json?.message || 
       `Hi {{customer.name}}, thank you for choosing us for your ${serviceType} service! We hope you were satisfied. Please take a moment to leave us a review at {{review_link}}.`;
+    
+    console.log('📝 Manual trigger template message:', {
+      custom_message: template.custom_message,
+      config_json_message: template.config_json?.message,
+      final_message: templateMessage
+    });
 
     // Replace template variables
     const customizedMessage = templateMessage
