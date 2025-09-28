@@ -104,7 +104,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
 
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh] h-[95vh] overflow-y-auto">
+        <DialogContent className="max-w-[80vw] w-[80vw] max-h-[85vh] h-[85vh] overflow-y-auto">
           <DialogHeader className="pb-6">
             <DialogTitle className="flex items-center space-x-3 text-3xl font-bold">
               <button onClick={handleBackToList} className="mr-3 text-gray-600 hover:text-gray-800 text-2xl">
@@ -123,7 +123,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[98vw] w-[98vw] max-h-[98vh] h-[98vh] overflow-hidden">
+      <DialogContent className="max-w-[70vw] w-[70vw] max-h-[80vh] h-[80vh] overflow-hidden">
         <DialogHeader className="pb-6">
           <DialogTitle className="text-3xl font-bold text-center">Connect Your CRM</DialogTitle>
           <p className="text-gray-600 text-center mt-2">Choose from popular CRM systems or connect via Zapier</p>
@@ -148,7 +148,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
             </div>
 
             {/* CRM Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12 max-h-[75vh] overflow-y-auto p-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 max-h-[65vh] overflow-y-auto p-8">
               {filteredCrms.map((crm) => (
                 <Card 
                   key={crm.id} 
