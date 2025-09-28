@@ -75,6 +75,8 @@ export function getPageNameFromPath(pathname: string): string {
     'settings': 'Settings',
     'team-roles': 'TeamRoles',
     'onboarding': 'Onboarding',
+    'privacy': 'Privacy',
+    'terms': 'Terms',
   };
   
   // Check special routes first

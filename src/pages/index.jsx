@@ -303,9 +303,6 @@ const DashboardRoutes = () => (
       <Route path="/analytics/trends" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
         <Route path="/analytics/competitors" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
         
-        {/* Legal Pages */}
-        <Route path="/privacy" element={<TrackedComponent component={Privacy} name="Privacy" />} />
-        <Route path="/terms" element={<TrackedComponent component={Terms} name="Terms" />} />
       
       {/* Feedback Tab */}
       <Route path="/feedback" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Feedback} name="Feedback" /></ProtectedRoute>} />
@@ -344,6 +341,10 @@ const MarketingRoutes = () => (
     <Route path="/testimonials" element={<TrackedComponent component={Testimonials} name="Testimonials" />} />
     <Route path="/paywall" element={<TrackedComponent component={Paywall} name="Paywall" />} />
     <Route path="/post-checkout" element={<TrackedComponent component={PostCheckout} name="PostCheckout" />} />
+    
+    {/* Legal Pages - Public Access */}
+    <Route path="/privacy" element={<TrackedComponent component={Privacy} name="Privacy" />} />
+    <Route path="/terms" element={<TrackedComponent component={Terms} name="Terms" />} />
     
     {/* Public routes */}
     <Route path="/r/:code" element={<TrackedComponent component={QRRedirect} name="QRRedirect" />} />
