@@ -12844,14 +12844,16 @@ async function generateAIReviewSummary(reviews, period, summaryType) {
       date: review.review_created_at
     }));
 
-    const prompt = `Analyze these ${reviews.length} customer reviews from the past ${period} and provide a comprehensive summary.
+    const prompt = `Analyze these ${reviews.length} customer reviews and provide a comprehensive summary. 
+
+IMPORTANT: Only identify themes that are ACTUALLY mentioned in the review text. Do not make up generic themes like "wait times" or "communication" if they're not specifically mentioned in the reviews.
 
 Review Data:
 ${JSON.stringify(reviewData, null, 2)}
 
 Please provide a JSON response with the following structure:
 {
-  "overview": "Brief 2-3 sentence summary of overall performance",
+  "overview": "Brief 2-3 sentence summary based ONLY on the actual reviews provided",
   "key_metrics": {
     "average_rating": number,
     "total_reviews": number,
@@ -12859,16 +12861,16 @@ Please provide a JSON response with the following structure:
     "negative_percentage": number,
     "neutral_percentage": number
   },
-  "top_positive_themes": ["theme1", "theme2", "theme3"],
-  "top_negative_themes": ["theme1", "theme2", "theme3"],
-  "improvement_areas": ["area1", "area2", "area3"],
-  "recommendations": ["recommendation1", "recommendation2", "recommendation3"],
+  "top_positive_themes": ["only themes actually mentioned in positive reviews"],
+  "top_negative_themes": ["only themes actually mentioned in negative reviews"],
+  "improvement_areas": ["only areas actually mentioned in reviews"],
+  "recommendations": ["actionable recommendations based on actual review content"],
   "notable_quotes": [
-    {"text": "quote", "rating": number, "sentiment": "positive/negative/neutral"}
+    {"text": "actual quote from reviews", "rating": number, "sentiment": "positive/negative/neutral"}
   ]
 }
 
-Focus on actionable insights and specific themes mentioned in the reviews.`;
+CRITICAL: If a theme is not explicitly mentioned in the review text, do not include it. Only extract themes that customers actually wrote about.`;
 
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -12930,8 +12932,32 @@ function generateBasicSummary(reviews, period) {
   const negativeReviews = reviews.filter(r => r.rating <= 2).length;
   const neutralReviews = reviews.filter(r => r.rating === 3).length;
 
+  // Find the most recent review date
+  const mostRecentReview = reviews.reduce((latest, review) => {
+    const reviewDate = new Date(review.review_created_at);
+    const latestDate = new Date(latest);
+    return reviewDate > latestDate ? review.review_created_at : latest;
+  }, reviews[0]?.review_created_at);
+
+  // Calculate how long ago the most recent review was
+  const daysSinceLastReview = mostRecentReview ? 
+    Math.floor((new Date() - new Date(mostRecentReview)) / (1000 * 60 * 60 * 24)) : 0;
+
+  let overviewText;
+  if (daysSinceLastReview === 0) {
+    overviewText = `Received ${totalReviews} reviews with an average rating of ${averageRating.toFixed(1)} stars.`;
+  } else if (daysSinceLastReview < 7) {
+    overviewText = `Received ${totalReviews} reviews with an average rating of ${averageRating.toFixed(1)} stars. Last review was ${daysSinceLastReview} days ago.`;
+  } else if (daysSinceLastReview < 30) {
+    const weeks = Math.floor(daysSinceLastReview / 7);
+    overviewText = `Received ${totalReviews} reviews with an average rating of ${averageRating.toFixed(1)} stars. Last review was ${weeks} week${weeks > 1 ? 's' : ''} ago.`;
+  } else {
+    const months = Math.floor(daysSinceLastReview / 30);
+    overviewText = `Received ${totalReviews} reviews with an average rating of ${averageRating.toFixed(1)} stars. Last review was ${months} month${months > 1 ? 's' : ''} ago.`;
+  }
+
   return {
-    overview: `Received ${totalReviews} reviews in the past ${period} with an average rating of ${averageRating.toFixed(1)} stars.`,
+    overview: overviewText,
     key_metrics: {
       average_rating: Math.round(averageRating * 10) / 10,
       total_reviews: totalReviews,
@@ -12939,10 +12965,10 @@ function generateBasicSummary(reviews, period) {
       negative_percentage: Math.round((negativeReviews / totalReviews) * 100),
       neutral_percentage: Math.round((neutralReviews / totalReviews) * 100)
     },
-    top_positive_themes: ["Good service", "Friendly staff", "Quality work"],
-    top_negative_themes: ["Wait times", "Communication", "Pricing"],
-    improvement_areas: ["Response time", "Customer communication", "Service quality"],
-    recommendations: ["Focus on customer service training", "Improve communication processes", "Address pricing concerns"],
+    top_positive_themes: totalReviews > 0 ? ["Based on actual review content"] : [],
+    top_negative_themes: totalReviews > 0 ? ["Based on actual review content"] : [],
+    improvement_areas: totalReviews > 0 ? ["Review actual feedback for insights"] : [],
+    recommendations: totalReviews > 0 ? ["Analyze specific review content for actionable insights"] : [],
     notable_quotes: reviews.slice(0, 3).map(r => ({
       text: r.text?.substring(0, 100) + '...' || 'No text provided',
       rating: r.rating,
