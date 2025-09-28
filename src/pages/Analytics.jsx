@@ -113,8 +113,7 @@ export default function Analytics() {
         <CardContent>
           <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                <Brain className="h-5 w-5 text-blue-600" />
+              <h3 className="font-semibold text-lg mb-3">
                 AI Review Summaries
               </h3>
               <ul className="space-y-2 text-gray-600">
@@ -125,8 +124,7 @@ export default function Analytics() {
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-green-600" />
+              <h3 className="font-semibold text-lg mb-3">
                 Revenue Impact Tracking
               </h3>
               <ul className="space-y-2 text-gray-600">
