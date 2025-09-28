@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Badge } from '../components/ui/badge';
-import { Brain, DollarSign, TrendingUp, BarChart3, Target, Users, Star } from 'lucide-react';
 import AIReviewSummaries from '../components/analytics/AIReviewSummaries';
 import RevenueImpactTracking from '../components/analytics/RevenueImpactTracking';
 
@@ -10,107 +7,71 @@ export default function Analytics() {
   const [activeTab, setActiveTab] = useState('ai-insights');
 
   return (
-    <div className="space-y-6">
+    <div className="px-6 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Analytics & Insights</h1>
-          <p className="text-gray-600 mt-2">
-            AI-powered insights and revenue tracking for your review management
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Badge variant="secondary" className="flex items-center gap-1">
-            <Brain className="h-3 w-3" />
-            AI-Powered
-          </Badge>
-          <Badge variant="secondary" className="flex items-center gap-1">
-            <TrendingUp className="h-3 w-3" />
-            Revenue Tracking
-          </Badge>
-        </div>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Analytics</h1>
+        <p className="text-gray-600">
+          AI-powered insights and revenue tracking for your review management
+        </p>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">AI Analysis</p>
-                <p className="text-2xl font-bold text-blue-600">Active</p>
-              </div>
-              <Brain className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Revenue Tracking</p>
-                <p className="text-2xl font-bold text-green-600">Enabled</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Insights</p>
-                <p className="text-2xl font-bold text-purple-600">Real-time</p>
-              </div>
-              <BarChart3 className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">ROI Tracking</p>
-                <p className="text-2xl font-bold text-orange-600">Live</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Sub-tabs */}
+      <div className="mb-8">
+        <div className="flex gap-6">
+          <button
+            onClick={() => setActiveTab('ai-insights')}
+            className={`text-sm font-medium pb-2 ${
+              activeTab === 'ai-insights' 
+                ? 'text-gray-900' 
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            AI Insights
+          </button>
+          <button
+            onClick={() => setActiveTab('performance')}
+            className={`text-sm font-medium pb-2 ${
+              activeTab === 'performance' 
+                ? 'text-gray-900' 
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Performance
+          </button>
+          <button
+            onClick={() => setActiveTab('trends')}
+            className={`text-sm font-medium pb-2 ${
+              activeTab === 'trends' 
+                ? 'text-gray-900' 
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Trends
+          </button>
+          <button
+            onClick={() => setActiveTab('competitors')}
+            className={`text-sm font-medium pb-2 ${
+              activeTab === 'competitors' 
+                ? 'text-gray-900' 
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Competitors
+          </button>
+        </div>
       </div>
 
       {/* Main Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="ai-insights" className="flex items-center gap-2">
-            <Brain className="h-4 w-4" />
-            AI Insights
-          </TabsTrigger>
-          <TabsTrigger value="performance" className="flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            Performance
-          </TabsTrigger>
-          <TabsTrigger value="trends" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Trends
-          </TabsTrigger>
-          <TabsTrigger value="competitors" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Competitors
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="ai-insights" className="space-y-6">
+      <div className="space-y-6">
+        {activeTab === 'ai-insights' && (
           <div className="space-y-6">
             <AIReviewSummaries />
             <RevenueImpactTracking />
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="performance" className="space-y-6">
+        {activeTab === 'performance' && (
           <Card>
             <CardHeader>
               <CardTitle>Performance Analytics</CardTitle>
@@ -119,9 +80,9 @@ export default function Analytics() {
               <p className="text-gray-500">Performance metrics coming soon...</p>
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
-        <TabsContent value="trends" className="space-y-6">
+        {activeTab === 'trends' && (
           <Card>
             <CardHeader>
               <CardTitle>Trend Analysis</CardTitle>
@@ -130,9 +91,9 @@ export default function Analytics() {
               <p className="text-gray-500">Trend analysis coming soon...</p>
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
-        <TabsContent value="competitors" className="space-y-6">
+        {activeTab === 'competitors' && (
           <Card>
             <CardHeader>
               <CardTitle>Competitor Analysis</CardTitle>
@@ -141,8 +102,8 @@ export default function Analytics() {
               <p className="text-gray-500">Competitor analysis coming soon...</p>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
 
       {/* Feature Highlights */}
       <Card>
