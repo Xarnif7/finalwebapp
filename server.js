@@ -12430,6 +12430,231 @@ app.delete('/api/reviews/disconnect-source', async (req, res) => {
   }
 });
 
+// Sync reviews endpoint (public, requires auth)
+app.post('/api/reviews/sync', async (req, res) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { business_id, platform = 'all' } = req.body;
+    
+    if (!business_id) {
+      return res.status(400).json({ error: 'business_id is required' });
+    }
+
+    // Get review sources for this business
+    const { data: reviewSources, error: sourcesError } = await supabase
+      .from('review_sources')
+      .select('*')
+      .eq('business_id', business_id)
+      .eq('connected', true);
+
+    if (sourcesError) {
+      console.error('Error fetching review sources:', sourcesError);
+      return res.status(500).json({ error: 'Failed to fetch review sources' });
+    }
+
+    if (!reviewSources || reviewSources.length === 0) {
+      return res.status(404).json({ error: 'No connected review sources found' });
+    }
+
+    const results = {
+      summary: {
+        total_inserted: 0,
+        total_updated: 0,
+        total_errors: 0,
+        platforms_synced: []
+      },
+      details: {}
+    };
+
+    // Filter by platform if specified
+    const sourcesToSync = platform === 'all' 
+      ? reviewSources 
+      : reviewSources.filter(s => s.platform === platform);
+
+    for (const source of sourcesToSync) {
+      try {
+        let platformResult;
+        
+        switch (source.platform) {
+          case 'google':
+            platformResult = await syncGoogleReviews(source, business_id);
+            break;
+          case 'facebook':
+            platformResult = await syncFacebookReviews(source, business_id);
+            break;
+          case 'yelp':
+            platformResult = await syncYelpReviews(source, business_id);
+            break;
+          default:
+            console.warn(`Unknown platform: ${source.platform}`);
+            continue;
+        }
+
+        results.details[source.platform] = platformResult;
+        results.summary.total_inserted += platformResult.inserted || 0;
+        results.summary.total_updated += platformResult.updated || 0;
+        results.summary.total_errors += platformResult.errors || 0;
+        results.summary.platforms_synced.push(source.platform);
+
+        // Update last_synced_at
+        await supabase
+          .from('review_sources')
+          .update({ last_synced_at: new Date().toISOString() })
+          .eq('id', source.id);
+
+      } catch (error) {
+        console.error(`Error syncing ${source.platform}:`, error);
+        results.details[source.platform] = {
+          error: error.message,
+          inserted: 0,
+          updated: 0,
+          errors: 1
+        };
+        results.summary.total_errors++;
+      }
+    }
+
+    res.json({
+      message: 'Review sync completed',
+      ...results
+    });
+
+  } catch (error) {
+    console.error('Sync error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Helper function to classify sentiment
+function classifySentiment(text, rating) {
+  if (!text) return 'neutral';
+  
+  const negativeWords = ['bad', 'terrible', 'awful', 'horrible', 'worst', 'disappointed', 'hate', 'angry', 'frustrated', 'poor', 'unacceptable', 'sucks', 'garbage', 'trash', 'waste', 'regret', 'never again', 'awful service', 'bad service', 'terrible job', 'did a terrible job'];
+  const positiveWords = ['great', 'excellent', 'amazing', 'wonderful', 'fantastic', 'love', 'perfect', 'outstanding', 'superb', 'brilliant', 'exceptional', 'incredible', 'awesome', 'best', 'highly recommend'];
+  
+  const textLower = text.toLowerCase();
+  const hasNegative = negativeWords.some(word => textLower.includes(word));
+  const hasPositive = positiveWords.some(word => textLower.includes(word));
+  
+  if (hasNegative && !hasPositive) return 'negative';
+  if (hasPositive && !hasNegative) return 'positive';
+  if (rating <= 2) return 'negative';
+  if (rating >= 4) return 'positive';
+  return 'neutral';
+}
+
+// Sync Google Reviews function
+async function syncGoogleReviews(source, business_id) {
+  try {
+    const targetPlaceId = source.external_id;
+    
+    if (!targetPlaceId) {
+      return { error: 'No place_id stored', inserted: 0, updated: 0, errors: 1 };
+    }
+
+    // Call Google Places API
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+      return { error: 'Google Places API key not configured', inserted: 0, updated: 0, errors: 1 };
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${targetPlaceId}&fields=reviews,place_id&key=${apiKey}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Google Places API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.status !== 'OK') {
+      return { error: `Google Places API error: ${data.status}`, inserted: 0, updated: 0, errors: 1 };
+    }
+
+    if (!data.result.reviews || data.result.reviews.length === 0) {
+      return { message: 'No reviews found for this place', inserted: 0, updated: 0, total: 0 };
+    }
+
+    console.log(`📊 Google Places API returned ${data.result.reviews.length} reviews for place_id: ${targetPlaceId}`);
+
+    let inserted = 0;
+    let updated = 0;
+    let errors = 0;
+
+    // Process each review
+    for (const review of data.result.reviews) {
+      try {
+        // Check if review already exists
+        const { data: existingReview } = await supabase
+          .from('reviews')
+          .select('id')
+          .eq('business_id', business_id)
+          .eq('platform', 'google')
+          .eq('external_review_id', `${targetPlaceId}_${review.time}`)
+          .single();
+
+        const reviewData = {
+          business_id,
+          platform: 'google',
+          external_review_id: `${targetPlaceId}_${review.time}`,
+          reviewer_name: review.author_name,
+          rating: review.rating,
+          text: review.text,
+          review_url: `https://maps.google.com/?cid=${targetPlaceId}`,
+          review_created_at: new Date(review.time * 1000).toISOString(),
+          sentiment: classifySentiment(review.text, review.rating)
+        };
+
+        if (existingReview) {
+          // Update existing review
+          const { error: updateError } = await supabase
+            .from('reviews')
+            .update(reviewData)
+            .eq('id', existingReview.id);
+
+          if (updateError) throw updateError;
+          updated++;
+        } else {
+          // Insert new review
+          const { error: insertError } = await supabase
+            .from('reviews')
+            .insert(reviewData);
+
+          if (insertError) throw insertError;
+          inserted++;
+        }
+      } catch (error) {
+        console.error('Error processing Google review:', error);
+        errors++;
+      }
+    }
+
+    return {
+      inserted,
+      updated,
+      errors,
+      total: data.result.reviews.length
+    };
+  } catch (error) {
+    console.error('Error syncing Google reviews:', error);
+    return { error: error.message, inserted: 0, updated: 0, errors: 1 };
+  }
+}
+
+// Placeholder functions for other platforms
+async function syncFacebookReviews(source, business_id) {
+  return { message: 'Facebook sync not implemented', inserted: 0, updated: 0, errors: 0 };
+}
+
+async function syncYelpReviews(source, business_id) {
+  return { message: 'Yelp sync not implemented', inserted: 0, updated: 0, errors: 0 };
+}
+
 // Reviews API endpoints
 app.get('/api/reviews', async (req, res) => {
   try {

@@ -175,6 +175,62 @@ const ReviewsInbox = ({ onReviewsChange }) => {
     }
   };
 
+  const syncReviews = async () => {
+    try {
+      setIsLoading(true);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error('No session found');
+        return;
+      }
+
+      // Get user's business_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (!profile?.business_id) {
+        console.error('No business_id found');
+        return;
+      }
+
+      console.log('🔄 Syncing reviews for business:', profile.business_id);
+
+      // Call the sync API
+      const response = await fetch('/api/reviews/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          business_id: profile.business_id,
+          platform: 'all'
+        })
+      });
+
+      const result = await response.json();
+      console.log('📊 Sync result:', result);
+
+      if (response.ok) {
+        // Reload reviews after sync
+        await loadReviews(true);
+        alert(`Sync completed! ${result.summary?.total_inserted || 0} new reviews imported.`);
+      } else {
+        console.error('Sync failed:', result);
+        alert('Sync failed: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error syncing reviews:', error);
+      alert('Error syncing reviews: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleReviewSelect = async (review) => {
     setSelectedReview(review);
     
@@ -402,6 +458,10 @@ const ReviewsInbox = ({ onReviewsChange }) => {
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                 <span className="ml-1 hidden sm:inline">Refresh</span>
               </Button>
+              <Button variant="outline" size="sm" onClick={syncReviews} disabled={isLoading}>
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <span className="ml-1 hidden sm:inline">Sync Reviews</span>
+              </Button>
             </div>
           </div>
 
@@ -416,6 +476,19 @@ const ReviewsInbox = ({ onReviewsChange }) => {
               </div>
               <div className="mt-1 text-xs text-green-600">
                 {connectedSources.map(source => source.business_name).join(', ')}
+              </div>
+            </div>
+          )}
+
+          {/* Google Places API Limitation Notice */}
+          {connectedSources.some(source => source.platform === 'google') && totalCount <= 5 && (
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center text-sm text-yellow-800">
+                <AlertCircle className="h-4 w-4 mr-2" />
+                <span className="font-medium">Google Reviews Limitation</span>
+              </div>
+              <div className="mt-1 text-xs text-yellow-600">
+                Google Places API only returns the 5 most recent reviews. To get more reviews, you'll need to use Google My Business API or a third-party service.
               </div>
             </div>
           )}

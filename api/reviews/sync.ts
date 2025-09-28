@@ -213,6 +213,8 @@ export async function syncGoogleReviews(source: any, business_id: string) {
       return { message: 'No reviews found for this place', inserted: 0, updated: 0, total: 0 };
     }
 
+    console.log(`📊 Google Places API returned ${data.result.reviews.length} reviews for place_id: ${targetPlaceId}`);
+
     let inserted = 0;
     let updated = 0;
     let errors = 0;
