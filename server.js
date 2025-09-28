@@ -13889,6 +13889,519 @@ app.post('/api/profile/create', async (req, res) => {
   }
 });
 
+// QuickBooks Integration Routes
+app.get('/api/quickbooks/status', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+
+    if (!business_id) {
+      return res.status(400).json({ 
+        error: 'Missing required parameter: business_id' 
+      });
+    }
+
+    // Get QuickBooks integration
+    const { data: integration, error: integrationError } = await supabase
+      .from('business_integrations')
+      .select('status, metadata_json, created_at, updated_at')
+      .eq('business_id', business_id)
+      .eq('provider', 'quickbooks')
+      .single();
+
+    if (integrationError || !integration) {
+      return res.status(200).json({
+        success: true,
+        connected: false,
+        message: 'No QuickBooks integration found'
+      });
+    }
+
+    // Get customer count
+    const { count: customerCount, error: countError } = await supabase
+      .from('customers')
+      .select('*', { count: 'exact', head: true })
+      .eq('business_id', business_id)
+      .eq('source', 'quickbooks');
+
+    return res.status(200).json({
+      success: true,
+      connected: integration.status === 'active',
+      status: integration.status,
+      last_sync_at: integration.metadata_json?.last_sync_at || null,
+      customer_count: customerCount || 0,
+      connected_at: integration.created_at
+    });
+
+  } catch (error) {
+    console.error('[QUICKBOOKS] Status check error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
+app.post('/api/quickbooks/connect', async (req, res) => {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { business_id, code, realmId } = req.body;
+
+    if (!business_id || !code || !realmId) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: business_id, code, realmId' 
+      });
+    }
+
+    // Exchange authorization code for access token
+    const tokenResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${process.env.QUICKBOOKS_CLIENT_ID}:${process.env.QUICKBOOKS_CLIENT_SECRET}`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: process.env.QUICKBOOKS_REDIRECT_URI
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json();
+      console.error('[QUICKBOOKS] Token exchange failed:', errorData);
+      return res.status(400).json({ 
+        error: 'Failed to exchange authorization code for access token',
+        details: errorData
+      });
+    }
+
+    const tokenData = await tokenResponse.json();
+    const { access_token, refresh_token, expires_in } = tokenData;
+
+    // Store the connection in database
+    const { data: integration, error: integrationError } = await supabase
+      .from('business_integrations')
+      .upsert({
+        business_id: business_id,
+        provider: 'quickbooks',
+        status: 'active',
+        metadata_json: {
+          access_token,
+          refresh_token,
+          expires_in,
+          realm_id: realmId,
+          connected_at: new Date().toISOString()
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'business_id,provider',
+        ignoreDuplicates: false
+      })
+      .select()
+      .single();
+
+    if (integrationError) {
+      console.error('[QUICKBOOKS] Database error:', integrationError);
+      return res.status(500).json({ 
+        error: 'Failed to save QuickBooks connection',
+        details: integrationError
+      });
+    }
+
+    console.log('[QUICKBOOKS] Successfully connected business:', business_id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'QuickBooks connected successfully',
+      integration_id: integration.id
+    });
+
+  } catch (error) {
+    console.error('[QUICKBOOKS] Connection error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
+app.get('/api/quickbooks/callback', async (req, res) => {
+  try {
+    const { code, state, realmId } = req.query;
+
+    if (!code || !state || !realmId) {
+      return res.status(400).send(`
+        <html>
+          <body>
+            <h1>QuickBooks Connection Failed</h1>
+            <p>Missing required parameters. Please try again.</p>
+            <script>
+              window.close();
+            </script>
+          </body>
+        </html>
+      `);
+    }
+
+    // Parse state to get business_id
+    const businessId = state;
+
+    // Exchange authorization code for access token
+    const tokenResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${process.env.QUICKBOOKS_CLIENT_ID}:${process.env.QUICKBOOKS_CLIENT_SECRET}`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: process.env.QUICKBOOKS_REDIRECT_URI
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json();
+      console.error('[QUICKBOOKS] Token exchange failed:', errorData);
+      return res.status(400).send(`
+        <html>
+          <body>
+            <h1>QuickBooks Connection Failed</h1>
+            <p>Failed to exchange authorization code. Please try again.</p>
+            <script>
+              window.close();
+            </script>
+          </body>
+        </html>
+      `);
+    }
+
+    const tokenData = await tokenResponse.json();
+    const { access_token, refresh_token, expires_in } = tokenData;
+
+    // Store the connection in database
+    const { data: integration, error: integrationError } = await supabase
+      .from('business_integrations')
+      .upsert({
+        business_id: businessId,
+        provider: 'quickbooks',
+        status: 'active',
+        metadata_json: {
+          access_token,
+          refresh_token,
+          expires_in,
+          realm_id: realmId,
+          connected_at: new Date().toISOString()
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'business_id,provider',
+        ignoreDuplicates: false
+      })
+      .select()
+      .single();
+
+    if (integrationError) {
+      console.error('[QUICKBOOKS] Database error:', integrationError);
+      return res.status(500).send(`
+        <html>
+          <body>
+            <h1>QuickBooks Connection Failed</h1>
+            <p>Failed to save connection. Please try again.</p>
+            <script>
+              window.close();
+            </script>
+          </body>
+        </html>
+      `);
+    }
+
+    console.log('[QUICKBOOKS] Successfully connected business:', businessId);
+
+    return res.status(200).send(`
+      <html>
+        <body>
+          <h1>QuickBooks Connected Successfully!</h1>
+          <p>Your QuickBooks account has been connected to Blipp.</p>
+          <p>You can now sync customers and set up automated review requests.</p>
+          <script>
+            // Notify parent window and close
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'QUICKBOOKS_CONNECTED',
+                success: true,
+                businessId: '${businessId}'
+              }, '*');
+            }
+            setTimeout(() => window.close(), 2000);
+          </script>
+        </body>
+      </html>
+    `);
+
+  } catch (error) {
+    console.error('[QUICKBOOKS] Callback error:', error);
+    return res.status(500).send(`
+      <html>
+        <body>
+          <h1>QuickBooks Connection Failed</h1>
+          <p>An error occurred. Please try again.</p>
+          <script>
+            window.close();
+          </script>
+        </body>
+      </html>
+    `);
+  }
+});
+
+app.post('/api/quickbooks/sync-customers', async (req, res) => {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { business_id } = req.body;
+
+    if (!business_id) {
+      return res.status(400).json({ 
+        error: 'Missing required field: business_id' 
+      });
+    }
+
+    // Get QuickBooks integration
+    const { data: integration, error: integrationError } = await supabase
+      .from('business_integrations')
+      .select('metadata_json')
+      .eq('business_id', business_id)
+      .eq('provider', 'quickbooks')
+      .eq('status', 'active')
+      .single();
+
+    if (integrationError || !integration) {
+      return res.status(400).json({ 
+        error: 'No active QuickBooks integration found for this business' 
+      });
+    }
+
+    const { access_token, refresh_token, realm_id } = integration.metadata_json;
+    let currentAccessToken = access_token;
+
+    try {
+      // Fetch customers from QuickBooks
+      const customersResponse = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${realm_id}/customers`, {
+        headers: {
+          'Authorization': `Bearer ${currentAccessToken}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!customersResponse.ok) {
+        if (customersResponse.status === 401) {
+          throw new Error('UNAUTHORIZED');
+        }
+        throw new Error(`API call failed: ${customersResponse.status}`);
+      }
+
+      const customersData = await customersResponse.json();
+
+      if (!customersData.QueryResponse || !customersData.QueryResponse.Customer) {
+        return res.status(200).json({
+          success: true,
+          message: 'No customers found in QuickBooks',
+          synced_count: 0
+        });
+      }
+
+      const quickbooksCustomers = customersData.QueryResponse.Customer;
+      let syncedCount = 0;
+
+      // Process each customer
+      for (const qbCustomer of quickbooksCustomers) {
+        try {
+          // Extract customer data
+          const customerData = {
+            business_id: business_id,
+            full_name: qbCustomer.Name || 'Unknown Customer',
+            email: qbCustomer.PrimaryEmailAddr?.Address || null,
+            phone: qbCustomer.PrimaryPhone?.FreeFormNumber || null,
+            external_id: `qb_${qbCustomer.Id}`,
+            source: 'quickbooks',
+            tags: ['quickbooks-customer'],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+
+          // Skip if no email or phone
+          if (!customerData.email && !customerData.phone) {
+            console.log('[QUICKBOOKS] Skipping customer without contact info:', customerData.full_name);
+            continue;
+          }
+
+          // Upsert customer
+          const { data: customer, error: upsertError } = await supabase
+            .from('customers')
+            .upsert(customerData, {
+              onConflict: 'business_id,external_id',
+              ignoreDuplicates: false
+            })
+            .select('id, full_name, email')
+            .single();
+
+          if (upsertError) {
+            console.error('[QUICKBOOKS] Error upserting customer:', upsertError);
+            continue;
+          }
+
+          syncedCount++;
+          console.log('[QUICKBOOKS] Synced customer:', customer.full_name, customer.email);
+
+        } catch (customerError) {
+          console.error('[QUICKBOOKS] Error processing customer:', customerError);
+          continue;
+        }
+      }
+
+      // Update last sync timestamp
+      await supabase
+        .from('business_integrations')
+        .update({
+          metadata_json: {
+            ...integration.metadata_json,
+            last_sync_at: new Date().toISOString()
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq('business_id', business_id)
+        .eq('provider', 'quickbooks');
+
+      return res.status(200).json({
+        success: true,
+        message: `Successfully synced ${syncedCount} customers from QuickBooks`,
+        synced_count: syncedCount,
+        total_found: quickbooksCustomers.length
+      });
+
+    } catch (apiError) {
+      if (apiError.message === 'UNAUTHORIZED') {
+        // Try to refresh token
+        try {
+          const refreshResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Basic ${Buffer.from(`${process.env.QUICKBOOKS_CLIENT_ID}:${process.env.QUICKBOOKS_CLIENT_SECRET}`).toString('base64')}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Accept': 'application/json'
+            },
+            body: new URLSearchParams({
+              grant_type: 'refresh_token',
+              refresh_token: refresh_token
+            })
+          });
+
+          if (!refreshResponse.ok) {
+            throw new Error('Failed to refresh token');
+          }
+
+          const newTokenData = await refreshResponse.json();
+          
+          // Update integration with new tokens
+          await supabase
+            .from('business_integrations')
+            .update({
+              metadata_json: {
+                ...integration.metadata_json,
+                access_token: newTokenData.access_token,
+                refresh_token: newTokenData.refresh_token,
+                expires_in: newTokenData.expires_in
+              },
+              updated_at: new Date().toISOString()
+            })
+            .eq('business_id', business_id)
+            .eq('provider', 'quickbooks');
+
+          // Retry the sync with new token
+          return handler(req, res);
+        } catch (refreshError) {
+          console.error('[QUICKBOOKS] Token refresh failed:', refreshError);
+          return res.status(401).json({ 
+            error: 'QuickBooks connection expired. Please reconnect your account.' 
+          });
+        }
+      }
+      
+      throw apiError;
+    }
+
+  } catch (error) {
+    console.error('[QUICKBOOKS] Sync error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
+app.post('/api/quickbooks/disconnect', async (req, res) => {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { business_id } = req.body;
+
+    if (!business_id) {
+      return res.status(400).json({ 
+        error: 'Missing required field: business_id' 
+      });
+    }
+
+    // Update integration status to disconnected
+    const { data: integration, error: integrationError } = await supabase
+      .from('business_integrations')
+      .update({
+        status: 'disconnected',
+        metadata_json: {
+          disconnected_at: new Date().toISOString()
+        },
+        updated_at: new Date().toISOString()
+      })
+      .eq('business_id', business_id)
+      .eq('provider', 'quickbooks')
+      .select()
+      .single();
+
+    if (integrationError) {
+      console.error('[QUICKBOOKS] Disconnect error:', integrationError);
+      return res.status(500).json({ 
+        error: 'Failed to disconnect QuickBooks integration',
+        details: integrationError
+      });
+    }
+
+    console.log('[QUICKBOOKS] Successfully disconnected business:', business_id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'QuickBooks disconnected successfully'
+    });
+
+  } catch (error) {
+    console.error('[QUICKBOOKS] Disconnect error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
