@@ -23,8 +23,17 @@ export default async function handler(req, res) {
     const scopes = process.env.QBO_SCOPES || 'com.intuit.quickbooks.accounting';
     const redirectUri = process.env.QBO_REDIRECT_URI;
 
+    console.log('[QBO] Environment variables:', {
+      clientId: clientId ? 'SET' : 'MISSING',
+      redirectUri: redirectUri || 'MISSING',
+      scopes: scopes
+    });
+
     if (!clientId || !redirectUri) {
-      console.error('[QBO] Missing QBO environment variables');
+      console.error('[QBO] Missing QBO environment variables:', {
+        clientId: !!clientId,
+        redirectUri: !!redirectUri
+      });
       return res.status(500).json({ 
         error: 'QuickBooks integration not configured' 
       });
