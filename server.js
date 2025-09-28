@@ -14977,7 +14977,50 @@ app.get('/api/quickbooks/webhook-test', async (req, res) => {
   }
 });
 
+// QuickBooks Online (QBO) Integration Routes
+// Import and use QBO routes
+import('./api/qbo/connect.js').then(module => {
+  app.get('/api/qbo/connect', module.default);
+});
+
+import('./api/qbo/oauth/callback.js').then(module => {
+  app.get('/api/qbo/oauth/callback', module.default);
+});
+
+import('./api/qbo/status.js').then(module => {
+  app.get('/api/qbo/status', module.default);
+});
+
+import('./api/qbo/sync-now.js').then(module => {
+  app.post('/api/qbo/sync-now', module.default);
+});
+
+import('./api/qbo/bootstrap-import.js').then(module => {
+  app.post('/api/qbo/bootstrap-import', module.default);
+});
+
+import('./api/qbo/disconnect.js').then(module => {
+  app.post('/api/qbo/disconnect', module.default);
+});
+
+import('./api/qbo/refresh-token.js').then(module => {
+  app.post('/api/qbo/refresh-token', module.default);
+});
+
+import('./api/qbo/webhook.js').then(module => {
+  app.post('/api/qbo/webhook', module.default);
+});
+
+import('./api/qbo/webhook-test.js').then(module => {
+  app.get('/api/qbo/webhook-test', module.default);
+});
+
+import('./api/qbo/ping.js').then(module => {
+  app.get('/api/qbo/ping', module.default);
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`QBO Integration endpoints loaded`);
 });
