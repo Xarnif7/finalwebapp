@@ -8864,6 +8864,15 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             console.log('📝 Original message:', reviewRequest.message);
             console.log('📝 Processed message:', processedMessage);
 
+            // Generate tracking ID for this email
+            const trackingId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            
+            // Create tracking pixel
+            const trackingPixel = `<img src="${process.env.NEXT_PUBLIC_SITE_URL || 'https://myblipp.com'}/api/email-track/open?t=${trackingId}" width="1" height="1" style="display:none;" />`;
+            
+            // Create tracked review link
+            const trackedReviewLink = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://myblipp.com'}/api/email-track/click?t=${trackingId}&l=${encodeURIComponent(reviewLink)}&type=feedback`;
+
             // Send email directly via Resend API
             const emailResponse = await fetch('https://api.resend.com/emails', {
               method: 'POST',
@@ -8914,7 +8923,7 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                         
                         <!-- CTA Button -->
                         <div style="text-align: center; margin: 35px 0;">
-                          <a href="${reviewLink}" 
+                          <a href="${trackedReviewLink}" 
                              style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); transition: all 0.2s ease;">
                             ${formSettings.email_button_text || 'Leave Feedback'}
                           </a>
@@ -8938,6 +8947,9 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
                       </div>
                       
                     </div>
+                    
+                    <!-- Email Tracking Pixel -->
+                    ${trackingPixel}
                   </body>
                   </html>
                 `
@@ -8950,6 +8962,19 @@ app.post('/api/_cron/automation-executor', async (req, res) => {
             if (emailResponse.ok) {
               const emailData = await emailResponse.json();
               console.log('✅ Email sent successfully:', emailData.id);
+              
+              // Record email tracking
+              await supabase
+                .from('email_tracking')
+                .insert({
+                  email_id: emailData.id,
+                  business_id: reviewRequest.business_id,
+                  customer_id: reviewRequest.customer_id,
+                  review_request_id: reviewRequestId,
+                  email_type: 'automation',
+                  recipient_email: reviewRequest.customers.email,
+                  subject: formSettings.email_subject || `Thanks for choosing ${companyName}!`
+                });
               
               // Update review request status
               await supabase
