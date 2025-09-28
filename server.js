@@ -14284,6 +14284,8 @@ app.post('/api/quickbooks/sync-customers', async (req, res) => {
       if (!customersResponse.ok) {
         if (customersResponse.status === 401) {
           throw new Error('UNAUTHORIZED');
+        } else if (customersResponse.status === 403) {
+          throw new Error('PERMISSIONS_ERROR');
         }
         throw new Error(`API call failed: ${customersResponse.status}`);
       }
@@ -14348,17 +14350,18 @@ app.post('/api/quickbooks/sync-customers', async (req, res) => {
       }
 
       // Update last sync timestamp
-      await supabase
-        .from('business_integrations')
-        .update({
-          metadata_json: {
-            ...integration.metadata_json,
-            last_sync_at: new Date().toISOString()
-          },
-          updated_at: new Date().toISOString()
-        })
-        .eq('business_id', business_id)
-        .eq('provider', 'quickbooks');
+          await supabase
+            .from('business_integrations')
+            .update({
+              metadata_json: {
+                ...integration.metadata_json,
+                last_sync_at: new Date().toISOString()
+              },
+              updated_at: new Date().toISOString()
+            })
+            .eq('business_id', business_id)
+            .eq('provider', 'api')
+            .eq('metadata_json->>integration_type', 'quickbooks');
 
       return res.status(200).json({
         success: true,
@@ -14403,7 +14406,8 @@ app.post('/api/quickbooks/sync-customers', async (req, res) => {
               updated_at: new Date().toISOString()
             })
             .eq('business_id', business_id)
-            .eq('provider', 'quickbooks');
+            .eq('provider', 'api')
+            .eq('metadata_json->>integration_type', 'quickbooks');
 
           // Retry the sync with new token
           return handler(req, res);
@@ -14413,6 +14417,12 @@ app.post('/api/quickbooks/sync-customers', async (req, res) => {
             error: 'QuickBooks connection expired. Please reconnect your account.' 
           });
         }
+      } else if (apiError.message === 'PERMISSIONS_ERROR') {
+        return res.status(403).json({ 
+          error: 'QuickBooks API permissions insufficient',
+          message: 'Your QuickBooks app needs additional permissions to read customer data. Please check your QuickBooks Developer Dashboard and ensure your app has access to Customer data.',
+          details: 'The app may need to be approved for production access or additional scopes may be required.'
+        });
       }
       
       throw apiError;
