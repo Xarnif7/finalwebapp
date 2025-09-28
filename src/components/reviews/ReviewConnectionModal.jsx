@@ -102,7 +102,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   };
 
   const searchGooglePlaces = async () => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery || !searchQuery.trim()) return;
     
     
     if (!googleApiLoaded) {
@@ -142,11 +142,13 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
   };
 
   const searchBusinesses = async () => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery || !searchQuery.trim()) return;
     
     try {
       setIsSearching(true);
       setShowSuggestions(true);
+      
+      console.log('🔍 Searching for:', { query: searchQuery, platform: activeTab });
       
       const response = await fetch('/api/reviews/search-business', {
         method: 'POST',
@@ -158,6 +160,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
       });
 
       const data = await response.json();
+      console.log('📊 Search response:', data);
       setIsSearching(false);
       
       if (data.success) {
@@ -375,7 +378,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onFocus={() => {
-                        if (searchResults.length > 0) {
+                        if (searchResults && searchResults.length > 0) {
                           setShowSuggestions(true);
                         }
                       }}
@@ -388,7 +391,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                       variant="outline"
                       size="sm"
                       onClick={activeTab === 'google' ? searchGooglePlaces : searchBusinesses}
-                      disabled={isSearching || (activeTab === 'google' && !googleApiLoaded) || !searchQuery.trim()}
+                      disabled={isSearching || (activeTab === 'google' && !googleApiLoaded) || !searchQuery || !searchQuery.trim()}
                     >
                       {isSearching ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -400,7 +403,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                 </div>
 
                 {/* Search Results Dropdown */}
-                {showSuggestions && searchResults.length > 0 && (
+                {showSuggestions && searchResults && searchResults.length > 0 && (
                   <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto">
                     {searchResults.map((prediction) => (
                       <div
@@ -512,7 +515,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onFocus={() => {
-                        if (searchResults.length > 0) {
+                        if (searchResults && searchResults.length > 0) {
                           setShowSuggestions(true);
                         }
                       }}
@@ -525,7 +528,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                       variant="outline"
                       size="sm"
                       onClick={searchBusinesses}
-                      disabled={isSearching || !searchQuery.trim()}
+                      disabled={isSearching || !searchQuery || !searchQuery.trim()}
                     >
                       {isSearching ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -537,7 +540,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                 </div>
 
                 {/* Search Results Dropdown */}
-                {showSuggestions && searchResults.length > 0 && (
+                {showSuggestions && searchResults && searchResults.length > 0 && (
                   <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {searchResults.map((result) => (
                       <div
@@ -595,7 +598,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onFocus={() => {
-                        if (searchResults.length > 0) {
+                        if (searchResults && searchResults.length > 0) {
                           setShowSuggestions(true);
                         }
                       }}
@@ -608,7 +611,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                       variant="outline"
                       size="sm"
                       onClick={searchBusinesses}
-                      disabled={isSearching || !searchQuery.trim()}
+                      disabled={isSearching || !searchQuery || !searchQuery.trim()}
                     >
                       {isSearching ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -620,7 +623,7 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                 </div>
 
                 {/* Search Results Dropdown */}
-                {showSuggestions && searchResults.length > 0 && (
+                {showSuggestions && searchResults && searchResults.length > 0 && (
                   <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {searchResults.map((result) => (
                       <div
