@@ -20,6 +20,8 @@ import Sequences from "./Sequences";
 import Automations from "./AutomationsFixed";
 import Competitors from "./Competitors";
 import Analytics from "./Analytics";
+import Privacy from "./Privacy";
+import Terms from "./Terms";
 import TeamRoles from "./TeamRoles";
 import AuditLog from "./AuditLog";
 import CsvImport from "./CsvImport";
@@ -115,6 +117,8 @@ const PAGES = {
   Automations: Automations,
   Competitors: Competitors,
   Analytics: Analytics,
+  Privacy: Privacy,
+  Terms: Terms,
   TeamRoles: TeamRoles,
   AuditLog: AuditLog,
   CsvImport: CsvImport,
@@ -297,7 +301,11 @@ const DashboardRoutes = () => (
       <Route path="/analytics/ai-insights" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
       <Route path="/analytics/performance" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
       <Route path="/analytics/trends" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
-      <Route path="/analytics/competitors" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
+        <Route path="/analytics/competitors" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
+        
+        {/* Legal Pages */}
+        <Route path="/privacy" element={<TrackedComponent component={Privacy} name="Privacy" />} />
+        <Route path="/terms" element={<TrackedComponent component={Terms} name="Terms" />} />
       
       {/* Feedback Tab */}
       <Route path="/feedback" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Feedback} name="Feedback" /></ProtectedRoute>} />
