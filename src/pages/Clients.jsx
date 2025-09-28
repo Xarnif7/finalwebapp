@@ -594,7 +594,8 @@ export default function ClientsPage() {
           <Button
             onClick={() => setShowAddForm(true)}
             disabled={loading}
-            className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white border-0"
+            variant="default"
+            className="!bg-gradient-to-r !from-[#1A73E8] !to-[#7C3AED] hover:!from-[#1557B0] hover:!to-[#6D28D9] !text-white !border-0"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Customer

@@ -13,7 +13,7 @@ import QuickBooksConnectionCard from "../integrations/QuickBooksConnectionCard";
 const IntegrationCard = ({ crm, onSelect }) => {
   return (
     <div 
-      className="group rounded-2xl border bg-white p-6 shadow-sm hover:shadow-md transition min-h-[220px] flex flex-col gap-4 h-full justify-between"
+      className="group rounded-2xl border bg-white p-8 shadow-sm hover:shadow-md transition min-h-[240px] flex flex-col gap-5 h-full justify-between"
       aria-label={`Connect ${crm.name}`}
     >
       {/* Logo wrapper */}
@@ -35,7 +35,7 @@ const IntegrationCard = ({ crm, onSelect }) => {
       </div>
       
       {/* Title and description */}
-      <div className="flex-1">
+      <div className="flex-1 text-center">
         <h3 className="text-base font-semibold text-gray-900 mb-2">{crm.name}</h3>
         <p className="text-sm text-gray-600 line-clamp-2">{crm.description}</p>
       </div>
@@ -149,7 +149,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
 
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-[80vw] w-[80vw] max-h-[85vh] h-[85vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-6xl max-h-[85vh] h-[85vh] overflow-y-auto">
           <DialogHeader className="pb-6">
             <DialogTitle className="flex items-center space-x-3 text-3xl font-bold">
               <button onClick={handleBackToList} className="mr-3 text-gray-600 hover:text-gray-800 text-2xl">
@@ -168,7 +168,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] max-w-5xl p-0 overflow-hidden rounded-2xl">
+      <DialogContent className="w-[95vw] max-w-6xl p-0 overflow-hidden rounded-2xl">
         {/* Modal header */}
         <div className="px-8 py-6 md:px-10 md:py-8">
           <DialogHeader>
