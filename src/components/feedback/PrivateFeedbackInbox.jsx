@@ -46,14 +46,29 @@ export default function PrivateFeedbackInbox() {
       }
 
       const data = await response.json();
+      console.log('🔍 Raw feedback data:', data.feedback);
+      
       // Transform the nested data structure
-      const transformedFeedback = (data.feedback || []).map(item => ({
-        ...item,
-        customer_name: item.review_requests?.customers ? 
-          `${item.review_requests.customers.first_name || ''} ${item.review_requests.customers.last_name || ''}`.trim() || 
-          'Unknown Customer' : 'Unknown Customer',
-        customer_email: item.review_requests?.customers?.email || ''
-      }));
+      const transformedFeedback = (data.feedback || []).map(item => {
+        const customerData = item.review_requests?.customers;
+        const customerName = customerData ? 
+          (customerData.full_name || 
+           `${customerData.first_name || ''} ${customerData.last_name || ''}`.trim() || 
+           'Unknown Customer') : 'Unknown Customer';
+        
+        console.log('🔍 Customer data for item:', {
+          itemId: item.id,
+          customerData,
+          customerName,
+          customerEmail: customerData?.email
+        });
+        
+        return {
+          ...item,
+          customer_name: customerName,
+          customer_email: customerData?.email || ''
+        };
+      });
       setFeedback(transformedFeedback);
     } catch (err) {
       console.error('Error fetching private feedback:', err);
@@ -261,10 +276,13 @@ export default function PrivateFeedbackInbox() {
                         <Clock className="w-4 h-4" />
                         {formatDate(item.created_at)}
                       </div>
-                      {item.customer_name && (
+                      {item.customer_name && item.customer_name !== 'Unknown Customer' && (
                         <div className="flex items-center gap-1">
                           <User className="w-4 h-4" />
-                          {item.customer_name}
+                          <span className="font-medium text-gray-700">{item.customer_name}</span>
+                          {item.customer_email && (
+                            <span className="text-gray-500">({item.customer_email})</span>
+                          )}
                         </div>
                       )}
                     </div>
