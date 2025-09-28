@@ -52,11 +52,18 @@ const QuickBooksConnectionCard = () => {
     try {
       // Generate QuickBooks OAuth URL
       const clientId = process.env.VITE_QUICKBOOKS_CLIENT_ID;
+      
+      if (!clientId) {
+        throw new Error('QuickBooks Client ID not configured. Please check environment variables.');
+      }
+      
       const redirectUri = `${window.location.origin}/api/quickbooks/callback`;
       const scope = 'com.intuit.quickbooks.accounting';
       const state = business.id;
 
       const authUrl = `https://appcenter.intuit.com/connect/oauth2?client_id=${clientId}&scope=${scope}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}`;
+      
+      console.log('🔗 QuickBooks OAuth URL:', authUrl);
 
       // Open OAuth window
       const authWindow = window.open(
