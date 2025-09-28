@@ -210,7 +210,7 @@ const ReviewPlatformConnector = ({ onConnectionSuccess }) => {
               </div>
             )}
 
-            {searchResults.length > 0 && (
+            {searchResults && searchResults.length > 0 && (
               <div className="space-y-2">
                 <h4 className="font-medium">Search Results:</h4>
                 {searchResults.map((business, index) => (
