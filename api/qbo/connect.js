@@ -1,38 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+dotenv.config({ path: '.env.local' });
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing Supabase environment variables');
-}
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   try {
     const { business_id } = req.query;
 
     if (!business_id) {
       return res.status(400).json({ 
         error: 'Missing required parameter: business_id' 
-      });
-    }
-
-    // Verify business exists and user has access
-    const { data: business, error: businessError } = await supabase
-      .from('businesses')
-      .select('id, name')
-      .eq('id', business_id)
-      .single();
-
-    if (businessError || !business) {
-      return res.status(404).json({ 
-        error: 'Business not found' 
       });
     }
 
@@ -61,7 +43,6 @@ export default async function handler(req, res) {
     authorizeUrl.searchParams.set('prompt', 'consent');
 
     console.log(`[QBO] Redirecting business ${business_id} to QuickBooks authorization`);
-    console.log(`[QBO] Authorize URL: ${authorizeUrl.toString()}`);
 
     // 302 redirect to Intuit
     return res.redirect(302, authorizeUrl.toString());

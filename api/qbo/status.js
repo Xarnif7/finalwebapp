@@ -1,19 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+dotenv.config({ path: '.env.local' });
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing Supabase environment variables');
-}
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   try {
     const { business_id } = req.query;
 
@@ -79,15 +74,6 @@ export default async function handler(req, res) {
       .eq('business_id', business_id)
       .eq('external_source', 'qbo');
 
-    // Get latest import log
-    const { data: latestLog, error: logError } = await supabase
-      .from('qbo_import_logs')
-      .select('type, status, run_started_at, records_found, records_upserted, error_message')
-      .eq('business_id', business_id)
-      .order('run_started_at', { ascending: false })
-      .limit(1)
-      .single();
-
     // Get latest webhook timestamp
     const latestWebhook = integrations.reduce((latest, integration) => {
       if (integration.last_webhook_at) {
@@ -105,10 +91,6 @@ export default async function handler(req, res) {
       status: hasValidConnection ? 'connected' : 'disconnected',
       customer_count: customerCount || 0,
       integrations: connectionDetails,
-      last_sync_at: latestLog?.run_started_at || null,
-      last_sync_status: latestLog?.status || null,
-      last_sync_records: latestLog?.records_upserted || 0,
-      last_sync_error: latestLog?.error_message || null,
       last_webhook_at: latestWebhook
     });
 
