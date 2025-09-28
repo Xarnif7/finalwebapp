@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Calendar, Users, ShoppingCart, MessageSquare, CheckCircle, Clock, Zap } from 'lucide-react';
 import ZapierCrmCard from '../components/zapier/ZapierCrmCard';
+import QuickBooksConnectionCard from '../components/integrations/QuickBooksConnectionCard';
 import { useAuth } from '../components/auth/AuthProvider';
 import { motion } from 'framer-motion';
 
@@ -82,6 +83,9 @@ export default function IntegrationsPage() {
 
             {/* Zapier CRM Connection Card */}
             <ZapierCrmCard userId={user?.id} />
+
+            {/* QuickBooks Integration Card */}
+            <QuickBooksConnectionCard />
 
             <div className="space-y-12">
                 {integrationCategories.map((category, catIndex) => (
