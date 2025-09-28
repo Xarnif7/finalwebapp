@@ -20,6 +20,9 @@ const QuickBooksConnectionCard = () => {
   const { toast } = useToast();
   const { business } = useBusiness();
 
+  // Check if QBO V2 is enabled
+  const isQboV2Enabled = import.meta.env.VITE_QBO_V2_ENABLED === 'true';
+
   // Check connection status on mount and periodically
   useEffect(() => {
     checkConnectionStatus();
@@ -274,6 +277,36 @@ const QuickBooksConnectionCard = () => {
     }
   };
 
+  const handlePingTest = async () => {
+    if (!business?.id) return;
+
+    try {
+      const response = await fetch(`/api/qbo/ping?business_id=${business.id}`);
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "API Test Successful!",
+          description: `Found ${data.customers_found} customers in realm ${data.realm_id}`,
+          variant: "default"
+        });
+      } else {
+        toast({
+          title: "API Test Failed",
+          description: data.error || "Failed to test QuickBooks API connection",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('QuickBooks ping test error:', error);
+      toast({
+        title: "API Test Error",
+        description: "Failed to test QuickBooks API connection",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getStatusBadge = () => {
     if (isCheckingStatus) {
       return <Badge variant="secondary"><Loader2 className="w-3 h-3 mr-1 animate-spin" />Checking...</Badge>;
@@ -282,6 +315,10 @@ const QuickBooksConnectionCard = () => {
     switch (connectionStatus) {
       case 'connected':
         return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Connected</Badge>;
+      case 'expired':
+        return <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-300"><XCircle className="w-3 h-3 mr-1" />Expired</Badge>;
+      case 'revoked':
+        return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300"><XCircle className="w-3 h-3 mr-1" />Revoked</Badge>;
       case 'error':
         return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" />Error</Badge>;
       case 'disconnected':
@@ -304,8 +341,57 @@ const QuickBooksConnectionCard = () => {
     return date.toLocaleDateString();
   };
 
+  // Don't render if QBO V2 is not enabled
+  if (!isQboV2Enabled) {
+    return null;
+  }
+
   return (
     <Card className="w-full">
+      {/* Reconnection Banner */}
+      {(connectionStatus === 'expired' || connectionStatus === 'revoked') && (
+        <div className="bg-orange-50 border-b border-orange-200 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <XCircle className="w-5 h-5 text-orange-600" />
+              <div>
+                <p className="text-sm font-medium text-orange-800">
+                  QuickBooks connection {connectionStatus === 'expired' ? 'expired' : 'revoked'}
+                </p>
+                <p className="text-xs text-orange-700">
+                  Your tokens have expired or been revoked. Please reconnect to continue syncing.
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-2">
+              <Button 
+                onClick={handleConnect}
+                disabled={isConnecting}
+                size="sm"
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    Reconnecting...
+                  </>
+                ) : (
+                  'Reconnect QuickBooks'
+                )}
+              </Button>
+              <Button 
+                onClick={handleDisconnect}
+                variant="outline"
+                size="sm"
+                className="border-orange-300 text-orange-700 hover:bg-orange-100"
+              >
+                Disconnect
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -486,6 +572,18 @@ const QuickBooksConnectionCard = () => {
                 >
                   <Send className="w-4 h-4 mr-2" />
                   Send Review Requests to {customerCount} Customers
+                </Button>
+              )}
+              
+              {/* Dev Test Button */}
+              {process.env.NODE_ENV === 'development' && (
+                <Button 
+                  onClick={handlePingTest}
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                >
+                  Test API Connection
                 </Button>
               )}
             </>
