@@ -14565,21 +14565,27 @@ app.post('/api/quickbooks/webhook', async (req, res) => {
             return res.status(500).json({ error: 'Failed to save customer' });
           }
           
-          // Get review request template
-          const { data: templates, error: templatesError } = await supabase
-            .from('message_templates')
-            .select('id, name, content, type')
-            .eq('business_id', integration.business_id)
-            .eq('status', 'active')
-            .eq('type', 'review_request')
-            .limit(1);
+          // Get invoice details to determine job type
+          const invoiceDetails = await getQuickBooksInvoiceDetails(
+            integration.metadata_json,
+            invoice.Id
+          );
           
-          if (templatesError || !templates || templates.length === 0) {
-            console.error('❌ No review request template found');
-            return res.status(200).json({ success: true, message: 'No template found' });
+          console.log('📋 Invoice details:', invoiceDetails);
+          
+          // Use AI to select the best template based on job type
+          const selectedTemplate = await selectTemplateByAI(
+            integration.business_id,
+            invoiceDetails,
+            customerData
+          );
+          
+          if (!selectedTemplate) {
+            console.error('❌ No suitable template found');
+            return res.status(200).json({ success: true, message: 'No suitable template found' });
           }
           
-          const template = templates[0];
+          console.log('🎯 Selected template:', selectedTemplate.name, 'for job type:', invoiceDetails.jobType);
           
           // Create review request
           const { error: requestError } = await supabase
@@ -14587,14 +14593,17 @@ app.post('/api/quickbooks/webhook', async (req, res) => {
             .insert({
               business_id: integration.business_id,
               customer_id: customer.id,
-              template_id: template.id,
+              template_id: selectedTemplate.id,
               status: 'sent',
               scheduled_for: new Date().toISOString(),
               created_at: new Date().toISOString(),
               metadata: {
                 trigger: 'quickbooks_invoice_paid',
                 invoice_id: invoice.Id,
-                invoice_amount: invoice.TotalAmt
+                invoice_amount: invoice.TotalAmt,
+                job_type: invoiceDetails.jobType,
+                service_category: invoiceDetails.serviceCategory,
+                ai_selected_template: selectedTemplate.name
               }
             });
           
@@ -14604,9 +14613,11 @@ app.post('/api/quickbooks/webhook', async (req, res) => {
           }
           
           // Send the actual review request (SMS/Email)
-          await sendReviewRequest(customer, template, {
+          await sendReviewRequest(customer, selectedTemplate, {
             invoice_amount: invoice.TotalAmt,
-            invoice_id: invoice.Id
+            invoice_id: invoice.Id,
+            job_type: invoiceDetails.jobType,
+            service_category: invoiceDetails.serviceCategory
           });
           
           console.log('✅ Review request sent to:', customer.name, customer.email);
@@ -14621,6 +14632,179 @@ app.post('/api/quickbooks/webhook', async (req, res) => {
     return res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
+
+// Helper function to get invoice details from QuickBooks
+async function getQuickBooksInvoiceDetails(integrationData, invoiceId) {
+  try {
+    const { access_token, realm_id } = integrationData;
+    
+    const response = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${realm_id}/invoices/${invoiceId}`, {
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`QuickBooks API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const invoice = data.QueryResponse?.Invoice?.[0];
+    
+    if (!invoice) {
+      throw new Error('Invoice not found in QuickBooks');
+    }
+    
+    // Extract job type from invoice line items
+    let jobType = 'general';
+    let serviceCategory = 'general';
+    
+    if (invoice.Line && invoice.Line.length > 0) {
+      const lineItems = invoice.Line.map(line => ({
+        description: line.Description || '',
+        itemName: line.SalesItemLineDetail?.ItemRef?.name || '',
+        amount: line.Amount || 0
+      }));
+      
+      // Analyze line items to determine job type
+      const allText = lineItems.map(item => `${item.description} ${item.itemName}`).join(' ').toLowerCase();
+      
+      if (allText.includes('mow') || allText.includes('lawn') || allText.includes('grass') || allText.includes('yard')) {
+        jobType = 'mowing';
+        serviceCategory = 'lawn_care';
+      } else if (allText.includes('roof') || allText.includes('shingle') || allText.includes('gutter')) {
+        jobType = 'roof_repair';
+        serviceCategory = 'home_repair';
+      } else if (allText.includes('plumb') || allText.includes('pipe') || allText.includes('drain')) {
+        jobType = 'plumbing';
+        serviceCategory = 'plumbing';
+      } else if (allText.includes('electrical') || allText.includes('wire') || allText.includes('outlet')) {
+        jobType = 'electrical';
+        serviceCategory = 'electrical';
+      } else if (allText.includes('hvac') || allText.includes('heating') || allText.includes('cooling')) {
+        jobType = 'hvac';
+        serviceCategory = 'hvac';
+      }
+    }
+    
+    return {
+      invoiceId: invoice.Id,
+      totalAmount: invoice.TotalAmt,
+      jobType: jobType,
+      serviceCategory: serviceCategory,
+      lineItems: invoice.Line || [],
+      description: invoice.DocNumber || '',
+      customerName: invoice.CustomerRef?.name || ''
+    };
+    
+  } catch (error) {
+    console.error('❌ Failed to get QuickBooks invoice details:', error);
+    return {
+      invoiceId: invoiceId,
+      totalAmount: 0,
+      jobType: 'general',
+      serviceCategory: 'general',
+      lineItems: [],
+      description: '',
+      customerName: ''
+    };
+  }
+}
+
+// Helper function to use AI to select the best template
+async function selectTemplateByAI(businessId, invoiceDetails, customerData) {
+  try {
+    // Get all available templates for this business
+    const { data: templates, error: templatesError } = await supabase
+      .from('message_templates')
+      .select('id, name, content, type, metadata')
+      .eq('business_id', businessId)
+      .eq('status', 'active')
+      .eq('type', 'review_request');
+    
+    if (templatesError || !templates || templates.length === 0) {
+      console.error('❌ No templates found for business:', businessId);
+      return null;
+    }
+    
+    // If only one template, use it
+    if (templates.length === 1) {
+      return templates[0];
+    }
+    
+    // Use AI to select the best template
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+      console.error('❌ OpenAI API key not configured');
+      return templates[0]; // Fallback to first template
+    }
+    
+    const prompt = `
+You are a customer service AI that selects the most appropriate review request template based on the service provided.
+
+Available templates:
+${templates.map((t, i) => `${i + 1}. "${t.name}" - ${t.content.substring(0, 100)}...`).join('\n')}
+
+Invoice details:
+- Job Type: ${invoiceDetails.jobType}
+- Service Category: ${invoiceDetails.serviceCategory}
+- Customer: ${customerData.name}
+- Amount: $${invoiceDetails.totalAmount}
+- Line Items: ${invoiceDetails.lineItems.map(item => item.Description || item.SalesItemLineDetail?.ItemRef?.name).join(', ')}
+
+Select the most appropriate template number (1-${templates.length}) based on the service type. Consider:
+- Mowing/lawn care should use mowing-specific templates
+- Roof repair should use home repair templates
+- Plumbing should use plumbing templates
+- General services should use general templates
+
+Respond with only the template number (1-${templates.length}).
+`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 10,
+        temperature: 0.1
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+    
+    const aiResponse = await response.json();
+    const selectedIndex = parseInt(aiResponse.choices[0].message.content.trim()) - 1;
+    
+    if (selectedIndex >= 0 && selectedIndex < templates.length) {
+      console.log('🤖 AI selected template:', templates[selectedIndex].name);
+      return templates[selectedIndex];
+    } else {
+      console.error('❌ AI returned invalid template index:', selectedIndex);
+      return templates[0]; // Fallback
+    }
+    
+  } catch (error) {
+    console.error('❌ AI template selection failed:', error);
+    // Fallback to first template
+    const { data: fallbackTemplates } = await supabase
+      .from('message_templates')
+      .select('id, name, content, type')
+      .eq('business_id', businessId)
+      .eq('status', 'active')
+      .eq('type', 'review_request')
+      .limit(1);
+    
+    return fallbackTemplates?.[0] || null;
+  }
+}
 
 // Helper function to get fresh customer data from QuickBooks
 async function getQuickBooksCustomerData(integrationData, customerId) {
@@ -14665,12 +14849,16 @@ async function sendReviewRequest(customer, template, metadata = {}) {
     let content = template.content;
     content = content.replace(/\{customer_name\}/g, customer.name || 'Valued Customer');
     content = content.replace(/\{invoice_amount\}/g, metadata.invoice_amount || '');
+    content = content.replace(/\{job_type\}/g, metadata.job_type || 'service');
+    content = content.replace(/\{service_category\}/g, metadata.service_category || 'service');
     
     console.log('📧 Sending review request:', {
       to: customer.email || customer.phone,
       name: customer.name,
       content: content,
-      template: template.name
+      template: template.name,
+      jobType: metadata.job_type,
+      serviceCategory: metadata.service_category
     });
     
     // TODO: Integrate with actual SMS/Email services
