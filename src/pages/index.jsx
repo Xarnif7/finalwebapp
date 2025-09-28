@@ -19,6 +19,7 @@ import SocialPosts from "./SocialPosts";
 import Sequences from "./Sequences";
 import Automations from "./AutomationsFixed";
 import Competitors from "./Competitors";
+import Reporting from "./Reporting";
 import TeamRoles from "./TeamRoles";
 import AuditLog from "./AuditLog";
 import CsvImport from "./CsvImport";
@@ -291,10 +292,10 @@ const DashboardRoutes = () => (
       <Route path="/reviews/sentiment-alerts" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reviews} name="Reviews" /></ProtectedRoute>} />
       
       {/* Reporting Tab */}
-      <Route path="/reporting" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Dashboard} name="Dashboard" /></ProtectedRoute>} />
-      <Route path="/reporting/performance" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Dashboard} name="Dashboard" /></ProtectedRoute>} />
-      <Route path="/reporting/trends" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Dashboard} name="Dashboard" /></ProtectedRoute>} />
-      <Route path="/reporting/competitors" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Competitors} name="Competitors" /></ProtectedRoute>} />
+      <Route path="/reporting" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reporting} name="Reporting" /></ProtectedRoute>} />
+      <Route path="/reporting/performance" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reporting} name="Reporting" /></ProtectedRoute>} />
+      <Route path="/reporting/trends" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reporting} name="Reporting" /></ProtectedRoute>} />
+      <Route path="/reporting/competitors" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reporting} name="Reporting" /></ProtectedRoute>} />
       
       {/* Feedback Tab */}
       <Route path="/feedback" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Feedback} name="Feedback" /></ProtectedRoute>} />
