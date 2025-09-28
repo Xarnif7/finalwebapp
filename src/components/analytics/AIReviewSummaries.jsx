@@ -138,6 +138,24 @@ export default function AIReviewSummaries() {
       {/* Summary Content */}
       {summary && !loading && (
         <div className="space-y-6">
+          {/* Data Source Info */}
+          {summary.source && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center gap-2 text-blue-700">
+                <MessageSquare className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  Analyzing {summary.source === 'google_api' ? 'Google Reviews (Live Data)' : 'Database Reviews'}
+                </span>
+              </div>
+              <p className="text-xs text-blue-600 mt-1">
+                {summary.source === 'google_api' 
+                  ? 'Fetching reviews directly from Google Places API for comprehensive analysis'
+                  : 'Using reviews from local database'
+                }
+              </p>
+            </div>
+          )}
+
           {/* Overview */}
           <Card>
             <CardHeader>

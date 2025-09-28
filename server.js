@@ -12655,7 +12655,7 @@ async function syncYelpReviews(source, business_id) {
   return { message: 'Yelp sync not implemented', inserted: 0, updated: 0, errors: 0 };
 }
 
-// AI Review Summaries API
+// Enhanced AI Review Summaries API - fetches directly from Google for comprehensive analysis
 app.post('/api/ai/review-summaries', async (req, res) => {
   try {
     const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
@@ -12687,18 +12687,67 @@ app.post('/api/ai/review-summaries', async (req, res) => {
         startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     }
 
-    // Get reviews for the period
-    const { data: reviews, error } = await supabase
-      .from('reviews')
-      .select('*')
-      .eq('business_id', business_id)
-      .gte('review_created_at', startDate.toISOString())
-      .lte('review_created_at', now.toISOString())
-      .order('review_created_at', { ascending: false });
+    // Get business Google place_id
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('id, name')
+      .eq('id', business_id)
+      .single();
 
-    if (error) {
-      console.error('Error fetching reviews for summary:', error);
-      return res.status(500).json({ error: 'Failed to fetch reviews' });
+    if (!business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // Get Google review source
+    const { data: googleSource } = await supabase
+      .from('review_sources')
+      .select('external_id')
+      .eq('business_id', business_id)
+      .eq('platform', 'google')
+      .single();
+
+    let reviews = [];
+
+    if (googleSource?.external_id) {
+      // Fetch reviews directly from Google Places API for comprehensive analysis
+      try {
+        const googleReviews = await fetchGoogleReviewsForAnalysis(googleSource.external_id);
+        reviews = googleReviews;
+        console.log(`📊 Fetched ${reviews.length} reviews from Google for AI analysis`);
+      } catch (error) {
+        console.error('Error fetching Google reviews:', error);
+        // Fallback to database reviews
+        const { data: dbReviews, error: dbError } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('business_id', business_id)
+          .gte('review_created_at', startDate.toISOString())
+          .lte('review_created_at', now.toISOString())
+          .order('review_created_at', { ascending: false });
+
+        if (dbError) {
+          console.error('Error fetching reviews from database:', dbError);
+          reviews = [];
+        } else {
+          reviews = dbReviews || [];
+        }
+      }
+    } else {
+      // No Google connection, use database reviews
+      const { data: dbReviews, error: dbError } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('business_id', business_id)
+        .gte('review_created_at', startDate.toISOString())
+        .lte('review_created_at', now.toISOString())
+        .order('review_created_at', { ascending: false });
+
+      if (dbError) {
+        console.error('Error fetching reviews from database:', dbError);
+        reviews = [];
+      } else {
+        reviews = dbReviews || [];
+      }
     }
 
     if (!reviews || reviews.length === 0) {
@@ -12707,7 +12756,8 @@ app.post('/api/ai/review-summaries', async (req, res) => {
         summary: {
           period,
           total_reviews: 0,
-          message: `No reviews found for the ${period} period.`
+          message: `No reviews found for the ${period} period.`,
+          source: googleSource?.external_id ? 'google_api' : 'database'
         }
       });
     }
@@ -12733,6 +12783,48 @@ app.post('/api/ai/review-summaries', async (req, res) => {
     res.status(500).json({ error: 'Failed to generate review summary' });
   }
 });
+
+// Helper function to fetch Google reviews directly for AI analysis
+async function fetchGoogleReviewsForAnalysis(placeId) {
+  try {
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+      throw new Error('Google Places API key not configured');
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=reviews,place_id&key=${apiKey}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Google Places API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.status !== 'OK') {
+      throw new Error(`Google Places API error: ${data.status}`);
+    }
+
+    if (!data.result.reviews || data.result.reviews.length === 0) {
+      return [];
+    }
+
+    // Convert Google reviews to our format for AI analysis
+    return data.result.reviews.map(review => ({
+      rating: review.rating,
+      text: review.text,
+      sentiment: classifySentiment(review.text, review.rating),
+      platform: 'google',
+      review_created_at: new Date(review.time * 1000).toISOString(),
+      reviewer_name: review.author_name,
+      review_url: `https://maps.google.com/?cid=${placeId}`
+    }));
+
+  } catch (error) {
+    console.error('Error fetching Google reviews for analysis:', error);
+    throw error;
+  }
+}
 
 // Helper function to generate AI review summary
 async function generateAIReviewSummary(reviews, period, summaryType) {
@@ -12894,30 +12986,67 @@ app.post('/api/revenue-impact', async (req, res) => {
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     }
 
-    // Get reviews and their impact data
-    const { data: reviews, error: reviewsError } = await supabase
-      .from('reviews')
-      .select(`
-        *,
-        review_requests!inner(
-          id,
-          customer_id,
-          customers!inner(
-            id,
-            full_name,
-            email,
-            phone
-          )
-        )
-      `)
-      .eq('business_id', business_id)
-      .gte('review_created_at', startDate.toISOString())
-      .lte('review_created_at', now.toISOString())
-      .order('review_created_at', { ascending: false });
+    // Get business Google place_id
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('id, name')
+      .eq('id', business_id)
+      .single();
 
-    if (reviewsError) {
-      console.error('Error fetching reviews for revenue impact:', reviewsError);
-      return res.status(500).json({ error: 'Failed to fetch reviews' });
+    if (!business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // Get Google review source
+    const { data: googleSource } = await supabase
+      .from('review_sources')
+      .select('external_id')
+      .eq('business_id', business_id)
+      .eq('platform', 'google')
+      .single();
+
+    let reviews = [];
+
+    if (googleSource?.external_id) {
+      // Fetch reviews directly from Google Places API for comprehensive analysis
+      try {
+        const googleReviews = await fetchGoogleReviewsForAnalysis(googleSource.external_id);
+        reviews = googleReviews;
+        console.log(`💰 Fetched ${reviews.length} reviews from Google for revenue analysis`);
+      } catch (error) {
+        console.error('Error fetching Google reviews for revenue analysis:', error);
+        // Fallback to database reviews
+        const { data: dbReviews, error: dbError } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('business_id', business_id)
+          .gte('review_created_at', startDate.toISOString())
+          .lte('review_created_at', now.toISOString())
+          .order('review_created_at', { ascending: false });
+
+        if (dbError) {
+          console.error('Error fetching reviews from database:', dbError);
+          reviews = [];
+        } else {
+          reviews = dbReviews || [];
+        }
+      }
+    } else {
+      // No Google connection, use database reviews
+      const { data: dbReviews, error: dbError } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('business_id', business_id)
+        .gte('review_created_at', startDate.toISOString())
+        .lte('review_created_at', now.toISOString())
+        .order('review_created_at', { ascending: false });
+
+      if (dbError) {
+        console.error('Error fetching reviews from database:', dbError);
+        reviews = [];
+      } else {
+        reviews = dbReviews || [];
+      }
     }
 
     // Get email tracking data for review requests
