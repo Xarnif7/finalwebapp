@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogOverlay } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -168,7 +168,6 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogOverlay className="bg-black/40 backdrop-blur-sm" />
       <DialogContent className="w-[95vw] max-w-5xl p-0 overflow-hidden rounded-2xl">
         {/* Modal header */}
         <div className="px-8 py-6 md:px-10 md:py-8">
