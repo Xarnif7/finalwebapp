@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Search, Zap, Settings, ExternalLink } from "lucide-react";
 import JobberConnectionCard from "./JobberConnectionCard";
 import ZapierCrmCard from "../zapier/ZapierCrmCard";
+import QuickBooksConnectionCard from "../integrations/QuickBooksConnectionCard";
 
 const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,6 +15,15 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
 
   // Popular CRM integrations
   const popularCrms = [
+    {
+      id: 'quickbooks',
+      name: 'QuickBooks',
+      description: 'Accounting and customer management',
+      logo: 'https://cdn.iconscout.com/icon/free/png-256/free-quickbooks-282195.png',
+      color: 'from-blue-500 to-blue-700',
+      connected: false,
+      component: QuickBooksConnectionCard
+    },
     {
       id: 'jobber',
       name: 'Jobber',
@@ -94,16 +104,18 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
 
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center space-x-2">
-              <button onClick={handleBackToList} className="mr-2 text-gray-600 hover:text-gray-800">
+            <DialogTitle className="flex items-center space-x-2 text-2xl font-bold">
+              <button onClick={handleBackToList} className="mr-2 text-gray-600 hover:text-gray-800 text-xl">
                 ←
               </button>
               <span>Connect {selectedCrm.name}</span>
             </DialogTitle>
           </DialogHeader>
-          <CrmComponent userId={userId} businessId={businessId} />
+          <div className="p-4">
+            <CrmComponent userId={userId} businessId={businessId} />
+          </div>
         </DialogContent>
       </Dialog>
     );
@@ -111,9 +123,9 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Connect Your CRM</DialogTitle>
+          <DialogTitle className="text-2xl font-bold">Connect Your CRM</DialogTitle>
         </DialogHeader>
         
         <Tabs defaultValue="popular" className="w-full">
@@ -135,11 +147,11 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
             </div>
 
             {/* CRM Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-h-[60vh] overflow-y-auto p-2">
               {filteredCrms.map((crm) => (
                 <Card 
                   key={crm.id} 
-                  className="cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-blue-300"
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 border-2 hover:border-blue-300 hover:scale-105"
                   onClick={() => handleCrmSelect(crm)}
                 >
                   <CardContent className="p-6">

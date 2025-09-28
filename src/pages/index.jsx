@@ -26,7 +26,6 @@ import TeamRoles from "./TeamRoles";
 import AuditLog from "./AuditLog";
 import CsvImport from "./CsvImport";
 import Notifications from "./Notifications";
-import Integrations from "./Integrations";
 import RevenueImpact from "./RevenueImpact";
 import Conversations from "./Conversations";
 import ReviewPerformance from "./ReviewPerformance";
@@ -123,7 +122,6 @@ const PAGES = {
   AuditLog: AuditLog,
   CsvImport: CsvImport,
   Notifications: Notifications,
-  Integrations: Integrations,
   RevenueImpact: RevenueImpact,
   Conversations: Conversations,
   ReviewPerformance: ReviewPerformance,
@@ -313,7 +311,6 @@ const DashboardRoutes = () => (
       {/* Settings Tab */}
       <Route path="/settings" element={<ProtectedRoute><TrackedComponent component={Settings} name="Settings" /></ProtectedRoute>} />
       <Route path="/settings/business-profile" element={<ProtectedRoute><TrackedComponent component={Settings} name="Settings" /></ProtectedRoute>} />
-      <Route path="/settings/integrations" element={<ProtectedRoute><TrackedComponent component={Integrations} name="Integrations" /></ProtectedRoute>} />
       <Route path="/settings/team-roles" element={<ProtectedRoute><TrackedComponent component={TeamRoles} name="TeamRoles" /></ProtectedRoute>} />
       <Route path="/settings/billing" element={<ProtectedRoute><TrackedComponent component={Settings} name="Settings" /></ProtectedRoute>} />
       <Route path="/settings/audit-log" element={<ProtectedRoute><TrackedComponent component={AuditLog} name="AuditLog" /></ProtectedRoute>} />

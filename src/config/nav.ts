@@ -74,7 +74,6 @@ export const navigationGroups: NavGroup[] = [
         icon: 'Settings',
         subItems: [
           { title: 'Business Profile', url: 'settings/business-profile' },
-          { title: 'Integrations', url: 'settings/integrations' },
           { title: 'Team & Roles', url: 'settings/team-roles' },
           { title: 'Billing', url: 'settings/billing' },
           { title: 'Audit Log', url: 'settings/audit-log' }
@@ -121,7 +120,6 @@ export const legacyUrlMappings: Record<string, string> = {
   '/reporting': '/analytics',
   
   // Settings redirects
-  '/integrations': '/settings/integrations',
   '/team-roles': '/settings/team-roles',
   '/audit-log': '/settings/audit-log',
   '/notifications': '/settings/business-profile',
@@ -130,8 +128,6 @@ export const legacyUrlMappings: Record<string, string> = {
   '/templates': '/settings/business-profile',
   '/domains': '/settings/business-profile',
   '/auth': '/settings/business-profile',
-  '/api-keys': '/settings/integrations',
-  '/webhooks': '/settings/integrations',
   
   // Feedback redirects (now integrated into main Feedback tab)
   '/private-feedback': '/feedback/collected',
