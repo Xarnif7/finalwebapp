@@ -9,41 +9,84 @@ import { useBusiness } from '../../hooks/useBusiness';
 const QuickBooksConnectionCard = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  const [connectionStatus, setConnectionStatus] = useState('checking');
   const [lastSync, setLastSync] = useState(null);
   const [customerCount, setCustomerCount] = useState(0);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(true);
   const { toast } = useToast();
   const { business } = useBusiness();
 
-  // Check connection status on mount
+  // Check connection status on mount and periodically
   useEffect(() => {
     checkConnectionStatus();
-  }, []);
+    
+    // Set up periodic status checks every 30 seconds
+    const interval = setInterval(() => {
+      checkConnectionStatus(false); // Don't show toast on periodic checks
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [business?.id]);
 
-  const checkConnectionStatus = async () => {
-    if (!business?.id) return;
+  // Re-check status when business changes
+  useEffect(() => {
+    if (business?.id) {
+      checkConnectionStatus();
+    }
+  }, [business?.id]);
+
+  const checkConnectionStatus = async (showToast = true) => {
+    if (!business?.id) {
+      setConnectionStatus('disconnected');
+      setIsCheckingStatus(false);
+      return;
+    }
 
     try {
+      setIsCheckingStatus(true);
       const response = await fetch(`/api/quickbooks/status?business_id=${business.id}`);
       const data = await response.json();
       
       console.log('🔍 QuickBooks status response:', data);
       
       if (data.success) {
-        setConnectionStatus(data.connected ? 'connected' : 'disconnected');
+        const wasConnected = connectionStatus === 'connected';
+        const isNowConnected = data.connected;
+        
+        setConnectionStatus(isNowConnected ? 'connected' : 'disconnected');
         setLastSync(data.last_sync_at);
         setCustomerCount(data.customer_count || 0);
         
-        if (data.connected) {
+        // Only show success toast when connecting for the first time
+        if (showToast && isNowConnected && !wasConnected) {
           toast({
             title: "QuickBooks Connected!",
             description: `Successfully connected to QuickBooks with ${data.customer_count || 0} customers`,
             variant: "default"
           });
         }
+      } else {
+        setConnectionStatus('disconnected');
+        if (showToast && data.error) {
+          toast({
+            title: "Connection Check Failed",
+            description: data.error,
+            variant: "destructive"
+          });
+        }
       }
     } catch (error) {
       console.error('Error checking QuickBooks status:', error);
+      setConnectionStatus('error');
+      if (showToast) {
+        toast({
+          title: "Connection Error",
+          description: "Failed to check QuickBooks connection status",
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setIsCheckingStatus(false);
     }
   };
 
@@ -230,13 +273,19 @@ const QuickBooksConnectionCard = () => {
   };
 
   const getStatusBadge = () => {
+    if (isCheckingStatus) {
+      return <Badge variant="secondary"><Loader2 className="w-3 h-3 mr-1 animate-spin" />Checking...</Badge>;
+    }
+    
     switch (connectionStatus) {
       case 'connected':
         return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Connected</Badge>;
+      case 'error':
+        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" />Error</Badge>;
       case 'disconnected':
         return <Badge variant="secondary"><XCircle className="w-3 h-3 mr-1" />Not Connected</Badge>;
       default:
-        return <Badge variant="secondary">Unknown</Badge>;
+        return <Badge variant="secondary"><XCircle className="w-3 h-3 mr-1" />Not Connected</Badge>;
     }
   };
 
@@ -291,16 +340,38 @@ const QuickBooksConnectionCard = () => {
         )}
 
         <div className="flex flex-col space-y-2">
-          {connectionStatus === 'disconnected' ? (
+          {/* Manual refresh button */}
+          <div className="flex justify-end">
+            <Button
+              onClick={() => checkConnectionStatus(true)}
+              disabled={isCheckingStatus}
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2"
+            >
+              {isCheckingStatus ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3 h-3" />
+              )}
+            </Button>
+          </div>
+          
+          {connectionStatus === 'disconnected' || connectionStatus === 'checking' ? (
             <Button 
               onClick={handleConnect} 
-              disabled={isConnecting}
+              disabled={isConnecting || isCheckingStatus}
               className="w-full"
             >
               {isConnecting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Connecting...
+                </>
+              ) : isCheckingStatus ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Checking Status...
                 </>
               ) : (
                 'Connect QuickBooks'
@@ -360,3 +431,4 @@ const QuickBooksConnectionCard = () => {
 };
 
 export default QuickBooksConnectionCard;
+
