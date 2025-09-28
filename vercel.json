@@ -15,6 +15,102 @@
   ],
   "rewrites": [
     {
+      "source": "/api/subscription/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/auth/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/stripe/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/automation/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/reviews/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/ai/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/customers/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/business/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/sequences/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/templates/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/feedback/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/crm/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/webhook/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/zapier/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/cron/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/_cron/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/csv/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/social/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/qr/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/checkout/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/profile/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/email-track/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/active-sequences/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/review-requests/(.*)",
+      "destination": "/server.js"
+    },
+    {
       "source": "/auth/callback",
       "destination": "/index.html"
     },
