@@ -13,6 +13,8 @@ const QuickBooksConnectionCard = () => {
   const [lastSync, setLastSync] = useState(null);
   const [customerCount, setCustomerCount] = useState(0);
   const [isCheckingStatus, setIsCheckingStatus] = useState(true);
+  const [connectionError, setConnectionError] = useState(null);
+  const [companyInfo, setCompanyInfo] = useState(null);
   const { toast } = useToast();
   const { business } = useBusiness();
 
@@ -56,6 +58,8 @@ const QuickBooksConnectionCard = () => {
         setConnectionStatus(isNowConnected ? 'connected' : 'disconnected');
         setLastSync(data.last_sync_at);
         setCustomerCount(data.customer_count || 0);
+        setConnectionError(data.connection_error || null);
+        setCompanyInfo(data.company_info || null);
         
         // Only show success toast when connecting for the first time
         if (showToast && isNowConnected && !wasConnected) {
@@ -321,20 +325,64 @@ const QuickBooksConnectionCard = () => {
       
       <CardContent className="space-y-4">
         {connectionStatus === 'connected' && (
-          <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <Users className="w-4 h-4 text-gray-500" />
-              <div>
-                <p className="text-sm font-medium">{customerCount}</p>
-                <p className="text-xs text-gray-500">Customers Synced</p>
+          <div className="space-y-3">
+            {/* Company Info */}
+            {companyInfo && (
+              <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center space-x-2 mb-2">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <span className="text-sm font-medium text-green-800">Connected to QuickBooks</span>
+                </div>
+                <div className="text-sm text-green-700">
+                  <div><strong>Company:</strong> {companyInfo.companyName}</div>
+                  {companyInfo.legalName && companyInfo.legalName !== companyInfo.companyName && (
+                    <div><strong>Legal Name:</strong> {companyInfo.legalName}</div>
+                  )}
+                  {companyInfo.country && (
+                    <div><strong>Country:</strong> {companyInfo.country}</div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <Users className="w-4 h-4 text-gray-500" />
+                <div>
+                  <p className="text-sm font-medium">{customerCount}</p>
+                  <p className="text-xs text-gray-500">Customers Synced</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RefreshCw className="w-4 h-4 text-gray-500" />
+                <div>
+                  <p className="text-sm font-medium">{formatLastSync(lastSync)}</p>
+                  <p className="text-xs text-gray-500">Last Sync</p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <RefreshCw className="w-4 h-4 text-gray-500" />
-              <div>
-                <p className="text-sm font-medium">{formatLastSync(lastSync)}</p>
-                <p className="text-xs text-gray-500">Last Sync</p>
-              </div>
+          </div>
+        )}
+
+        {/* Connection Error */}
+        {connectionError && (
+          <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+            <div className="flex items-center space-x-2 mb-2">
+              <XCircle className="w-4 h-4 text-red-600" />
+              <span className="text-sm font-medium text-red-800">Connection Error</span>
+            </div>
+            <div className="text-sm text-red-700">{connectionError}</div>
+            <div className="mt-2">
+              <Button 
+                onClick={() => checkConnectionStatus(true)}
+                variant="outline"
+                size="sm"
+                className="text-red-700 border-red-300 hover:bg-red-100"
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Retry Connection
+              </Button>
             </div>
           </div>
         )}

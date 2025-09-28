@@ -13916,6 +13916,52 @@ app.get('/api/quickbooks/status', async (req, res) => {
       });
     }
 
+    // REAL VALIDATION: Test actual QuickBooks API connectivity
+    let realConnectionStatus = false;
+    let connectionError = null;
+    let apiResponse = null;
+
+    if (integration.status === 'active' && integration.metadata_json?.access_token) {
+      try {
+        console.log('🔍 Testing REAL QuickBooks API connection...');
+        
+        // Test with a simple API call to get company info
+        const { access_token, realm_id } = integration.metadata_json;
+        
+        const qbResponse = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${realm_id}/companyinfo/${realm_id}`, {
+          headers: {
+            'Authorization': `Bearer ${access_token}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (qbResponse.ok) {
+          const qbData = await qbResponse.json();
+          const companyInfo = qbData.QueryResponse?.CompanyInfo?.[0];
+          
+          if (companyInfo) {
+            realConnectionStatus = true;
+            apiResponse = {
+              companyName: companyInfo.CompanyName,
+              legalName: companyInfo.LegalName,
+              country: companyInfo.Country,
+              currency: companyInfo.CurrencyRef?.value
+            };
+            console.log('✅ REAL QuickBooks connection verified:', companyInfo.CompanyName);
+          }
+        } else if (qbResponse.status === 401) {
+          connectionError = 'Access token expired or invalid';
+          console.log('❌ QuickBooks token expired or invalid');
+        } else {
+          connectionError = `QuickBooks API error: ${qbResponse.status}`;
+          console.log('❌ QuickBooks API error:', qbResponse.status);
+        }
+      } catch (apiError) {
+        connectionError = `API connection failed: ${apiError.message}`;
+        console.error('❌ QuickBooks API connection failed:', apiError);
+      }
+    }
+
     // Get customer count
     const { count: customerCount, error: countError } = await supabase
       .from('customers')
@@ -13923,13 +13969,35 @@ app.get('/api/quickbooks/status', async (req, res) => {
       .eq('business_id', business_id)
       .eq('source', 'quickbooks');
 
+    // If real connection failed, update database status
+    if (integration.status === 'active' && !realConnectionStatus && connectionError) {
+      console.log('🔄 Updating database status due to failed connection test');
+      
+      await supabase
+        .from('business_integrations')
+        .update({
+          status: 'error',
+          metadata_json: {
+            ...integration.metadata_json,
+            connection_error: connectionError,
+            last_connection_test: new Date().toISOString()
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq('business_id', business_id)
+        .eq('provider', 'quickbooks');
+    }
+
     return res.status(200).json({
       success: true,
-      connected: integration.status === 'active',
-      status: integration.status,
+      connected: realConnectionStatus,
+      status: realConnectionStatus ? 'active' : (connectionError ? 'error' : 'disconnected'),
       last_sync_at: integration.metadata_json?.last_sync_at || null,
       customer_count: customerCount || 0,
-      connected_at: integration.created_at
+      connected_at: integration.created_at,
+      connection_error: connectionError,
+      company_info: apiResponse,
+      last_connection_test: new Date().toISOString()
     });
 
   } catch (error) {
