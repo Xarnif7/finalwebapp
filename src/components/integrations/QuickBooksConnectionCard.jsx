@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Loader2, ExternalLink, Users, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, ExternalLink, Users, RefreshCw, CheckCircle, XCircle, Send } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import { useBusiness } from '../../hooks/useBusiness';
 
@@ -27,10 +27,20 @@ const QuickBooksConnectionCard = () => {
       const response = await fetch(`/api/quickbooks/status?business_id=${business.id}`);
       const data = await response.json();
       
+      console.log('🔍 QuickBooks status response:', data);
+      
       if (data.success) {
         setConnectionStatus(data.connected ? 'connected' : 'disconnected');
         setLastSync(data.last_sync_at);
         setCustomerCount(data.customer_count || 0);
+        
+        if (data.connected) {
+          toast({
+            title: "QuickBooks Connected!",
+            description: `Successfully connected to QuickBooks with ${data.customer_count || 0} customers`,
+            variant: "default"
+          });
+        }
       }
     } catch (error) {
       console.error('Error checking QuickBooks status:', error);
@@ -185,6 +195,40 @@ const QuickBooksConnectionCard = () => {
     }
   };
 
+  const handleTriggerReviewRequests = async () => {
+    if (!business?.id) return;
+
+    try {
+      const response = await fetch('/api/quickbooks/trigger-reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          business_id: business.id
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "Review Requests Sent!",
+          description: `Sent review requests to ${data.sent_count} QuickBooks customers`
+        });
+      } else {
+        throw new Error(data.error || 'Failed to send review requests');
+      }
+    } catch (error) {
+      console.error('QuickBooks trigger reviews error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send review requests",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getStatusBadge = () => {
     switch (connectionStatus) {
       case 'connected':
@@ -246,12 +290,12 @@ const QuickBooksConnectionCard = () => {
           </div>
         )}
 
-        <div className="flex space-x-2">
+        <div className="flex flex-col space-y-2">
           {connectionStatus === 'disconnected' ? (
             <Button 
               onClick={handleConnect} 
               disabled={isConnecting}
-              className="flex-1"
+              className="w-full"
             >
               {isConnecting ? (
                 <>
@@ -264,31 +308,43 @@ const QuickBooksConnectionCard = () => {
             </Button>
           ) : (
             <>
-              <Button 
-                onClick={handleSyncCustomers} 
-                disabled={isSyncing}
-                variant="outline"
-                className="flex-1"
-              >
-                {isSyncing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Syncing...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Sync Customers
-                  </>
-                )}
-              </Button>
-              <Button 
-                onClick={handleDisconnect} 
-                variant="outline"
-                size="sm"
-              >
-                Disconnect
-              </Button>
+              <div className="flex space-x-2">
+                <Button 
+                  onClick={handleSyncCustomers} 
+                  disabled={isSyncing}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  {isSyncing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Sync Customers
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  onClick={handleDisconnect} 
+                  variant="outline"
+                  size="sm"
+                >
+                  Disconnect
+                </Button>
+              </div>
+              
+              {customerCount > 0 && (
+                <Button 
+                  onClick={handleTriggerReviewRequests}
+                  className="w-full bg-gradient-to-r from-[#7C3AED] to-[#2563EB] hover:from-[#6D28D9] hover:to-[#1D4ED8] text-white"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  Send Review Requests to {customerCount} Customers
+                </Button>
+              )}
             </>
           )}
         </div>

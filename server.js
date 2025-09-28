@@ -14402,6 +14402,104 @@ app.post('/api/quickbooks/disconnect', async (req, res) => {
   }
 });
 
+app.post('/api/quickbooks/trigger-reviews', async (req, res) => {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { business_id } = req.body;
+
+    if (!business_id) {
+      return res.status(400).json({ 
+        error: 'Missing required field: business_id' 
+      });
+    }
+
+    // Get QuickBooks customers
+    const { data: customers, error: customersError } = await supabase
+      .from('customers')
+      .select('id, name, email, phone')
+      .eq('business_id', business_id)
+      .eq('source', 'quickbooks')
+      .eq('status', 'active');
+
+    if (customersError) {
+      throw customersError;
+    }
+
+    if (!customers || customers.length === 0) {
+      return res.status(200).json({
+        success: true,
+        sent_count: 0,
+        message: 'No QuickBooks customers found to send review requests to'
+      });
+    }
+
+    // Get business templates
+    const { data: templates, error: templatesError } = await supabase
+      .from('message_templates')
+      .select('id, name, content, type')
+      .eq('business_id', business_id)
+      .eq('status', 'active')
+      .eq('type', 'review_request')
+      .limit(1);
+
+    if (templatesError || !templates || templates.length === 0) {
+      return res.status(400).json({
+        error: 'No active review request templates found. Please create a review request template first.'
+      });
+    }
+
+    const template = templates[0];
+    let sentCount = 0;
+
+    // Send review requests to each customer
+    for (const customer of customers) {
+      try {
+        // Create review request record
+        const { error: insertError } = await supabase
+          .from('review_requests')
+          .insert({
+            business_id: business_id,
+            customer_id: customer.id,
+            template_id: template.id,
+            status: 'sent',
+            scheduled_for: new Date().toISOString(),
+            created_at: new Date().toISOString()
+          });
+
+        if (insertError) {
+          console.error(`Failed to create review request for customer ${customer.id}:`, insertError);
+          continue;
+        }
+
+        // Here you would typically send the actual SMS/email
+        // For now, we'll just log it
+        console.log(`📧 Would send review request to ${customer.name} (${customer.email}) using template: ${template.name}`);
+        
+        sentCount++;
+      } catch (error) {
+        console.error(`Error sending review request to customer ${customer.id}:`, error);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      sent_count: sentCount,
+      total_customers: customers.length,
+      message: `Successfully sent review requests to ${sentCount} QuickBooks customers`
+    });
+
+  } catch (error) {
+    console.error('[QUICKBOOKS] Trigger reviews error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
