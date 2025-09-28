@@ -11,10 +11,12 @@ const QuickBooksConnectionCard = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('checking');
   const [lastSync, setLastSync] = useState(null);
+  const [lastWebhook, setLastWebhook] = useState(null);
   const [customerCount, setCustomerCount] = useState(0);
   const [isCheckingStatus, setIsCheckingStatus] = useState(true);
   const [connectionError, setConnectionError] = useState(null);
   const [companyInfo, setCompanyInfo] = useState(null);
+  const [integrations, setIntegrations] = useState([]);
   const { toast } = useToast();
   const { business } = useBusiness();
 
@@ -46,7 +48,7 @@ const QuickBooksConnectionCard = () => {
 
     try {
       setIsCheckingStatus(true);
-      const response = await fetch(`/api/quickbooks/status?business_id=${business.id}`);
+      const response = await fetch(`/api/qbo/status?business_id=${business.id}`);
       const data = await response.json();
       
       console.log('🔍 QuickBooks status response:', data);
@@ -57,9 +59,11 @@ const QuickBooksConnectionCard = () => {
         
         setConnectionStatus(isNowConnected ? 'connected' : 'disconnected');
         setLastSync(data.last_sync_at);
+        setLastWebhook(data.last_webhook_at);
         setCustomerCount(data.customer_count || 0);
         setConnectionError(data.connection_error || null);
         setCompanyInfo(data.company_info || null);
+        setIntegrations(data.integrations || []);
         
         // Only show success toast when connecting for the first time
         if (showToast && isNowConnected && !wasConnected) {
@@ -107,24 +111,14 @@ const QuickBooksConnectionCard = () => {
     setIsConnecting(true);
 
     try {
-      // Generate QuickBooks OAuth URL
-      const clientId = import.meta.env.VITE_QUICKBOOKS_CLIENT_ID;
+      // Use the new QBO connect endpoint
+      const connectUrl = `/api/qbo/connect?business_id=${business.id}`;
       
-      if (!clientId) {
-        throw new Error('QuickBooks Client ID not configured. Please check environment variables.');
-      }
-      
-      const redirectUri = `${window.location.origin}/api/quickbooks/callback`;
-      const scope = 'com.intuit.quickbooks.accounting';
-      const state = business.id;
-
-      const authUrl = `https://appcenter.intuit.com/connect/oauth2?client_id=${clientId}&scope=${scope}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}`;
-      
-      console.log('🔗 QuickBooks OAuth URL:', authUrl);
+      console.log('🔗 QuickBooks Connect URL:', connectUrl);
 
       // Open OAuth window
       const authWindow = window.open(
-        authUrl,
+        connectUrl,
         'quickbooks-auth',
         'width=600,height=700,scrollbars=yes,resizable=yes'
       );
@@ -173,7 +167,7 @@ const QuickBooksConnectionCard = () => {
     setIsSyncing(true);
 
     try {
-      const response = await fetch('/api/quickbooks/sync-customers', {
+      const response = await fetch('/api/qbo/sync-now', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -188,10 +182,12 @@ const QuickBooksConnectionCard = () => {
       if (data.success) {
         toast({
           title: "Sync Complete",
-          description: `Successfully synced ${data.synced_count} customers from QuickBooks`
+          description: `Successfully synced ${data.records_upserted} customers from QuickBooks`
         });
         setLastSync(new Date().toISOString());
-        setCustomerCount(prev => prev + data.synced_count);
+        setCustomerCount(data.records_upserted);
+        // Refresh status to get updated counts
+        checkConnectionStatus(false);
       } else {
         throw new Error(data.error || 'Sync failed');
       }
@@ -211,7 +207,7 @@ const QuickBooksConnectionCard = () => {
     if (!business?.id) return;
 
     try {
-      const response = await fetch('/api/quickbooks/disconnect', {
+      const response = await fetch('/api/qbo/disconnect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -226,7 +222,9 @@ const QuickBooksConnectionCard = () => {
       if (data.success) {
         setConnectionStatus('disconnected');
         setLastSync(null);
+        setLastWebhook(null);
         setCustomerCount(0);
+        setIntegrations([]);
         toast({
           title: "Disconnected",
           description: "QuickBooks has been disconnected"
@@ -362,6 +360,20 @@ const QuickBooksConnectionCard = () => {
                 </div>
               </div>
             </div>
+            
+            {/* Sync Status */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Last synced:</span>
+                <span className="font-medium">{formatLastSync(lastSync)}</span>
+              </div>
+              {lastWebhook && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Last webhook:</span>
+                  <span className="font-medium">{formatLastSync(lastWebhook)}</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -442,7 +454,7 @@ const QuickBooksConnectionCard = () => {
                   ) : (
                     <>
                       <RefreshCw className="w-4 h-4 mr-2" />
-                      Sync Customers
+                      Sync Now
                     </>
                   )}
                 </Button>

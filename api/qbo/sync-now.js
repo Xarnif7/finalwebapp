@@ -10,203 +10,84 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { code, state, realmId } = req.query;
+    const { business_id } = req.body;
 
-    if (!code || !state || !realmId) {
-      return res.status(400).send(`
-        <html>
-          <body>
-            <h1>QuickBooks Connection Failed</h1>
-            <p>Missing required parameters. Please try again.</p>
-            <script>
-              window.close();
-            </script>
-          </body>
-        </html>
-      `);
+    if (!business_id) {
+      return res.status(400).json({ 
+        error: 'Missing required field: business_id' 
+      });
     }
 
-    // Parse state to get business_id
-    const businessId = state;
+    console.log(`[QBO] Manual sync requested for business ${business_id}`);
 
-    // Verify business exists
-    const { data: business, error: businessError } = await supabase
-      .from('businesses')
-      .select('id, name')
-      .eq('id', businessId)
-      .single();
-
-    if (businessError || !business) {
-      return res.status(400).send(`
-        <html>
-          <body>
-            <h1>QuickBooks Connection Failed</h1>
-            <p>Business not found. Please try again.</p>
-            <script>
-              window.close();
-            </script>
-          </body>
-        </html>
-      `);
-    }
-
-    console.log(`[QBO] Processing callback for business ${businessId}, realm ${realmId}`);
-
-    // Exchange authorization code for access token
-    const clientId = process.env.QBO_CLIENT_ID;
-    const clientSecret = process.env.QBO_CLIENT_SECRET;
-    const redirectUri = process.env.QBO_REDIRECT_URI;
-
-    if (!clientId || !clientSecret || !redirectUri) {
-      console.error('[QBO] Missing QBO environment variables');
-      return res.status(500).send(`
-        <html>
-          <body>
-            <h1>QuickBooks Connection Failed</h1>
-            <p>Configuration error. Please contact support.</p>
-            <script>
-              window.close();
-            </script>
-          </body>
-        </html>
-      `);
-    }
-
-    const tokenResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json'
-      },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code: code,
-        redirect_uri: redirectUri
-      })
-    });
-
-    if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json();
-      console.error('[QBO] Token exchange failed:', errorData);
-      return res.status(400).send(`
-        <html>
-          <body>
-            <h1>QuickBooks Connection Failed</h1>
-            <p>Failed to exchange authorization code. Please try again.</p>
-            <script>
-              window.close();
-            </script>
-          </body>
-        </html>
-      `);
-    }
-
-    const tokenData = await tokenResponse.json();
-    const { access_token, refresh_token, expires_in } = tokenData;
-
-    console.log('[QBO] Successfully exchanged code for tokens');
-
-    // Calculate token expiration time
-    const tokenExpiresAt = new Date(Date.now() + (expires_in * 1000));
-
-    // Store the connection in integrations_quickbooks table
-    const { data: integration, error: integrationError } = await supabase
+    // Get active QuickBooks integrations for this business
+    const { data: integrations, error: integrationsError } = await supabase
       .from('integrations_quickbooks')
-      .upsert({
-        business_id: businessId,
-        realm_id: realmId,
-        access_token: access_token,
-        refresh_token: refresh_token,
-        token_expires_at: tokenExpiresAt.toISOString(),
-        connection_status: 'connected',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'business_id,realm_id',
-        ignoreDuplicates: false
-      })
-      .select()
-      .single();
+      .select('id, realm_id, access_token, refresh_token, token_expires_at, connection_status, last_delta_sync_at, last_full_sync_at')
+      .eq('business_id', business_id)
+      .eq('connection_status', 'connected')
+      .order('created_at', { ascending: false });
 
-    if (integrationError) {
-      console.error('[QBO] Database error:', integrationError);
-      return res.status(500).send(`
-        <html>
-          <body>
-            <h1>QuickBooks Connection Failed</h1>
-            <p>Failed to save connection. Please try again.</p>
-            <script>
-              window.close();
-            </script>
-          </body>
-        </html>
-      `);
+    if (integrationsError) {
+      console.error('[QBO] Failed to get integrations:', integrationsError);
+      return res.status(500).json({ 
+        error: 'Failed to get QuickBooks integrations' 
+      });
     }
 
-    console.log(`[QBO] Successfully connected business ${businessId} to QuickBooks realm ${realmId}`);
+    if (!integrations || integrations.length === 0) {
+      return res.status(404).json({ 
+        error: 'No active QuickBooks integrations found' 
+      });
+    }
 
-    // Trigger bootstrap import after successful connection
+    // For now, trigger delta sync for the most recent integration
+    // In a full implementation, you might want to queue this as a background job
+    const integration = integrations[0];
+    
     try {
-      console.log(`[QBO] Triggering bootstrap import for business ${businessId}`);
-      const bootstrapResult = await qboBootstrapImport(businessId, integration);
-      console.log(`[QBO] Bootstrap import completed: ${bootstrapResult.recordsUpserted} customers imported`);
-    } catch (bootstrapError) {
-      console.error(`[QBO] Bootstrap import failed:`, bootstrapError);
-      // Don't fail the connection if bootstrap import fails
+      const result = await qboDeltaSync(business_id, integration);
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Sync completed successfully',
+        records_found: result.recordsFound,
+        records_upserted: result.recordsUpserted,
+        realm_id: integration.realm_id
+      });
+      
+    } catch (syncError) {
+      console.error('[QBO] Delta sync failed:', syncError);
+      
+      return res.status(500).json({
+        error: 'Sync failed',
+        details: syncError.message
+      });
     }
-
-    // Return success page
-    return res.status(200).send(`
-      <html>
-        <body>
-          <h1>QuickBooks Connected Successfully!</h1>
-          <p>Your QuickBooks account has been connected to Blipp.</p>
-          <p>You can now sync customers and set up automated review requests.</p>
-          <script>
-            // Notify parent window of successful connection
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'QBO_CONNECT_SUCCESS',
-                businessId: '${businessId}',
-                realmId: '${realmId}'
-              }, '*');
-            }
-            // Close the popup after a short delay
-            setTimeout(() => {
-              window.close();
-            }, 2000);
-          </script>
-        </body>
-      </html>
-    `);
 
   } catch (error) {
-    console.error('[QBO] Callback error:', error);
-    return res.status(500).send(`
-      <html>
-        <body>
-          <h1>QuickBooks Connection Failed</h1>
-          <p>An unexpected error occurred. Please try again.</p>
-          <script>
-            window.close();
-          </script>
-        </body>
-      </html>
-    `);
+    console.error('[QBO] Sync now error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
   }
 }
 
-// QBO Bootstrap Import function (copied from bootstrap-import.js)
-async function qboBootstrapImport(businessId, integration) {
-  const { realm_id, access_token, refresh_token } = integration;
+// QBO Delta Sync function
+async function qboDeltaSync(businessId, integration) {
+  const { realm_id, access_token, refresh_token, last_delta_sync_at, last_full_sync_at } = integration;
   
-  console.log(`[QBO] Starting bootstrap import for business ${businessId}, realm ${realm_id}`);
+  // Use last_delta_sync_at, fallback to last_full_sync_at
+  const lastSyncTime = last_delta_sync_at || last_full_sync_at;
+  
+  console.log(`[QBO] Starting delta sync for business ${businessId}, realm ${realm_id}`);
+  console.log(`[QBO] Last sync time: ${lastSyncTime}`);
   
   // Create import log entry
   const { data: logEntry, error: logError } = await supabase
@@ -231,10 +112,15 @@ async function qboBootstrapImport(businessId, integration) {
     let startPosition = 1;
     let hasMore = true;
     
-    // Query all customers
-    const query = 'SELECT * FROM Customer ORDER BY Id';
+    // Build query with metadata filter if we have a last sync time
+    let query = 'SELECT * FROM Customer';
+    if (lastSyncTime) {
+      const lastSyncDate = new Date(lastSyncTime).toISOString().replace('Z', '');
+      query += ` WHERE Metadata.LastUpdatedTime > '${lastSyncDate}'`;
+    }
+    query += ' ORDER BY Id';
     
-    console.log(`[QBO] Bootstrap query: ${query}`);
+    console.log(`[QBO] Query: ${query}`);
     
     // Page through results
     while (hasMore) {
@@ -292,7 +178,7 @@ async function qboBootstrapImport(businessId, integration) {
       }
     }
     
-    console.log(`[QBO] Found ${allCustomers.length} customers to import`);
+    console.log(`[QBO] Found ${allCustomers.length} customers to sync`);
     
     // Process each customer
     let upsertedCount = 0;
@@ -306,12 +192,11 @@ async function qboBootstrapImport(businessId, integration) {
       }
     }
     
-    // Update last_full_sync_at
+    // Update last_delta_sync_at
     await supabase
       .from('integrations_quickbooks')
       .update({
-        last_full_sync_at: new Date().toISOString(),
-        last_delta_sync_at: new Date().toISOString(), // Also set delta sync time
+        last_delta_sync_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', integration.id);
@@ -329,7 +214,7 @@ async function qboBootstrapImport(businessId, integration) {
         .eq('id', logEntry.id);
     }
     
-    console.log(`[QBO] Bootstrap import completed: ${upsertedCount}/${allCustomers.length} customers upserted`);
+    console.log(`[QBO] Delta sync completed: ${upsertedCount}/${allCustomers.length} customers upserted`);
     
     return {
       recordsFound: allCustomers.length,
@@ -337,7 +222,7 @@ async function qboBootstrapImport(businessId, integration) {
     };
     
   } catch (error) {
-    console.error('[QBO] Bootstrap import error:', error);
+    console.error('[QBO] Delta sync error:', error);
     
     // Update import log with error
     if (logEntry) {
