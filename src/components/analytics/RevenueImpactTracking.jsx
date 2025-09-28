@@ -6,6 +6,7 @@ import { Badge } from '../ui/badge';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, DollarSign, TrendingUp, TrendingDown, Users, Mail, MousePointer, Target, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useBusiness } from '../../hooks/useBusiness';
+import { supabase } from '../../lib/supabase';
 
 export default function RevenueImpactTracking() {
   const { business } = useBusiness();

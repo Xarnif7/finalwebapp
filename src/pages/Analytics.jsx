@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Badge } from '../components/ui/badge';
-import { Brain, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
+import { Brain, DollarSign, TrendingUp, BarChart3, Target, Users, Star } from 'lucide-react';
 import AIReviewSummaries from '../components/analytics/AIReviewSummaries';
 import RevenueImpactTracking from '../components/analytics/RevenueImpactTracking';
 
 export default function Analytics() {
-  const [activeTab, setActiveTab] = useState('ai-summaries');
+  const [activeTab, setActiveTab] = useState('ai-insights');
 
   return (
     <div className="space-y-6">
@@ -84,23 +84,63 @@ export default function Analytics() {
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="ai-summaries" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="ai-insights" className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
-            AI Review Summaries
+            AI Insights
           </TabsTrigger>
-          <TabsTrigger value="revenue-impact" className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
-            Revenue Impact
+          <TabsTrigger value="performance" className="flex items-center gap-2">
+            <Target className="h-4 w-4" />
+            Performance
+          </TabsTrigger>
+          <TabsTrigger value="trends" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Trends
+          </TabsTrigger>
+          <TabsTrigger value="competitors" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Competitors
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="ai-summaries" className="space-y-6">
-          <AIReviewSummaries />
+        <TabsContent value="ai-insights" className="space-y-6">
+          <div className="space-y-6">
+            <AIReviewSummaries />
+            <RevenueImpactTracking />
+          </div>
         </TabsContent>
 
-        <TabsContent value="revenue-impact" className="space-y-6">
-          <RevenueImpactTracking />
+        <TabsContent value="performance" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance Analytics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500">Performance metrics coming soon...</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="trends" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Trend Analysis</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500">Trend analysis coming soon...</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="competitors" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Competitor Analysis</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500">Competitor analysis coming soon...</p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

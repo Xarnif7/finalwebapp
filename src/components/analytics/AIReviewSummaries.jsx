@@ -6,6 +6,7 @@ import { Badge } from '../ui/badge';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, TrendingUp, TrendingDown, Star, MessageSquare, Target, Lightbulb } from 'lucide-react';
 import { useBusiness } from '../../hooks/useBusiness';
+import { supabase } from '../../lib/supabase';
 
 export default function AIReviewSummaries() {
   const { business } = useBusiness();

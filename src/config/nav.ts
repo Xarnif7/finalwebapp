@@ -50,20 +50,12 @@ export const navigationGroups: NavGroup[] = [
       { 
         title: 'Analytics', 
         url: 'analytics', 
-        icon: 'Brain',
-        subItems: [
-          { title: 'AI Summaries', url: 'analytics/ai-summaries' },
-          { title: 'Revenue Impact', url: 'analytics/revenue-impact' }
-        ]
-      },
-      { 
-        title: 'Reporting', 
-        url: 'reporting', 
         icon: 'BarChart3',
         subItems: [
-          { title: 'Performance', url: 'reporting/performance' },
-          { title: 'Trends', url: 'reporting/trends' },
-          { title: 'Competitors', url: 'reporting/competitors' }
+          { title: 'AI Insights', url: 'analytics/ai-insights' },
+          { title: 'Performance', url: 'analytics/performance' },
+          { title: 'Trends', url: 'analytics/trends' },
+          { title: 'Competitors', url: 'analytics/competitors' }
         ]
       },
       { 
@@ -111,23 +103,22 @@ export const legacyUrlMappings: Record<string, string> = {
   '/review-performance': '/reviews/ai-suggestions',
   '/review-tracking': '/reviews/sentiment-alerts',
   
-  // Analytics redirects
-  '/ai-summaries': '/analytics/ai-summaries',
-  '/revenue-impact': '/analytics/revenue-impact',
+  // Analytics redirects (renamed from reporting)
+  '/ai-summaries': '/analytics/ai-insights',
+  '/revenue-impact': '/analytics/ai-insights',
   '/analytics': '/analytics',
-  '/insights': '/analytics',
-  
-  // Reporting redirects
-  '/competitors': '/reporting/competitors',
-  '/conversations': '/reporting/trends',
-  '/reports': '/reporting',
-  '/kpis': '/reporting',
-  '/nps': '/reporting',
-  '/keywords': '/reporting',
-  '/trends': '/reporting/trends',
-  '/reply-rate': '/reporting',
-  '/response-time': '/reporting',
-  '/social-metrics': '/reporting/trends',
+  '/insights': '/analytics/ai-insights',
+  '/competitors': '/analytics/competitors',
+  '/conversations': '/analytics/trends',
+  '/reports': '/analytics',
+  '/kpis': '/analytics',
+  '/nps': '/analytics',
+  '/keywords': '/analytics',
+  '/trends': '/analytics/trends',
+  '/reply-rate': '/analytics',
+  '/response-time': '/analytics',
+  '/social-metrics': '/analytics/trends',
+  '/reporting': '/analytics',
   
   // Settings redirects
   '/integrations': '/settings/integrations',

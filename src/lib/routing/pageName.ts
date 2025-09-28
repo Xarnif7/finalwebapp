@@ -68,7 +68,6 @@ export function getPageNameFromPath(pathname: string): string {
     'auth': 'Landing', // Auth callback shows landing
     'dashboard': 'DashboardOverview',
     'analytics': 'Analytics',
-    'reporting': 'Dashboard',
     'customers': 'Clients',
     'automations': 'Automations',
     'reviews': 'Reviews',

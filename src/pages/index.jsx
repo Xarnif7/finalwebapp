@@ -19,7 +19,6 @@ import SocialPosts from "./SocialPosts";
 import Sequences from "./Sequences";
 import Automations from "./AutomationsFixed";
 import Competitors from "./Competitors";
-import Reporting from "./Reporting";
 import Analytics from "./Analytics";
 import TeamRoles from "./TeamRoles";
 import AuditLog from "./AuditLog";
@@ -293,16 +292,12 @@ const DashboardRoutes = () => (
       <Route path="/reviews/ai-suggestions" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reviews} name="Reviews" /></ProtectedRoute>} />
       <Route path="/reviews/sentiment-alerts" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reviews} name="Reviews" /></ProtectedRoute>} />
       
-      {/* Reporting Tab */}
-      <Route path="/reporting" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reporting} name="Reporting" /></ProtectedRoute>} />
-      <Route path="/reporting/performance" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reporting} name="Reporting" /></ProtectedRoute>} />
-      <Route path="/reporting/trends" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reporting} name="Reporting" /></ProtectedRoute>} />
-      
-      {/* Analytics Tab */}
+      {/* Analytics Tab (renamed from Reporting) */}
       <Route path="/analytics" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
-      <Route path="/analytics/ai-summaries" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
-      <Route path="/analytics/revenue-impact" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
-      <Route path="/reporting/competitors" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reporting} name="Reporting" /></ProtectedRoute>} />
+      <Route path="/analytics/ai-insights" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
+      <Route path="/analytics/performance" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
+      <Route path="/analytics/trends" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
+      <Route path="/analytics/competitors" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
       
       {/* Feedback Tab */}
       <Route path="/feedback" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Feedback} name="Feedback" /></ProtectedRoute>} />
