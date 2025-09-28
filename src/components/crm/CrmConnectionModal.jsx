@@ -1,17 +1,62 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogOverlay } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Zap, Settings, ExternalLink } from "lucide-react";
+import { Search, Zap, Settings, ExternalLink, ChevronRight } from "lucide-react";
 import JobberConnectionCard from "./JobberConnectionCard";
 import ZapierCrmCard from "../zapier/ZapierCrmCard";
 import QuickBooksConnectionCard from "../integrations/QuickBooksConnectionCard";
 
+// Reusable IntegrationCard component
+const IntegrationCard = ({ crm, onSelect }) => {
+  return (
+    <div 
+      className="group rounded-2xl border bg-white p-6 shadow-sm hover:shadow-md transition min-h-[220px] flex flex-col gap-4 h-full justify-between"
+      aria-label={`Connect ${crm.name}`}
+    >
+      {/* Logo wrapper */}
+      <div className="h-12 flex items-center justify-center">
+        <div className="max-w-[160px] flex items-center justify-center">
+          <img 
+            src={crm.logo} 
+            alt={`${crm.name} logo`}
+            className="max-h-10 w-auto object-contain"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+          <div className={`h-10 w-10 rounded-lg bg-gradient-to-r ${crm.color} flex items-center justify-center`} style={{ display: 'none' }}>
+            <Settings className="w-5 h-5 text-white" />
+          </div>
+        </div>
+      </div>
+      
+      {/* Title and description */}
+      <div className="flex-1">
+        <h3 className="text-base font-semibold text-gray-900 mb-2">{crm.name}</h3>
+        <p className="text-sm text-gray-600 line-clamp-2">{crm.description}</p>
+      </div>
+      
+      {/* Connect button */}
+      <Button 
+        className="mt-2 w-full rounded-xl py-2.5 text-sm font-medium text-white bg-gradient-to-r from-[#7C3AED] to-[#2563EB] hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#7C3AED]"
+        onClick={() => onSelect(crm)}
+        aria-label={`Connect ${crm.name} to Blipp`}
+      >
+        Connect
+        <ChevronRight className="w-4 h-4 ml-1" />
+      </Button>
+    </div>
+  );
+};
+
 const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCrm, setSelectedCrm] = useState(null);
+  const [activeTab, setActiveTab] = useState('popular');
 
   // Popular CRM integrations
   const popularCrms = [
@@ -123,109 +168,86 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[70vw] w-[70vw] max-h-[80vh] h-[80vh] overflow-hidden">
-        <DialogHeader className="pb-6">
-          <DialogTitle className="text-3xl font-bold text-center">Connect Your CRM</DialogTitle>
-          <p className="text-gray-600 text-center mt-2">Choose from popular CRM systems or connect via Zapier</p>
-        </DialogHeader>
+      <DialogOverlay className="bg-black/40 backdrop-blur-sm" />
+      <DialogContent className="w-[95vw] max-w-5xl p-0 overflow-hidden rounded-2xl">
+        {/* Modal header */}
+        <div className="px-8 py-6 md:px-10 md:py-8">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">Connect Your CRM</DialogTitle>
+            <p className="text-gray-600 mt-2">Choose from popular CRM systems or connect via Zapier</p>
+          </DialogHeader>
+        </div>
         
-        <Tabs defaultValue="popular" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
-            <TabsTrigger value="popular" className="text-lg py-3">Popular CRMs</TabsTrigger>
-            <TabsTrigger value="zapier" className="text-lg py-3">Other CRMs (Zapier)</TabsTrigger>
-          </TabsList>
+        {/* Bottom content */}
+        <div className="px-8 pb-8 md:px-10">
+          <Tabs defaultValue="popular" className="w-full">
+            {/* Custom tabs */}
+            <div className="flex gap-3 mb-6">
+              <button
+                className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm hover:bg-gray-50 ${
+                  activeTab === 'popular' ? 'bg-gray-100' : ''
+                }`}
+                onClick={() => setActiveTab('popular')}
+              >
+                Popular CRMs
+              </button>
+              <button
+                className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm hover:bg-gray-50 ${
+                  activeTab === 'zapier' ? 'bg-gray-100' : ''
+                }`}
+                onClick={() => setActiveTab('zapier')}
+              >
+                Other CRMs (Zapier)
+              </button>
+            </div>
           
-          <TabsContent value="popular" className="space-y-8 mt-6">
-            {/* Search Bar */}
-            <div className="relative max-w-md mx-auto">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <Input
-                placeholder="Search CRM systems..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 h-12 text-lg"
-              />
-            </div>
+            {activeTab === 'popular' && (
+              <div>
+                {/* Search Bar */}
+                <div className="relative mb-6">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Search CRM systems..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full rounded-xl border px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-200 pl-10"
+                  />
+                </div>
 
-            {/* CRM Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 max-h-[65vh] overflow-y-auto p-8">
-              {filteredCrms.map((crm) => (
-                <Card 
-                  key={crm.id} 
-                  className="cursor-pointer hover:shadow-lg transition-all duration-200 border-2 hover:border-blue-300 hover:scale-105"
-                  onClick={() => handleCrmSelect(crm)}
-                >
-                  <CardContent className="p-12">
-                    <div className="flex flex-col items-center text-center space-y-8">
-                      {/* Logo */}
-                      <div className="w-32 h-32 rounded-3xl bg-white border-2 border-gray-100 flex items-center justify-center shadow-xl hover:shadow-2xl transition-all duration-300">
-                        <img 
-                          src={crm.logo} 
-                          alt={`${crm.name} logo`}
-                          className="w-20 h-20 object-contain rounded-xl"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'flex';
-                          }}
-                        />
-                        <div className={`w-20 h-20 rounded-2xl bg-gradient-to-r ${crm.color} flex items-center justify-center`} style={{ display: 'none' }}>
-                          <Settings className="w-12 h-12 text-white" />
-                        </div>
-                      </div>
-                      
-                      {/* Name */}
-                      <div>
-                        <h3 className="text-2xl font-bold text-gray-900">{crm.name}</h3>
-                        <p className="text-lg text-gray-600 mt-3">{crm.description}</p>
-                      </div>
-                      
-                      {/* Status & Connect Button */}
-                      <div className="w-full space-y-4">
-                        {crm.connected ? (
-                          <div className="flex items-center justify-center space-x-3 text-green-600">
-                            <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-                            <span className="text-lg font-semibold">Connected</span>
-                          </div>
-                        ) : (
-                          <Button 
-                            className="w-full h-16 text-xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCrmSelect(crm);
-                            }}
-                          >
-                            Connect
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                {/* CRM Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
+                  {filteredCrms.map((crm) => (
+                    <IntegrationCard 
+                      key={crm.id} 
+                      crm={crm}
+                      onSelect={handleCrmSelect}
+                    />
+                  ))}
+                </div>
 
-            {/* No results */}
-            {filteredCrms.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <Search className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>No CRM systems found matching "{searchTerm}"</p>
+                {/* No results */}
+                {filteredCrms.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <Search className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No CRM systems found matching "{searchTerm}"</p>
+                  </div>
+                )}
               </div>
             )}
-          </TabsContent>
           
-          <TabsContent value="zapier" className="mt-6">
-            <div className="space-y-4">
-              <div className="text-center mb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Connect via Zapier</h3>
-                <p className="text-sm text-gray-600">
-                  Use Zapier to connect with 1000+ apps including custom CRM systems
-                </p>
+            {activeTab === 'zapier' && (
+              <div>
+                <div className="text-center mb-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Connect via Zapier</h3>
+                  <p className="text-sm text-gray-600">
+                    Use Zapier to connect with 1000+ apps including custom CRM systems
+                  </p>
+                </div>
+                <ZapierCrmCard userId={userId} />
               </div>
-              
-              <ZapierCrmCard userId={userId} />
-            </div>
-          </TabsContent>
-        </Tabs>
+            )}
+          </Tabs>
+        </div>
       </DialogContent>
     </Dialog>
   );
