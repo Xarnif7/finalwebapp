@@ -14154,27 +14154,62 @@ app.get('/api/quickbooks/callback', async (req, res) => {
     const { access_token, refresh_token, expires_in } = tokenData;
 
     // Store the connection in database
-    const { data: integration, error: integrationError } = await supabase
+    // First, try to find existing integration
+    const { data: existingIntegration, error: findError } = await supabase
       .from('business_integrations')
-      .upsert({
-        business_id: businessId,
-        provider: 'quickbooks',
-        status: 'active',
-        metadata_json: {
-          access_token,
-          refresh_token,
-          expires_in,
-          realm_id: realmId,
-          connected_at: new Date().toISOString()
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'business_id,provider',
-        ignoreDuplicates: false
-      })
-      .select()
-      .single();
+      .select('id')
+      .eq('business_id', businessId)
+      .eq('provider', 'quickbooks')
+      .maybeSingle(); // Use maybeSingle() to handle no results gracefully
+
+    let integration;
+    let integrationError;
+
+    if (existingIntegration) {
+      // Update existing integration
+      const { data: updatedIntegration, error: updateError } = await supabase
+        .from('business_integrations')
+        .update({
+          status: 'active',
+          metadata_json: {
+            access_token,
+            refresh_token,
+            expires_in,
+            realm_id: realmId,
+            connected_at: new Date().toISOString()
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingIntegration.id)
+        .select()
+        .single();
+      
+      integration = updatedIntegration;
+      integrationError = updateError;
+    } else {
+      // Insert new integration
+      const { data: newIntegration, error: insertError } = await supabase
+        .from('business_integrations')
+        .insert({
+          business_id: businessId,
+          provider: 'quickbooks',
+          status: 'active',
+          metadata_json: {
+            access_token,
+            refresh_token,
+            expires_in,
+            realm_id: realmId,
+            connected_at: new Date().toISOString()
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      integration = newIntegration;
+      integrationError = insertError;
+    }
 
     if (integrationError) {
       console.error('[QUICKBOOKS] Database error:', integrationError);
