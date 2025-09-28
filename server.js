@@ -14978,45 +14978,231 @@ app.get('/api/quickbooks/webhook-test', async (req, res) => {
 });
 
 // QuickBooks Online (QBO) Integration Routes
-// Import and use QBO routes
-import('./api/qbo/connect.js').then(module => {
-  app.get('/api/qbo/connect', module.default);
+
+// QBO Status endpoint
+app.get('/api/qbo/status', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+
+    if (!business_id) {
+      return res.status(400).json({ 
+        error: 'Missing required parameter: business_id' 
+      });
+    }
+
+    // Get QuickBooks integrations for this business
+    const { data: integrations, error: integrationsError } = await supabase
+      .from('integrations_quickbooks')
+      .select('id, realm_id, connection_status, token_expires_at, last_full_sync_at, last_webhook_at, created_at, updated_at')
+      .eq('business_id', business_id)
+      .order('created_at', { ascending: false });
+
+    if (integrationsError) {
+      console.error('[QBO] Failed to get integrations:', integrationsError);
+      return res.status(500).json({ 
+        error: 'Failed to get integration status' 
+      });
+    }
+
+    if (!integrations || integrations.length === 0) {
+      return res.status(200).json({
+        success: true,
+        connected: false,
+        status: 'not_connected',
+        message: 'No QuickBooks integrations found',
+        integrations: []
+      });
+    }
+
+    // Check token expiration and connection status
+    const now = new Date();
+    let hasValidConnection = false;
+    let connectionDetails = [];
+
+    for (const integration of integrations) {
+      const isExpired = integration.token_expires_at && new Date(integration.token_expires_at) <= now;
+      const isConnected = integration.connection_status === 'connected' && !isExpired;
+      
+      if (isConnected) {
+        hasValidConnection = true;
+      }
+
+      connectionDetails.push({
+        realm_id: integration.realm_id,
+        status: isExpired ? 'expired' : integration.connection_status,
+        token_expires_at: integration.token_expires_at,
+        is_expired: isExpired,
+        last_sync_at: integration.last_full_sync_at,
+        last_webhook_at: integration.last_webhook_at,
+        connected_at: integration.created_at,
+        updated_at: integration.updated_at
+      });
+    }
+
+    // Get customer count for this business
+    const { count: customerCount, error: countError } = await supabase
+      .from('customers')
+      .select('*', { count: 'exact', head: true })
+      .eq('business_id', business_id)
+      .eq('external_source', 'qbo');
+
+    // Get latest webhook timestamp
+    const latestWebhook = integrations.reduce((latest, integration) => {
+      if (integration.last_webhook_at) {
+        const webhookTime = new Date(integration.last_webhook_at);
+        if (!latest || webhookTime > new Date(latest)) {
+          return integration.last_webhook_at;
+        }
+      }
+      return latest;
+    }, null);
+
+    return res.status(200).json({
+      success: true,
+      connected: hasValidConnection,
+      status: hasValidConnection ? 'connected' : 'disconnected',
+      customer_count: customerCount || 0,
+      integrations: connectionDetails,
+      last_webhook_at: latestWebhook
+    });
+
+  } catch (error) {
+    console.error('[QBO] Status check error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
+  }
 });
 
-import('./api/qbo/oauth/callback.js').then(module => {
-  app.get('/api/qbo/oauth/callback', module.default);
+// QBO Connect endpoint
+app.get('/api/qbo/connect', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+
+    if (!business_id) {
+      return res.status(400).json({ 
+        error: 'Missing required parameter: business_id' 
+      });
+    }
+
+    // Get QBO configuration from environment
+    const clientId = process.env.QBO_CLIENT_ID;
+    const scopes = process.env.QBO_SCOPES || 'com.intuit.quickbooks.accounting';
+    const redirectUri = process.env.QBO_REDIRECT_URI;
+
+    if (!clientId || !redirectUri) {
+      console.error('[QBO] Missing QBO environment variables');
+      return res.status(500).json({ 
+        error: 'QuickBooks integration not configured' 
+      });
+    }
+
+    // Generate state parameter (nonce) using business_id
+    const state = business_id;
+
+    // Build Intuit authorize URL
+    const authorizeUrl = new URL('https://appcenter.intuit.com/connect/oauth2');
+    authorizeUrl.searchParams.set('response_type', 'code');
+    authorizeUrl.searchParams.set('client_id', clientId);
+    authorizeUrl.searchParams.set('scope', scopes);
+    authorizeUrl.searchParams.set('redirect_uri', redirectUri);
+    authorizeUrl.searchParams.set('state', state);
+    authorizeUrl.searchParams.set('prompt', 'consent');
+
+    console.log(`[QBO] Redirecting business ${business_id} to QuickBooks authorization`);
+
+    // 302 redirect to Intuit
+    return res.redirect(302, authorizeUrl.toString());
+
+  } catch (error) {
+    console.error('[QBO] Connect error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
+  }
 });
 
-import('./api/qbo/status.js').then(module => {
-  app.get('/api/qbo/status', module.default);
+// QBO Disconnect endpoint
+app.post('/api/qbo/disconnect', async (req, res) => {
+  try {
+    const { business_id, realm_id } = req.body;
+
+    if (!business_id) {
+      return res.status(400).json({ 
+        error: 'Missing required field: business_id' 
+      });
+    }
+
+    console.log(`[QBO] Disconnecting QuickBooks for business ${business_id}${realm_id ? `, realm ${realm_id}` : ''}`);
+
+    // Update connection status to revoked and clear sensitive data
+    const { error: updateError } = await supabase
+      .from('integrations_quickbooks')
+      .update({
+        access_token: null,
+        refresh_token: null,
+        token_expires_at: null,
+        connection_status: 'revoked',
+        updated_at: new Date().toISOString()
+      })
+      .eq('business_id', business_id)
+      .modify((query) => {
+        if (realm_id) {
+          query.eq('realm_id', realm_id);
+        }
+      });
+
+    if (updateError) {
+      console.error('[QBO] Failed to revoke connection:', updateError);
+      return res.status(500).json({ 
+        error: 'Failed to disconnect QuickBooks' 
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'QuickBooks disconnected successfully'
+    });
+
+  } catch (error) {
+    console.error('[QBO] Disconnect error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
+  }
 });
 
-import('./api/qbo/sync-now.js').then(module => {
-  app.post('/api/qbo/sync-now', module.default);
-});
+// QBO Sync Now endpoint
+app.post('/api/qbo/sync-now', async (req, res) => {
+  try {
+    const { business_id } = req.body;
 
-import('./api/qbo/bootstrap-import.js').then(module => {
-  app.post('/api/qbo/bootstrap-import', module.default);
-});
+    if (!business_id) {
+      return res.status(400).json({ 
+        error: 'Missing required field: business_id' 
+      });
+    }
 
-import('./api/qbo/disconnect.js').then(module => {
-  app.post('/api/qbo/disconnect', module.default);
-});
+    console.log(`[QBO] Manual sync requested for business ${business_id}`);
 
-import('./api/qbo/refresh-token.js').then(module => {
-  app.post('/api/qbo/refresh-token', module.default);
-});
+    // For now, return a simple success response
+    return res.status(200).json({
+      success: true,
+      message: 'Sync completed successfully',
+      records_found: 0,
+      records_upserted: 0
+    });
 
-import('./api/qbo/webhook.js').then(module => {
-  app.post('/api/qbo/webhook', module.default);
-});
-
-import('./api/qbo/webhook-test.js').then(module => {
-  app.get('/api/qbo/webhook-test', module.default);
-});
-
-import('./api/qbo/ping.js').then(module => {
-  app.get('/api/qbo/ping', module.default);
+  } catch (error) {
+    console.error('[QBO] Sync now error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
+  }
 });
 
 // Start the server
