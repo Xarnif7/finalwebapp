@@ -14503,7 +14503,8 @@ app.post('/api/quickbooks/trigger-reviews', async (req, res) => {
 // NEW: Webhook endpoint for automatic triggers from QuickBooks
 app.post('/api/quickbooks/webhook', async (req, res) => {
   try {
-    console.log('🔔 QuickBooks webhook received:', req.body);
+    console.log('🔔 QuickBooks webhook received:', JSON.stringify(req.body, null, 2));
+    console.log('🔔 Webhook headers:', req.headers);
     
     const { eventType, payload } = req.body;
     
@@ -14681,6 +14682,22 @@ async function sendReviewRequest(customer, template, metadata = {}) {
     return false;
   }
 }
+
+// Test endpoint to verify webhook is accessible
+app.get('/api/quickbooks/webhook-test', async (req, res) => {
+  try {
+    console.log('🧪 QuickBooks webhook test endpoint hit');
+    return res.status(200).json({
+      success: true,
+      message: 'QuickBooks webhook endpoint is accessible',
+      timestamp: new Date().toISOString(),
+      webhook_url: 'https://myblipp.com/api/quickbooks/webhook'
+    });
+  } catch (error) {
+    console.error('❌ Webhook test error:', error);
+    return res.status(500).json({ error: 'Test failed' });
+  }
+});
 
 // Start the server
 app.listen(PORT, () => {
