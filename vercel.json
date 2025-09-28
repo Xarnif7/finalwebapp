@@ -15,10 +15,6 @@
   ],
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/server.js"
-    },
-    {
       "source": "/auth/callback",
       "destination": "/index.html"
     },
