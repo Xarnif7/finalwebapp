@@ -48,16 +48,32 @@ const ReviewsInbox = ({ onReviewsChange }) => {
       const { scrollTop, scrollHeight, clientHeight } = e.target;
       const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
       
+      console.log('📜 Scroll event:', {
+        scrollTop,
+        scrollHeight,
+        clientHeight,
+        scrollPercentage: scrollPercentage.toFixed(2),
+        hasMore,
+        isLoadingMore
+      });
+      
       // Load more when user scrolls to 80% of the content
       if (scrollPercentage > 0.8 && hasMore && !isLoadingMore) {
+        console.log('🚀 Triggering load more from scroll');
         loadMoreReviews();
       }
     };
 
     const scrollContainer = document.querySelector('.reviews-scroll-container');
     if (scrollContainer) {
+      console.log('📜 Scroll container found, adding event listener');
       scrollContainer.addEventListener('scroll', handleScroll);
-      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+      return () => {
+        console.log('📜 Removing scroll event listener');
+        scrollContainer.removeEventListener('scroll', handleScroll);
+      };
+    } else {
+      console.log('❌ Scroll container not found');
     }
   }, [hasMore, isLoadingMore]);
 
@@ -111,21 +127,37 @@ const ReviewsInbox = ({ onReviewsChange }) => {
       
       const data = await response.json();
       
-          if (data.success) {
-            if (reset) {
-              setReviews(data.reviews || []);
-              // Pass reviews to parent component
-              if (onReviewsChange) {
-                onReviewsChange(data.reviews || []);
-              }
-            } else {
-              setReviews(prev => [...prev, ...(data.reviews || [])]);
-            }
-            setHasMore(data.has_more || false);
-            setTotalCount(data.total_count || 0);
-          } else {
-            console.error('API returned success: false:', data.error);
+      console.log('📊 Reviews API Response:', {
+        success: data.success,
+        reviewsCount: data.reviews?.length || 0,
+        hasMore: data.has_more,
+        totalCount: data.total_count,
+        reset
+      });
+      
+      if (data.success) {
+        if (reset) {
+          setReviews(data.reviews || []);
+          // Pass reviews to parent component
+          if (onReviewsChange) {
+            onReviewsChange(data.reviews || []);
           }
+        } else {
+          setReviews(prev => {
+            const newReviews = [...prev, ...(data.reviews || [])];
+            console.log('📈 Updated reviews count:', { 
+              previous: prev.length, 
+              new: data.reviews?.length || 0, 
+              total: newReviews.length 
+            });
+            return newReviews;
+          });
+        }
+        setHasMore(data.has_more || false);
+        setTotalCount(data.total_count || 0);
+      } else {
+        console.error('API returned success: false:', data.error);
+      }
     } catch (error) {
       console.error('Error loading reviews:', error);
     } finally {
@@ -134,6 +166,7 @@ const ReviewsInbox = ({ onReviewsChange }) => {
   };
 
   const loadMoreReviews = async () => {
+    console.log('🔄 Loading more reviews...', { hasMore, isLoadingMore, currentCount: reviews.length });
     setIsLoadingMore(true);
     try {
       await loadReviews(false);
@@ -683,11 +716,16 @@ const ReviewsInbox = ({ onReviewsChange }) => {
                   <span className="text-sm text-gray-500">
                     Showing {reviews.length} of {totalCount} reviews
                   </span>
-                  {hasMore && (
-                    <span className="text-xs text-blue-600">
-                      Scroll down to load more automatically
+                  <div className="flex items-center gap-2">
+                    {hasMore && (
+                      <span className="text-xs text-blue-600">
+                        Scroll down to load more automatically
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-400">
+                      {hasMore ? 'More available' : 'All loaded'}
                     </span>
-                  )}
+                  </div>
                 </div>
                 
                 {/* Manual Load More Button */}

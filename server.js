@@ -12516,10 +12516,22 @@ app.get('/api/reviews', async (req, res) => {
 
     const { count: totalCount } = await totalCountQuery;
 
+    // Calculate if there are more reviews
+    // If we got exactly the limit number of reviews, there might be more
+    const hasMore = data && data.length >= parseInt(limit);
+
+    console.log('Pagination debug:', {
+      dataLength: data?.length,
+      limit: parseInt(limit),
+      totalCount,
+      hasMore,
+      before
+    });
+
     res.json({
       success: true,
       reviews: data || [],
-      has_more: data && data.length >= parseInt(limit) && totalCount > data.length,
+      has_more: hasMore,
       total_count: totalCount || 0
     });
   } catch (error) {
