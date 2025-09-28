@@ -48,6 +48,15 @@ export const navigationGroups: NavGroup[] = [
         ]
       },
       { 
+        title: 'Analytics', 
+        url: 'analytics', 
+        icon: 'Brain',
+        subItems: [
+          { title: 'AI Summaries', url: 'analytics/ai-summaries' },
+          { title: 'Revenue Impact', url: 'analytics/revenue-impact' }
+        ]
+      },
+      { 
         title: 'Reporting', 
         url: 'reporting', 
         icon: 'BarChart3',
@@ -102,13 +111,16 @@ export const legacyUrlMappings: Record<string, string> = {
   '/review-performance': '/reviews/ai-suggestions',
   '/review-tracking': '/reviews/sentiment-alerts',
   
+  // Analytics redirects
+  '/ai-summaries': '/analytics/ai-summaries',
+  '/revenue-impact': '/analytics/revenue-impact',
+  '/analytics': '/analytics',
+  '/insights': '/analytics',
+  
   // Reporting redirects
-  '/revenue-impact': '/reporting/performance',
   '/competitors': '/reporting/competitors',
   '/conversations': '/reporting/trends',
   '/reports': '/reporting',
-  '/analytics': '/reporting',
-  '/insights': '/reporting',
   '/kpis': '/reporting',
   '/nps': '/reporting',
   '/keywords': '/reporting',

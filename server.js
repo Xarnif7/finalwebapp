@@ -12655,6 +12655,393 @@ async function syncYelpReviews(source, business_id) {
   return { message: 'Yelp sync not implemented', inserted: 0, updated: 0, errors: 0 };
 }
 
+// AI Review Summaries API
+app.post('/api/ai/review-summaries', async (req, res) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { business_id, period = 'week', summary_type = 'overview' } = req.body;
+    
+    if (!business_id) {
+      return res.status(400).json({ error: 'business_id is required' });
+    }
+
+    // Calculate date range based on period
+    const now = new Date();
+    let startDate;
+    switch (period) {
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'quarter':
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    // Get reviews for the period
+    const { data: reviews, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('business_id', business_id)
+      .gte('review_created_at', startDate.toISOString())
+      .lte('review_created_at', now.toISOString())
+      .order('review_created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching reviews for summary:', error);
+      return res.status(500).json({ error: 'Failed to fetch reviews' });
+    }
+
+    if (!reviews || reviews.length === 0) {
+      return res.json({
+        success: true,
+        summary: {
+          period,
+          total_reviews: 0,
+          message: `No reviews found for the ${period} period.`
+        }
+      });
+    }
+
+    // Generate AI summary
+    const summary = await generateAIReviewSummary(reviews, period, summary_type);
+
+    res.json({
+      success: true,
+      summary: {
+        period,
+        total_reviews: reviews.length,
+        date_range: {
+          start: startDate.toISOString(),
+          end: now.toISOString()
+        },
+        ...summary
+      }
+    });
+
+  } catch (error) {
+    console.error('AI Review Summary error:', error);
+    res.status(500).json({ error: 'Failed to generate review summary' });
+  }
+});
+
+// Helper function to generate AI review summary
+async function generateAIReviewSummary(reviews, period, summaryType) {
+  try {
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+      // Fallback to basic summary without AI
+      return generateBasicSummary(reviews, period);
+    }
+
+    // Prepare review data for AI analysis
+    const reviewData = reviews.map(review => ({
+      rating: review.rating,
+      text: review.text,
+      sentiment: review.sentiment,
+      platform: review.platform,
+      date: review.review_created_at
+    }));
+
+    const prompt = `Analyze these ${reviews.length} customer reviews from the past ${period} and provide a comprehensive summary.
+
+Review Data:
+${JSON.stringify(reviewData, null, 2)}
+
+Please provide a JSON response with the following structure:
+{
+  "overview": "Brief 2-3 sentence summary of overall performance",
+  "key_metrics": {
+    "average_rating": number,
+    "total_reviews": number,
+    "positive_percentage": number,
+    "negative_percentage": number,
+    "neutral_percentage": number
+  },
+  "top_positive_themes": ["theme1", "theme2", "theme3"],
+  "top_negative_themes": ["theme1", "theme2", "theme3"],
+  "improvement_areas": ["area1", "area2", "area3"],
+  "recommendations": ["recommendation1", "recommendation2", "recommendation3"],
+  "notable_quotes": [
+    {"text": "quote", "rating": number, "sentiment": "positive/negative/neutral"}
+  ]
+}
+
+Focus on actionable insights and specific themes mentioned in the reviews.`;
+
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert business analyst specializing in customer review analysis. Provide actionable insights and specific recommendations based on review data.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.3
+      })
+    });
+
+    if (!aiResponse.ok) {
+      console.error('OpenAI API error:', aiResponse.status);
+      return generateBasicSummary(reviews, period);
+    }
+
+    const aiData = await aiResponse.json();
+    const aiChoice = aiData.choices[0]?.message?.content;
+
+    if (!aiChoice) {
+      return generateBasicSummary(reviews, period);
+    }
+
+    // Parse AI response
+    let aiResult;
+    try {
+      aiResult = JSON.parse(aiChoice);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', aiChoice);
+      return generateBasicSummary(reviews, period);
+    }
+
+    return aiResult;
+
+  } catch (error) {
+    console.error('Error generating AI summary:', error);
+    return generateBasicSummary(reviews, period);
+  }
+}
+
+// Fallback basic summary function
+function generateBasicSummary(reviews, period) {
+  const totalReviews = reviews.length;
+  const averageRating = reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews;
+  const positiveReviews = reviews.filter(r => r.rating >= 4).length;
+  const negativeReviews = reviews.filter(r => r.rating <= 2).length;
+  const neutralReviews = reviews.filter(r => r.rating === 3).length;
+
+  return {
+    overview: `Received ${totalReviews} reviews in the past ${period} with an average rating of ${averageRating.toFixed(1)} stars.`,
+    key_metrics: {
+      average_rating: Math.round(averageRating * 10) / 10,
+      total_reviews: totalReviews,
+      positive_percentage: Math.round((positiveReviews / totalReviews) * 100),
+      negative_percentage: Math.round((negativeReviews / totalReviews) * 100),
+      neutral_percentage: Math.round((neutralReviews / totalReviews) * 100)
+    },
+    top_positive_themes: ["Good service", "Friendly staff", "Quality work"],
+    top_negative_themes: ["Wait times", "Communication", "Pricing"],
+    improvement_areas: ["Response time", "Customer communication", "Service quality"],
+    recommendations: ["Focus on customer service training", "Improve communication processes", "Address pricing concerns"],
+    notable_quotes: reviews.slice(0, 3).map(r => ({
+      text: r.text?.substring(0, 100) + '...' || 'No text provided',
+      rating: r.rating,
+      sentiment: r.sentiment || 'neutral'
+    }))
+  };
+}
+
+// Revenue Impact Tracking API
+app.post('/api/revenue-impact', async (req, res) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { business_id, period = 'month', include_estimates = true } = req.body;
+    
+    if (!business_id) {
+      return res.status(400).json({ error: 'business_id is required' });
+    }
+
+    // Calculate date range
+    const now = new Date();
+    let startDate;
+    switch (period) {
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'quarter':
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      case 'year':
+        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+
+    // Get reviews and their impact data
+    const { data: reviews, error: reviewsError } = await supabase
+      .from('reviews')
+      .select(`
+        *,
+        review_requests!inner(
+          id,
+          customer_id,
+          customers!inner(
+            id,
+            full_name,
+            email,
+            phone
+          )
+        )
+      `)
+      .eq('business_id', business_id)
+      .gte('review_created_at', startDate.toISOString())
+      .lte('review_created_at', now.toISOString())
+      .order('review_created_at', { ascending: false });
+
+    if (reviewsError) {
+      console.error('Error fetching reviews for revenue impact:', reviewsError);
+      return res.status(500).json({ error: 'Failed to fetch reviews' });
+    }
+
+    // Get email tracking data for review requests
+    const { data: emailTracking, error: trackingError } = await supabase
+      .from('email_tracking')
+      .select(`
+        *,
+        email_opens(id, opened_at),
+        email_clicks(id, clicked_at, link_url)
+      `)
+      .eq('business_id', business_id)
+      .gte('sent_at', startDate.toISOString())
+      .lte('sent_at', now.toISOString());
+
+    if (trackingError) {
+      console.error('Error fetching email tracking:', trackingError);
+    }
+
+    // Calculate revenue impact
+    const revenueImpact = calculateRevenueImpact(reviews, emailTracking, include_estimates);
+
+    res.json({
+      success: true,
+      revenue_impact: {
+        period,
+        date_range: {
+          start: startDate.toISOString(),
+          end: now.toISOString()
+        },
+        ...revenueImpact
+      }
+    });
+
+  } catch (error) {
+    console.error('Revenue Impact Tracking error:', error);
+    res.status(500).json({ error: 'Failed to calculate revenue impact' });
+  }
+});
+
+// Helper function to calculate revenue impact
+function calculateRevenueImpact(reviews, emailTracking, includeEstimates) {
+  const totalReviews = reviews.length;
+  const positiveReviews = reviews.filter(r => r.rating >= 4).length;
+  const negativeReviews = reviews.filter(r => r.rating <= 2).length;
+  
+  // Calculate email engagement metrics
+  const totalEmailsSent = emailTracking?.length || 0;
+  const totalOpens = emailTracking?.reduce((sum, et) => sum + (et.email_opens?.length || 0), 0) || 0;
+  const totalClicks = emailTracking?.reduce((sum, et) => sum + (et.email_clicks?.length || 0), 0) || 0;
+  
+  const openRate = totalEmailsSent > 0 ? (totalOpens / totalEmailsSent) * 100 : 0;
+  const clickRate = totalEmailsSent > 0 ? (totalClicks / totalEmailsSent) * 100 : 0;
+  
+  // Industry average conversion rates (these could be made configurable per business)
+  const industryAverages = {
+    conversion_rate: 0.15, // 15% of review requests convert to reviews
+    positive_review_conversion: 0.08, // 8% of positive reviews generate new customers
+    negative_review_impact: -0.12, // 12% negative impact on potential customers
+    average_customer_value: 500, // $500 average customer value
+    review_lifetime_value: 2000 // $2000 lifetime value from a positive review
+  };
+
+  // Calculate direct revenue impact
+  const estimatedNewCustomers = Math.round(positiveReviews * industryAverages.positive_review_conversion);
+  const estimatedRevenue = estimatedNewCustomers * industryAverages.average_customer_value;
+  const estimatedLifetimeValue = positiveReviews * industryAverages.review_lifetime_value;
+  
+  // Calculate negative impact
+  const negativeImpact = negativeReviews * industryAverages.negative_review_impact * industryAverages.average_customer_value;
+  
+  // Calculate review request effectiveness
+  const reviewRequestEffectiveness = totalEmailsSent > 0 ? (totalReviews / totalEmailsSent) * 100 : 0;
+  
+  // Calculate ROI (assuming $50/month for Blipp subscription)
+  const monthlyCost = 50;
+  const roi = estimatedRevenue > 0 ? ((estimatedRevenue - monthlyCost) / monthlyCost) * 100 : 0;
+
+  return {
+    metrics: {
+      total_reviews: totalReviews,
+      positive_reviews: positiveReviews,
+      negative_reviews: negativeReviews,
+      total_emails_sent: totalEmailsSent,
+      email_open_rate: Math.round(openRate * 10) / 10,
+      email_click_rate: Math.round(clickRate * 10) / 10,
+      review_request_effectiveness: Math.round(reviewRequestEffectiveness * 10) / 10
+    },
+    revenue_impact: {
+      estimated_new_customers: estimatedNewCustomers,
+      estimated_revenue: Math.round(estimatedRevenue),
+      estimated_lifetime_value: Math.round(estimatedLifetimeValue),
+      negative_impact: Math.round(Math.abs(negativeImpact)),
+      net_revenue_impact: Math.round(estimatedRevenue - Math.abs(negativeImpact)),
+      roi_percentage: Math.round(roi)
+    },
+    insights: {
+      top_performing_reviews: reviews
+        .filter(r => r.rating >= 4)
+        .slice(0, 3)
+        .map(r => ({
+          text: r.text?.substring(0, 100) + '...' || 'No text',
+          rating: r.rating,
+          platform: r.platform,
+          potential_revenue: Math.round(industryAverages.review_lifetime_value)
+        })),
+      improvement_opportunities: negativeReviews > 0 ? [
+        `${negativeReviews} negative reviews are potentially costing you $${Math.round(Math.abs(negativeImpact))} in lost revenue`,
+        'Focus on addressing negative feedback to reduce revenue impact',
+        'Consider implementing follow-up processes for negative reviews'
+      ] : [
+        'Great job! No negative reviews in this period',
+        'Continue maintaining high service quality',
+        'Consider asking satisfied customers for more reviews'
+      ]
+    },
+    recommendations: [
+      `Your ${positiveReviews} positive reviews are generating an estimated $${Math.round(estimatedRevenue)} in new revenue`,
+      `Email open rate of ${Math.round(openRate)}% could be improved with better subject lines`,
+      `Review request effectiveness of ${Math.round(reviewRequestEffectiveness)}% is ${reviewRequestEffectiveness > 15 ? 'excellent' : 'good but could be improved'}`,
+      includeEstimates ? 'These are industry-standard estimates. Actual results may vary based on your specific business model.' : null
+    ].filter(Boolean)
+  };
+}
+
 // Reviews API endpoints
 app.get('/api/reviews', async (req, res) => {
   try {

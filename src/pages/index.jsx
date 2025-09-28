@@ -20,6 +20,7 @@ import Sequences from "./Sequences";
 import Automations from "./AutomationsFixed";
 import Competitors from "./Competitors";
 import Reporting from "./Reporting";
+import Analytics from "./Analytics";
 import TeamRoles from "./TeamRoles";
 import AuditLog from "./AuditLog";
 import CsvImport from "./CsvImport";
@@ -114,6 +115,7 @@ const PAGES = {
   Sequences: Sequences,
   Automations: Automations,
   Competitors: Competitors,
+  Analytics: Analytics,
   TeamRoles: TeamRoles,
   AuditLog: AuditLog,
   CsvImport: CsvImport,
@@ -244,7 +246,7 @@ function PagesContent() {
   const isDashboardRoute = [
     'Onboarding', 'Dashboard', 'DashboardOverview', 'Clients', 'Settings', 'Reviews', 'ReviewTracking', 
     'ReviewLanding', 'AutomatedRequests', 'Automations', 'ReviewInbox', 'SendRequests', 'SocialPosts', 
-    'Sequences', 'Competitors', 'TeamRoles', 'AuditLog', 'CsvImport', 'Notifications', 
+    'Sequences', 'Competitors', 'Analytics', 'TeamRoles', 'AuditLog', 'CsvImport', 'Notifications', 
     'Integrations', 'RevenueImpact', 'Conversations', 'ReviewPerformance', 'PrivateFeedback', 'Feedback'
   ].includes(currentPage);
 
@@ -295,6 +297,11 @@ const DashboardRoutes = () => (
       <Route path="/reporting" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reporting} name="Reporting" /></ProtectedRoute>} />
       <Route path="/reporting/performance" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reporting} name="Reporting" /></ProtectedRoute>} />
       <Route path="/reporting/trends" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reporting} name="Reporting" /></ProtectedRoute>} />
+      
+      {/* Analytics Tab */}
+      <Route path="/analytics" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
+      <Route path="/analytics/ai-summaries" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
+      <Route path="/analytics/revenue-impact" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Analytics} name="Analytics" /></ProtectedRoute>} />
       <Route path="/reporting/competitors" element={<ProtectedRoute requireActiveSubscription><TrackedComponent component={Reporting} name="Reporting" /></ProtectedRoute>} />
       
       {/* Feedback Tab */}

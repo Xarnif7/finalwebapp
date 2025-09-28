@@ -67,6 +67,7 @@ export function getPageNameFromPath(pathname: string): string {
     'pricing': 'Paywall',
     'auth': 'Landing', // Auth callback shows landing
     'dashboard': 'DashboardOverview',
+    'analytics': 'Analytics',
     'reporting': 'Dashboard',
     'customers': 'Clients',
     'automations': 'Automations',
@@ -110,6 +111,7 @@ export function getPageNameFromPath(pathname: string): string {
     'SocialPosts': 'SocialPosts',
     'Sequences': 'Sequences',
     'Competitors': 'Competitors',
+    'Analytics': 'Analytics',
     'TeamRoles': 'TeamRoles',
     'AuditLog': 'AuditLog',
     'CsvImport': 'CsvImport',
