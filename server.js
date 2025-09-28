@@ -13900,12 +13900,13 @@ app.get('/api/quickbooks/status', async (req, res) => {
       });
     }
 
-    // Get QuickBooks integration
+    // Get QuickBooks integration (look for provider='api' with integration_type='quickbooks')
     const { data: integration, error: integrationError } = await supabase
       .from('business_integrations')
       .select('status, metadata_json, created_at, updated_at')
       .eq('business_id', business_id)
-      .eq('provider', 'quickbooks')
+      .eq('provider', 'api')
+      .eq('metadata_json->>integration_type', 'quickbooks')
       .single();
 
     if (integrationError || !integration) {
@@ -14176,7 +14177,8 @@ app.get('/api/quickbooks/callback', async (req, res) => {
             refresh_token,
             expires_in,
             realm_id: realmId,
-            connected_at: new Date().toISOString()
+            connected_at: new Date().toISOString(),
+            integration_type: 'quickbooks' // Store the actual integration type in metadata
           },
           updated_at: new Date().toISOString()
         })
@@ -14192,14 +14194,15 @@ app.get('/api/quickbooks/callback', async (req, res) => {
         .from('business_integrations')
         .insert({
           business_id: businessId,
-          provider: 'quickbooks',
+          provider: 'api', // Use 'api' as the provider type for QuickBooks
           status: 'active',
           metadata_json: {
             access_token,
             refresh_token,
             expires_in,
             realm_id: realmId,
-            connected_at: new Date().toISOString()
+            connected_at: new Date().toISOString(),
+            integration_type: 'quickbooks' // Store the actual integration type in metadata
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -14284,7 +14287,8 @@ app.post('/api/quickbooks/sync-customers', async (req, res) => {
       .from('business_integrations')
       .select('metadata_json')
       .eq('business_id', business_id)
-      .eq('provider', 'quickbooks')
+      .eq('provider', 'api')
+      .eq('metadata_json->>integration_type', 'quickbooks')
       .eq('status', 'active')
       .single();
 
@@ -14477,7 +14481,8 @@ app.post('/api/quickbooks/disconnect', async (req, res) => {
         updated_at: new Date().toISOString()
       })
       .eq('business_id', business_id)
-      .eq('provider', 'quickbooks')
+      .eq('provider', 'api')
+      .eq('metadata_json->>integration_type', 'quickbooks')
       .select()
       .single();
 
@@ -14628,7 +14633,8 @@ app.post('/api/quickbooks/webhook', async (req, res) => {
         const { data: integration, error: integrationError } = await supabase
           .from('business_integrations')
           .select('business_id, metadata_json')
-          .eq('provider', 'quickbooks')
+          .eq('provider', 'api')
+          .eq('metadata_json->>integration_type', 'quickbooks')
           .eq('status', 'active')
           .eq('metadata_json->>realm_id', invoice.CompanyId)
           .single();
