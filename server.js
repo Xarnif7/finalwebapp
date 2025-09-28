@@ -12648,11 +12648,301 @@ async function syncGoogleReviews(source, business_id) {
 
 // Placeholder functions for other platforms
 async function syncFacebookReviews(source, business_id) {
-  return { message: 'Facebook sync not implemented', inserted: 0, updated: 0, errors: 0 };
+  try {
+    console.log('🔄 Syncing Facebook reviews for business:', business_id);
+    
+    // Check if we have the required API keys
+    const fbAppId = process.env.FB_APP_ID;
+    const fbAppSecret = process.env.FB_APP_SECRET;
+    
+    if (!fbAppId || !fbAppSecret) {
+      console.log('⚠️ Facebook API credentials not configured');
+      return { 
+        message: 'Facebook API credentials not configured', 
+        inserted: 0, 
+        updated: 0, 
+        errors: 1 
+      };
+    }
+
+    // Get access token for the Facebook page
+    if (!source.access_token) {
+      console.log('⚠️ No Facebook access token found for this source');
+      return { 
+        message: 'No Facebook access token configured', 
+        inserted: 0, 
+        updated: 0, 
+        errors: 1 
+      };
+    }
+
+    const pageId = source.external_id;
+    if (!pageId) {
+      console.log('⚠️ No Facebook page ID found');
+      return { 
+        message: 'No Facebook page ID configured', 
+        inserted: 0, 
+        updated: 0, 
+        errors: 1 
+      };
+    }
+
+    // Fetch reviews from Facebook Graph API
+    const fbApiUrl = `https://graph.facebook.com/v18.0/${pageId}/ratings?access_token=${source.access_token}&limit=25`;
+    console.log('📡 Fetching Facebook reviews from:', fbApiUrl.replace(source.access_token, '***'));
+    
+    const response = await fetch(fbApiUrl);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Facebook API error:', response.status, errorText);
+      return { 
+        message: `Facebook API error: ${response.status}`, 
+        inserted: 0, 
+        updated: 0, 
+        errors: 1 
+      };
+    }
+
+    const data = await response.json();
+    console.log('📊 Facebook API response:', { dataCount: data.data?.length || 0 });
+
+    if (!data.data || data.data.length === 0) {
+      console.log('📭 No Facebook reviews found');
+      return { 
+        message: 'No Facebook reviews found', 
+        inserted: 0, 
+        updated: 0, 
+        errors: 0 
+      };
+    }
+
+    let inserted = 0;
+    let updated = 0;
+    let errors = 0;
+
+    // Process each review
+    for (const review of data.data) {
+      try {
+        // Skip if no review text (just ratings)
+        if (!review.review_text) continue;
+
+        // Check if review already exists
+        const { data: existingReview } = await supabase
+          .from('reviews')
+          .select('id')
+          .eq('business_id', business_id)
+          .eq('platform', 'facebook')
+          .eq('external_review_id', review.id)
+          .single();
+
+        // Convert Facebook recommendation_type to rating
+        let rating = review.rating || 3; // Default to 3 if no rating
+        if (review.recommendation_type === 'positive') {
+          rating = 5;
+        } else if (review.recommendation_type === 'negative') {
+          rating = 1;
+        }
+
+        const reviewData = {
+          business_id,
+          platform: 'facebook',
+          external_review_id: review.id,
+          reviewer_name: review.reviewer.name,
+          rating,
+          text: review.review_text,
+          review_url: review.permalink_url || `https://facebook.com/${pageId}`,
+          review_created_at: new Date(review.created_time).toISOString(),
+          sentiment: classifySentiment(review.review_text, rating)
+        };
+
+        if (existingReview) {
+          // Update existing review
+          const { error: updateError } = await supabase
+            .from('reviews')
+            .update(reviewData)
+            .eq('id', existingReview.id);
+
+          if (updateError) throw updateError;
+          updated++;
+        } else {
+          // Insert new review
+          const { error: insertError } = await supabase
+            .from('reviews')
+            .insert(reviewData);
+
+          if (insertError) throw insertError;
+          inserted++;
+        }
+      } catch (error) {
+        console.error('Error processing Facebook review:', error);
+        errors++;
+      }
+    }
+
+    // Update last_synced_at
+    await supabase
+      .from('review_sources')
+      .update({ last_synced_at: new Date().toISOString() })
+      .eq('id', source.id);
+
+    console.log('✅ Facebook sync completed:', { inserted, updated, errors });
+    return { 
+      message: `Synced ${inserted} new and ${updated} updated Facebook reviews`, 
+      inserted, 
+      updated, 
+      errors 
+    };
+
+  } catch (error) {
+    console.error('❌ Facebook sync error:', error);
+    return { 
+      message: `Facebook sync error: ${error.message}`, 
+      inserted: 0, 
+      updated: 0, 
+      errors: 1 
+    };
+  }
 }
 
 async function syncYelpReviews(source, business_id) {
-  return { message: 'Yelp sync not implemented', inserted: 0, updated: 0, errors: 0 };
+  try {
+    console.log('🔄 Syncing Yelp reviews for business:', business_id);
+    
+    // Check if we have the required API key
+    const yelpApiKey = process.env.YELP_API_KEY;
+    
+    if (!yelpApiKey) {
+      console.log('⚠️ Yelp API key not configured');
+      return { 
+        message: 'Yelp API key not configured', 
+        inserted: 0, 
+        updated: 0, 
+        errors: 1 
+      };
+    }
+
+    const businessId = source.external_id;
+    if (!businessId) {
+      console.log('⚠️ No Yelp business ID found');
+      return { 
+        message: 'No Yelp business ID configured', 
+        inserted: 0, 
+        updated: 0, 
+        errors: 1 
+      };
+    }
+
+    // Fetch reviews from Yelp Fusion API
+    const yelpApiUrl = `https://api.yelp.com/v3/businesses/${businessId}/reviews`;
+    console.log('📡 Fetching Yelp reviews for business:', businessId);
+    
+    const response = await fetch(yelpApiUrl, {
+      headers: {
+        'Authorization': `Bearer ${yelpApiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Yelp API error:', response.status, errorText);
+      return { 
+        message: `Yelp API error: ${response.status}`, 
+        inserted: 0, 
+        updated: 0, 
+        errors: 1 
+      };
+    }
+
+    const data = await response.json();
+    console.log('📊 Yelp API response:', { reviewsCount: data.reviews?.length || 0 });
+
+    if (!data.reviews || data.reviews.length === 0) {
+      console.log('📭 No Yelp reviews found');
+      return { 
+        message: 'No Yelp reviews found', 
+        inserted: 0, 
+        updated: 0, 
+        errors: 0 
+      };
+    }
+
+    let inserted = 0;
+    let updated = 0;
+    let errors = 0;
+
+    // Process each review (Yelp typically returns 3 reviews max)
+    for (const review of data.reviews) {
+      try {
+        // Check if review already exists
+        const { data: existingReview } = await supabase
+          .from('reviews')
+          .select('id')
+          .eq('business_id', business_id)
+          .eq('platform', 'yelp')
+          .eq('external_review_id', review.id)
+          .single();
+
+        const reviewData = {
+          business_id,
+          platform: 'yelp',
+          external_review_id: review.id,
+          reviewer_name: review.user.name,
+          rating: review.rating,
+          text: review.text,
+          review_url: review.url,
+          review_created_at: new Date(review.time_created).toISOString(),
+          sentiment: classifySentiment(review.text, review.rating)
+        };
+
+        if (existingReview) {
+          // Update existing review
+          const { error: updateError } = await supabase
+            .from('reviews')
+            .update(reviewData)
+            .eq('id', existingReview.id);
+
+          if (updateError) throw updateError;
+          updated++;
+        } else {
+          // Insert new review
+          const { error: insertError } = await supabase
+            .from('reviews')
+            .insert(reviewData);
+
+          if (insertError) throw insertError;
+          inserted++;
+        }
+      } catch (error) {
+        console.error('Error processing Yelp review:', error);
+        errors++;
+      }
+    }
+
+    // Update last_synced_at
+    await supabase
+      .from('review_sources')
+      .update({ last_synced_at: new Date().toISOString() })
+      .eq('id', source.id);
+
+    console.log('✅ Yelp sync completed:', { inserted, updated, errors });
+    return { 
+      message: `Synced ${inserted} new and ${updated} updated Yelp reviews`, 
+      inserted, 
+      updated, 
+      errors 
+    };
+
+  } catch (error) {
+    console.error('❌ Yelp sync error:', error);
+    return { 
+      message: `Yelp sync error: ${error.message}`, 
+      inserted: 0, 
+      updated: 0, 
+      errors: 1 
+    };
+  }
 }
 
 // Enhanced AI Review Summaries API - fetches directly from Google for comprehensive analysis
