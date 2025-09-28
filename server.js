@@ -872,6 +872,12 @@ app.post('/api/send-followup-email', async (req, res) => {
       .replace(/\[YOUR_BUSINESS_NAME\]/g, businessName)
       .replace(/\[YOUR_PHONE\]/g, 'your business phone');
 
+    // Generate tracking ID for follow-up email
+    const followupTrackingId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    
+    // Create tracking pixel
+    const followupTrackingPixel = `<img src="${process.env.NEXT_PUBLIC_SITE_URL || 'https://myblipp.com'}/api/email-track/open?t=${followupTrackingId}" width="1" height="1" style="display:none;" />`;
+
     // Send email via Resend
     const emailResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -896,6 +902,7 @@ app.post('/api/send-followup-email', async (req, res) => {
             <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px;">
               <p>This email was sent from Blipp - Reputation Management</p>
             </div>
+            ${followupTrackingPixel}
           </div>
         `
       })
@@ -905,6 +912,19 @@ app.post('/api/send-followup-email', async (req, res) => {
       const errorData = await emailResponse.json();
       throw new Error(errorData.message || 'Failed to send email');
     }
+
+    const emailData = await emailResponse.json();
+    
+    // Record email tracking
+    await supabase
+      .from('email_tracking')
+      .insert({
+        email_id: emailData.id,
+        business_id: profile.business_id,
+        email_type: 'follow_up',
+        recipient_email: to,
+        subject: subject
+      });
 
     res.json({ success: true, message: 'Follow-up email sent successfully' });
   } catch (e) {
@@ -10114,8 +10134,17 @@ async function handleJobCompleted(payload) {
       customizedMessage: manualCustomizedMessage.substring(0, 100) + '...'
     });
     
-    // Use the same HTML template as automation executor
-    const emailHtml = `
+      // Generate tracking ID for manual trigger email
+      const manualTrackingId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
+      // Create tracking pixel
+      const manualTrackingPixel = `<img src="${process.env.NEXT_PUBLIC_SITE_URL || 'https://myblipp.com'}/api/email-track/open?t=${manualTrackingId}" width="1" height="1" style="display:none;" />`;
+      
+      // Create tracked review link
+      const manualTrackedReviewLink = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://myblipp.com'}/api/email-track/click?t=${manualTrackingId}&l=${encodeURIComponent(reviewLink)}&type=feedback`;
+
+      // Use the same HTML template as automation executor
+      const emailHtml = `
       <!DOCTYPE html>
       <html lang="en">
       <head>
@@ -10154,7 +10183,7 @@ async function handleJobCompleted(payload) {
             
             <!-- CTA Button -->
             <div style="text-align: center; margin: 35px 0;">
-              <a href="${reviewLink}" 
+              <a href="${manualTrackedReviewLink}" 
                  style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); transition: all 0.2s ease;">
                 ${formSettings.email_button_text || 'Leave Feedback'}
               </a>
@@ -10175,6 +10204,9 @@ async function handleJobCompleted(payload) {
             </p>
           </div>
         </div>
+        
+        <!-- Email Tracking Pixel -->
+        ${manualTrackingPixel}
       </body>
       </html>
     `;
@@ -10200,6 +10232,19 @@ async function handleJobCompleted(payload) {
       if (emailResponse.ok) {
         const emailData = await emailResponse.json();
         console.log('✅ Email sent successfully:', emailData.id);
+        
+        // Record email tracking
+        await supabase
+          .from('email_tracking')
+          .insert({
+            email_id: emailData.id,
+            business_id: business.id,
+            customer_id: customerId,
+            review_request_id: reviewRequest.id,
+            email_type: 'manual_trigger',
+            recipient_email: customer.email,
+            subject: formSettings.email_subject || "We'd love your feedback!"
+          });
         
         // Update review request status
         await supabase
