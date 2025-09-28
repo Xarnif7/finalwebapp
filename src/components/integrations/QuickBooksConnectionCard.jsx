@@ -374,6 +374,18 @@ const QuickBooksConnectionCard = () => {
                 </div>
               )}
             </div>
+            
+            {/* Webhook Info */}
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-sm font-medium text-blue-800">Webhook Active</span>
+              </div>
+              <div className="text-xs text-blue-700">
+                <div>Invoice payments and sends will automatically trigger review requests</div>
+                <div className="mt-1 font-mono text-xs">Webhook URL: /api/qbo/webhook</div>
+              </div>
+            </div>
           </div>
         )}
 

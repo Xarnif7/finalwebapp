@@ -88,6 +88,17 @@ export default async function handler(req, res) {
       .limit(1)
       .single();
 
+    // Get latest webhook timestamp
+    const latestWebhook = integrations.reduce((latest, integration) => {
+      if (integration.last_webhook_at) {
+        const webhookTime = new Date(integration.last_webhook_at);
+        if (!latest || webhookTime > new Date(latest)) {
+          return integration.last_webhook_at;
+        }
+      }
+      return latest;
+    }, null);
+
     return res.status(200).json({
       success: true,
       connected: hasValidConnection,
@@ -97,7 +108,8 @@ export default async function handler(req, res) {
       last_sync_at: latestLog?.run_started_at || null,
       last_sync_status: latestLog?.status || null,
       last_sync_records: latestLog?.records_upserted || 0,
-      last_sync_error: latestLog?.error_message || null
+      last_sync_error: latestLog?.error_message || null,
+      last_webhook_at: latestWebhook
     });
 
   } catch (error) {
