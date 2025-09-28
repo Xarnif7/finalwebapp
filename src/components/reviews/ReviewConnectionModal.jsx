@@ -141,14 +141,75 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
     }
   };
 
-  const handleBusinessSelect = (prediction) => {
-    // Convert Google Places prediction to our business format
-    const business = {
-      place_id: prediction.place_id,
-      name: prediction.structured_formatting?.main_text || prediction.description,
-      address: prediction.structured_formatting?.secondary_text || '',
-      url: `https://www.google.com/maps/place/?q=place_id:${prediction.place_id}`
-    };
+  const searchBusinesses = async () => {
+    if (!searchQuery.trim()) return;
+    
+    try {
+      setIsSearching(true);
+      setShowSuggestions(true);
+      
+      const response = await fetch('/api/reviews/search-business', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          query: searchQuery,
+          platform: activeTab
+        })
+      });
+
+      const data = await response.json();
+      setIsSearching(false);
+      
+      if (data.success) {
+        setSearchResults(data.results || []);
+      } else {
+        console.error('Search failed:', data.error);
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Error searching businesses:', error);
+      setIsSearching(false);
+      setSearchResults([]);
+    }
+  };
+
+  const handleBusinessSelect = (result) => {
+    let business;
+    
+    if (activeTab === 'google') {
+      // Convert Google Places prediction to our business format
+      business = {
+        place_id: result.place_id,
+        name: result.structured_formatting?.main_text || result.description,
+        address: result.structured_formatting?.secondary_text || '',
+        url: `https://www.google.com/maps/place/?q=place_id:${result.place_id}`,
+        external_id: result.place_id,
+        public_url: `https://www.google.com/maps/place/?q=place_id:${result.place_id}`
+      };
+    } else if (activeTab === 'facebook') {
+      // Facebook page result
+      business = {
+        id: result.id,
+        name: result.name,
+        category: result.category,
+        url: result.url,
+        external_id: result.external_id,
+        public_url: result.public_url
+      };
+    } else if (activeTab === 'yelp') {
+      // Yelp business result
+      business = {
+        id: result.id,
+        name: result.name,
+        category: result.category,
+        address: result.address,
+        url: result.url,
+        external_id: result.external_id,
+        public_url: result.public_url,
+        rating: result.rating,
+        review_count: result.review_count
+      };
+    }
     
     setSelectedBusiness(business);
     setSearchQuery(business.name);
@@ -326,8 +387,8 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={searchGooglePlaces}
-                      disabled={isSearching || !googleApiLoaded || !searchQuery.trim()}
+                      onClick={activeTab === 'google' ? searchGooglePlaces : searchBusinesses}
+                      disabled={isSearching || (activeTab === 'google' && !googleApiLoaded) || !searchQuery.trim()}
                     >
                       {isSearching ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -443,22 +504,182 @@ const ReviewConnectionModal = ({ isOpen, onClose, onConnectionSuccess }) => {
             </TabsContent>
 
             <TabsContent value="facebook" className="space-y-4 mt-6">
-              <div className="text-center p-8">
-                <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-                <h3 className="font-medium mb-2">Facebook Integration Coming Soon</h3>
-                <p className="text-gray-500 text-sm">
-                  We're working on Facebook Business integration. Use Zapier for now.
-                </p>
+              <div className="space-y-4">
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Search for your Facebook page..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => {
+                        if (searchResults.length > 0) {
+                          setShowSuggestions(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowSuggestions(false), 200);
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={searchBusinesses}
+                      disabled={isSearching || !searchQuery.trim()}
+                    >
+                      {isSearching ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Search Results Dropdown */}
+                {showSuggestions && searchResults.length > 0 && (
+                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {searchResults.map((result) => (
+                      <div
+                        key={result.id}
+                        className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        onClick={() => handleBusinessSelect(result)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-gray-900">{result.name}</p>
+                            <p className="text-sm text-gray-500">{result.category}</p>
+                          </div>
+                          <ExternalLink className="h-4 w-4 text-gray-400" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Selected Business */}
+                {selectedBusiness && (
+                  <Card className="border-green-200 bg-green-50">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <div className="flex-1">
+                          <p className="font-medium text-green-900">{selectedBusiness.name}</p>
+                          <p className="text-sm text-green-700">{selectedBusiness.category}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={handleConnect}
+                          disabled={isConnecting}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {isConnecting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            'Connect'
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </TabsContent>
 
             <TabsContent value="yelp" className="space-y-4 mt-6">
-              <div className="text-center p-8">
-                <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-                <h3 className="font-medium mb-2">Yelp Integration Coming Soon</h3>
-                <p className="text-gray-500 text-sm">
-                  We're working on Yelp Business integration. Use Zapier for now.
-                </p>
+              <div className="space-y-4">
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Search for your Yelp business..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => {
+                        if (searchResults.length > 0) {
+                          setShowSuggestions(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowSuggestions(false), 200);
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={searchBusinesses}
+                      disabled={isSearching || !searchQuery.trim()}
+                    >
+                      {isSearching ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Search Results Dropdown */}
+                {showSuggestions && searchResults.length > 0 && (
+                  <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {searchResults.map((result) => (
+                      <div
+                        key={result.id}
+                        className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        onClick={() => handleBusinessSelect(result)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-gray-900">{result.name}</p>
+                            <p className="text-sm text-gray-500">{result.category}</p>
+                            {result.address && (
+                              <p className="text-xs text-gray-400">{result.address}</p>
+                            )}
+                            {result.rating && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <span className="text-yellow-500">★</span>
+                                <span className="text-xs text-gray-600">
+                                  {result.rating} ({result.review_count} reviews)
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <ExternalLink className="h-4 w-4 text-gray-400" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Selected Business */}
+                {selectedBusiness && (
+                  <Card className="border-green-200 bg-green-50">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <div className="flex-1">
+                          <p className="font-medium text-green-900">{selectedBusiness.name}</p>
+                          <p className="text-sm text-green-700">{selectedBusiness.category}</p>
+                          {selectedBusiness.address && (
+                            <p className="text-xs text-green-600">{selectedBusiness.address}</p>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={handleConnect}
+                          disabled={isConnecting}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {isConnecting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            'Connect'
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </TabsContent>
           </Tabs>

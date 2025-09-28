@@ -12945,6 +12945,100 @@ async function syncYelpReviews(source, business_id) {
   }
 }
 
+// Business Search APIs for Facebook and Yelp
+app.post('/api/reviews/search-business', async (req, res) => {
+  try {
+    const { query, platform } = req.body;
+    
+    if (!query || !platform) {
+      return res.status(400).json({ error: 'Query and platform are required' });
+    }
+
+    let results = [];
+
+    if (platform === 'facebook') {
+      // Facebook Graph API search for pages
+      const fbAppId = process.env.FB_APP_ID;
+      const fbAppSecret = process.env.FB_APP_SECRET;
+      
+      if (!fbAppId || !fbAppSecret) {
+        return res.status(400).json({ error: 'Facebook API credentials not configured' });
+      }
+
+      // Get app access token
+      const tokenResponse = await fetch(`https://graph.facebook.com/oauth/access_token?client_id=${fbAppId}&client_secret=${fbAppSecret}&grant_type=client_credentials`);
+      const tokenData = await tokenResponse.json();
+      
+      if (!tokenData.access_token) {
+        return res.status(400).json({ error: 'Failed to get Facebook access token' });
+      }
+
+      // Search for pages
+      const searchUrl = `https://graph.facebook.com/v18.0/search?q=${encodeURIComponent(query)}&type=page&access_token=${tokenData.access_token}&limit=10`;
+      const searchResponse = await fetch(searchUrl);
+      const searchData = await searchResponse.json();
+
+      if (searchData.data) {
+        results = searchData.data.map(page => ({
+          id: page.id,
+          name: page.name,
+          category: page.category,
+          url: `https://facebook.com/${page.id}`,
+          external_id: page.id,
+          public_url: `https://facebook.com/${page.id}`
+        }));
+      }
+
+    } else if (platform === 'yelp') {
+      // Yelp Fusion API search for businesses
+      const yelpApiKey = process.env.YELP_API_KEY;
+      
+      if (!yelpApiKey) {
+        return res.status(400).json({ error: 'Yelp API key not configured' });
+      }
+
+      const searchUrl = `https://api.yelp.com/v3/businesses/search?term=${encodeURIComponent(query)}&limit=10&location=US`;
+      const searchResponse = await fetch(searchUrl, {
+        headers: {
+          'Authorization': `Bearer ${yelpApiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const searchData = await searchResponse.json();
+
+      if (searchData.businesses) {
+        results = searchData.businesses.map(business => ({
+          id: business.id,
+          name: business.name,
+          category: business.categories?.[0]?.title || 'Business',
+          address: business.location?.display_address?.join(', ') || '',
+          url: business.url,
+          external_id: business.id,
+          public_url: business.url,
+          rating: business.rating,
+          review_count: business.review_count
+        }));
+      }
+
+    } else if (platform === 'google') {
+      // This would use the existing Google Places API logic
+      // For now, return empty results as this should use the frontend Google API
+      results = [];
+    }
+
+    res.json({
+      success: true,
+      results,
+      platform
+    });
+
+  } catch (error) {
+    console.error('Business search error:', error);
+    res.status(500).json({ error: 'Failed to search businesses' });
+  }
+});
+
 // Enhanced AI Review Summaries API - fetches directly from Google for comprehensive analysis
 app.post('/api/ai/review-summaries', async (req, res) => {
   try {
