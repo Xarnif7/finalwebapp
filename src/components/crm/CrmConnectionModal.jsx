@@ -19,7 +19,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
       id: 'quickbooks',
       name: 'QuickBooks',
       description: 'Accounting and customer management',
-      logo: '/images/crm/quickbooks-icon.png',
+      logo: '/images/crm/QuickBooks ICON.png',
       color: 'from-blue-500 to-blue-700',
       connected: false,
       component: QuickBooksConnectionCard
@@ -104,7 +104,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
 
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-6xl w-[90vw] max-h-[95vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh] h-[95vh] overflow-y-auto">
           <DialogHeader className="pb-6">
             <DialogTitle className="flex items-center space-x-3 text-3xl font-bold">
               <button onClick={handleBackToList} className="mr-3 text-gray-600 hover:text-gray-800 text-2xl">
@@ -123,7 +123,7 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl w-[95vw] max-h-[95vh] overflow-hidden">
+      <DialogContent className="max-w-[98vw] w-[98vw] max-h-[98vh] h-[98vh] overflow-hidden">
         <DialogHeader className="pb-6">
           <DialogTitle className="text-3xl font-bold text-center">Connect Your CRM</DialogTitle>
           <p className="text-gray-600 text-center mt-2">Choose from popular CRM systems or connect via Zapier</p>
@@ -148,47 +148,47 @@ const CrmConnectionModal = ({ isOpen, onClose, userId, businessId }) => {
             </div>
 
             {/* CRM Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 max-h-[65vh] overflow-y-auto p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12 max-h-[75vh] overflow-y-auto p-8">
               {filteredCrms.map((crm) => (
                 <Card 
                   key={crm.id} 
                   className="cursor-pointer hover:shadow-lg transition-all duration-200 border-2 hover:border-blue-300 hover:scale-105"
                   onClick={() => handleCrmSelect(crm)}
                 >
-                  <CardContent className="p-8">
-                    <div className="flex flex-col items-center text-center space-y-6">
+                  <CardContent className="p-12">
+                    <div className="flex flex-col items-center text-center space-y-8">
                       {/* Logo */}
-                      <div className="w-24 h-24 rounded-2xl bg-white border-2 border-gray-100 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300">
+                      <div className="w-32 h-32 rounded-3xl bg-white border-2 border-gray-100 flex items-center justify-center shadow-xl hover:shadow-2xl transition-all duration-300">
                         <img 
                           src={crm.logo} 
                           alt={`${crm.name} logo`}
-                          className="w-16 h-16 object-contain rounded-lg"
+                          className="w-20 h-20 object-contain rounded-xl"
                           onError={(e) => {
                             e.target.style.display = 'none';
                             e.target.nextSibling.style.display = 'flex';
                           }}
                         />
-                        <div className={`w-16 h-16 rounded-xl bg-gradient-to-r ${crm.color} flex items-center justify-center`} style={{ display: 'none' }}>
-                          <Settings className="w-10 h-10 text-white" />
+                        <div className={`w-20 h-20 rounded-2xl bg-gradient-to-r ${crm.color} flex items-center justify-center`} style={{ display: 'none' }}>
+                          <Settings className="w-12 h-12 text-white" />
                         </div>
                       </div>
                       
                       {/* Name */}
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900">{crm.name}</h3>
-                        <p className="text-base text-gray-600 mt-2">{crm.description}</p>
+                        <h3 className="text-2xl font-bold text-gray-900">{crm.name}</h3>
+                        <p className="text-lg text-gray-600 mt-3">{crm.description}</p>
                       </div>
                       
                       {/* Status & Connect Button */}
-                      <div className="w-full space-y-3">
+                      <div className="w-full space-y-4">
                         {crm.connected ? (
-                          <div className="flex items-center justify-center space-x-2 text-green-600">
-                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                            <span className="text-base font-semibold">Connected</span>
+                          <div className="flex items-center justify-center space-x-3 text-green-600">
+                            <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                            <span className="text-lg font-semibold">Connected</span>
                           </div>
                         ) : (
                           <Button 
-                            className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                            className="w-full h-16 text-xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleCrmSelect(crm);

@@ -51,7 +51,7 @@ const QuickBooksConnectionCard = () => {
 
     try {
       // Generate QuickBooks OAuth URL
-      const clientId = process.env.VITE_QUICKBOOKS_CLIENT_ID;
+      const clientId = import.meta.env.VITE_QUICKBOOKS_CLIENT_ID;
       
       if (!clientId) {
         throw new Error('QuickBooks Client ID not configured. Please check environment variables.');
