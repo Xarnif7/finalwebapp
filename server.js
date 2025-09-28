@@ -14500,6 +14500,188 @@ app.post('/api/quickbooks/trigger-reviews', async (req, res) => {
   }
 });
 
+// NEW: Webhook endpoint for automatic triggers from QuickBooks
+app.post('/api/quickbooks/webhook', async (req, res) => {
+  try {
+    console.log('🔔 QuickBooks webhook received:', req.body);
+    
+    const { eventType, payload } = req.body;
+    
+    // Handle invoice payment events
+    if (eventType === 'Invoice' && payload && payload.operation === 'Update') {
+      const invoice = payload.invoice;
+      
+      // Check if invoice was paid
+      if (invoice.Balance === '0' && invoice.TotalAmt > 0) {
+        console.log('💰 Invoice paid detected:', {
+          invoiceId: invoice.Id,
+          customerId: invoice.CustomerRef?.value,
+          amount: invoice.TotalAmt,
+          customerName: invoice.CustomerRef?.name
+        });
+        
+        // Get business integration for this QuickBooks company
+        const { data: integration, error: integrationError } = await supabase
+          .from('business_integrations')
+          .select('business_id, metadata_json')
+          .eq('provider', 'quickbooks')
+          .eq('status', 'active')
+          .eq('metadata_json->>realm_id', invoice.CompanyId)
+          .single();
+        
+        if (integrationError || !integration) {
+          console.error('❌ No active QuickBooks integration found for company:', invoice.CompanyId);
+          return res.status(200).json({ success: true, message: 'No integration found' });
+        }
+        
+        // Get fresh customer data from QuickBooks
+        const customerData = await getQuickBooksCustomerData(
+          integration.metadata_json,
+          invoice.CustomerRef.value
+        );
+        
+        if (customerData) {
+          // Upsert customer in Blipp with fresh data
+          const { data: customer, error: customerError } = await supabase
+            .from('customers')
+            .upsert({
+              business_id: integration.business_id,
+              name: customerData.name,
+              email: customerData.email,
+              phone: customerData.phone,
+              source: 'quickbooks',
+              external_id: customerData.id,
+              status: 'active',
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'business_id,external_id'
+            })
+            .select()
+            .single();
+          
+          if (customerError) {
+            console.error('❌ Failed to upsert customer:', customerError);
+            return res.status(500).json({ error: 'Failed to save customer' });
+          }
+          
+          // Get review request template
+          const { data: templates, error: templatesError } = await supabase
+            .from('message_templates')
+            .select('id, name, content, type')
+            .eq('business_id', integration.business_id)
+            .eq('status', 'active')
+            .eq('type', 'review_request')
+            .limit(1);
+          
+          if (templatesError || !templates || templates.length === 0) {
+            console.error('❌ No review request template found');
+            return res.status(200).json({ success: true, message: 'No template found' });
+          }
+          
+          const template = templates[0];
+          
+          // Create review request
+          const { error: requestError } = await supabase
+            .from('review_requests')
+            .insert({
+              business_id: integration.business_id,
+              customer_id: customer.id,
+              template_id: template.id,
+              status: 'sent',
+              scheduled_for: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+              metadata: {
+                trigger: 'quickbooks_invoice_paid',
+                invoice_id: invoice.Id,
+                invoice_amount: invoice.TotalAmt
+              }
+            });
+          
+          if (requestError) {
+            console.error('❌ Failed to create review request:', requestError);
+            return res.status(500).json({ error: 'Failed to create review request' });
+          }
+          
+          // Send the actual review request (SMS/Email)
+          await sendReviewRequest(customer, template, {
+            invoice_amount: invoice.TotalAmt,
+            invoice_id: invoice.Id
+          });
+          
+          console.log('✅ Review request sent to:', customer.name, customer.email);
+        }
+      }
+    }
+    
+    return res.status(200).json({ success: true });
+    
+  } catch (error) {
+    console.error('❌ QuickBooks webhook error:', error);
+    return res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// Helper function to get fresh customer data from QuickBooks
+async function getQuickBooksCustomerData(integrationData, customerId) {
+  try {
+    const { access_token, realm_id } = integrationData;
+    
+    const response = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${realm_id}/customers/${customerId}`, {
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`QuickBooks API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const customer = data.QueryResponse?.Customer?.[0];
+    
+    if (!customer) {
+      throw new Error('Customer not found in QuickBooks');
+    }
+    
+    return {
+      id: customer.Id,
+      name: customer.Name,
+      email: customer.PrimaryEmailAddr?.Address || null,
+      phone: customer.PrimaryPhone?.FreeFormNumber || null
+    };
+    
+  } catch (error) {
+    console.error('❌ Failed to get QuickBooks customer data:', error);
+    return null;
+  }
+}
+
+// Helper function to send review request
+async function sendReviewRequest(customer, template, metadata = {}) {
+  try {
+    // Personalize template content
+    let content = template.content;
+    content = content.replace(/\{customer_name\}/g, customer.name || 'Valued Customer');
+    content = content.replace(/\{invoice_amount\}/g, metadata.invoice_amount || '');
+    
+    console.log('📧 Sending review request:', {
+      to: customer.email || customer.phone,
+      name: customer.name,
+      content: content,
+      template: template.name
+    });
+    
+    // TODO: Integrate with actual SMS/Email services
+    // For now, just log what would be sent
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send review request:', error);
+    return false;
+  }
+}
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
