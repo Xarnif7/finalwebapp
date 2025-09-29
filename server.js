@@ -10147,6 +10147,55 @@ app.post('/api/crm/jobber/test-webhook', async (req, res) => {
   }
 });
 
+// Profile setup endpoint for new users
+app.post('/api/profile/ensure-setup', async (req, res) => {
+  try {
+    const { authorization } = req.headers;
+    const { email } = req.body;
+    
+    if (!authorization) {
+      return res.status(401).json({ error: 'Authorization header required' });
+    }
+
+    // Verify the user's session
+    const token = authorization.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    // Ensure the email matches the authenticated user
+    if (email && email !== user.email) {
+      return res.status(403).json({ error: 'Email mismatch' });
+    }
+
+    const userEmail = email || user.email;
+    console.log('[PROFILE_SETUP] Ensuring setup for user:', userEmail);
+
+    // Call the database function to ensure user setup
+    const { data: businessId, error: setupError } = await supabase
+      .rpc('ensure_user_setup', { user_email: userEmail });
+
+    if (setupError) {
+      console.error('[PROFILE_SETUP] Database error:', setupError);
+      return res.status(500).json({ error: 'Failed to ensure user setup' });
+    }
+
+    console.log('[PROFILE_SETUP] User setup completed, business_id:', businessId);
+
+    res.json({ 
+      success: true, 
+      business_id: businessId,
+      message: 'User setup completed successfully' 
+    });
+
+  } catch (error) {
+    console.error('[PROFILE_SETUP] Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ============================================================================
 // EMAIL & SMS SENDING API
 // ============================================================================

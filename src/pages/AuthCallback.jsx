@@ -22,6 +22,14 @@ export default function AuthCallback() {
         
         if (error) {
           console.error('[AuthCallback] OAuth error:', error);
+          const errorDescription = searchParams.get('error_description');
+          console.error('[AuthCallback] Error description:', errorDescription);
+          
+          // Handle specific error cases
+          if (error === 'server_error' && errorDescription?.includes('Database error saving new user')) {
+            console.error('[AuthCallback] Database error during user creation - this should be fixed by the new trigger');
+          }
+          
           hasRedirected.current = true;
           navigate('/', { replace: true });
           return;
@@ -42,6 +50,28 @@ export default function AuthCallback() {
 
           if (data.session && data.session.user) {
             console.log('[AuthCallback] User authenticated via OAuth:', data.session.user.email);
+            
+            // Ensure user has proper setup (profile and business)
+            try {
+              const response = await fetch('/api/profile/ensure-setup', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${data.session.access_token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  email: data.session.user.email
+                })
+              });
+
+              if (response.ok) {
+                console.log('[AuthCallback] User setup verified/created');
+              } else {
+                console.warn('[AuthCallback] User setup verification failed, but continuing...');
+              }
+            } catch (setupError) {
+              console.warn('[AuthCallback] User setup verification error:', setupError);
+            }
             
             // Get next destination from query params, default to '/'
             const next = searchParams.get('next') || '/';
