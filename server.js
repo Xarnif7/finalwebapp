@@ -15639,6 +15639,29 @@ app.post('/api/qbo/webhook', async (req, res) => {
   }
 });
 
+// Test database endpoint
+app.get('/api/test-db', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('integrations_quickbooks')
+      .select('id, business_id, connection_status, realm_id')
+      .limit(5);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({
+      message: 'Database connection successful',
+      integrations: data,
+      count: data?.length || 0
+    });
+
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // QBO OAuth Callback endpoint
 app.get('/api/qbo-oauth-callback', async (req, res) => {
   try {
