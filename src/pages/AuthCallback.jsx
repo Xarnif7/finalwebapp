@@ -65,9 +65,11 @@ export default function AuthCallback() {
               });
 
               if (response.ok) {
-                console.log('[AuthCallback] User setup verified/created');
+                const setupResult = await response.json();
+                console.log('[AuthCallback] User setup verified/created:', setupResult);
               } else {
-                console.warn('[AuthCallback] User setup verification failed, but continuing...');
+                const errorText = await response.text();
+                console.warn('[AuthCallback] User setup verification failed:', errorText);
               }
             } catch (setupError) {
               console.warn('[AuthCallback] User setup verification error:', setupError);

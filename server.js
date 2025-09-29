@@ -10342,13 +10342,35 @@ app.post('/api/profile/ensure-setup', async (req, res) => {
     const userEmail = email || user.email;
     console.log('[PROFILE_SETUP] Ensuring setup for user:', userEmail);
 
-    // Call the database function to ensure user setup
-    const { data: businessId, error: setupError } = await supabase
-      .rpc('ensure_user_setup', { user_email: userEmail });
+    // Check if user already has a profile
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id, business_id')
+      .eq('id', user.id)
+      .single();
 
-    if (setupError) {
-      console.error('[PROFILE_SETUP] Database error:', setupError);
-      return res.status(500).json({ error: 'Failed to ensure user setup' });
+    let businessId;
+    
+    if (existingProfile) {
+      // User already has a profile, just return the business_id
+      businessId = existingProfile.business_id;
+      console.log('[PROFILE_SETUP] User already has profile, business_id:', businessId);
+    } else {
+      // New user, set up profile and business
+      console.log('[PROFILE_SETUP] New user detected, setting up profile and business...');
+      const { data: newBusinessId, error: setupError } = await supabase
+        .rpc('setup_new_user', { 
+          user_id: user.id, 
+          user_email: userEmail 
+        });
+
+      if (setupError) {
+        console.error('[PROFILE_SETUP] Database error:', setupError);
+        return res.status(500).json({ error: 'Failed to setup new user' });
+      }
+      
+      businessId = newBusinessId;
+      console.log('[PROFILE_SETUP] New user setup completed, business_id:', businessId);
     }
 
     console.log('[PROFILE_SETUP] User setup completed, business_id:', businessId);
