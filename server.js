@@ -15408,6 +15408,7 @@ async function syncQuickBooksCustomers(business_id, integration) {
                 external_source: 'qbo',
                 external_id: qbCustomer.Id,
                 external_meta: customerData.external_meta,
+                status: 'active',
                 updated_at: new Date().toISOString()
               })
               .eq('id', existingCustomer.id);
