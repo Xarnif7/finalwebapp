@@ -13890,12 +13890,78 @@ app.post('/api/profile/create', async (req, res) => {
 });
 
 // QuickBooks Integration Routes
+app.get('/api/quickbooks/connect', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+
+    if (!business_id) {
+      return res.status(400).send(`
+        <html>
+          <body>
+            <h1>QuickBooks Connection Failed</h1>
+            <p>Missing required parameter: business_id</p>
+            <script>window.close();</script>
+          </body>
+        </html>
+      `);
+    }
+
+    // Get QuickBooks configuration from environment
+    const clientId = process.env.QUICKBOOKS_CLIENT_ID;
+    const scopes = process.env.QUICKBOOKS_SCOPES || 'com.intuit.quickbooks.accounting';
+    const redirectUri = process.env.QUICKBOOKS_REDIRECT_URI;
+
+    if (!clientId || !redirectUri) {
+      return res.status(500).send(`
+        <html>
+          <body>
+            <h1>QuickBooks Connection Failed</h1>
+            <p>Configuration error. Please contact support.</p>
+            <script>window.close();</script>
+          </body>
+        </html>
+      `);
+    }
+
+    // Generate state parameter (nonce) using business_id
+    const state = business_id;
+
+    // Build Intuit authorize URL
+    const authorizeUrl = new URL('https://appcenter.intuit.com/connect/oauth2');
+    authorizeUrl.searchParams.set('response_type', 'code');
+    authorizeUrl.searchParams.set('client_id', clientId);
+    authorizeUrl.searchParams.set('scope', scopes);
+    authorizeUrl.searchParams.set('redirect_uri', redirectUri);
+    authorizeUrl.searchParams.set('state', state);
+    authorizeUrl.searchParams.set('prompt', 'consent');
+
+    console.log(`[QUICKBOOKS] Redirecting business ${business_id} to QuickBooks authorization`);
+
+    // 302 redirect to Intuit
+    return res.redirect(302, authorizeUrl.toString());
+
+  } catch (error) {
+    console.error('[QUICKBOOKS] Connect error:', error);
+    return res.status(500).send(`
+      <html>
+        <body>
+          <h1>QuickBooks Connection Failed</h1>
+          <p>An unexpected error occurred. Please try again.</p>
+          <script>window.close();</script>
+        </body>
+      </html>
+    `);
+  }
+});
+
 app.get('/api/quickbooks/status', async (req, res) => {
   try {
     const { business_id } = req.query;
 
     if (!business_id) {
-      return res.status(400).json({ 
+      return res.status(200).json({ 
+        connected: false, 
+        connectionStatus: 'error',
         error: 'Missing required parameter: business_id' 
       });
     }
@@ -13911,72 +13977,51 @@ app.get('/api/quickbooks/status', async (req, res) => {
 
     if (integrationError || !integration) {
       return res.status(200).json({
-        success: true,
         connected: false,
-        message: 'No QuickBooks integration found'
+        connectionStatus: 'error',
+        error: 'No QuickBooks integration found'
       });
     }
 
-    // REAL VALIDATION: Test actual QuickBooks API connectivity
-    let realConnectionStatus = false;
-    let connectionError = null;
-    let apiResponse = null;
+    // Determine connection status
+    let connectionStatus = 'error';
+    let connected = false;
+    let company = {};
+    let lastFullSyncAt = null;
+    let lastDeltaSyncAt = null;
+    let lastWebhookAt = null;
 
-    // For now, consider the connection valid if we have valid tokens
-    // TODO: Add proper API validation once permissions are configured
     if (integration.status === 'active' && integration.metadata_json?.access_token) {
-      realConnectionStatus = true;
-      apiResponse = {
-        companyName: 'QuickBooks Company',
-        connectionTested: 'token_validation',
-        note: 'Connection established - API permissions may need configuration'
+      connected = true;
+      connectionStatus = 'connected';
+      company = {
+        realmId: integration.metadata_json?.realm_id,
+        name: integration.metadata_json?.company_name || 'QuickBooks Company'
       };
-      console.log('✅ QuickBooks connection has valid tokens');
-    }
-
-    // Get customer count
-    const { count: customerCount, error: countError } = await supabase
-      .from('customers')
-      .select('*', { count: 'exact', head: true })
-      .eq('business_id', business_id)
-      .eq('source', 'quickbooks');
-
-    // If real connection failed, update database status
-    if (integration.status === 'active' && !realConnectionStatus && connectionError) {
-      console.log('🔄 Updating database status due to failed connection test');
-      
-      await supabase
-        .from('business_integrations')
-        .update({
-          status: 'error',
-          metadata_json: {
-            ...integration.metadata_json,
-            connection_error: connectionError,
-            last_connection_test: new Date().toISOString()
-          },
-          updated_at: new Date().toISOString()
-        })
-        .eq('business_id', business_id)
-        .eq('provider', 'quickbooks');
+      lastFullSyncAt = integration.metadata_json?.last_full_sync_at || null;
+      lastDeltaSyncAt = integration.metadata_json?.last_delta_sync_at || null;
+      lastWebhookAt = integration.metadata_json?.last_webhook_at || null;
+    } else if (integration.status === 'disconnected') {
+      connectionStatus = 'revoked';
+    } else if (integration.status === 'error') {
+      connectionStatus = 'error';
     }
 
     return res.status(200).json({
-      success: true,
-      connected: realConnectionStatus,
-      status: realConnectionStatus ? 'active' : (connectionError ? 'error' : 'disconnected'),
-      last_sync_at: integration.metadata_json?.last_sync_at || null,
-      customer_count: customerCount || 0,
-      connected_at: integration.created_at,
-      connection_error: connectionError,
-      company_info: apiResponse,
-      last_connection_test: new Date().toISOString()
+      connected,
+      connectionStatus,
+      company,
+      lastFullSyncAt,
+      lastDeltaSyncAt,
+      lastWebhookAt
     });
 
   } catch (error) {
     console.error('[QUICKBOOKS] Status check error:', error);
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      details: error.message
+    return res.status(200).json({ 
+      connected: false, 
+      connectionStatus: 'error',
+      error: 'Internal server error'
     });
   }
 });
@@ -14239,7 +14284,7 @@ app.get('/api/quickbooks/callback', async (req, res) => {
   }
 });
 
-app.post('/api/quickbooks/sync-customers', async (req, res) => {
+app.post('/api/quickbooks/sync-now', async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -14248,7 +14293,8 @@ app.post('/api/quickbooks/sync-customers', async (req, res) => {
     const { business_id } = req.body;
 
     if (!business_id) {
-      return res.status(400).json({ 
+      return res.status(200).json({ 
+        queued: false,
         error: 'Missing required field: business_id' 
       });
     }
@@ -14264,7 +14310,8 @@ app.post('/api/quickbooks/sync-customers', async (req, res) => {
       .single();
 
     if (integrationError || !integration) {
-      return res.status(400).json({ 
+      return res.status(200).json({ 
+        queued: false,
         error: 'No active QuickBooks integration found for this business' 
       });
     }
@@ -14293,8 +14340,8 @@ app.post('/api/quickbooks/sync-customers', async (req, res) => {
       const customersData = await customersResponse.json();
 
       if (!customersData.QueryResponse || !customersData.QueryResponse.Customer) {
-        return res.status(200).json({
-          success: true,
+        return res.status(202).json({
+          queued: true,
           message: 'No customers found in QuickBooks',
           synced_count: 0
         });
@@ -14363,8 +14410,8 @@ app.post('/api/quickbooks/sync-customers', async (req, res) => {
             .eq('provider', 'api')
             .eq('metadata_json->>integration_type', 'quickbooks');
 
-      return res.status(200).json({
-        success: true,
+      return res.status(202).json({
+        queued: true,
         message: `Successfully synced ${syncedCount} customers from QuickBooks`,
         synced_count: syncedCount,
         total_found: quickbooksCustomers.length
@@ -14413,12 +14460,14 @@ app.post('/api/quickbooks/sync-customers', async (req, res) => {
           return handler(req, res);
         } catch (refreshError) {
           console.error('[QUICKBOOKS] Token refresh failed:', refreshError);
-          return res.status(401).json({ 
+          return res.status(200).json({ 
+            queued: false,
             error: 'QuickBooks connection expired. Please reconnect your account.' 
           });
         }
       } else if (apiError.message === 'PERMISSIONS_ERROR') {
-        return res.status(403).json({ 
+        return res.status(200).json({ 
+          queued: false,
           error: 'QuickBooks API permissions insufficient',
           message: 'Your QuickBooks app needs additional permissions to read customer data. Please check your QuickBooks Developer Dashboard and ensure your app has access to Customer data.',
           details: 'The app may need to be approved for production access or additional scopes may be required.'
@@ -14430,9 +14479,9 @@ app.post('/api/quickbooks/sync-customers', async (req, res) => {
 
   } catch (error) {
     console.error('[QUICKBOOKS] Sync error:', error);
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      details: error.message
+    return res.status(200).json({ 
+      queued: false,
+      error: 'Internal server error'
     });
   }
 });
@@ -14446,7 +14495,8 @@ app.post('/api/quickbooks/disconnect', async (req, res) => {
     const { business_id } = req.body;
 
     if (!business_id) {
-      return res.status(400).json({ 
+      return res.status(200).json({ 
+        disconnected: false,
         error: 'Missing required field: business_id' 
       });
     }
@@ -14469,24 +14519,24 @@ app.post('/api/quickbooks/disconnect', async (req, res) => {
 
     if (integrationError) {
       console.error('[QUICKBOOKS] Disconnect error:', integrationError);
-      return res.status(500).json({ 
-        error: 'Failed to disconnect QuickBooks integration',
-        details: integrationError
+      return res.status(200).json({ 
+        disconnected: false,
+        error: 'Failed to disconnect QuickBooks integration'
       });
     }
 
     console.log('[QUICKBOOKS] Successfully disconnected business:', business_id);
 
     return res.status(200).json({
-      success: true,
+      disconnected: true,
       message: 'QuickBooks disconnected successfully'
     });
 
   } catch (error) {
     console.error('[QUICKBOOKS] Disconnect error:', error);
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      details: error.message
+    return res.status(200).json({ 
+      disconnected: false,
+      error: 'Internal server error'
     });
   }
 });
