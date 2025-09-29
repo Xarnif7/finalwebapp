@@ -15895,6 +15895,7 @@ app.post('/api/qbo/webhook', async (req, res) => {
       const { error: jobError } = await supabase
         .from('scheduled_jobs')
         .insert({
+          business_id: integration.business_id,
           job_type: 'automation_email',
           status: 'queued',
           run_at: scheduledFor,
@@ -16009,6 +16010,7 @@ async function qboHandleInvoiceEvent(integration, invoiceId, triggerType) {
     await supabase
       .from('scheduled_jobs')
       .insert({
+        business_id: integration.business_id,
         job_type: 'automation_email',
         status: 'queued',
         run_at: scheduledFor,
@@ -16465,6 +16467,7 @@ app.post('/api/qbo/test-simulate-invoice', async (req, res) => {
     const { error: jobError } = await supabase
       .from('scheduled_jobs')
       .insert({
+      business_id: businessId,
         job_type: 'automation_email',
         status: 'queued',
         run_at: scheduledFor,
