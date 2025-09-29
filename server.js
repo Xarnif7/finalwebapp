@@ -15693,17 +15693,49 @@ app.post('/api/qbo/webhook', async (req, res) => {
       
       console.log(`🔔 Processing QBO invoice webhook: ${invoiceId} for realm: ${realmId}`);
       
-      // Get the business integration
+      // Get the business integration (do not require 'connected' so we can refresh if expired)
       const { data: integration, error: integrationError } = await supabase
         .from('integrations_quickbooks')
         .select('*')
         .eq('realm_id', realmId)
-        .eq('connection_status', 'connected')
-        .single();
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
       
       if (integrationError || !integration) {
         console.error('❌ No QuickBooks integration found for realm:', realmId);
         return res.status(404).json({ error: 'Integration not found' });
+      }
+
+      // If token is expired, attempt refresh
+      try {
+        const now = new Date();
+        const isExpired = integration.token_expires_at && new Date(integration.token_expires_at) <= now;
+        if (isExpired && integration.refresh_token && process.env.QBO_CLIENT_ID && process.env.QBO_CLIENT_SECRET) {
+          const basic = Buffer.from(`${process.env.QBO_CLIENT_ID}:${process.env.QBO_CLIENT_SECRET}`).toString('base64');
+          const resp = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+            method: 'POST',
+            headers: { 'Authorization': `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: integration.refresh_token }).toString()
+          });
+          if (resp.ok) {
+            const tok = await resp.json();
+            const expiresAt = new Date(Date.now() + (tok.expires_in || 3600) * 1000).toISOString();
+            await supabase
+              .from('integrations_quickbooks')
+              .update({ access_token: tok.access_token, refresh_token: tok.refresh_token || integration.refresh_token, token_expires_at: expiresAt, connection_status: 'connected', updated_at: new Date().toISOString() })
+              .eq('id', integration.id);
+            integration.access_token = tok.access_token;
+            integration.refresh_token = tok.refresh_token || integration.refresh_token;
+            integration.token_expires_at = expiresAt;
+            integration.connection_status = 'connected';
+            console.log('[QBO] Refreshed expired token for realm', realmId);
+          } else {
+            console.log('[QBO] Token refresh failed with status', resp.status);
+          }
+        }
+      } catch (e) {
+        console.log('[QBO] Token refresh error:', e.message);
       }
       
       // Get invoice details
