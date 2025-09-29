@@ -10,7 +10,7 @@ export function useCustomersData(initialParams = {}) {
   const [total, setTotal] = useState(0);
   const [queryParams, setQueryParams] = useState({
     page: 1,
-    pageSize: 20,
+    pageSize: 1000, // Increased to handle large customer lists
     search: '',
     tag: '',
     sort: '',
@@ -112,10 +112,9 @@ export function useCustomersData(initialParams = {}) {
         query = query.order('created_at', { ascending: false });
       }
 
-      // Apply pagination
-      const from = (queryParams.page - 1) * queryParams.pageSize;
-      const to = from + queryParams.pageSize - 1;
-      query = query.range(from, to);
+      // Skip pagination for customer list - we want ALL customers
+      // Pagination is handled at the UI level with virtual scrolling if needed
+      // query = query.range(from, to); // Commented out to fetch all customers
 
       const { data, error, count } = await query;
 
