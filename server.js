@@ -15045,7 +15045,7 @@ app.get('/api/qbo/status', async (req, res) => {
     // Get QuickBooks integrations for this business
     const { data: integrations, error: integrationsError } = await supabase
       .from('integrations_quickbooks')
-      .select('id, realm_id, connection_status, token_expires_at, last_full_sync_at, last_delta_sync_at, last_webhook_at, created_at, updated_at')
+      .select('id, realm_id, access_token, connection_status, token_expires_at, last_full_sync_at, last_delta_sync_at, last_webhook_at, created_at, updated_at')
       .eq('business_id', business_id)
       .order('created_at', { ascending: false });
 
@@ -15069,10 +15069,23 @@ app.get('/api/qbo/status', async (req, res) => {
     // Get the most recent integration
     const integration = integrations[0];
     
+    console.log(`[QBO] Status check for business ${business_id}:`, {
+      integrationId: integration.id,
+      connectionStatus: integration.connection_status,
+      tokenExpiresAt: integration.token_expires_at,
+      hasAccessToken: !!integration.access_token
+    });
+    
     // Check token expiration and connection status
     const now = new Date();
     const isExpired = integration.token_expires_at && new Date(integration.token_expires_at) <= now;
     const isConnected = integration.connection_status === 'connected' && !isExpired;
+    
+    console.log(`[QBO] Connection check:`, {
+      isExpired,
+      isConnected,
+      connectionStatus: integration.connection_status
+    });
     
     // Determine connection status
     let connectionStatus = 'error';
