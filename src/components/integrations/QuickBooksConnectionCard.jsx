@@ -428,9 +428,18 @@ const QuickBooksConnectionCard = () => {
             {/* Company Info */}
             {companyInfo && (
               <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                <div className="flex items-center space-x-2 mb-2">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-800">Connected to QuickBooks</span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-800">Connected to QuickBooks</span>
+                  </div>
+                  <button
+                    onClick={checkConnectionStatus}
+                    className="text-green-600 hover:text-green-800 text-xs"
+                    disabled={isCheckingStatus}
+                  >
+                    {isCheckingStatus ? 'Refreshing...' : 'Refresh'}
+                  </button>
                 </div>
                 <div className="text-sm text-green-700">
                   <div><strong>Company:</strong> {companyInfo.name || 'QuickBooks Company'}</div>

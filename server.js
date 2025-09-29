@@ -15095,13 +15095,24 @@ app.get('/api/qbo/status', async (req, res) => {
     let companyName = 'QuickBooks Company';
     if (isConnected && integration.access_token) {
       try {
-        // Use production URL for company info
-        const companyResponse = await fetch(`https://quickbooks.api.intuit.com/v3/company/${integration.realm_id}/companyinfo/${integration.realm_id}`, {
+        // Try production URL first, then sandbox if that fails
+        let companyResponse = await fetch(`https://quickbooks.api.intuit.com/v3/company/${integration.realm_id}/companyinfo/${integration.realm_id}`, {
           headers: {
             'Authorization': `Bearer ${integration.access_token}`,
             'Accept': 'application/json'
           }
         });
+        
+        // If production fails, try sandbox
+        if (!companyResponse.ok) {
+          console.log('[QBO] Production API failed, trying sandbox:', companyResponse.status);
+          companyResponse = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${integration.realm_id}/companyinfo/${integration.realm_id}`, {
+            headers: {
+              'Authorization': `Bearer ${integration.access_token}`,
+              'Accept': 'application/json'
+            }
+          });
+        }
         
         if (companyResponse.ok) {
           const companyData = await companyResponse.json();
@@ -15110,7 +15121,7 @@ app.get('/api/qbo/status', async (req, res) => {
             console.log('[QBO] Fetched company name:', companyName);
           }
         } else {
-          console.log('[QBO] Company API response not ok:', companyResponse.status);
+          console.log('[QBO] Company API response not ok:', companyResponse.status, await companyResponse.text());
         }
       } catch (error) {
         console.log('[QBO] Could not fetch company name:', error.message);
@@ -15249,13 +15260,24 @@ async function syncQuickBooksCustomers(business_id, integration) {
   console.log(`[QBO] Starting customer sync for business ${business_id}`);
   
   try {
-    // Fetch customers from QuickBooks
-    const customersResponse = await fetch(`https://quickbooks.api.intuit.com/v3/company/${integration.realm_id}/query?query=select * from Customer`, {
+    // Fetch customers from QuickBooks - try production first, then sandbox
+    let customersResponse = await fetch(`https://quickbooks.api.intuit.com/v3/company/${integration.realm_id}/query?query=select * from Customer`, {
       headers: {
         'Authorization': `Bearer ${integration.access_token}`,
         'Accept': 'application/json'
       }
     });
+    
+    // If production fails, try sandbox
+    if (!customersResponse.ok) {
+      console.log('[QBO] Production API failed for customers, trying sandbox:', customersResponse.status);
+      customersResponse = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${integration.realm_id}/query?query=select * from Customer`, {
+        headers: {
+          'Authorization': `Bearer ${integration.access_token}`,
+          'Accept': 'application/json'
+        }
+      });
+    }
 
     if (!customersResponse.ok) {
       throw new Error(`QuickBooks API error: ${customersResponse.status}`);
