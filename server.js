@@ -15287,6 +15287,7 @@ async function syncQuickBooksCustomers(business_id, integration) {
   
   try {
     // Fetch customers from QuickBooks - try production first, then sandbox
+    console.log(`[QBO] Fetching customers for realm ${integration.realm_id}`);
     let customersResponse = await fetch(`https://quickbooks.api.intuit.com/v3/company/${integration.realm_id}/query?query=select * from Customer`, {
       headers: {
         'Authorization': `Bearer ${integration.access_token}`,
@@ -15310,6 +15311,7 @@ async function syncQuickBooksCustomers(business_id, integration) {
     }
 
     const customersData = await customersResponse.json();
+    console.log('[QBO] Raw customers response:', JSON.stringify(customersData, null, 2));
     const customers = customersData.QueryResponse?.Customer || [];
     
     console.log(`[QBO] Found ${customers.length} customers in QuickBooks`);
