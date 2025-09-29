@@ -983,15 +983,15 @@ export default function TemplateCustomizer({
             </Collapsible>
           </div>
 
-          {/* Service Type & Trigger Configuration */}
+          {/* Triggers & Keywords */}
           {!isCreating && (
             <div className="space-y-4">
-              <h3 className="text-lg font-medium">Service Type & Trigger Configuration</h3>
+              <h3 className="text-lg font-medium">Triggers & Keywords</h3>
               
               <div className="space-y-4">
-                {/* Service Types */}
+                {/* Keywords (comma-separated) */}
                 <div>
-                  <Label htmlFor="serviceTypes">What types of services should trigger this template?</Label>
+                  <Label htmlFor="serviceTypes">Optional keywords to match (comma-separated)</Label>
                   <Input
                     id="serviceTypes"
                     value={formData.service_types_text || ''}
@@ -1002,23 +1002,21 @@ export default function TemplateCustomizer({
                         service_types: e.target.value.split(',').map(s => s.trim()).filter(s => s)
                       }));
                     }}
-                    placeholder="e.g., Lawn Care, Tree Trimming, Hedge Trimming"
+                    placeholder="e.g., mowing, grass, roofing, repair"
                   />
                   <p className="text-sm text-gray-500 mt-1">
-                    Enter the service types separated by commas. AI will intelligently match similar terms.
+                    We’ll match these against invoice/job text (line descriptions, item names, custom fields). Also uses the template name.
                   </p>
                 </div>
 
                 {/* AI Template Matching Preview */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h4 className="text-sm font-medium text-blue-900 mb-2">🤖 AI Matching Preview</h4>
-                  <p className="text-xs text-blue-700 mb-3">
-                    Test how well this template will match different service types from Jobber:
-                  </p>
+                  <p className="text-xs text-blue-700 mb-3">Test how well this template will match example phrases.</p>
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="Test service type (e.g., lawn mowing and edging)"
+                      placeholder="Try text like: 'lawn mowing and edging' or 'roof repair'"
                       value={testServiceType}
                       onChange={(e) => setTestServiceType(e.target.value)}
                       className="flex-1 px-3 py-2 text-sm border border-blue-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -1087,6 +1085,58 @@ export default function TemplateCustomizer({
                         className="rounded border-gray-300"
                       />
                       <Label htmlFor="manualTrigger" className="text-sm">Manual Trigger - Triggered manually from customer tab</Label>
+                    </div>
+
+                    {/* QuickBooks triggers */}
+                    <div className="mt-3">
+                      <div className="text-xs font-medium text-gray-600 mb-1">QuickBooks</div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="qboInvoiceSent"
+                          checked={formData.trigger_events && Array.isArray(formData.trigger_events) && formData.trigger_events.includes('qbo_invoice_sent') || false}
+                          onChange={(e) => {
+                            const triggers = formData.trigger_events || [];
+                            if (e.target.checked) {
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                trigger_events: [...triggers, 'qbo_invoice_sent'].filter((v, i, a) => a.indexOf(v) === i)
+                              }));
+                            } else {
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                trigger_events: triggers.filter(t => t !== 'qbo_invoice_sent')
+                              }));
+                            }
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                        <Label htmlFor="qboInvoiceSent" className="text-sm">QuickBooks: Invoice sent</Label>
+                      </div>
+
+                      <div className="flex items-center space-x-2 mt-1">
+                        <input
+                          type="checkbox"
+                          id="qboInvoicePaid"
+                          checked={formData.trigger_events && Array.isArray(formData.trigger_events) && formData.trigger_events.includes('qbo_invoice_paid') || false}
+                          onChange={(e) => {
+                            const triggers = formData.trigger_events || [];
+                            if (e.target.checked) {
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                trigger_events: [...triggers, 'qbo_invoice_paid'].filter((v, i, a) => a.indexOf(v) === i)
+                              }));
+                            } else {
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                trigger_events: triggers.filter(t => t !== 'qbo_invoice_paid')
+                              }));
+                            }
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                        <Label htmlFor="qboInvoicePaid" className="text-sm">QuickBooks: Invoice paid</Label>
+                      </div>
                     </div>
 
                     <div className="flex items-center space-x-2">
@@ -1168,12 +1218,11 @@ export default function TemplateCustomizer({
                   <div className="flex items-start gap-2">
                     <div className="w-5 h-5 text-blue-600 mt-0.5">ℹ️</div>
                     <div>
-                      <h4 className="font-medium text-blue-900 mb-2">How Service Type Mapping Works</h4>
+                      <h4 className="font-medium text-blue-900 mb-2">How Trigger Matching Works</h4>
                       <ul className="text-sm text-blue-800 space-y-1">
-                        <li>• <strong>Specific Service Types:</strong> Templates with matching service types are used first</li>
-                        <li>• <strong>Default Template:</strong> Used when no specific template matches the service type</li>
-                        <li>• <strong>Trigger Events:</strong> Only templates with matching trigger events will be activated</li>
-                        <li>• <strong>Jobber Integration:</strong> When a job is completed in Jobber, Blipp automatically finds the best matching template</li>
+                        <li>• <strong>CRM Triggers:</strong> Only templates with the CRM trigger enabled will be considered</li>
+                        <li>• <strong>Keywords + Name:</strong> We match your keywords and the template name to invoice/job text</li>
+                        <li>• <strong>Fallback:</strong> If no keyword match, we use your default template for that trigger</li>
                       </ul>
                     </div>
                   </div>

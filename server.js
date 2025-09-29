@@ -14853,7 +14853,7 @@ async function getQuickBooksInvoiceDetails(integrationData, invoiceId) {
 }
 
 // Helper function to use AI to select the best template
-async function selectTemplateByAI(businessId, invoiceDetails, customerData) {
+async function selectTemplateByAI(businessId, invoiceDetails, customerData, triggerType) {
   try {
     // Get all available templates for this business
     const { data: templates, error: templatesError } = await supabase
@@ -14868,9 +14868,24 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData) {
       return null;
     }
     
-    // If only one template, use it
-    if (templates.length === 1) {
-      return templates[0];
+    // Filter by triggerType if provided (metadata.trigger_events is array)
+    let candidateTemplates = templates;
+    if (triggerType) {
+      candidateTemplates = templates.filter(t => {
+        const events = (t.metadata && (t.metadata.trigger_events || t.metadata.triggers)) || [];
+        if (Array.isArray(events)) return events.includes(triggerType);
+        // Support nested by CRM e.g. metadata.triggers.qbo.invoice_sent
+        if (t.metadata && t.metadata.triggers && t.metadata.triggers.qbo) {
+          return t.metadata.triggers.qbo[triggerType] === true || t.metadata.triggers.qbo[triggerType?.replace('qbo_', '')] === true;
+        }
+        return false;
+      });
+      if (candidateTemplates.length === 0) candidateTemplates = templates; // fallback to all
+    }
+
+    // If only one candidate, use it
+    if (candidateTemplates.length === 1) {
+      return candidateTemplates[0];
     }
     
     // Use AI to select the best template
@@ -14880,11 +14895,35 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData) {
       return templates[0]; // Fallback to first template
     }
     
+    // Build text for simple keyword pre-filtering before AI
+    const invoiceText = [
+      invoiceDetails?.jobType,
+      invoiceDetails?.serviceCategory,
+      ...(invoiceDetails?.lineItems || []).map(item => item.Description || item.SalesItemLineDetail?.ItemRef?.name)
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    // Score candidates by keyword/name first
+    const scored = candidateTemplates.map(t => {
+      const keywords = (
+        (t.metadata && (t.metadata.service_types || t.metadata.keywords)) || []
+      ).map(k => String(k).toLowerCase());
+      const nameParts = String(t.name || '').toLowerCase().split(/[^a-z0-9]+/);
+      let hits = 0;
+      keywords.forEach(k => { if (k && invoiceText.includes(k)) hits += 2; });
+      nameParts.forEach(n => { if (n && n.length > 2 && invoiceText.includes(n)) hits += 1; });
+      const priority = (t.metadata && (t.metadata.priority ?? 0)) || 0;
+      return { t, score: hits * 10 + priority };
+    }).sort((a,b)=> b.score - a.score);
+
+    if (scored.length && scored[0].score > 0) {
+      return scored[0].t;
+    }
+
     const prompt = `
 You are a customer service AI that selects the most appropriate review request template based on the service provided.
 
 Available templates:
-${templates.map((t, i) => `${i + 1}. "${t.name}" - ${t.content.substring(0, 100)}...`).join('\n')}
+${candidateTemplates.map((t, i) => `${i + 1}. "${t.name}" - ${t.content.substring(0, 100)}...`).join('\n')}
 
 Invoice details:
 - Job Type: ${invoiceDetails.jobType}
@@ -14893,13 +14932,13 @@ Invoice details:
 - Amount: $${invoiceDetails.totalAmount}
 - Line Items: ${invoiceDetails.lineItems.map(item => item.Description || item.SalesItemLineDetail?.ItemRef?.name).join(', ')}
 
-Select the most appropriate template number (1-${templates.length}) based on the service type. Consider:
+Select the most appropriate template number (1-${candidateTemplates.length}) based on the service type. Consider:
 - Mowing/lawn care should use mowing-specific templates
 - Roof repair should use home repair templates
 - Plumbing should use plumbing templates
 - General services should use general templates
 
-Respond with only the template number (1-${templates.length}).
+Respond with only the template number (1-${candidateTemplates.length}).
 `;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -14923,12 +14962,12 @@ Respond with only the template number (1-${templates.length}).
     const aiResponse = await response.json();
     const selectedIndex = parseInt(aiResponse.choices[0].message.content.trim()) - 1;
     
-    if (selectedIndex >= 0 && selectedIndex < templates.length) {
-      console.log('🤖 AI selected template:', templates[selectedIndex].name);
-      return templates[selectedIndex];
+    if (selectedIndex >= 0 && selectedIndex < candidateTemplates.length) {
+      console.log('🤖 AI selected template:', candidateTemplates[selectedIndex].name);
+      return candidateTemplates[selectedIndex];
     } else {
       console.error('❌ AI returned invalid template index:', selectedIndex);
-      return templates[0]; // Fallback
+      return candidateTemplates[0]; // Fallback
     }
     
   } catch (error) {
@@ -15702,7 +15741,8 @@ app.post('/api/qbo/webhook', async (req, res) => {
       const selectedTemplate = await selectTemplateByAI(
         integration.business_id,
         invoiceDetails,
-        customer
+        customer,
+        isPaid ? 'qbo_invoice_paid' : 'qbo_invoice_sent'
       );
       
       if (!selectedTemplate) {
