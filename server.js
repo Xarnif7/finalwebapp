@@ -15073,7 +15073,8 @@ app.get('/api/qbo/status', async (req, res) => {
       integrationId: integration.id,
       connectionStatus: integration.connection_status,
       tokenExpiresAt: integration.token_expires_at,
-      hasAccessToken: !!integration.access_token
+      hasAccessToken: !!integration.access_token,
+      timestamp: new Date().toISOString()
     });
     
     // Check token expiration and connection status
