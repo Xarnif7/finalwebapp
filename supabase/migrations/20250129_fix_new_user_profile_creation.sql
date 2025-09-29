@@ -1,16 +1,12 @@
 -- Fix new user profile creation
--- This migration adds a trigger to automatically create profiles and businesses for new users
+-- This migration sets up functions and policies for new user setup
 
--- 1. Create function to handle new user signup
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+-- 1. Create a function to handle new user setup (called from application)
+CREATE OR REPLACE FUNCTION public.setup_new_user(user_id UUID, user_email TEXT)
+RETURNS UUID AS $$
 DECLARE
   business_id UUID;
-  user_email TEXT;
 BEGIN
-  -- Get the user's email
-  user_email := NEW.email;
-  
   -- Create a default business for the new user
   INSERT INTO public.businesses (name, created_by)
   VALUES (user_email || '''s Business', user_email)
@@ -23,19 +19,13 @@ BEGIN
   
   -- Create profile for the new user
   INSERT INTO public.profiles (id, email, business_id, role, created_at, updated_at)
-  VALUES (NEW.id, user_email, business_id, 'owner', NOW(), NOW());
+  VALUES (user_id, user_email, business_id, 'owner', NOW(), NOW());
   
   -- The handle_new_business trigger will automatically create default automation templates
   
-  RETURN NEW;
+  RETURN business_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- 2. Create trigger to run on new user signup
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- 3. Ensure profiles table has the correct structure
 ALTER TABLE public.profiles 
@@ -128,10 +118,10 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 8. Grant necessary permissions
-GRANT EXECUTE ON FUNCTION public.handle_new_user() TO service_role;
+GRANT EXECUTE ON FUNCTION public.setup_new_user(UUID, TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION public.get_business_by_user_email(TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION public.ensure_user_setup(TEXT) TO service_role;
 
 -- 9. Add comment
-COMMENT ON FUNCTION public.handle_new_user() IS 'Automatically creates profile and business for new users';
+COMMENT ON FUNCTION public.setup_new_user(UUID, TEXT) IS 'Creates profile and business for new users (called from application)';
 COMMENT ON FUNCTION public.ensure_user_setup(TEXT) IS 'Ensures user has profile and business setup';
