@@ -15709,8 +15709,8 @@ app.post('/api/qbo/webhook', async (req, res) => {
         console.error('[QBO] Missing signature or rawBody for verification');
         return res.status(401).json({ error: 'signature_required' });
       }
-      const expected = require('crypto')
-        .createHmac('sha256', verifier)
+      const { createHmac } = await import('crypto');
+      const expected = createHmac('sha256', verifier)
         .update(req.rawBody)
         .digest('base64');
       if (signature !== expected) {
