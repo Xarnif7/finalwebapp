@@ -25,11 +25,7 @@ export default function AuthCallback() {
           const errorDescription = searchParams.get('error_description');
           console.error('[AuthCallback] Error description:', errorDescription);
           
-          // Handle specific error cases
-          if (error === 'server_error' && errorDescription?.includes('Database error saving new user')) {
-            console.error('[AuthCallback] Database error during user creation - this should be fixed by the new trigger');
-          }
-          
+          // For any OAuth error, redirect to landing page
           hasRedirected.current = true;
           navigate('/', { replace: true });
           return;
@@ -51,7 +47,7 @@ export default function AuthCallback() {
           if (data.session && data.session.user) {
             console.log('[AuthCallback] User authenticated via OAuth:', data.session.user.email);
             
-            // Ensure user has proper setup (profile and business)
+            // Ensure user has proper setup (profile and business) - PERMANENT SOLUTION
             try {
               const response = await fetch('/api/profile/ensure-setup', {
                 method: 'POST',
@@ -69,10 +65,12 @@ export default function AuthCallback() {
                 console.log('[AuthCallback] User setup verified/created:', setupResult);
               } else {
                 const errorText = await response.text();
-                console.warn('[AuthCallback] User setup verification failed:', errorText);
+                console.error('[AuthCallback] User setup failed:', errorText);
+                // Don't redirect on setup failure - let user try again
               }
             } catch (setupError) {
-              console.warn('[AuthCallback] User setup verification error:', setupError);
+              console.error('[AuthCallback] User setup error:', setupError);
+              // Don't redirect on setup failure - let user try again
             }
             
             // Get next destination from query params, default to '/'
