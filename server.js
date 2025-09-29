@@ -15714,6 +15714,31 @@ app.get('/api/qbo-oauth-callback', async (req, res) => {
     const tokenExpiresAt = new Date(Date.now() + (tokenData.expires_in * 1000));
 
     // Store or update integration details
+    console.log(`[QBO] Attempting to save integration for business ${businessId}, realm ${realmId}`);
+    
+    // Test database connection first
+    const { data: testData, error: testError } = await supabase
+      .from('integrations_quickbooks')
+      .select('id')
+      .limit(1);
+    
+    if (testError) {
+      console.error('[QBO] Database connection test failed:', testError);
+      return res.status(500).send(`
+        <html>
+          <body>
+            <h1>QuickBooks Connection Failed</h1>
+            <p>Database connection error: ${testError.message}</p>
+            <script>
+              window.close();
+            </script>
+          </body>
+        </html>
+      `);
+    }
+    
+    console.log(`[QBO] Database connection test successful`);
+    
     const { data: existingIntegration, error: fetchError } = await supabase
       .from('integrations_quickbooks')
       .select('*')
@@ -15721,8 +15746,11 @@ app.get('/api/qbo-oauth-callback', async (req, res) => {
       .eq('realm_id', realmId)
       .single();
 
+    console.log(`[QBO] Existing integration check:`, { existingIntegration: !!existingIntegration, fetchError: fetchError?.message });
+
     let upsertError;
     if (existingIntegration) {
+      console.log(`[QBO] Updating existing integration: ${existingIntegration.id}`);
       const { error } = await supabase
         .from('integrations_quickbooks')
         .update({
@@ -15735,6 +15763,7 @@ app.get('/api/qbo-oauth-callback', async (req, res) => {
         .eq('id', existingIntegration.id);
       upsertError = error;
     } else {
+      console.log(`[QBO] Creating new integration for business ${businessId}`);
       const { error } = await supabase
         .from('integrations_quickbooks')
         .insert({
@@ -15754,7 +15783,7 @@ app.get('/api/qbo-oauth-callback', async (req, res) => {
         <html>
           <body>
             <h1>QuickBooks Connection Failed</h1>
-            <p>Failed to save connection details. Please try again.</p>
+            <p>Failed to save connection details: ${upsertError.message}</p>
             <script>
               window.close();
             </script>
@@ -15762,6 +15791,8 @@ app.get('/api/qbo-oauth-callback', async (req, res) => {
         </html>
       `);
     }
+
+    console.log(`[QBO] Successfully saved integration to database`);
 
     console.log(`[QBO] Successfully connected business ${businessId} to QuickBooks realm ${realmId}`);
 
