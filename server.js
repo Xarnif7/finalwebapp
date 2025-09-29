@@ -15032,6 +15032,7 @@ app.get('/api/quickbooks/webhook-test', async (req, res) => {
 // QBO Status endpoint
 app.get('/api/qbo/status', async (req, res) => {
   try {
+    console.log('[QBO] STATUS ENDPOINT CALLED - DEPLOYMENT TEST');
     const { business_id } = req.query;
 
     if (!business_id) {
