@@ -493,7 +493,7 @@ const QuickBooksConnectionCard = () => {
               </div>
               <div className="text-xs text-blue-700">
                 <div>Invoice payments and sends will automatically trigger review requests</div>
-                <div className="mt-1 font-mono text-xs">Webhook URL: /api/qbo/webhook</div>
+                <div className="mt-1 font-mono text-xs">Webhook URL: https://myblipp.com/api/qbo/webhook</div>
               </div>
             </div>
           </div>

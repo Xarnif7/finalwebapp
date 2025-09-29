@@ -15495,6 +15495,122 @@ app.get('/api/qbo/test-company', async (req, res) => {
   }
 });
 
+// QBO Webhook endpoint
+app.post('/api/qbo/webhook', async (req, res) => {
+  try {
+    console.log('🔔 QBO webhook received:', JSON.stringify(req.body, null, 2));
+    console.log('🔔 QBO webhook headers:', req.headers);
+    
+    const { eventType, payload } = req.body;
+    
+    // Handle invoice payment events
+    if (eventType === 'Invoice' && payload) {
+      const { invoiceId, realmId } = payload;
+      
+      if (!invoiceId || !realmId) {
+        console.error('❌ Missing invoiceId or realmId in webhook payload');
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+      
+      console.log(`🔔 Processing QBO invoice webhook: ${invoiceId} for realm: ${realmId}`);
+      
+      // Get the business integration
+      const { data: integration, error: integrationError } = await supabase
+        .from('integrations_quickbooks')
+        .select('*')
+        .eq('realm_id', realmId)
+        .eq('connection_status', 'connected')
+        .single();
+      
+      if (integrationError || !integration) {
+        console.error('❌ No QuickBooks integration found for realm:', realmId);
+        return res.status(404).json({ error: 'Integration not found' });
+      }
+      
+      // Get invoice details
+      const invoiceDetails = await getQuickBooksInvoiceDetails(integration, invoiceId);
+      if (!invoiceDetails) {
+        console.error('❌ Could not fetch invoice details');
+        return res.status(500).json({ error: 'Failed to fetch invoice details' });
+      }
+      
+      // Check if invoice is paid
+      if (invoiceDetails.Balance !== 0) {
+        console.log('📄 Invoice not paid yet, skipping');
+        return res.status(200).json({ success: true, message: 'Invoice not paid' });
+      }
+      
+      // Find customer in Blipp
+      const { data: customer, error: customerError } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('business_id', integration.business_id)
+        .eq('external_source', 'qbo')
+        .eq('external_id', invoiceDetails.CustomerRef.value)
+        .single();
+      
+      if (customerError || !customer) {
+        console.error('❌ Customer not found in Blipp:', invoiceDetails.CustomerRef.value);
+        return res.status(404).json({ error: 'Customer not found' });
+      }
+      
+      console.log('👤 Found customer:', customer.name);
+      
+      // Use AI to select the best template
+      const selectedTemplate = await selectTemplateByAI(
+        integration.business_id,
+        invoiceDetails,
+        customer
+      );
+      
+      if (!selectedTemplate) {
+        console.error('❌ No suitable template found');
+        return res.status(200).json({ success: true, message: 'No suitable template found' });
+      }
+      
+      console.log('📝 Selected template:', selectedTemplate.name);
+      
+      // Queue the review request
+      const { error: queueError } = await supabase
+        .from('automation_queue')
+        .insert({
+          business_id: integration.business_id,
+          customer_id: customer.id,
+          template_id: selectedTemplate.id,
+          trigger_type: 'invoice_paid',
+          trigger_data: {
+            invoice_id: invoiceId,
+            realm_id: realmId,
+            job_type: invoiceDetails.jobType,
+            service_category: invoiceDetails.serviceCategory,
+            total_amount: invoiceDetails.totalAmount
+          },
+          status: 'pending',
+          scheduled_for: new Date(Date.now() + (selectedTemplate.delay_minutes || 0) * 60000).toISOString()
+        });
+      
+      if (queueError) {
+        console.error('❌ Failed to queue review request:', queueError);
+        return res.status(500).json({ error: 'Failed to queue review request' });
+      }
+      
+      console.log('✅ Review request queued successfully');
+      
+      // Update last webhook time
+      await supabase
+        .from('integrations_quickbooks')
+        .update({ last_webhook_at: new Date().toISOString() })
+        .eq('id', integration.id);
+    }
+    
+    return res.status(200).json({ success: true });
+    
+  } catch (error) {
+    console.error('❌ QBO webhook error:', error);
+    return res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
 // QBO OAuth Callback endpoint
 app.get('/api/qbo-oauth-callback', async (req, res) => {
   try {
