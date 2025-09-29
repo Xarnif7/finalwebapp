@@ -15620,7 +15620,28 @@ app.post('/api/qbo/webhook', async (req, res) => {
     console.log('🔔 QBO webhook received:', JSON.stringify(req.body, null, 2));
     console.log('🔔 QBO webhook headers:', req.headers);
     
-    const { eventType, payload } = req.body;
+    // Normalize Intuit event payload → { eventType, payload }
+    let { eventType, payload } = req.body || {};
+    if (!eventType && req.body && Array.isArray(req.body.eventNotifications) && req.body.eventNotifications.length > 0) {
+      try {
+        const notif = req.body.eventNotifications[0];
+        const realmId = notif.realmId;
+        const entities = notif?.dataChangeEvent?.entities || [];
+        // Prefer Invoice entity; else Payment
+        const invoiceEntity = entities.find(e => (e.name || '').toLowerCase() === 'invoice');
+        const paymentEntity = entities.find(e => (e.name || '').toLowerCase() === 'payment');
+        if (invoiceEntity && invoiceEntity.id) {
+          eventType = 'Invoice';
+          payload = { invoiceId: invoiceEntity.id, realmId };
+        } else if (paymentEntity && paymentEntity.id) {
+          eventType = 'Payment';
+          payload = { paymentId: paymentEntity.id, realmId };
+        }
+        console.log('[QBO] Normalized webhook event:', { eventType, payload });
+      } catch (e) {
+        console.log('[QBO] Failed to normalize Intuit webhook payload:', e.message);
+      }
+    }
     
     // Handle invoice payment events
     if (eventType === 'Invoice' && payload) {
@@ -15653,10 +15674,12 @@ app.post('/api/qbo/webhook', async (req, res) => {
         return res.status(500).json({ error: 'Failed to fetch invoice details' });
       }
       
-      // Check if invoice is paid
-      if (invoiceDetails.Balance !== 0) {
-        console.log('📄 Invoice not paid yet, skipping');
-        return res.status(200).json({ success: true, message: 'Invoice not paid' });
+      // Proceed if paid or email-sent
+      const isPaid = invoiceDetails.Balance === 0 || invoiceDetails.TxnStatus === 'Paid';
+      const isEmailSent = invoiceDetails.EmailStatus === 'EmailSent';
+      if (!isPaid && !isEmailSent) {
+        console.log('📄 Invoice neither paid nor email-sent; skipping');
+        return res.status(200).json({ success: true, message: 'Invoice not yet paid/sent' });
       }
       
       // Find customer in Blipp
@@ -15673,7 +15696,7 @@ app.post('/api/qbo/webhook', async (req, res) => {
         return res.status(404).json({ error: 'Customer not found' });
       }
       
-      console.log('👤 Found customer:', customer.name);
+      console.log('👤 Found customer:', customer.full_name || customer.name);
       
       // Use AI to select the best template
       const selectedTemplate = await selectTemplateByAI(
@@ -15696,13 +15719,14 @@ app.post('/api/qbo/webhook', async (req, res) => {
           business_id: integration.business_id,
           customer_id: customer.id,
           template_id: selectedTemplate.id,
-          trigger_type: 'invoice_paid',
+          trigger_type: isPaid ? 'qbo_invoice_paid' : 'qbo_invoice_sent',
           trigger_data: {
             invoice_id: invoiceId,
             realm_id: realmId,
-            job_type: invoiceDetails.jobType,
-            service_category: invoiceDetails.serviceCategory,
-            total_amount: invoiceDetails.totalAmount
+            amount: invoiceDetails.TotalAmt,
+            balance: invoiceDetails.Balance,
+            email_status: invoiceDetails.EmailStatus,
+            txn_status: invoiceDetails.TxnStatus
           },
           status: 'pending',
           scheduled_for: new Date(Date.now() + (selectedTemplate.delay_minutes || 0) * 60000).toISOString()
@@ -15729,6 +15753,26 @@ app.post('/api/qbo/webhook', async (req, res) => {
     return res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
+
+// Helper: fetch Payment details and expand LinkedTxn
+async function getQuickBooksPaymentDetails(integrationData, paymentId) {
+  const { access_token, realm_id } = integrationData;
+  // Try production, then sandbox
+  let resp = await fetch(`https://quickbooks.api.intuit.com/v3/company/${realm_id}/payment/${paymentId}`, {
+    headers: { 'Authorization': `Bearer ${access_token}`, 'Accept': 'application/json' }
+  });
+  if (!resp.ok) {
+    resp = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${realm_id}/payment/${paymentId}`, {
+      headers: { 'Authorization': `Bearer ${access_token}`, 'Accept': 'application/json' }
+    });
+  }
+  if (!resp.ok) {
+    console.log('[QBO] Failed to fetch payment details:', resp.status);
+    return null;
+  }
+  const data = await resp.json();
+  return data?.Payment || data;
+}
 
 // Test database endpoint
 app.get('/api/test-db', async (req, res) => {
