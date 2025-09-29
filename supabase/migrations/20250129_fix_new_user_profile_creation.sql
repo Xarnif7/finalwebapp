@@ -7,14 +7,15 @@ RETURNS UUID AS $$
 DECLARE
   business_id UUID;
 BEGIN
-  -- Create a default business for the new user
-  INSERT INTO public.businesses (name, created_by)
+  -- Create a default business for the new user (without created_by to avoid trigger issues)
+  INSERT INTO public.businesses (name, email)
   VALUES (user_email || '''s Business', user_email)
   RETURNING id INTO business_id;
   
-  -- Generate zapier_token for the new business
+  -- Set created_by after insert to avoid trigger issues
   UPDATE public.businesses 
-  SET zapier_token = 'blipp_' || encode(gen_random_bytes(16), 'hex')
+  SET created_by = user_email,
+      zapier_token = 'blipp_' || encode(gen_random_bytes(16), 'hex')
   WHERE id = business_id;
   
   -- Create profile for the new user
@@ -92,14 +93,15 @@ BEGIN
     business_id := public.get_business_by_user_email(user_email);
     
     IF business_id IS NULL THEN
-      -- Create business
-      INSERT INTO public.businesses (name, created_by)
+      -- Create business (without created_by to avoid trigger issues)
+      INSERT INTO public.businesses (name, email)
       VALUES (user_email || '''s Business', user_email)
       RETURNING id INTO business_id;
       
-      -- Generate zapier_token
+      -- Set created_by and zapier_token after insert to avoid trigger issues
       UPDATE public.businesses 
-      SET zapier_token = 'blipp_' || encode(gen_random_bytes(16), 'hex')
+      SET created_by = user_email,
+          zapier_token = 'blipp_' || encode(gen_random_bytes(16), 'hex')
       WHERE id = business_id;
     END IF;
     
