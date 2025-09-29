@@ -130,14 +130,26 @@ const QuickBooksConnectionCard = () => {
     const authWindow = window.open(
       connectUrl,
       'quickbooks-auth',
-      'width=600,height=700,scrollbars=yes,resizable=yes'
+      'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,toolbar=no,menubar=no'
     );
+
+    // Check if popup was blocked
+    if (!authWindow || authWindow.closed || typeof authWindow.closed == 'undefined') {
+      toast({
+        title: "Popup Blocked",
+        description: "Please allow popups for this site and try again",
+        variant: "destructive"
+      });
+      setIsConnecting(false);
+      return;
+    }
 
     // Listen for success message
     const handleMessage = (event) => {
       if (event.origin !== window.location.origin) return;
       
       if (event.data.type === 'QUICKBOOKS_CONNECTED') {
+        console.log('🎉 QuickBooks connection successful!');
         authWindow.close();
         setIsConnecting(false);
         setConnectionStatus('connected');
@@ -151,8 +163,19 @@ const QuickBooksConnectionCard = () => {
 
     window.addEventListener('message', handleMessage);
 
+    // Check if popup is still open every second
+    const checkClosed = setInterval(() => {
+      if (authWindow.closed) {
+        clearInterval(checkClosed);
+        window.removeEventListener('message', handleMessage);
+        setIsConnecting(false);
+        console.log('🔄 OAuth popup closed');
+      }
+    }, 1000);
+
     // Cleanup listener after 5 minutes
     setTimeout(() => {
+      clearInterval(checkClosed);
       window.removeEventListener('message', handleMessage);
       if (authWindow && !authWindow.closed) {
         authWindow.close();

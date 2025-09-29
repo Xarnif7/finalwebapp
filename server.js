@@ -15095,7 +15095,8 @@ app.get('/api/qbo/status', async (req, res) => {
     let companyName = 'QuickBooks Company';
     if (isConnected && integration.access_token) {
       try {
-        const companyResponse = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${integration.realm_id}/companyinfo/${integration.realm_id}`, {
+        // Use production URL for company info
+        const companyResponse = await fetch(`https://quickbooks.api.intuit.com/v3/company/${integration.realm_id}/companyinfo/${integration.realm_id}`, {
           headers: {
             'Authorization': `Bearer ${integration.access_token}`,
             'Accept': 'application/json'
@@ -15106,7 +15107,10 @@ app.get('/api/qbo/status', async (req, res) => {
           const companyData = await companyResponse.json();
           if (companyData.QueryResponse && companyData.QueryResponse.CompanyInfo && companyData.QueryResponse.CompanyInfo[0]) {
             companyName = companyData.QueryResponse.CompanyInfo[0].CompanyName || 'QuickBooks Company';
+            console.log('[QBO] Fetched company name:', companyName);
           }
+        } else {
+          console.log('[QBO] Company API response not ok:', companyResponse.status);
         }
       } catch (error) {
         console.log('[QBO] Could not fetch company name:', error.message);
@@ -15172,6 +15176,7 @@ app.get('/api/qbo/connect', async (req, res) => {
     authorizeUrl.searchParams.set('prompt', 'consent');
 
     console.log(`[QBO] Redirecting business ${business_id} to QuickBooks authorization`);
+    console.log(`[QBO] Authorize URL: ${authorizeUrl.toString()}`);
 
     // 302 redirect to Intuit
     return res.redirect(302, authorizeUrl.toString());
@@ -15245,7 +15250,7 @@ async function syncQuickBooksCustomers(business_id, integration) {
   
   try {
     // Fetch customers from QuickBooks
-    const customersResponse = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${integration.realm_id}/query?query=select * from Customer`, {
+    const customersResponse = await fetch(`https://quickbooks.api.intuit.com/v3/company/${integration.realm_id}/query?query=select * from Customer`, {
       headers: {
         'Authorization': `Bearer ${integration.access_token}`,
         'Accept': 'application/json'
@@ -15402,6 +15407,7 @@ app.get('/api/qbo-oauth-callback', async (req, res) => {
     const businessId = state;
 
     console.log(`[QBO] Processing callback for business ${businessId}, realm ${realmId}`);
+    console.log(`[QBO] Authorization code: ${code ? 'PRESENT' : 'MISSING'}`);
 
     // Exchange authorization code for access token
     const clientId = process.env.QBO_CLIENT_ID;
