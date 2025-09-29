@@ -218,7 +218,12 @@ export default function ClientsPage() {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => {
           updateQueryParams({ search: value });
-          // No need to manage showAllCustomers - always show all customers
+          // Auto-expand when searching to show all results, collapse when search is cleared
+          if (value.trim()) {
+            setShowAllCustomers(true);
+          } else {
+            setShowAllCustomers(false);
+          }
         }, 200);
       };
     })(),
@@ -270,15 +275,16 @@ export default function ClientsPage() {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
-  // Removed showAllCustomers state - always show all customers
+  const [showAllCustomers, setShowAllCustomers] = useState(false);
 
   const segmentsEnabled = isFeatureEnabled('customersSegments');
 
-  // Customer list display logic - ALWAYS show ALL customers
-  // No artificial limits - users need to see all their customers
-  // For businesses with 1000+ customers, consider implementing virtual scrolling
-  const displayedCustomers = customers;
-  const hasMoreCustomers = false; // Always show all, no pagination needed
+  // Customer list display logic - Show first 10 by default, with option to show all
+  // All customers are loaded in background, but UI shows manageable chunks
+  const DISPLAY_LIMIT = 10;
+  const displayedCustomers = showAllCustomers ? customers : customers.slice(0, DISPLAY_LIMIT);
+  const remainingCount = Math.max(0, customers.length - DISPLAY_LIMIT);
+  const hasMoreCustomers = customers.length > DISPLAY_LIMIT;
 
   // Multi-select handlers
   const handleSelectAll = () => {
@@ -839,7 +845,29 @@ export default function ClientsPage() {
                 </tbody>
               </table>
               
-              {/* All customers are always displayed - no pagination needed */}
+              {/* Show More/Less Button */}
+              {hasMoreCustomers && (
+                <div className="mt-4 pt-4 border-t border-slate-200">
+                  <div className="flex justify-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAllCustomers(!showAllCustomers)}
+                      className="flex items-center gap-2"
+                    >
+                      {showAllCustomers ? (
+                        <>
+                          <span>Show Less</span>
+                          <span className="text-slate-500">({DISPLAY_LIMIT} shown)</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Show {remainingCount} Remaining Customers</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           
