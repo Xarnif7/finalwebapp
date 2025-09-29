@@ -31,7 +31,23 @@
       "destination": "/server.js"
     },
     {
+      "source": "/api/reviews",
+      "destination": "/server.js"
+    },
+    {
       "source": "/api/reviews/(.*)",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/sequences",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/customers",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/health",
       "destination": "/server.js"
     },
     {
