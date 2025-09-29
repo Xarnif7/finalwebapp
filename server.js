@@ -15919,6 +15919,69 @@ app.get('/api/qbo-oauth-callback', async (req, res) => {
   }
 });
 
+// Test endpoint to check QuickBooks customers directly
+app.get('/api/test-qbo-customers', async (req, res) => {
+  try {
+    const business_id = req.query.business_id;
+    if (!business_id) {
+      return res.status(400).json({ error: 'business_id required' });
+    }
+
+    // Get QuickBooks integration
+    const { data: integration, error: integrationError } = await supabase
+      .from('integrations_quickbooks')
+      .select('*')
+      .eq('business_id', business_id)
+      .eq('connection_status', 'connected')
+      .single();
+
+    if (integrationError || !integration) {
+      return res.status(404).json({ error: 'No QuickBooks integration found' });
+    }
+
+    console.log(`[TEST] Testing QuickBooks customers for realm ${integration.realm_id}`);
+
+    // Try production API first
+    let customersResponse = await fetch(`https://quickbooks.api.intuit.com/v3/company/${integration.realm_id}/query?query=select * from Customer`, {
+      headers: {
+        'Authorization': `Bearer ${integration.access_token}`,
+        'Accept': 'application/json'
+      }
+    });
+
+    let customersData;
+    if (customersResponse.ok) {
+      customersData = await customersResponse.json();
+      console.log('[TEST] Production API response:', JSON.stringify(customersData, null, 2));
+    } else {
+      console.log('[TEST] Production API failed, trying sandbox:', customersResponse.status);
+      customersResponse = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${integration.realm_id}/query?query=select * from Customer`, {
+        headers: {
+          'Authorization': `Bearer ${integration.access_token}`,
+          'Accept': 'application/json'
+        }
+      });
+      customersData = await customersResponse.json();
+      console.log('[TEST] Sandbox API response:', JSON.stringify(customersData, null, 2));
+    }
+
+    const customers = customersData.QueryResponse?.Customer || [];
+    
+    return res.json({
+      success: true,
+      realm_id: integration.realm_id,
+      api_status: customersResponse.status,
+      customer_count: customers.length,
+      customers: customers,
+      raw_response: customersData
+    });
+
+  } catch (err) {
+    console.error('[TEST] Error:', err);
+    return res.status(500).json({ error: 'Test failed', details: err.message });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
