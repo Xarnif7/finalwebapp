@@ -57,10 +57,10 @@ export default function AuthCallback() {
         }
 
         // Fallback: check for existing session
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error: sessionError } = await supabase.auth.getSession();
         
-        if (error) {
-          console.error('[AuthCallback] Session check error:', error);
+        if (sessionError) {
+          console.error('[AuthCallback] Session check error:', sessionError);
           hasRedirected.current = true;
           navigate('/', { replace: true });
           return;
