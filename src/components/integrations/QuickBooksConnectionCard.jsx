@@ -416,6 +416,9 @@ const QuickBooksConnectionCard = () => {
             <div>
               <CardTitle className="text-lg">QuickBooks</CardTitle>
               <CardDescription>Sync customers and automate review requests</CardDescription>
+              <div className="text-xs text-gray-500 mt-1">
+                Business ID: {business?.id || 'Not found'}
+              </div>
             </div>
           </div>
           {getStatusBadge()}
