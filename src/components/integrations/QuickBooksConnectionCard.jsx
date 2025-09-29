@@ -157,7 +157,11 @@ const QuickBooksConnectionCard = () => {
           title: "Success",
           description: "QuickBooks connected successfully!"
         });
-        checkConnectionStatus();
+        
+        // Wait a moment for the database to save, then check status
+        setTimeout(() => {
+          checkConnectionStatus();
+        }, 2000);
       }
     };
 
@@ -452,6 +456,22 @@ const QuickBooksConnectionCard = () => {
                 </div>
               </div>
             )}
+            
+            {/* Manual Status Check Button */}
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-blue-700">
+                  <strong>Status:</strong> {connectionStatus} | <strong>Company:</strong> {companyInfo?.name || 'Loading...'}
+                </div>
+                <button
+                  onClick={checkConnectionStatus}
+                  className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                  disabled={isCheckingStatus}
+                >
+                  {isCheckingStatus ? 'Checking...' : 'Check Status'}
+                </button>
+              </div>
+            </div>
             
             {/* Stats */}
             <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
