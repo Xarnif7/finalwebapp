@@ -15091,12 +15091,34 @@ app.get('/api/qbo/status', async (req, res) => {
       .eq('business_id', business_id)
       .eq('external_source', 'qbo');
 
+    // Try to get company info from QuickBooks API
+    let companyName = 'QuickBooks Company';
+    if (isConnected && integration.access_token) {
+      try {
+        const companyResponse = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${integration.realm_id}/companyinfo/${integration.realm_id}`, {
+          headers: {
+            'Authorization': `Bearer ${integration.access_token}`,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (companyResponse.ok) {
+          const companyData = await companyResponse.json();
+          if (companyData.QueryResponse && companyData.QueryResponse.CompanyInfo && companyData.QueryResponse.CompanyInfo[0]) {
+            companyName = companyData.QueryResponse.CompanyInfo[0].CompanyName || 'QuickBooks Company';
+          }
+        }
+      } catch (error) {
+        console.log('[QBO] Could not fetch company name:', error.message);
+      }
+    }
+
     return res.status(200).json({
       connected: isConnected,
       connectionStatus,
       company: {
         realmId: integration.realm_id,
-        name: 'QuickBooks Company'
+        name: companyName
       },
       lastFullSyncAt: integration.last_full_sync_at,
       lastDeltaSyncAt: integration.last_delta_sync_at,
@@ -15178,7 +15200,7 @@ app.post('/api/qbo/disconnect', async (req, res) => {
     console.log(`[QBO] Disconnecting QuickBooks for business ${business_id}${realm_id ? `, realm ${realm_id}` : ''}`);
 
     // Update connection status to revoked and clear sensitive data
-    const { error: updateError } = await supabase
+    let query = supabase
       .from('integrations_quickbooks')
       .update({
         access_token: null,
@@ -15187,12 +15209,13 @@ app.post('/api/qbo/disconnect', async (req, res) => {
         connection_status: 'revoked',
         updated_at: new Date().toISOString()
       })
-      .eq('business_id', business_id)
-      .modify((query) => {
-        if (realm_id) {
-          query.eq('realm_id', realm_id);
-        }
-      });
+      .eq('business_id', business_id);
+    
+    if (realm_id) {
+      query = query.eq('realm_id', realm_id);
+    }
+
+    const { error: updateError } = await query;
 
     if (updateError) {
       console.error('[QBO] Failed to revoke connection:', updateError);
@@ -15216,6 +15239,80 @@ app.post('/api/qbo/disconnect', async (req, res) => {
   }
 });
 
+// Helper function to sync QuickBooks customers
+async function syncQuickBooksCustomers(business_id, integration) {
+  console.log(`[QBO] Starting customer sync for business ${business_id}`);
+  
+  try {
+    // Fetch customers from QuickBooks
+    const customersResponse = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${integration.realm_id}/query?query=select * from Customer`, {
+      headers: {
+        'Authorization': `Bearer ${integration.access_token}`,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!customersResponse.ok) {
+      throw new Error(`QuickBooks API error: ${customersResponse.status}`);
+    }
+
+    const customersData = await customersResponse.json();
+    const customers = customersData.QueryResponse?.Customer || [];
+    
+    console.log(`[QBO] Found ${customers.length} customers in QuickBooks`);
+
+    let syncedCount = 0;
+
+    // Process each customer
+    for (const qbCustomer of customers) {
+      try {
+        // Extract customer data
+        const customerData = {
+          business_id: business_id,
+          name: qbCustomer.DisplayName || `${qbCustomer.GivenName || ''} ${qbCustomer.FamilyName || ''}`.trim(),
+          email: qbCustomer.PrimaryEmailAddr?.Address || null,
+          phone: qbCustomer.PrimaryPhone?.FreeFormNumber || null,
+          external_source: 'qbo',
+          external_id: qbCustomer.Id,
+          external_meta: qbCustomer
+        };
+
+        // Upsert customer
+        const { error: upsertError } = await supabase
+          .from('customers')
+          .upsert(customerData, {
+            onConflict: 'business_id,external_source,external_id'
+          });
+
+        if (upsertError) {
+          console.error(`[QBO] Failed to upsert customer ${qbCustomer.Id}:`, upsertError);
+        } else {
+          syncedCount++;
+        }
+      } catch (customerError) {
+        console.error(`[QBO] Error processing customer ${qbCustomer.Id}:`, customerError);
+      }
+    }
+
+    // Update last sync time
+    await supabase
+      .from('integrations_quickbooks')
+      .update({
+        last_delta_sync_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('business_id', business_id)
+      .eq('realm_id', integration.realm_id);
+
+    console.log(`[QBO] Successfully synced ${syncedCount} customers for business ${business_id}`);
+    
+    return { synced_count: syncedCount };
+  } catch (error) {
+    console.error('[QBO] Customer sync error:', error);
+    throw error;
+  }
+}
+
 // QBO Sync Now endpoint
 app.post('/api/qbo/sync-now', async (req, res) => {
   try {
@@ -15230,12 +15327,47 @@ app.post('/api/qbo/sync-now', async (req, res) => {
 
     console.log(`[QBO] Manual sync requested for business ${business_id}`);
 
-    // For now, return a simple success response
-    return res.status(202).json({
-      queued: true,
-      message: 'Sync queued successfully',
-      synced_count: 0
-    });
+    // Get the integration details
+    const { data: integration, error: integrationError } = await supabase
+      .from('integrations_quickbooks')
+      .select('*')
+      .eq('business_id', business_id)
+      .eq('connection_status', 'connected')
+      .single();
+
+    if (integrationError || !integration) {
+      return res.status(200).json({ 
+        queued: false,
+        error: 'QuickBooks not connected' 
+      });
+    }
+
+    // Check if token is expired
+    const now = new Date();
+    const tokenExpiresAt = new Date(integration.token_expires_at);
+    if (now >= tokenExpiresAt) {
+      return res.status(200).json({ 
+        queued: false,
+        error: 'QuickBooks token expired. Please reconnect.' 
+      });
+    }
+
+    // Start customer sync
+    try {
+      const syncResult = await syncQuickBooksCustomers(business_id, integration);
+      
+      return res.status(202).json({
+        queued: true,
+        message: 'Customer sync completed',
+        synced_count: syncResult.synced_count || 0
+      });
+    } catch (syncError) {
+      console.error('[QBO] Sync execution error:', syncError);
+      return res.status(200).json({ 
+        queued: false,
+        error: 'Sync failed: ' + syncError.message 
+      });
+    }
 
   } catch (error) {
     console.error('[QBO] Sync now error:', error);
