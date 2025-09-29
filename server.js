@@ -15117,9 +15117,16 @@ app.get('/api/qbo/status', async (req, res) => {
         if (companyResponse.ok) {
           const companyData = await companyResponse.json();
           console.log('[QBO] Company API response data:', JSON.stringify(companyData, null, 2));
+          
+          // Try different response structures
           if (companyData.QueryResponse && companyData.QueryResponse.CompanyInfo && companyData.QueryResponse.CompanyInfo[0]) {
+            // Old structure
             companyName = companyData.QueryResponse.CompanyInfo[0].CompanyName || 'QuickBooks Company';
-            console.log('[QBO] Fetched company name:', companyName);
+            console.log('[QBO] Fetched company name (QueryResponse):', companyName);
+          } else if (companyData.CompanyInfo && companyData.CompanyInfo.CompanyName) {
+            // New structure
+            companyName = companyData.CompanyInfo.CompanyName || 'QuickBooks Company';
+            console.log('[QBO] Fetched company name (CompanyInfo):', companyName);
           } else {
             console.log('[QBO] Company data structure unexpected:', companyData);
           }
@@ -15468,8 +15475,14 @@ app.get('/api/qbo/test-company', async (req, res) => {
     if (companyResponse.ok) {
       try {
         companyData = JSON.parse(responseText);
+        
+        // Try different response structures
         if (companyData.QueryResponse && companyData.QueryResponse.CompanyInfo && companyData.QueryResponse.CompanyInfo[0]) {
+          // Old structure
           companyName = companyData.QueryResponse.CompanyInfo[0].CompanyName || 'Unknown';
+        } else if (companyData.CompanyInfo && companyData.CompanyInfo.CompanyName) {
+          // New structure
+          companyName = companyData.CompanyInfo.CompanyName || 'Unknown';
         }
       } catch (parseError) {
         console.log('[QBO] JSON parse error:', parseError.message);
