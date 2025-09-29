@@ -51,6 +51,18 @@
       "destination": "/server.js"
     },
     {
+      "source": "/api/feedback-form-settings",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/private-feedback",
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/email-track/(.*)",
+      "destination": "/server.js"
+    },
+    {
       "source": "/api/ai/(.*)",
       "destination": "/server.js"
     },

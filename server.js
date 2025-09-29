@@ -16758,6 +16758,73 @@ app.post('/api/qbo/test-seed', async (req, res) => {
   }
 });
 
+// ============================================================================
+// EMAIL TRACKING ENDPOINTS
+// ============================================================================
+
+// Email open tracking endpoint
+app.get('/api/email-track/open', async (req, res) => {
+  try {
+    const { t: trackingId } = req.query;
+    
+    if (trackingId) {
+      console.log('📧 Email opened:', trackingId);
+      
+      // Update email open tracking in database if needed
+      // You can add database logging here if you want to track opens
+      
+      // Log to console for now
+      console.log(`📊 Email tracking: ${trackingId} opened`);
+    }
+    
+    // Return a 1x1 transparent pixel
+    const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+    
+    res.set({
+      'Content-Type': 'image/png',
+      'Content-Length': pixel.length,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    
+    res.send(pixel);
+  } catch (error) {
+    console.error('Email tracking error:', error);
+    res.status(500).send('Error');
+  }
+});
+
+// Email click tracking endpoint
+app.get('/api/email-track/click', async (req, res) => {
+  try {
+    const { t: trackingId, l: link, type } = req.query;
+    
+    console.log('🔗 Email link clicked:', { trackingId, link, type });
+    
+    if (trackingId) {
+      // Log the click event
+      console.log(`📊 Email tracking: ${trackingId} clicked - redirecting to: ${link}`);
+      
+      // You can add database logging here if you want to track clicks
+      // Example: await supabase.from('email_clicks').insert({ tracking_id: trackingId, link, type, clicked_at: new Date() });
+    }
+    
+    // Redirect to the actual link
+    if (link) {
+      const decodedLink = decodeURIComponent(link);
+      console.log(`🔄 Redirecting to: ${decodedLink}`);
+      return res.redirect(decodedLink);
+    } else {
+      console.error('No link provided for redirect');
+      return res.status(400).send('No link provided');
+    }
+  } catch (error) {
+    console.error('Email click tracking error:', error);
+    res.status(500).send('Error');
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
