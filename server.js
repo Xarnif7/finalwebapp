@@ -15321,6 +15321,8 @@ async function syncQuickBooksCustomers(business_id, integration) {
     // Process each customer
     for (const qbCustomer of customers) {
       try {
+        console.log(`[QBO] Processing customer: ${qbCustomer.DisplayName} (ID: ${qbCustomer.Id})`);
+        
         // Extract customer data
         const customerData = {
           business_id: business_id,
@@ -15332,16 +15334,17 @@ async function syncQuickBooksCustomers(business_id, integration) {
           external_meta: qbCustomer
         };
 
-        // Upsert customer
+        console.log(`[QBO] Customer data to upsert:`, JSON.stringify(customerData, null, 2));
+
+        // Upsert customer - try without onConflict first
         const { error: upsertError } = await supabase
           .from('customers')
-          .upsert(customerData, {
-            onConflict: 'business_id,external_id'
-          });
+          .upsert(customerData);
 
         if (upsertError) {
           console.error(`[QBO] Failed to upsert customer ${qbCustomer.Id}:`, upsertError);
         } else {
+          console.log(`[QBO] Successfully upserted customer ${qbCustomer.Id}`);
           syncedCount++;
         }
       } catch (customerError) {
