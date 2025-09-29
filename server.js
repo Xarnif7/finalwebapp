@@ -14784,79 +14784,71 @@ app.post('/api/quickbooks/webhook', async (req, res) => {
 // Helper function to get invoice details from QuickBooks
 async function getQuickBooksInvoiceDetails(integrationData, invoiceId) {
   try {
-    const { access_token, realm_id } = integrationData;
-    
-    const response = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${realm_id}/invoices/${invoiceId}`, {
-      headers: {
-        'Authorization': `Bearer ${access_token}`,
-        'Accept': 'application/json'
+    // integrationData may be the whole row from integrations_quickbooks
+    const realmId = integrationData.realm_id;
+    let token = integrationData.access_token;
+
+    const apiHost = 'https://quickbooks.api.intuit.com'; // default to production host
+
+    async function fetchInvoice(bearer) {
+      const url = `${apiHost}/v3/company/${realmId}/invoice/${invoiceId}`; // singular resource path
+      return fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${bearer}`,
+          'Accept': 'application/json'
+        }
+      });
+    }
+
+    // First attempt
+    let response = await fetchInvoice(token);
+
+    // If unauthorized/forbidden, try to refresh and retry once
+    if ((response.status === 401 || response.status === 403) && integrationData.refresh_token && process.env.QBO_CLIENT_ID && process.env.QBO_CLIENT_SECRET) {
+      try {
+        const basic = Buffer.from(`${process.env.QBO_CLIENT_ID}:${process.env.QBO_CLIENT_SECRET}`).toString('base64');
+        const refreshResp = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${basic}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: integrationData.refresh_token }).toString()
+        });
+        if (refreshResp.ok) {
+          const tok = await refreshResp.json();
+          token = tok.access_token || token;
+          // Persist tokens
+          const expiresAt = new Date(Date.now() + (tok.expires_in || 3600) * 1000).toISOString();
+          await supabase
+            .from('integrations_quickbooks')
+            .update({ access_token: token, refresh_token: tok.refresh_token || integrationData.refresh_token, token_expires_at: expiresAt, updated_at: new Date().toISOString() })
+            .eq('id', integrationData.id);
+          response = await fetchInvoice(token);
+        } else {
+          console.error('[QBO] Refresh failed with status', refreshResp.status);
+        }
+      } catch (e) {
+        console.error('[QBO] Token refresh error:', e);
       }
-    });
-    
+    }
+
     if (!response.ok) {
       throw new Error(`QuickBooks API error: ${response.status}`);
     }
-    
+
     const data = await response.json();
-    const invoice = data.QueryResponse?.Invoice?.[0];
-    
+    const invoice = data?.Invoice || data?.QueryResponse?.Invoice?.[0];
     if (!invoice) {
       throw new Error('Invoice not found in QuickBooks');
     }
-    
-    // Extract job type from invoice line items
-    let jobType = 'general';
-    let serviceCategory = 'general';
-    
-    if (invoice.Line && invoice.Line.length > 0) {
-      const lineItems = invoice.Line.map(line => ({
-        description: line.Description || '',
-        itemName: line.SalesItemLineDetail?.ItemRef?.name || '',
-        amount: line.Amount || 0
-      }));
-      
-      // Analyze line items to determine job type
-      const allText = lineItems.map(item => `${item.description} ${item.itemName}`).join(' ').toLowerCase();
-      
-      if (allText.includes('mow') || allText.includes('lawn') || allText.includes('grass') || allText.includes('yard')) {
-        jobType = 'mowing';
-        serviceCategory = 'lawn_care';
-      } else if (allText.includes('roof') || allText.includes('shingle') || allText.includes('gutter')) {
-        jobType = 'roof_repair';
-        serviceCategory = 'home_repair';
-      } else if (allText.includes('plumb') || allText.includes('pipe') || allText.includes('drain')) {
-        jobType = 'plumbing';
-        serviceCategory = 'plumbing';
-      } else if (allText.includes('electrical') || allText.includes('wire') || allText.includes('outlet')) {
-        jobType = 'electrical';
-        serviceCategory = 'electrical';
-      } else if (allText.includes('hvac') || allText.includes('heating') || allText.includes('cooling')) {
-        jobType = 'hvac';
-        serviceCategory = 'hvac';
-      }
-    }
-    
-    return {
-      invoiceId: invoice.Id,
-      totalAmount: invoice.TotalAmt,
-      jobType: jobType,
-      serviceCategory: serviceCategory,
-      lineItems: invoice.Line || [],
-      description: invoice.DocNumber || '',
-      customerName: invoice.CustomerRef?.name || ''
-    };
-    
+
+    return invoice; // return raw invoice so downstream checks (Balance, EmailStatus, etc.) work
+
   } catch (error) {
     console.error('❌ Failed to get QuickBooks invoice details:', error);
-    return {
-      invoiceId: invoiceId,
-      totalAmount: 0,
-      jobType: 'general',
-      serviceCategory: 'general',
-      lineItems: [],
-      description: '',
-      customerName: ''
-    };
+    return null;
   }
 }
 
