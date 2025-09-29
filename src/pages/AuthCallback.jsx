@@ -80,10 +80,18 @@ export default function AuthCallback() {
             
             hasRedirected.current = true;
             
-            // Small delay to ensure session is fully established
-            setTimeout(() => {
-              navigate(next, { replace: true });
-            }, 100);
+            // Wait for session to be fully established before redirecting
+            setTimeout(async () => {
+              // Double-check that session is still valid
+              const { data: { session: finalSession } } = await supabase.auth.getSession();
+              if (finalSession && finalSession.user) {
+                console.log('[AuthCallback] Session confirmed, redirecting to:', next);
+                navigate(next, { replace: true });
+              } else {
+                console.error('[AuthCallback] Session lost during setup, redirecting to landing');
+                navigate('/', { replace: true });
+              }
+            }, 500);
             return;
           }
         }
@@ -106,10 +114,18 @@ export default function AuthCallback() {
           
           hasRedirected.current = true;
           
-          // Small delay to ensure session is fully established
-          setTimeout(() => {
-            navigate(next, { replace: true });
-          }, 100);
+            // Wait for session to be fully established before redirecting
+            setTimeout(async () => {
+              // Double-check that session is still valid
+              const { data: { session: finalSession } } = await supabase.auth.getSession();
+              if (finalSession && finalSession.user) {
+                console.log('[AuthCallback] Fallback session confirmed, redirecting to:', next);
+                navigate(next, { replace: true });
+              } else {
+                console.error('[AuthCallback] Fallback session lost, redirecting to landing');
+                navigate('/', { replace: true });
+              }
+            }, 500);
           
         } else {
           console.log('[AuthCallback] No valid session, redirecting to landing...');
