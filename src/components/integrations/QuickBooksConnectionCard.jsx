@@ -64,7 +64,7 @@ const QuickBooksConnectionCard = () => {
 
     try {
       setIsCheckingStatus(true);
-      const data = await safeJsonFetch(`/api/quickbooks/status?business_id=${business.id}`);
+      const data = await safeJsonFetch(`/api/qbo/status?business_id=${business.id}`);
       
       console.log('🔍 QuickBooks status response:', data);
       
@@ -121,7 +121,7 @@ const QuickBooksConnectionCard = () => {
     }
 
     // Use window.location.href for OAuth redirect (not fetch)
-    const connectUrl = `/api/quickbooks/connect?business_id=${business.id}`;
+    const connectUrl = `/api/qbo/connect?business_id=${business.id}`;
     console.log('🔗 QuickBooks Connect URL:', connectUrl);
     
     // Redirect to OAuth flow
@@ -134,7 +134,7 @@ const QuickBooksConnectionCard = () => {
     setIsSyncing(true);
 
     try {
-      const data = await safeJsonFetch('/api/quickbooks/sync-now', {
+      const data = await safeJsonFetch('/api/qbo/sync-now', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -172,7 +172,7 @@ const QuickBooksConnectionCard = () => {
     if (!business?.id) return;
 
     try {
-      const data = await safeJsonFetch('/api/quickbooks/disconnect', {
+      const data = await safeJsonFetch('/api/qbo/disconnect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

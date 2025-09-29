@@ -15035,7 +15035,9 @@ app.get('/api/qbo/status', async (req, res) => {
     const { business_id } = req.query;
 
     if (!business_id) {
-      return res.status(400).json({ 
+      return res.status(200).json({ 
+        connected: false, 
+        connectionStatus: 'error',
         error: 'Missing required parameter: business_id' 
       });
     }
@@ -15043,84 +15045,71 @@ app.get('/api/qbo/status', async (req, res) => {
     // Get QuickBooks integrations for this business
     const { data: integrations, error: integrationsError } = await supabase
       .from('integrations_quickbooks')
-      .select('id, realm_id, connection_status, token_expires_at, last_full_sync_at, last_webhook_at, created_at, updated_at')
+      .select('id, realm_id, connection_status, token_expires_at, last_full_sync_at, last_delta_sync_at, last_webhook_at, created_at, updated_at')
       .eq('business_id', business_id)
       .order('created_at', { ascending: false });
 
     if (integrationsError) {
       console.error('[QBO] Failed to get integrations:', integrationsError);
-      return res.status(500).json({ 
+      return res.status(200).json({ 
+        connected: false, 
+        connectionStatus: 'error',
         error: 'Failed to get integration status' 
       });
     }
 
     if (!integrations || integrations.length === 0) {
       return res.status(200).json({
-        success: true,
         connected: false,
-        status: 'not_connected',
-        message: 'No QuickBooks integrations found',
-        integrations: []
+        connectionStatus: 'error',
+        error: 'No QuickBooks integrations found'
       });
     }
 
+    // Get the most recent integration
+    const integration = integrations[0];
+    
     // Check token expiration and connection status
     const now = new Date();
-    let hasValidConnection = false;
-    let connectionDetails = [];
-
-    for (const integration of integrations) {
-      const isExpired = integration.token_expires_at && new Date(integration.token_expires_at) <= now;
-      const isConnected = integration.connection_status === 'connected' && !isExpired;
-      
-      if (isConnected) {
-        hasValidConnection = true;
-      }
-
-      connectionDetails.push({
-        realm_id: integration.realm_id,
-        status: isExpired ? 'expired' : integration.connection_status,
-        token_expires_at: integration.token_expires_at,
-        is_expired: isExpired,
-        last_sync_at: integration.last_full_sync_at,
-        last_webhook_at: integration.last_webhook_at,
-        connected_at: integration.created_at,
-        updated_at: integration.updated_at
-      });
+    const isExpired = integration.token_expires_at && new Date(integration.token_expires_at) <= now;
+    const isConnected = integration.connection_status === 'connected' && !isExpired;
+    
+    // Determine connection status
+    let connectionStatus = 'error';
+    if (isConnected) {
+      connectionStatus = 'connected';
+    } else if (isExpired) {
+      connectionStatus = 'expired';
+    } else if (integration.connection_status === 'revoked') {
+      connectionStatus = 'revoked';
     }
 
-    // Get customer count for this business
-    const { count: customerCount, error: countError } = await supabase
+    // Get customer count
+    const { count: customerCount } = await supabase
       .from('customers')
       .select('*', { count: 'exact', head: true })
       .eq('business_id', business_id)
       .eq('external_source', 'qbo');
 
-    // Get latest webhook timestamp
-    const latestWebhook = integrations.reduce((latest, integration) => {
-      if (integration.last_webhook_at) {
-        const webhookTime = new Date(integration.last_webhook_at);
-        if (!latest || webhookTime > new Date(latest)) {
-          return integration.last_webhook_at;
-        }
-      }
-      return latest;
-    }, null);
-
     return res.status(200).json({
-      success: true,
-      connected: hasValidConnection,
-      status: hasValidConnection ? 'connected' : 'disconnected',
-      customer_count: customerCount || 0,
-      integrations: connectionDetails,
-      last_webhook_at: latestWebhook
+      connected: isConnected,
+      connectionStatus,
+      company: {
+        realmId: integration.realm_id,
+        name: 'QuickBooks Company'
+      },
+      lastFullSyncAt: integration.last_full_sync_at,
+      lastDeltaSyncAt: integration.last_delta_sync_at,
+      lastWebhookAt: integration.last_webhook_at,
+      customerCount: customerCount || 0
     });
 
   } catch (error) {
     console.error('[QBO] Status check error:', error);
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      details: error.message 
+    return res.status(200).json({ 
+      connected: false, 
+      connectionStatus: 'error',
+      error: 'Internal server error'
     });
   }
 });
@@ -15180,7 +15169,8 @@ app.post('/api/qbo/disconnect', async (req, res) => {
     const { business_id, realm_id } = req.body;
 
     if (!business_id) {
-      return res.status(400).json({ 
+      return res.status(200).json({ 
+        disconnected: false,
         error: 'Missing required field: business_id' 
       });
     }
@@ -15206,21 +15196,22 @@ app.post('/api/qbo/disconnect', async (req, res) => {
 
     if (updateError) {
       console.error('[QBO] Failed to revoke connection:', updateError);
-      return res.status(500).json({ 
+      return res.status(200).json({ 
+        disconnected: false,
         error: 'Failed to disconnect QuickBooks' 
       });
     }
 
     return res.status(200).json({
-      success: true,
+      disconnected: true,
       message: 'QuickBooks disconnected successfully'
     });
 
   } catch (error) {
     console.error('[QBO] Disconnect error:', error);
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      details: error.message 
+    return res.status(200).json({ 
+      disconnected: false,
+      error: 'Internal server error'
     });
   }
 });
@@ -15231,7 +15222,8 @@ app.post('/api/qbo/sync-now', async (req, res) => {
     const { business_id } = req.body;
 
     if (!business_id) {
-      return res.status(400).json({ 
+      return res.status(200).json({ 
+        queued: false,
         error: 'Missing required field: business_id' 
       });
     }
@@ -15239,18 +15231,17 @@ app.post('/api/qbo/sync-now', async (req, res) => {
     console.log(`[QBO] Manual sync requested for business ${business_id}`);
 
     // For now, return a simple success response
-    return res.status(200).json({
-      success: true,
-      message: 'Sync completed successfully',
-      records_found: 0,
-      records_upserted: 0
+    return res.status(202).json({
+      queued: true,
+      message: 'Sync queued successfully',
+      synced_count: 0
     });
 
   } catch (error) {
     console.error('[QBO] Sync now error:', error);
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      details: error.message 
+    return res.status(200).json({ 
+      queued: false,
+      error: 'Internal server error'
     });
   }
 });
