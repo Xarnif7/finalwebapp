@@ -16,18 +16,58 @@ export default function AuthCallback() {
       console.log('[AuthCallback] URL params:', Object.fromEntries(searchParams.entries()));
       
       try {
-        // Handle the OAuth callback explicitly
+        // Check if this is an OAuth callback with code/error parameters
+        const code = searchParams.get('code');
+        const error = searchParams.get('error');
+        
+        if (error) {
+          console.error('[AuthCallback] OAuth error:', error);
+          hasRedirected.current = true;
+          navigate('/', { replace: true });
+          return;
+        }
+
+        if (code) {
+          console.log('[AuthCallback] Processing OAuth callback with code...');
+          
+          // Exchange the code for a session
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          
+          if (exchangeError) {
+            console.error('[AuthCallback] Code exchange error:', exchangeError);
+            hasRedirected.current = true;
+            navigate('/', { replace: true });
+            return;
+          }
+
+          if (data.session && data.session.user) {
+            console.log('[AuthCallback] User authenticated via OAuth:', data.session.user.email);
+            
+            // Get next destination from query params, default to '/'
+            const next = searchParams.get('next') || '/';
+            
+            hasRedirected.current = true;
+            
+            // Small delay to ensure session is fully established
+            setTimeout(() => {
+              navigate(next, { replace: true });
+            }, 100);
+            return;
+          }
+        }
+
+        // Fallback: check for existing session
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('[AuthCallback] Auth error:', error);
+          console.error('[AuthCallback] Session check error:', error);
           hasRedirected.current = true;
           navigate('/', { replace: true });
           return;
         }
 
         if (data.session && data.session.user) {
-          console.log('[AuthCallback] User authenticated:', data.session.user.email);
+          console.log('[AuthCallback] User authenticated via existing session:', data.session.user.email);
           
           // Get next destination from query params, default to '/'
           const next = searchParams.get('next') || '/';
