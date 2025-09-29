@@ -111,6 +111,10 @@
       "destination": "/server.js"
     },
     {
+      "source": "/api/qbo/(.*)",
+      "destination": "/server.js"
+    },
+    {
       "source": "/api/qbo-oauth-callback",
       "destination": "/api/qbo-oauth-callback.js"
     },
