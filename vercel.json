@@ -114,14 +114,22 @@
       "source": "/api/qbo/(.*)",
       "destination": "/server.js"
     },
-    {
-      "source": "/api/qbo-oauth-callback",
-      "destination": "/server.js"
-    },
-    {
-      "source": "/api/test-qbo-callback",
-      "destination": "/api/test-qbo-callback.js"
-    },
+            {
+              "source": "/api/qbo-oauth-callback",
+              "destination": "/server.js"
+            },
+            {
+              "source": "/api/test-qbo-callback",
+              "destination": "/api/test-qbo-callback.js"
+            },
+            {
+              "source": "/api/test-qbo-customers",
+              "destination": "/server.js"
+            },
+            {
+              "source": "/api/test-db",
+              "destination": "/server.js"
+            },
     {
       "source": "/auth/callback",
       "destination": "/index.html"
