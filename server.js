@@ -15401,20 +15401,22 @@ async function syncQuickBooksCustomers(business_id, integration) {
               syncedCount++;
             }
           } else {
-            // Do not overwrite owner edits; only update external_meta
+            // Link existing non-QBO customer to QBO without overwriting presentation fields
             const { error: updateMetaErr } = await supabase
               .from('customers')
               .update({
+                external_source: 'qbo',
+                external_id: qbCustomer.Id,
                 external_meta: customerData.external_meta,
                 updated_at: new Date().toISOString()
               })
               .eq('id', existingCustomer.id);
 
             if (updateMetaErr) {
-              console.error(`[QBO] Failed to update external_meta for customer ${qbCustomer.Id}:`, updateMetaErr);
+              console.error(`[QBO] Failed to link existing customer ${qbCustomer.Id} to QBO:`, updateMetaErr);
             } else {
-              console.log(`[QBO] Updated external_meta for existing non-QBO customer ${qbCustomer.Id}`);
-              // Not counting as a full sync increment to avoid misleading number
+              console.log(`[QBO] Linked existing non-QBO customer ${qbCustomer.Id} to QBO (external_source/external_id set)`);
+              syncedCount++;
             }
           }
         } else {
