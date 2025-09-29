@@ -15322,7 +15322,7 @@ async function syncQuickBooksCustomers(business_id, integration) {
         // Extract customer data
         const customerData = {
           business_id: business_id,
-          name: qbCustomer.DisplayName || `${qbCustomer.GivenName || ''} ${qbCustomer.FamilyName || ''}`.trim(),
+          full_name: qbCustomer.DisplayName || `${qbCustomer.GivenName || ''} ${qbCustomer.FamilyName || ''}`.trim(),
           email: qbCustomer.PrimaryEmailAddr?.Address || null,
           phone: qbCustomer.PrimaryPhone?.FreeFormNumber || null,
           external_source: 'qbo',
