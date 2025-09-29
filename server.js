@@ -9931,19 +9931,19 @@ async function setupJobberWebhook(accessToken, businessId) {
 // Helper function to handle job completed events
 async function handleJobCompleted(payload) {
   try {
-    console.log('🎯 Handling job completed event:', payload);
+    console.log('🎯 [Jobber] Handling job completed event:', payload);
     
     // Extract customer and job information
     const customer = payload.data?.customer;
     const job = payload.data?.job;
-    const serviceType = job?.service_type;
+    const serviceType = job?.service_type || job?.category || 'General Service';
     
     if (!customer || !job) {
-      console.error('❌ Missing customer or job data in webhook payload');
+      console.error('❌ [Jobber] Missing customer or job data in webhook payload');
       return;
     }
 
-    console.log('📋 Job details:', {
+    console.log('📋 [Jobber] Job details:', {
       customer: customer.name,
       email: customer.email,
       serviceType: serviceType,
@@ -9958,44 +9958,37 @@ async function handleJobCompleted(payload) {
       .single();
 
     if (!connection) {
-      console.error('❌ No Jobber connection found');
+      console.error('❌ [Jobber] No Jobber connection found');
       return;
     }
 
-    console.log('🏢 Found business connection:', connection.business_id);
+    console.log('🏢 [Jobber] Found business connection:', connection.business_id);
 
-    // Use AI to find the best matching template
-    console.log('🤖 Using AI to find best template match for:', serviceType);
+    // Get business details
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('id', connection.business_id)
+      .single();
+
+    if (!business) {
+      console.error('❌ [Jobber] Business not found:', connection.business_id);
+      return;
+    }
+
+    // Use the same template selection logic as QBO
+    console.log('🤖 [Jobber] Finding best template match for service type:', serviceType);
     
-    const aiMatchResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/api/ai/match-template`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jobberServiceType: serviceType,
-        businessId: connection.business_id
-      })
-    });
-
-    if (!aiMatchResponse.ok) {
-      console.error('❌ AI template matching failed:', aiMatchResponse.status);
+    const selectedTemplate = await selectTemplateByAI(connection.business_id, serviceType, 'jobber_job_completed');
+    
+    if (!selectedTemplate) {
+      console.log('❌ [Jobber] No matching template found for service type:', serviceType);
       return;
     }
 
-    const aiMatchResult = await aiMatchResponse.json();
-    const template = aiMatchResult.matchedTemplate;
-
-    if (!template) {
-      console.error('❌ No template found for service type:', serviceType);
-      return;
-    }
-
-    console.log('🎯 AI Template Match:', {
-      id: template.id,
-      name: template.name,
-      confidence: aiMatchResult.confidence,
-      reasoning: aiMatchResult.reasoning,
+    console.log('🎯 [Jobber] Selected template:', {
+      id: selectedTemplate.id,
+      name: selectedTemplate.name,
       serviceType: serviceType
     });
 
@@ -10010,7 +10003,7 @@ async function handleJobCompleted(payload) {
 
     if (existingCustomer) {
       customerId = existingCustomer.id;
-      console.log('👤 Using existing customer:', existingCustomer.full_name);
+      console.log('👤 [Jobber] Using existing customer:', existingCustomer.full_name);
     } else {
       const { data: newCustomer, error: customerError } = await supabase
         .from('customers')
@@ -10026,33 +10019,26 @@ async function handleJobCompleted(payload) {
         .single();
 
       if (customerError) {
-        console.error('❌ Error creating customer:', customerError);
+        console.error('❌ [Jobber] Error creating customer:', customerError);
         return;
       }
       customerId = newCustomer.id;
-      console.log('👤 Created new customer:', newCustomer.full_name);
+      console.log('👤 [Jobber] Created new customer:', newCustomer.full_name);
     }
 
     // Generate review link
     const reviewLink = `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://myblipp.com'}/r/${Math.random().toString(36).substring(2, 10)}`;
 
     // Get template message and customize it
-    // Priority: 1) custom_message, 2) config_json.message, 3) default
-    const manualTemplateMessage = template.custom_message || template.config_json?.message || 
+    const templateMessage = selectedTemplate.custom_message || selectedTemplate.config_json?.message || 
       `Hi {{customer.name}}, thank you for choosing us for your ${serviceType} service! We hope you were satisfied. Please take a moment to leave us a review at {{review_link}}.`;
-
-    console.log('📝 Manual trigger template message:', {
-      custom_message: template.custom_message,
-      config_json_message: template.config_json?.message,
-      final_message: manualTemplateMessage
-    });
 
     // Get business info for variable replacement
     const businessName = business.name || 'Our Business';
     const businessWebsite = business.website || '';
     
     // Customize the message with customer and business data
-    const manualCustomizedMessage = manualTemplateMessage
+    const customizedMessage = templateMessage
       .replace(/\{\{customer\.name\}\}/g, customer.name)
       .replace(/\{\{customer_name\}\}/g, customer.name)
       .replace(/\{\{customer\.first_name\}\}/g, customer.name.split(' ')[0] || '')
@@ -10064,234 +10050,102 @@ async function handleJobCompleted(payload) {
       .replace(/\{\{company_website\}\}/g, businessWebsite)
       .replace(/\{\{review_link\}\}/g, reviewLink);
 
-    // Create review request with the customized message
+    // Create review request
     const { data: reviewRequest, error: reviewRequestError } = await supabase
       .from('review_requests')
       .insert({
         business_id: connection.business_id,
         customer_id: customerId,
-        channel: 'email', // Default to email for now
+        channel: 'email',
         status: 'pending',
-        send_at: new Date().toISOString(), // Set send_at to now for immediate processing
+        send_at: new Date().toISOString(),
         review_link: reviewLink,
-        message: manualCustomizedMessage, // Store the customized message here
-        trigger_type: 'manual_trigger',
+        message: customizedMessage,
+        trigger_type: 'jobber_job_completed',
         trigger_data: {
-          template_id: template.id,
-          template_name: template.name,
+          template_id: selectedTemplate.id,
+          template_name: selectedTemplate.name,
           customer_name: customer.name,
-          customer_email: customer.email
+          customer_email: customer.email,
+          service_type: serviceType,
+          job_id: job.id
         }
       })
       .select('id')
       .single();
 
     if (reviewRequestError) {
-      console.error('❌ Error creating review request:', reviewRequestError);
-      return res.status(500).json({ error: 'Failed to create review request' });
+      console.error('❌ [Jobber] Error creating review request:', reviewRequestError);
+      return;
     }
 
-    console.log('📝 Created review request:', reviewRequest.id);
+    console.log('📝 [Jobber] Created review request:', reviewRequest.id);
 
-    // Get template message and customize it
-    // Priority: 1) custom_message, 2) config_json.message, 3) default
-    const jobberTemplateMessage = template.custom_message || template.config_json?.message || 
-      `Hi {{customer.name}}, thank you for choosing us for your ${serviceType} service! We hope you were satisfied. Please take a moment to leave us a review at {{review_link}}.`;
+    // Schedule the email to be sent (same as QBO)
+    const scheduledFor = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
     
-    console.log('📝 Manual trigger template message:', {
-      custom_message: template.custom_message,
-      config_json_message: template.config_json?.message,
-      final_message: jobberTemplateMessage
-    });
-
-    // Replace template variables
-    const jobberCustomizedMessage = jobberTemplateMessage
-      .replace(/\{\{customer\.name\}\}/g, customer.name)
-      .replace(/\{\{customer_name\}\}/g, customer.name)
-      .replace(/\{\{business\.name\}\}/g, 'Your Business') // TODO: Get actual business name
-      .replace(/\{\{business_name\}\}/g, 'Your Business')
-      .replace(/\{\{review_link\}\}/g, reviewLink);
-
-    // Send email immediately using the same HTML template as automation executor
-    console.log('📧 Sending email...');
-    
-    // Get form settings for consistent email styling
-    let formSettings = {};
-    try {
-      const { data: settings } = await supabase
-        .from('feedback_form_settings')
-        .select('settings')
-        .eq('business_id', business.id)
-        .maybeSingle();
-      if (settings?.settings) {
-        formSettings = settings.settings;
-      }
-    } catch (e) {
-      console.log('Error fetching form settings:', e);
-    }
-
-    // Get business info for email
-    const companyName = business.name || 'Our Business';
-    const companyWebsite = business.website || '';
-    
-    console.log('📧 Email details:', {
-      companyName,
-      companyWebsite,
-      customerEmail: customer.email,
-      reviewLink,
-      customizedMessage: manualCustomizedMessage.substring(0, 100) + '...'
-    });
-    
-      // Generate tracking ID for manual trigger email
-      const manualTrackingId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      
-      // Create tracking pixel
-      const manualTrackingPixel = `<img src="${process.env.NEXT_PUBLIC_SITE_URL || 'https://myblipp.com'}/api/email-track/open?t=${manualTrackingId}" width="1" height="1" style="display:none;" />`;
-      
-      // Create tracked review link
-      const manualTrackedReviewLink = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://myblipp.com'}/api/email-track/click?t=${manualTrackingId}&l=${encodeURIComponent(reviewLink)}&type=feedback`;
-
-      // Use the same HTML template as automation executor
-      const emailHtml = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Thank You</title>
-      </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc; line-height: 1.6;">
-        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-          
-          <!-- Header -->
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">
-              ${formSettings.email_header || 'Thank You'}
-            </h1>
-            <p style="color: #e2e8f0; margin: 10px 0 0 0; font-size: 16px; font-weight: 300;">
-              ${formSettings.email_subheader || 'We appreciate your business'}
-            </p>
-          </div>
-          
-          <!-- Content -->
-          <div style="padding: 40px 30px;">
-            <h2 style="color: #1e293b; margin: 0 0 20px 0; font-size: 24px; font-weight: 600;">
-              Hi ${customer.name},
-            </h2>
-            
-            <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
-              <p style="color: #334155; margin: 0; font-size: 16px; line-height: 1.6;">
-                ${manualCustomizedMessage}
-              </p>
-            </div>
-            
-            <p style="color: #64748b; margin: 25px 0; font-size: 16px; line-height: 1.6;">
-              Your feedback helps us improve our services and assists other customers in making informed decisions.
-            </p>
-            
-            <!-- CTA Button -->
-            <div style="text-align: center; margin: 35px 0;">
-              <a href="${manualTrackedReviewLink}" 
-                 style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); transition: all 0.2s ease;">
-                ${formSettings.email_button_text || 'Leave Feedback'}
-              </a>
-            </div>
-            
-            <div style="border-top: 1px solid #e2e8f0; margin: 35px 0 25px 0;"></div>
-            
-            <p style="color: #64748b; margin: 0; font-size: 14px; text-align: center;">
-              Thank you for choosing ${companyName}${companyWebsite ? ` • <a href="${companyWebsite}" style="color: #3b82f6; text-decoration: none;">Website</a>` : ''}
-            </p>
-          </div>
-          
-          <!-- Footer -->
-          <div style="background-color: #f8fafc; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;">
-            <p style="color: #94a3b8; margin: 0; font-size: 12px; text-align: center;">
-              This email was sent by Blipp - Review Automation Platform<br>
-              If you have any questions, please contact ${companyName} directly.
-            </p>
-          </div>
-        </div>
-        
-        <!-- Email Tracking Pixel -->
-        ${manualTrackingPixel}
-      </body>
-      </html>
-    `;
-    
-    try {
-      const emailResponse = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: `${companyName} <noreply@myblipp.com>`,
-          to: [customer.email],
-          subject: formSettings.email_subject || "We'd love your feedback!",
-          html: emailHtml,
-          text: manualCustomizedMessage,
-        }),
+    const { error: jobError } = await supabase
+      .from('scheduled_jobs')
+      .insert({
+        business_id: connection.business_id,
+        job_type: 'automation_email',
+        status: 'queued',
+        run_at: scheduledFor,
+        payload: { review_request_id: reviewRequest.id }
       });
 
-      console.log('📧 Email response status:', emailResponse.status);
-
-      if (emailResponse.ok) {
-        const emailData = await emailResponse.json();
-        console.log('✅ Email sent successfully:', emailData.id);
-        
-        // Record email tracking
-        await supabase
-          .from('email_tracking')
-          .insert({
-            email_id: emailData.id,
-            business_id: business.id,
-            customer_id: customerId,
-            review_request_id: reviewRequest.id,
-            email_type: 'manual_trigger',
-            recipient_email: customer.email,
-            subject: formSettings.email_subject || "We'd love your feedback!"
-          });
-        
-        // Update review request status
-        await supabase
-          .from('review_requests')
-          .update({
-            status: 'sent',
-            sent_at: new Date().toISOString()
-          })
-          .eq('id', reviewRequest.id);
-          
-        console.log('🎉 Manual trigger complete! Email sent to:', customer.email);
-      } else {
-        const errorData = await emailResponse.text();
-        console.error('❌ Email sending failed:', emailResponse.status, errorData);
-        
-        // Update review request status to failed
-        await supabase
-          .from('review_requests')
-          .update({
-            status: 'failed'
-          })
-          .eq('id', reviewRequest.id);
-      }
-    } catch (emailError) {
-      console.error('❌ Email sending error:', emailError);
-      
-      // Update review request status to failed
-      await supabase
-        .from('review_requests')
-        .update({
-          status: 'failed'
-        })
-        .eq('id', reviewRequest.id);
+    if (jobError) {
+      console.error('❌ [Jobber] Failed to enqueue scheduled job:', jobError);
+      return;
     }
 
+    console.log('✅ [Jobber] Successfully processed job completion and queued email for:', customer.email);
+
   } catch (error) {
-    console.error('❌ Error handling job completed:', error);
+    console.error('❌ [Jobber] Error handling job completed:', error);
   }
 }
+
+// Test endpoint for Jobber webhook simulation
+app.post('/api/crm/jobber/test-webhook', async (req, res) => {
+  try {
+    console.log('🧪 [Jobber] Test webhook endpoint hit');
+    
+    // Simulate a job completion webhook payload
+    const testPayload = {
+      event: 'job.completed',
+      data: {
+        customer: {
+          id: 'test-customer-123',
+          name: 'Test Customer',
+          email: 'test@example.com',
+          phone: '+1234567890'
+        },
+        job: {
+          id: 'test-job-456',
+          service_type: 'Lawn Mowing',
+          category: 'Landscaping',
+          status: 'completed'
+        }
+      }
+    };
+
+    console.log('🧪 [Jobber] Simulating webhook with payload:', testPayload);
+    
+    // Process the test webhook
+    await handleJobCompleted(testPayload);
+    
+    res.json({ 
+      success: true, 
+      message: 'Jobber test webhook processed successfully',
+      payload: testPayload
+    });
+
+  } catch (error) {
+    console.error('❌ [Jobber] Test webhook error:', error);
+    res.status(500).json({ error: 'Test webhook failed' });
+  }
+});
 
 // ============================================================================
 // EMAIL & SMS SENDING API
