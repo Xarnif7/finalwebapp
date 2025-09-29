@@ -296,8 +296,14 @@ app.get('/api/subscription/status', async (req, res) => {
   try {
     const { authorization } = req.headers;
     
+    // If no authorization header, return default status for unauthenticated users
     if (!authorization || !authorization.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authorization header required' });
+      return res.json({
+        active: false,
+        status: 'none',
+        plan_tier: null,
+        onboarding_completed: false
+      });
     }
     
     if (!supabase) {

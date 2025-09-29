@@ -38,6 +38,7 @@ export const apiClient = {
         ...options.headers,
       };
       
+      // Only add authorization header if we have a token
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
@@ -92,6 +93,7 @@ export const apiClient = {
         ...options.headers,
       };
       
+      // Only add authorization header if we have a token
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
