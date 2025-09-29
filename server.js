@@ -15809,6 +15809,23 @@ app.get('/api/qbo-oauth-callback', async (req, res) => {
 
     console.log(`[QBO] Successfully saved integration to database`);
 
+    // Verify what was actually saved
+    const { data: verifyIntegration, error: verifyError2 } = await supabase
+      .from('integrations_quickbooks')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('realm_id', realmId)
+      .single();
+
+    if (verifyIntegration) {
+      console.log(`[QBO] VERIFICATION - What was actually saved:`, {
+        id: verifyIntegration.id,
+        connection_status: verifyIntegration.connection_status,
+        hasAccessToken: !!verifyIntegration.access_token,
+        tokenExpiresAt: verifyIntegration.token_expires_at
+      });
+    }
+
     console.log(`[QBO] Successfully connected business ${businessId} to QuickBooks realm ${realmId}`);
 
     // Verify the connection was saved by checking the database
