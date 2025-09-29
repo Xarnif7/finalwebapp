@@ -15709,6 +15709,32 @@ app.post('/api/qbo/webhook', async (req, res) => {
       }
     }
     
+    // Fallback: if Intuit sent an empty/minimal body (only headers), run CDC for recent changes
+    if (!eventType) {
+      try {
+        const changedSinceIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const { data: integrations } = await supabase
+          .from('integrations_quickbooks')
+          .select('*')
+          .order('updated_at', { ascending: false })
+          .limit(10);
+
+        if (integrations && integrations.length) {
+          for (const integ of integrations) {
+            await qboProcessCdcForIntegration(integ, changedSinceIso);
+            await supabase
+              .from('integrations_quickbooks')
+              .update({ last_webhook_at: new Date().toISOString() })
+              .eq('id', integ.id);
+          }
+        }
+        return res.status(200).json({ success: true, cdc: true });
+      } catch (cdcErr) {
+        console.error('[QBO][CDC] fallback error:', cdcErr);
+        return res.status(200).json({ success: false, error: 'cdc_failed' });
+      }
+    }
+    
     // Handle invoice payment events
     if (eventType === 'Invoice' && payload) {
       const { invoiceId, realmId } = payload;
@@ -15852,6 +15878,94 @@ app.post('/api/qbo/webhook', async (req, res) => {
     return res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
+
+// CDC processor and invoice handler
+async function qboProcessCdcForIntegration(integration, changedSinceIso) {
+  try {
+    // Refresh token if expired
+    const now = new Date();
+    const expired = integration.token_expires_at && new Date(integration.token_expires_at) <= now;
+    if (expired && integration.refresh_token && process.env.QBO_CLIENT_ID && process.env.QBO_CLIENT_SECRET) {
+      const basic = Buffer.from(`${process.env.QBO_CLIENT_ID}:${process.env.QBO_CLIENT_SECRET}`).toString('base64');
+      const resp = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+        method: 'POST',
+        headers: { 'Authorization': `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: integration.refresh_token }).toString()
+      });
+      if (resp.ok) {
+        const tok = await resp.json();
+        const expiresAt = new Date(Date.now() + (tok.expires_in || 3600) * 1000).toISOString();
+        await supabase
+          .from('integrations_quickbooks')
+          .update({ access_token: tok.access_token, refresh_token: tok.refresh_token || integration.refresh_token, token_expires_at: expiresAt, connection_status: 'connected', updated_at: new Date().toISOString() })
+          .eq('id', integration.id);
+        integration.access_token = tok.access_token;
+        integration.refresh_token = tok.refresh_token || integration.refresh_token;
+        integration.token_expires_at = expiresAt;
+        integration.connection_status = 'connected';
+      }
+    }
+
+    const headers = { 'Authorization': `Bearer ${integration.access_token}`, 'Accept': 'application/json' };
+    let resp = await fetch(`https://quickbooks.api.intuit.com/v3/company/${integration.realm_id}/cdc?entities=Invoice,Payment&changedSince=${encodeURIComponent(changedSinceIso)}`, { headers });
+    if (!resp.ok) {
+      resp = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${integration.realm_id}/cdc?entities=Invoice,Payment&changedSince=${encodeURIComponent(changedSinceIso)}`, { headers });
+    }
+    if (!resp.ok) {
+      console.log('[QBO][CDC] HTTP', resp.status);
+      return;
+    }
+    const data = await resp.json();
+    const invoices = data?.CDCResponse?.[0]?.Invoice || [];
+    const payments = data?.CDCResponse?.[0]?.Payment || [];
+
+    for (const inv of invoices) {
+      const trigger = (inv.Balance === 0 || inv.TxnStatus === 'Paid') ? 'qbo_invoice_paid' : (inv.EmailStatus === 'EmailSent' ? 'qbo_invoice_sent' : null);
+      if (!trigger) continue;
+      await qboHandleInvoiceEvent(integration, inv.Id, trigger);
+    }
+
+    for (const p of payments) {
+      const linked = Array.isArray(p.LinkedTxn) ? p.LinkedTxn.find(t => t.TxnType === 'Invoice') : null;
+      if (linked?.TxnId) await qboHandleInvoiceEvent(integration, linked.TxnId, 'qbo_invoice_paid');
+    }
+  } catch (e) {
+    console.log('[QBO][CDC] Error:', e.message);
+  }
+}
+
+async function qboHandleInvoiceEvent(integration, invoiceId, triggerType) {
+  const invoiceDetails = await getQuickBooksInvoiceDetails(integration, invoiceId);
+  if (!invoiceDetails) return;
+  const { data: customer } = await supabase
+    .from('customers')
+    .select('*')
+    .eq('business_id', integration.business_id)
+    .eq('external_source', 'qbo')
+    .eq('external_id', invoiceDetails.CustomerRef.value)
+    .single();
+  if (!customer) return;
+  const selectedTemplate = await selectTemplateByAI(integration.business_id, invoiceDetails, customer, triggerType);
+  if (!selectedTemplate) return;
+  await supabase
+    .from('automation_queue')
+    .insert({
+      business_id: integration.business_id,
+      customer_id: customer.id,
+      template_id: selectedTemplate.id,
+      trigger_type: triggerType,
+      trigger_data: {
+        invoice_id: invoiceId,
+        realm_id: integration.realm_id,
+        amount: invoiceDetails.TotalAmt,
+        balance: invoiceDetails.Balance,
+        email_status: invoiceDetails.EmailStatus,
+        txn_status: invoiceDetails.TxnStatus
+      },
+      status: 'pending',
+      scheduled_for: new Date(Date.now() + (selectedTemplate.delay_minutes || 0) * 60000).toISOString()
+    });
+}
 
 // Helper: fetch Payment details and expand LinkedTxn
 async function getQuickBooksPaymentDetails(integrationData, paymentId) {
