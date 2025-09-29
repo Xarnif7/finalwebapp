@@ -15286,6 +15286,20 @@ async function syncQuickBooksCustomers(business_id, integration) {
   console.log(`[QBO] Starting customer sync for business ${business_id}`);
   
   try {
+    // Resolve creator for NOT NULL created_by column
+    let createdByValue = 'qbo';
+    try {
+      const { data: bizRow } = await supabase
+        .from('businesses')
+        .select('created_by')
+        .eq('id', business_id)
+        .single();
+      if (bizRow && bizRow.created_by) {
+        createdByValue = bizRow.created_by;
+      }
+    } catch (e) {
+      console.log('[QBO] Could not resolve business.created_by, defaulting to "qbo"');
+    }
     // Fetch customers from QuickBooks - try production first, then sandbox
     console.log(`[QBO] Fetching customers for realm ${integration.realm_id}`);
     let customersResponse = await fetch(`https://quickbooks.api.intuit.com/v3/company/${integration.realm_id}/query?query=select * from Customer`, {
@@ -15329,6 +15343,8 @@ async function syncQuickBooksCustomers(business_id, integration) {
           full_name: qbCustomer.DisplayName || `${qbCustomer.GivenName || ''} ${qbCustomer.FamilyName || ''}`.trim(),
           email: qbCustomer.PrimaryEmailAddr?.Address || null,
           phone: qbCustomer.PrimaryPhone?.FreeFormNumber || null,
+          status: 'active',
+          created_by: createdByValue,
           external_source: 'qbo',
           external_id: qbCustomer.Id,
           external_meta: qbCustomer
