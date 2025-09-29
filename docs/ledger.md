@@ -1,5 +1,43 @@
 # Blipp Development Ledger
 
+## 2025-01-29: QuickBooks Online Integration End-to-End Implementation
+
+### What Changed
+- **COMPLETE QBO INTEGRATION**: Implemented full end-to-end QuickBooks Online automation flow
+- Fixed `review_requests` table schema alignment (changed `email_status` to `status`)
+- Updated template selection logic to use `automation_templates` table with `config_json` triggers
+- Added HMAC webhook signature verification for QBO webhooks
+- Created comprehensive test endpoints and automation scripts for validation
+- Implemented AI-assisted template matching based on invoice descriptions and keywords
+
+### Why This Was Needed
+- User needed QBO invoice events to automatically trigger review request automations
+- Templates in the Automations tab needed to be respected and used for trigger logic
+- System needed to match invoice descriptions to appropriate templates (e.g., "grass mowed" → "Grass Cutting" template)
+- End-to-end verification was required to ensure the complete flow works
+
+### Files Touched
+- `server.js` - Updated QBO webhook handling, template selection, and review request creation
+- `scripts/simulate-qbo.js` - Test script for QBO invoice simulation
+- `scripts/seed-and-simulate-qbo.js` - Complete test script with data seeding
+- `scripts/inspect-review-requests.js` - Database schema inspection tool
+- `ENV.example` - Added `QBO_WEBHOOK_VERIFIER_TOKEN` documentation
+
+### How Verified
+- ✅ **Seeding**: Created test business, QBO integration, customer, and default template
+- ✅ **Simulation**: Successfully processed "grass mowed" invoice description
+- ✅ **Template Matching**: Found and used "Grass Cutting Review Request" template
+- ✅ **Review Request Creation**: New entry created in `review_requests` table
+- ✅ **Email Scheduling**: Scheduled job queued for automated email sending
+- ✅ **End-to-End Flow**: QBO webhook → Template selection → Review request → Email queue
+
+### Technical Details
+- Template selection uses `automation_templates` table with `config_json.triggers` and `config_json.keywords`
+- AI (GPT-4o-mini) assists in matching invoice descriptions to template keywords
+- HMAC signature verification ensures webhook security
+- Schema alignment fixed: `review_requests.status` instead of `review_requests.email_status`
+- Test endpoints: `/api/qbo/test-seed`, `/api/qbo/test-simulate-invoice`, `/api/qbo/test-review-requests`
+
 ## 2025-01-21: Email-Based Data Persistence Implementation
 
 ### What Changed

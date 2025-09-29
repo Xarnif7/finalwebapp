@@ -18,7 +18,15 @@ app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5176', 'http://localhost:5177'],
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    try {
+      req.rawBody = buf.toString('utf8');
+    } catch (_) {
+      req.rawBody = undefined;
+    }
+  }
+}));
 
 // Initialize Stripe
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -14855,29 +14863,27 @@ async function getQuickBooksInvoiceDetails(integrationData, invoiceId) {
 // Helper function to use AI to select the best template
 async function selectTemplateByAI(businessId, invoiceDetails, customerData, triggerType) {
   try {
-    // Get all available templates for this business
+    // Get automations templates from Automations tab
     const { data: templates, error: templatesError } = await supabase
-      .from('message_templates')
-      .select('id, name, content, type, metadata')
+      .from('automation_templates')
+      .select('id, name, key, status, channels, trigger_type, config_json')
       .eq('business_id', businessId)
-      .eq('status', 'active')
-      .eq('type', 'review_request');
+      .in('status', ['active', 'ready']);
     
     if (templatesError || !templates || templates.length === 0) {
       console.error('❌ No templates found for business:', businessId);
       return null;
     }
     
-    // Filter by triggerType if provided (metadata.trigger_events is array)
+    // Filter by QBO trigger if provided
     let candidateTemplates = templates;
     if (triggerType) {
+      const tKey = String(triggerType).replace(/^qbo_/, '');
       candidateTemplates = templates.filter(t => {
-        const events = (t.metadata && (t.metadata.trigger_events || t.metadata.triggers)) || [];
-        if (Array.isArray(events)) return events.includes(triggerType);
-        // Support nested by CRM e.g. metadata.triggers.qbo.invoice_sent
-        if (t.metadata && t.metadata.triggers && t.metadata.triggers.qbo) {
-          return t.metadata.triggers.qbo[triggerType] === true || t.metadata.triggers.qbo[triggerType?.replace('qbo_', '')] === true;
-        }
+        const cfg = t.config_json || {};
+        const triggers = (cfg.triggers && cfg.triggers.qbo) || null;
+        if (triggers && (triggers[triggerType] === true || triggers[tKey] === true)) return true;
+        if (t.trigger_type === 'event' && (t.key?.includes(tKey) || t.name?.toLowerCase().includes(tKey))) return true;
         return false;
       });
       if (candidateTemplates.length === 0) candidateTemplates = templates; // fallback to all
@@ -14904,14 +14910,16 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData, trig
 
     // Score candidates by keyword/name first
     const scored = candidateTemplates.map(t => {
-      const keywords = (
-        (t.metadata && (t.metadata.service_types || t.metadata.keywords)) || []
-      ).map(k => String(k).toLowerCase());
+      const cfg = t.config_json || {};
+      const keywords = ([])
+        .concat(cfg.keywords || [])
+        .concat(cfg.service_types || [])
+        .map(k => String(k).toLowerCase());
       const nameParts = String(t.name || '').toLowerCase().split(/[^a-z0-9]+/);
       let hits = 0;
       keywords.forEach(k => { if (k && invoiceText.includes(k)) hits += 2; });
       nameParts.forEach(n => { if (n && n.length > 2 && invoiceText.includes(n)) hits += 1; });
-      const priority = (t.metadata && (t.metadata.priority ?? 0)) || 0;
+      const priority = (cfg.priority ?? 0) || 0;
       return { t, score: hits * 10 + priority };
     }).sort((a,b)=> b.score - a.score);
 
@@ -14923,7 +14931,7 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData, trig
 You are a customer service AI that selects the most appropriate review request template based on the service provided.
 
 Available templates:
-${candidateTemplates.map((t, i) => `${i + 1}. "${t.name}" - ${t.content.substring(0, 100)}...`).join('\n')}
+${candidateTemplates.map((t, i) => `${i + 1}. "${t.name}" - ${(t.config_json?.message || '').substring(0, 100)}...`).join('\n')}
 
 Invoice details:
 - Job Type: ${invoiceDetails.jobType}
@@ -14972,15 +14980,13 @@ Respond with only the template number (1-${candidateTemplates.length}).
     
   } catch (error) {
     console.error('❌ AI template selection failed:', error);
-    // Fallback to first template
+    // Fallback to first template in automation_templates
     const { data: fallbackTemplates } = await supabase
-      .from('message_templates')
-      .select('id, name, content, type')
+      .from('automation_templates')
+      .select('id, name, config_json')
       .eq('business_id', businessId)
-      .eq('status', 'active')
-      .eq('type', 'review_request')
+      .in('status', ['active', 'ready'])
       .limit(1);
-    
     return fallbackTemplates?.[0] || null;
   }
 }
@@ -15062,6 +15068,23 @@ app.get('/api/quickbooks/webhook-test', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Webhook test error:', error);
+    return res.status(500).json({ error: 'Test failed' });
+  }
+});
+
+// Alias to support client calls to /api/qbo/webhook-test
+app.get('/api/qbo/webhook-test', async (req, res) => {
+  try {
+    console.log('🧪 QBO webhook test alias endpoint hit');
+    return res.status(200).json({
+      success: true,
+      message: 'QuickBooks webhook endpoint is accessible',
+      timestamp: new Date().toISOString(),
+      url: '/api/qbo/webhook',
+      method: 'POST'
+    });
+  } catch (error) {
+    console.error('❌ Webhook test alias error:', error);
     return res.status(500).json({ error: 'Test failed' });
   }
 });
@@ -15685,6 +15708,25 @@ app.post('/api/qbo/webhook', async (req, res) => {
   try {
     console.log('🔔 QBO webhook received:', JSON.stringify(req.body, null, 2));
     console.log('🔔 QBO webhook headers:', req.headers);
+
+    // Verify Intuit HMAC signature if configured
+    const signature = req.headers['intuit-signature'];
+    const verifier = process.env.QBO_WEBHOOK_VERIFIER_TOKEN;
+    if (verifier) {
+      if (!signature || !req.rawBody) {
+        console.error('[QBO] Missing signature or rawBody for verification');
+        return res.status(401).json({ error: 'signature_required' });
+      }
+      const expected = require('crypto')
+        .createHmac('sha256', verifier)
+        .update(req.rawBody)
+        .digest('base64');
+      if (signature !== expected) {
+        console.error('[QBO] Invalid webhook signature');
+        return res.status(401).json({ error: 'invalid_signature' });
+      }
+      console.log('[QBO] Webhook signature verified');
+    }
     
     // Normalize Intuit event payload → { eventType, payload }
     let { eventType, payload } = req.body || {};
@@ -15837,32 +15879,42 @@ app.post('/api/qbo/webhook', async (req, res) => {
       
       console.log('📝 Selected template:', selectedTemplate.name);
       
-      // Queue the review request
-      const { error: queueError } = await supabase
-        .from('automation_queue')
+      // Create review request and enqueue scheduled job for email
+      const scheduledFor = new Date(Date.now() + (selectedTemplate.delay_minutes || 0) * 60000).toISOString();
+      const { data: createdReq, error: rrError } = await supabase
+        .from('review_requests')
         .insert({
           business_id: integration.business_id,
           customer_id: customer.id,
-          template_id: selectedTemplate.id,
-          trigger_type: isPaid ? 'qbo_invoice_paid' : 'qbo_invoice_sent',
-          trigger_data: {
-            invoice_id: invoiceId,
-            realm_id: realmId,
-            amount: invoiceDetails.TotalAmt,
-            balance: invoiceDetails.Balance,
-            email_status: invoiceDetails.EmailStatus,
-            txn_status: invoiceDetails.TxnStatus
-          },
+          channel: 'email',
+          review_link: null,
+          message: (selectedTemplate.config_json?.message || selectedTemplate.name || 'Please review us'),
           status: 'pending',
-          scheduled_for: new Date(Date.now() + (selectedTemplate.delay_minutes || 0) * 60000).toISOString()
-        });
-      
-      if (queueError) {
-        console.error('❌ Failed to queue review request:', queueError);
-        return res.status(500).json({ error: 'Failed to queue review request' });
+          created_at: new Date().toISOString()
+        })
+        .select('id')
+        .single();
+
+      if (rrError || !createdReq) {
+        console.error('❌ Failed to create review request:', rrError);
+        return res.status(500).json({ error: 'Failed to create review request' });
       }
-      
-      console.log('✅ Review request queued successfully');
+
+      const { error: jobError } = await supabase
+        .from('scheduled_jobs')
+        .insert({
+          job_type: 'automation_email',
+          status: 'queued',
+          run_at: scheduledFor,
+          payload: { review_request_id: createdReq.id }
+        });
+
+      if (jobError) {
+        console.error('❌ Failed to enqueue scheduled job:', jobError);
+        return res.status(500).json({ error: 'Failed to enqueue job' });
+      }
+
+      console.log('✅ Review request created and job scheduled');
       
       // Update last webhook time
       await supabase
@@ -15947,24 +15999,30 @@ async function qboHandleInvoiceEvent(integration, invoiceId, triggerType) {
   if (!customer) return;
   const selectedTemplate = await selectTemplateByAI(integration.business_id, invoiceDetails, customer, triggerType);
   if (!selectedTemplate) return;
-  await supabase
-    .from('automation_queue')
+  const scheduledFor = new Date(Date.now() + (selectedTemplate.delay_minutes || 0) * 60000).toISOString();
+  const { data: createdReq } = await supabase
+    .from('review_requests')
     .insert({
       business_id: integration.business_id,
       customer_id: customer.id,
-      template_id: selectedTemplate.id,
-      trigger_type: triggerType,
-      trigger_data: {
-        invoice_id: invoiceId,
-        realm_id: integration.realm_id,
-        amount: invoiceDetails.TotalAmt,
-        balance: invoiceDetails.Balance,
-        email_status: invoiceDetails.EmailStatus,
-        txn_status: invoiceDetails.TxnStatus
-      },
+      channel: 'email',
+      review_link: null,
+      message: (selectedTemplate.config_json?.message || selectedTemplate.name || 'Please review us'),
       status: 'pending',
-      scheduled_for: new Date(Date.now() + (selectedTemplate.delay_minutes || 0) * 60000).toISOString()
-    });
+      created_at: new Date().toISOString()
+    })
+    .select('id')
+    .single();
+  if (createdReq && createdReq.id) {
+    await supabase
+      .from('scheduled_jobs')
+      .insert({
+        job_type: 'automation_email',
+        status: 'queued',
+        run_at: scheduledFor,
+        payload: { review_request_id: createdReq.id }
+      });
+  }
 }
 
 // Helper: fetch Payment details and expand LinkedTxn
@@ -16325,6 +16383,278 @@ app.get('/api/test-qbo-customers', async (req, res) => {
   } catch (err) {
     console.error('[TEST] Error:', err);
     return res.status(500).json({ error: 'Test failed', details: err.message });
+  }
+});
+
+// DEV: Simulate a QBO invoice event and queue automation
+app.post('/api/qbo/test-simulate-invoice', async (req, res) => {
+  try {
+    const { business_id, realm_id, description, trigger = 'invoice_sent', amount = 150 } = req.body || {};
+    if (!business_id || !realm_id || !description) {
+      return res.status(400).json({ error: 'business_id, realm_id, description required' });
+    }
+
+    // Get any QBO-linked customer for this business
+    const { data: customer, error: custErr } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('business_id', business_id)
+      .eq('external_source', 'qbo')
+      .limit(1)
+      .maybeSingle();
+    if (custErr || !customer) {
+      return res.status(404).json({ error: 'No QBO customer found for business' });
+    }
+
+    // Minimal integration row
+    const { data: integration, error: integErr } = await supabase
+      .from('integrations_quickbooks')
+      .select('*')
+      .eq('business_id', business_id)
+      .eq('realm_id', realm_id)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (integErr || !integration) {
+      return res.status(404).json({ error: 'No QuickBooks integration for business/realm' });
+    }
+
+    // Fabricate invoiceDetails similar to API shape
+    const invoiceDetails = {
+      Id: 'SIMULATED',
+      TotalAmt: amount,
+      Balance: trigger === 'invoice_paid' ? 0 : amount,
+      EmailStatus: trigger === 'invoice_sent' ? 'EmailSent' : 'NotSet',
+      TxnStatus: trigger === 'invoice_paid' ? 'Paid' : 'Open',
+      CustomerRef: { value: customer.external_id || customer.id },
+      Line: [ { Description: description, Amount: amount } ]
+    };
+
+    // Map to internal trigger type
+    const triggerType = trigger === 'invoice_paid' ? 'qbo_invoice_paid' : 'qbo_invoice_sent';
+
+    // Reuse selector
+    const selectedTemplate = await selectTemplateByAI(business_id, {
+      jobType: description.toLowerCase(),
+      serviceCategory: description.toLowerCase(),
+      lineItems: invoiceDetails.Line,
+      totalAmount: amount
+    }, customer, triggerType);
+
+    if (!selectedTemplate) {
+      return res.status(200).json({ success: true, queued: false, message: 'No suitable template found' });
+    }
+
+    const scheduledFor = new Date(Date.now() + (selectedTemplate.delay_minutes || 0) * 60000).toISOString();
+    const { data: createdReq, error: rrError } = await supabase
+      .from('review_requests')
+      .insert({
+        business_id,
+        customer_id: customer.id,
+        template_id: selectedTemplate.id,
+        status: 'pending',
+        trigger_type: triggerType,
+        external_source: 'qbo',
+        external_meta: {
+          invoice_id: 'SIMULATED',
+          realm_id,
+          amount,
+          description
+        },
+        scheduled_for: scheduledFor
+      })
+      .select('id')
+      .single();
+
+    if (rrError || !createdReq) {
+      return res.status(500).json({ error: 'Failed to create review request' });
+    }
+
+    const { error: jobError } = await supabase
+      .from('scheduled_jobs')
+      .insert({
+        job_type: 'automation_email',
+        status: 'queued',
+        run_at: scheduledFor,
+        payload: { review_request_id: createdReq.id }
+      });
+    if (jobError) {
+      return res.status(500).json({ error: 'Failed to enqueue job' });
+    }
+
+    return res.status(200).json({ success: true, queued: true, review_request_id: createdReq.id, template_id: selectedTemplate.id, scheduled_for: scheduledFor });
+  } catch (e) {
+    console.error('[TEST] simulate-invoice error:', e);
+    return res.status(500).json({ error: 'simulation_failed', details: e.message });
+  }
+});
+
+// DEV: List recent review requests for a business
+app.get('/api/qbo/test-review-requests', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+    if (!business_id) return res.status(400).json({ error: 'business_id required' });
+    const { data, error } = await supabase
+      .from('review_requests')
+      .select('id, business_id, customer_id, channel, message, status, created_at')
+      .eq('business_id', business_id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ count: data?.length || 0, items: data || [] });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+// DEV: Seed a minimal QBO integration and QBO-tagged customer for the first business
+app.post('/api/qbo/test-seed', async (req, res) => {
+  try {
+    // Find or create a business to attach integration/customer
+    let { data: bizRow } = await supabase
+      .from('businesses')
+      .select('id, name')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (!bizRow) {
+      // Find or create a dev user profile
+      let devUserId = null;
+      const { data: anyProfile } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .limit(1)
+        .maybeSingle();
+      if (anyProfile && anyProfile.user_id) {
+        devUserId = anyProfile.user_id;
+      } else {
+        // Generate a deterministic UUID-like string for dev
+        devUserId = '11111111-1111-1111-1111-111111111111';
+        // Create profile with placeholder email, will set business_id after business insert
+        await supabase
+          .from('profiles')
+          .insert({
+            user_id: devUserId,
+            email: 'dev@example.com',
+            username: 'devuser',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+      }
+
+      // Insert a minimal business with created_by
+      const bizInsert = await supabase
+        .from('businesses')
+        .insert({
+          name: 'Test Business',
+          created_by: devUserId,
+          industry: 'General',
+          timezone: 'America/New_York',
+          working_hours_start: '08:00:00',
+          working_hours_end: '20:00:00'
+        })
+        .select('id')
+        .single();
+
+      if (bizInsert.error || !bizInsert.data) {
+        return res.status(500).json({ error: 'Failed to create business', details: bizInsert.error?.message });
+      }
+
+      const newBusinessId = bizInsert.data.id;
+      // Link profile to business
+      await supabase
+        .from('profiles')
+        .update({ business_id: newBusinessId, updated_at: new Date().toISOString() })
+        .eq('user_id', devUserId);
+
+      bizRow = { id: newBusinessId, name: 'Test Business' };
+    }
+
+    const businessId = bizRow.id;
+    const realmId = req.body?.realm_id || 'SIM_REALM_001';
+
+    // Ensure an integrations_quickbooks row exists
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const { data: existingIntegration } = await supabase
+      .from('integrations_quickbooks')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('realm_id', realmId)
+      .limit(1)
+      .maybeSingle();
+
+    if (!existingIntegration) {
+      await supabase
+        .from('integrations_quickbooks')
+        .insert({
+          business_id: businessId,
+          realm_id: realmId,
+          access_token: 'sim_access',
+          refresh_token: 'sim_refresh',
+          token_expires_at: expiresAt,
+          connection_status: 'connected',
+          updated_at: new Date().toISOString()
+        });
+    }
+
+    // Ensure a QBO-tagged customer exists for this business
+    const simExternalId = 'SIM_CUST_001';
+    const { data: existingCustomer } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('external_source', 'qbo')
+      .eq('external_id', simExternalId)
+      .limit(1)
+      .maybeSingle();
+
+    if (!existingCustomer) {
+      await supabase
+        .from('customers')
+        .insert({
+          business_id: businessId,
+          full_name: 'Simulated QBO Customer',
+          email: 'simulated-qbo@example.com',
+          phone: null,
+          status: 'active',
+          created_by: 'system',
+          external_source: 'qbo',
+          external_id: simExternalId,
+          external_meta: { source: 'test-seed' }
+        });
+    }
+
+    // Ensure at least one active review template exists for QBO invoice_sent with lawn keywords
+    const { count: tmplCount } = await supabase
+      .from('message_templates')
+      .select('*', { count: 'exact', head: true })
+      .eq('business_id', businessId)
+      .eq('status', 'active')
+      .eq('type', 'review_request');
+
+    if (!tmplCount || tmplCount === 0) {
+      await supabase
+        .from('message_templates')
+        .insert({
+          business_id: businessId,
+          name: 'Grass Cutting Review Request',
+          content: 'Hi {{customer_name}}, thanks for choosing us for your lawn care. Would you mind leaving a quick review?',
+          type: 'review_request',
+          status: 'active',
+          metadata: {
+            triggers: { qbo: { invoice_sent: true } },
+            keywords: ['grass', 'mow', 'lawn'],
+            service_types: ['lawn_care'],
+            priority: 10,
+          },
+          delay_minutes: 0
+        });
+    }
+
+    return res.json({ success: true, business_id: businessId, realm_id: realmId, customer_external_id: simExternalId });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
   }
 });
 
