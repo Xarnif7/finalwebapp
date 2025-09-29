@@ -10364,11 +10364,11 @@ app.post('/api/profile/ensure-setup', async (req, res) => {
     } else {
       // New user, set up profile and business using the permanent solution
       console.log('[PROFILE_SETUP] New user detected, setting up profile and business...');
-      const { data: setupResult, error: setupError } = await supabase
-        .rpc('setup_new_user_complete', { 
-          user_id: user.id, 
-          user_email: userEmail 
-        });
+                      const { data: setupResult, error: setupError } = await supabase
+                        .rpc('setup_new_user_simple', { 
+                          user_id: user.id, 
+                          user_email: userEmail 
+                        });
 
       if (setupError) {
         console.error('[PROFILE_SETUP] Database error:', setupError);
