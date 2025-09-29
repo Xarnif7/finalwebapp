@@ -9,7 +9,8 @@ const getBaseUrl = () => {
 // Get fresh access token from Supabase
 const getAccessToken = async () => {
   try {
-    const { data: { session } } = await import('../lib/supabaseClient').then(m => m.supabase.auth.getSession());
+    const { supabase } = await import('../lib/supabase/browser');
+    const { data: { session } } = await supabase.auth.getSession();
     return session?.access_token;
   } catch (error) {
     console.error('[API] Error getting access token:', error);
