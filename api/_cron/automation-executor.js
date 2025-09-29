@@ -7,6 +7,36 @@ const supabase = createClient(
 
 export default async function handler(req, res) {
   try {
+    // Preemptively refresh QBO tokens that expire in <15 minutes
+    const now = new Date();
+    const soon = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
+    const { createClient } = require('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const { data: expiring } = await supabase
+      .from('integrations_quickbooks')
+      .select('*')
+      .lt('token_expires_at', soon);
+    if (expiring && expiring.length) {
+      for (const row of expiring) {
+        try {
+          if (!row.refresh_token) continue;
+          const basic = Buffer.from(`${process.env.QBO_CLIENT_ID}:${process.env.QBO_CLIENT_SECRET}`).toString('base64');
+          const resp = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+            method: 'POST',
+            headers: { 'Authorization': `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: row.refresh_token }).toString()
+          });
+          if (resp.ok) {
+            const tok = await resp.json();
+            const expiresAt = new Date(Date.now() + (tok.expires_in || 3600) * 1000).toISOString();
+            await supabase
+              .from('integrations_quickbooks')
+              .update({ access_token: tok.access_token, refresh_token: tok.refresh_token || row.refresh_token, token_expires_at: expiresAt, connection_status: 'connected', updated_at: new Date().toISOString() })
+              .eq('id', row.id);
+          }
+        } catch {}
+      }
+    }
     console.log('🔄 Automation executor cron job triggered');
     console.log('🔍 DEBUG: Method:', req.method);
     console.log('🔍 DEBUG: URL:', req.url);

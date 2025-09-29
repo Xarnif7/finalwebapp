@@ -15107,7 +15107,7 @@ app.get('/api/qbo/status', async (req, res) => {
     }
 
     // Get the most recent integration
-    const integration = integrations[0];
+    let integration = integrations[0];
     
     console.log(`[QBO] Status check for business ${business_id}:`, {
       integrationId: integration.id,
@@ -15117,9 +15117,36 @@ app.get('/api/qbo/status', async (req, res) => {
       timestamp: new Date().toISOString()
     });
     
-    // Check token expiration and connection status
+    // Check token expiration and refresh if needed so status/API calls work without user session
     const now = new Date();
-    const isExpired = integration.token_expires_at && new Date(integration.token_expires_at) <= now;
+    let isExpired = integration.token_expires_at && new Date(integration.token_expires_at) <= now;
+    if (isExpired && integration.refresh_token && process.env.QBO_CLIENT_ID && process.env.QBO_CLIENT_SECRET) {
+      try {
+        const basic = Buffer.from(`${process.env.QBO_CLIENT_ID}:${process.env.QBO_CLIENT_SECRET}`).toString('base64');
+        const resp = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+          method: 'POST',
+          headers: { 'Authorization': `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: integration.refresh_token }).toString()
+        });
+        if (resp.ok) {
+          const tok = await resp.json();
+          const expiresAt = new Date(Date.now() + (tok.expires_in || 3600) * 1000).toISOString();
+          await supabase
+            .from('integrations_quickbooks')
+            .update({ access_token: tok.access_token, refresh_token: tok.refresh_token || integration.refresh_token, token_expires_at: expiresAt, connection_status: 'connected', updated_at: new Date().toISOString() })
+            .eq('id', integration.id);
+          integration.access_token = tok.access_token;
+          integration.refresh_token = tok.refresh_token || integration.refresh_token;
+          integration.token_expires_at = expiresAt;
+          integration.connection_status = 'connected';
+          isExpired = false;
+          console.log('[QBO][status] Token refreshed preemptively');
+        }
+      } catch (e) {
+        console.log('[QBO][status] Token refresh error:', e.message);
+      }
+    }
+
     const isConnected = integration.connection_status === 'connected' && !isExpired;
     
     console.log(`[QBO] Connection check:`, {
