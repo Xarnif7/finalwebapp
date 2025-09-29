@@ -64,17 +64,30 @@ const ReviewsInbox = ({ onReviewsChange }) => {
       }
     };
 
-    const scrollContainer = document.querySelector('.reviews-scroll-container');
-    if (scrollContainer) {
-      console.log('📜 Scroll container found, adding event listener');
-      scrollContainer.addEventListener('scroll', handleScroll);
-      return () => {
-        console.log('📜 Removing scroll event listener');
-        scrollContainer.removeEventListener('scroll', handleScroll);
-      };
-    } else {
-      console.log('❌ Scroll container not found');
-    }
+    const setupScrollListener = () => {
+      const scrollContainer = document.querySelector('.reviews-scroll-container');
+      if (scrollContainer) {
+        console.log('📜 Scroll container found, adding event listener');
+        scrollContainer.addEventListener('scroll', handleScroll);
+        return () => {
+          console.log('📜 Removing scroll event listener');
+          scrollContainer.removeEventListener('scroll', handleScroll);
+        };
+      } else {
+        console.log('❌ Scroll container not found, retrying in 100ms');
+        // Retry after a short delay if container not found
+        setTimeout(() => {
+          const retryContainer = document.querySelector('.reviews-scroll-container');
+          if (retryContainer) {
+            console.log('📜 Scroll container found on retry, adding event listener');
+            retryContainer.addEventListener('scroll', handleScroll);
+          }
+        }, 100);
+        return undefined;
+      }
+    };
+
+    return setupScrollListener();
   }, [hasMore, isLoadingMore]);
 
   // Force cache refresh - v4
@@ -125,6 +138,19 @@ const ReviewsInbox = ({ onReviewsChange }) => {
         }
       });
       
+      // Check if response is ok and content-type is JSON
+      if (!response.ok) {
+        console.error('❌ Reviews API error:', response.status, response.statusText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('❌ Reviews API returned non-JSON response:', text.substring(0, 200));
+        throw new Error('API returned non-JSON response');
+      }
+      
       const data = await response.json();
       
       console.log('📊 Reviews API Response:', {
@@ -160,6 +186,13 @@ const ReviewsInbox = ({ onReviewsChange }) => {
       }
     } catch (error) {
       console.error('Error loading reviews:', error);
+      // Set empty reviews array on error to prevent UI issues
+      if (reset) {
+        setReviews([]);
+        if (onReviewsChange) {
+          onReviewsChange([]);
+        }
+      }
     } finally {
       setIsLoading(false);
     }

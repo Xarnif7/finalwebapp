@@ -91,6 +91,20 @@ export default function ReviewsInbox() {
 
         // Fetch reviews
         const response = await fetch(`/api/reviews?business_id=${currentBusiness.id}`);
+        
+        // Check if response is ok and content-type is JSON
+        if (!response.ok) {
+          console.error('❌ Reviews API error:', response.status, response.statusText);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await response.text();
+          console.error('❌ Reviews API returned non-JSON response:', text.substring(0, 200));
+          throw new Error('API returned non-JSON response');
+        }
+        
         const data = await response.json();
         setReviews(data.reviews || []);
       }
