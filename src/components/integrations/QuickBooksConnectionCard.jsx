@@ -120,12 +120,45 @@ const QuickBooksConnectionCard = () => {
       return;
     }
 
+    setIsConnecting(true);
+
     // Use window.location.href for OAuth redirect (not fetch)
     const connectUrl = `/api/qbo/connect?business_id=${business.id}`;
     console.log('🔗 QuickBooks Connect URL:', connectUrl);
     
-    // Redirect to OAuth flow
-    window.location.href = connectUrl;
+    // Open OAuth window
+    const authWindow = window.open(
+      connectUrl,
+      'quickbooks-auth',
+      'width=600,height=700,scrollbars=yes,resizable=yes'
+    );
+
+    // Listen for success message
+    const handleMessage = (event) => {
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data.type === 'QUICKBOOKS_CONNECTED') {
+        authWindow.close();
+        setIsConnecting(false);
+        setConnectionStatus('connected');
+        toast({
+          title: "Success",
+          description: "QuickBooks connected successfully!"
+        });
+        checkConnectionStatus();
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    // Cleanup listener after 5 minutes
+    setTimeout(() => {
+      window.removeEventListener('message', handleMessage);
+      if (authWindow && !authWindow.closed) {
+        authWindow.close();
+        setIsConnecting(false);
+      }
+    }, 300000);
   };
 
   const handleSyncCustomers = async () => {

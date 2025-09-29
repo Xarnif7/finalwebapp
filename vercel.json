@@ -116,7 +116,11 @@
     },
     {
       "source": "/api/qbo-oauth-callback",
-      "destination": "/api/qbo-oauth-callback.js"
+      "destination": "/server.js"
+    },
+    {
+      "source": "/api/test-qbo-callback",
+      "destination": "/api/test-qbo-callback.js"
     },
     {
       "source": "/auth/callback",
