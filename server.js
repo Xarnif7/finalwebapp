@@ -15116,12 +15116,16 @@ app.get('/api/qbo/status', async (req, res) => {
         
         if (companyResponse.ok) {
           const companyData = await companyResponse.json();
+          console.log('[QBO] Company API response data:', JSON.stringify(companyData, null, 2));
           if (companyData.QueryResponse && companyData.QueryResponse.CompanyInfo && companyData.QueryResponse.CompanyInfo[0]) {
             companyName = companyData.QueryResponse.CompanyInfo[0].CompanyName || 'QuickBooks Company';
             console.log('[QBO] Fetched company name:', companyName);
+          } else {
+            console.log('[QBO] Company data structure unexpected:', companyData);
           }
         } else {
-          console.log('[QBO] Company API response not ok:', companyResponse.status, await companyResponse.text());
+          const errorText = await companyResponse.text();
+          console.log('[QBO] Company API response not ok:', companyResponse.status, errorText);
         }
       } catch (error) {
         console.log('[QBO] Could not fetch company name:', error.message);
@@ -15401,6 +15405,92 @@ app.post('/api/qbo/sync-now', async (req, res) => {
     return res.status(200).json({ 
       queued: false,
       error: 'Internal server error'
+    });
+  }
+});
+
+// QBO Test Company Name endpoint
+app.get('/api/qbo/test-company', async (req, res) => {
+  try {
+    const { business_id } = req.query;
+
+    if (!business_id) {
+      return res.status(400).json({ 
+        error: 'Missing required parameter: business_id' 
+      });
+    }
+
+    // Get the integration details
+    const { data: integration, error: integrationError } = await supabase
+      .from('integrations_quickbooks')
+      .select('*')
+      .eq('business_id', business_id)
+      .eq('connection_status', 'connected')
+      .single();
+
+    if (integrationError || !integration) {
+      return res.status(200).json({ 
+        error: 'QuickBooks not connected',
+        integrationError: integrationError?.message
+      });
+    }
+
+    console.log(`[QBO] Testing company name fetch for business ${business_id}, realm ${integration.realm_id}`);
+
+    // Try production URL first
+    let companyResponse = await fetch(`https://quickbooks.api.intuit.com/v3/company/${integration.realm_id}/companyinfo/${integration.realm_id}`, {
+      headers: {
+        'Authorization': `Bearer ${integration.access_token}`,
+        'Accept': 'application/json'
+      }
+    });
+    
+    console.log(`[QBO] Production API response: ${companyResponse.status}`);
+    
+    // If production fails, try sandbox
+    if (!companyResponse.ok) {
+      console.log('[QBO] Production API failed, trying sandbox');
+      companyResponse = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${integration.realm_id}/companyinfo/${integration.realm_id}`, {
+        headers: {
+          'Authorization': `Bearer ${integration.access_token}`,
+          'Accept': 'application/json'
+        }
+      });
+      console.log(`[QBO] Sandbox API response: ${companyResponse.status}`);
+    }
+    
+    const responseText = await companyResponse.text();
+    console.log(`[QBO] API response body: ${responseText}`);
+    
+    let companyData = null;
+    let companyName = 'Unknown';
+    
+    if (companyResponse.ok) {
+      try {
+        companyData = JSON.parse(responseText);
+        if (companyData.QueryResponse && companyData.QueryResponse.CompanyInfo && companyData.QueryResponse.CompanyInfo[0]) {
+          companyName = companyData.QueryResponse.CompanyInfo[0].CompanyName || 'Unknown';
+        }
+      } catch (parseError) {
+        console.log('[QBO] JSON parse error:', parseError.message);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      realm_id: integration.realm_id,
+      api_status: companyResponse.status,
+      api_url_used: companyResponse.ok ? 'production' : 'sandbox',
+      company_name: companyName,
+      raw_response: responseText,
+      parsed_data: companyData
+    });
+
+  } catch (error) {
+    console.error('[QBO] Test company error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
     });
   }
 });
