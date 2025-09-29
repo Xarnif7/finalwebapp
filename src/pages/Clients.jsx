@@ -281,7 +281,9 @@ export default function ClientsPage() {
 
   // Customer list display logic
   const DISPLAY_LIMIT = 10;
-  const displayedCustomers = showAllCustomers ? customers : customers.slice(0, DISPLAY_LIMIT);
+  // Auto-show all customers if there are 5 or fewer (common case for new businesses)
+  const shouldShowAll = customers.length <= 5 || showAllCustomers;
+  const displayedCustomers = shouldShowAll ? customers : customers.slice(0, DISPLAY_LIMIT);
   const remainingCount = Math.max(0, customers.length - DISPLAY_LIMIT);
   const hasMoreCustomers = customers.length > DISPLAY_LIMIT;
 
@@ -853,7 +855,7 @@ export default function ClientsPage() {
                       onClick={() => setShowAllCustomers(!showAllCustomers)}
                       className="flex items-center gap-2"
                     >
-                      {showAllCustomers ? (
+                      {shouldShowAll ? (
                         <>
                           <span>Show Less</span>
                           <span className="text-slate-500">({DISPLAY_LIMIT} shown)</span>
