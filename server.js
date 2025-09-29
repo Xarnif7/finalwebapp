@@ -15336,7 +15336,7 @@ async function syncQuickBooksCustomers(business_id, integration) {
         const { error: upsertError } = await supabase
           .from('customers')
           .upsert(customerData, {
-            onConflict: 'business_id,external_source,external_id'
+            onConflict: 'business_id,external_id'
           });
 
         if (upsertError) {
