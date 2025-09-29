@@ -10147,6 +10147,175 @@ app.post('/api/crm/jobber/test-webhook', async (req, res) => {
   }
 });
 
+// Run new user migration (one-time setup)
+app.post('/api/admin/run-new-user-migration', async (req, res) => {
+  try {
+    console.log('🔄 Running new user profile creation migration...');
+    
+    // Read and execute the migration
+    const migrationSQL = `
+-- Fix new user profile creation
+-- This migration adds a trigger to automatically create profiles and businesses for new users
+
+-- 1. Create function to handle new user signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  business_id UUID;
+  user_email TEXT;
+BEGIN
+  -- Get the user's email
+  user_email := NEW.email;
+  
+  -- Create a default business for the new user
+  INSERT INTO public.businesses (name, created_by)
+  VALUES (user_email || '''s Business', user_email)
+  RETURNING id INTO business_id;
+  
+  -- Generate zapier_token for the new business
+  UPDATE public.businesses 
+  SET zapier_token = 'blipp_' || encode(gen_random_bytes(16), 'hex')
+  WHERE id = business_id;
+  
+  -- Create profile for the new user
+  INSERT INTO public.profiles (id, email, business_id, role, created_at, updated_at)
+  VALUES (NEW.id, user_email, business_id, 'owner', NOW(), NOW());
+  
+  -- The handle_new_business trigger will automatically create default automation templates
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 2. Create trigger to run on new user signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 3. Ensure profiles table has the correct structure
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS email TEXT,
+ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'owner',
+ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+-- 4. Update RLS policies to allow profile creation during signup
+DROP POLICY IF EXISTS "Users can insert their profiles by email" ON public.profiles;
+CREATE POLICY "Users can insert their profiles by email" ON public.profiles
+FOR INSERT WITH CHECK (
+  email = auth.jwt() ->> 'email' OR
+  id = auth.uid()
+);
+
+-- 5. Update businesses RLS policies to allow business creation during signup
+DROP POLICY IF EXISTS "Users can insert their businesses by email" ON public.businesses;
+CREATE POLICY "Users can insert their businesses by email" ON public.businesses
+FOR INSERT WITH CHECK (
+  created_by = auth.jwt() ->> 'email' OR
+  created_by = auth.uid()::text
+);
+
+-- 6. Add a function to get business by user email (for existing users)
+CREATE OR REPLACE FUNCTION public.get_business_by_user_email(user_email TEXT)
+RETURNS UUID AS $$
+DECLARE
+  business_id UUID;
+BEGIN
+  -- Try to get existing business
+  SELECT id INTO business_id
+  FROM public.businesses 
+  WHERE created_by = user_email
+  ORDER BY created_at DESC
+  LIMIT 1;
+  
+  RETURN business_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 7. Create a function to ensure user has profile and business
+CREATE OR REPLACE FUNCTION public.ensure_user_setup(user_email TEXT)
+RETURNS UUID AS $$
+DECLARE
+  user_id UUID;
+  business_id UUID;
+  profile_exists BOOLEAN;
+BEGIN
+  -- Get user ID from email
+  SELECT id INTO user_id
+  FROM auth.users
+  WHERE email = user_email;
+  
+  IF user_id IS NULL THEN
+    RAISE EXCEPTION 'User not found: %', user_email;
+  END IF;
+  
+  -- Check if profile exists
+  SELECT EXISTS(SELECT 1 FROM public.profiles WHERE id = user_id) INTO profile_exists;
+  
+  IF NOT profile_exists THEN
+    -- Get or create business
+    business_id := public.get_business_by_user_email(user_email);
+    
+    IF business_id IS NULL THEN
+      -- Create business
+      INSERT INTO public.businesses (name, created_by)
+      VALUES (user_email || '''s Business', user_email)
+      RETURNING id INTO business_id;
+      
+      -- Generate zapier_token
+      UPDATE public.businesses 
+      SET zapier_token = 'blipp_' || encode(gen_random_bytes(16), 'hex')
+      WHERE id = business_id;
+    END IF;
+    
+    -- Create profile
+    INSERT INTO public.profiles (id, email, business_id, role, created_at, updated_at)
+    VALUES (user_id, user_email, business_id, 'owner', NOW(), NOW());
+  ELSE
+    -- Get existing business_id
+    SELECT business_id INTO business_id
+    FROM public.profiles
+    WHERE id = user_id;
+  END IF;
+  
+  RETURN business_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 8. Grant necessary permissions
+GRANT EXECUTE ON FUNCTION public.handle_new_user() TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_business_by_user_email(TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.ensure_user_setup(TEXT) TO service_role;
+    `;
+
+    // Execute the migration using raw SQL
+    const { error } = await supabase.rpc('exec', { sql: migrationSQL });
+    
+    if (error) {
+      console.error('❌ Migration failed:', error);
+      return res.status(500).json({ error: 'Migration failed', details: error.message });
+    }
+    
+    console.log('✅ New user migration completed successfully!');
+    
+    res.json({ 
+      success: true, 
+      message: 'New user profile creation migration completed successfully',
+      features: [
+        'Automatic profile creation on user signup',
+        'Automatic business creation with zapier_token', 
+        'Default automation templates created',
+        'Proper RLS policies for new users'
+      ]
+    });
+
+  } catch (error) {
+    console.error('❌ Migration error:', error);
+    res.status(500).json({ error: 'Migration failed', details: error.message });
+  }
+});
+
 // Profile setup endpoint for new users
 app.post('/api/profile/ensure-setup', async (req, res) => {
   try {
