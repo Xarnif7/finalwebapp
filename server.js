@@ -15352,16 +15352,83 @@ async function syncQuickBooksCustomers(business_id, integration) {
 
         console.log(`[QBO] Customer data to upsert:`, JSON.stringify(customerData, null, 2));
 
-        // Upsert customer - try without onConflict first
-        const { error: upsertError } = await supabase
-          .from('customers')
-          .upsert(customerData);
+        // Respect unique (business_id, email) and the "do not overwrite owner edits" rule
+        const normalizedEmail = customerData.email ? customerData.email.toLowerCase() : null;
 
-        if (upsertError) {
-          console.error(`[QBO] Failed to upsert customer ${qbCustomer.Id}:`, upsertError);
+        let existingCustomer = null;
+        if (normalizedEmail) {
+          const { data: byEmail } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('business_id', business_id)
+            .eq('email', normalizedEmail)
+            .limit(1)
+            .maybeSingle();
+          existingCustomer = byEmail || null;
+        }
+
+        // Fallback match by external id if no email match
+        if (!existingCustomer) {
+          const { data: byExternal } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('business_id', business_id)
+            .eq('external_source', 'qbo')
+            .eq('external_id', qbCustomer.Id)
+            .limit(1)
+            .maybeSingle();
+          existingCustomer = byExternal || null;
+        }
+
+        if (existingCustomer) {
+          // If existing row is QBO-sourced, we can refresh presentation fields
+          if (existingCustomer.external_source === 'qbo') {
+            const { error: updateErr } = await supabase
+              .from('customers')
+              .update({
+                full_name: customerData.full_name,
+                email: normalizedEmail,
+                phone: customerData.phone,
+                external_meta: customerData.external_meta,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existingCustomer.id);
+
+            if (updateErr) {
+              console.error(`[QBO] Failed to update existing QBO customer ${qbCustomer.Id}:`, updateErr);
+            } else {
+              console.log(`[QBO] Updated existing QBO customer ${qbCustomer.Id}`);
+              syncedCount++;
+            }
+          } else {
+            // Do not overwrite owner edits; only update external_meta
+            const { error: updateMetaErr } = await supabase
+              .from('customers')
+              .update({
+                external_meta: customerData.external_meta,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existingCustomer.id);
+
+            if (updateMetaErr) {
+              console.error(`[QBO] Failed to update external_meta for customer ${qbCustomer.Id}:`, updateMetaErr);
+            } else {
+              console.log(`[QBO] Updated external_meta for existing non-QBO customer ${qbCustomer.Id}`);
+              // Not counting as a full sync increment to avoid misleading number
+            }
+          }
         } else {
-          console.log(`[QBO] Successfully upserted customer ${qbCustomer.Id}`);
-          syncedCount++;
+          // No conflicts; safe to insert
+          const { error: insertErr } = await supabase
+            .from('customers')
+            .insert([{ ...customerData, email: normalizedEmail }]);
+
+          if (insertErr) {
+            console.error(`[QBO] Failed to insert new customer ${qbCustomer.Id}:`, insertErr);
+          } else {
+            console.log(`[QBO] Inserted new customer ${qbCustomer.Id}`);
+            syncedCount++;
+          }
         }
       } catch (customerError) {
         console.error(`[QBO] Error processing customer ${qbCustomer.Id}:`, customerError);
