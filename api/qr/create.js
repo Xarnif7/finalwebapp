@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     }
 
     // Create QR code record
-    const url = `${process.env.APP_BASE_URL}/r/${qrCode}`;
+    const url = `${process.env.APP_BASE_URL}/api/r/${qrCode}`;
     
     console.log('🔍 Creating QR code record:', {
       business_id: profile.business_id,
