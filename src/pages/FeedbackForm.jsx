@@ -21,6 +21,15 @@ export default function FeedbackForm() {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
 
+  // Robust close helper for QR flows (tries multiple strategies, then redirects)
+  const closeTabOrRedirect = () => {
+    try { window.close(); } catch (_) {}
+    try { window.top?.close?.(); } catch (_) {}
+    try { window.open('', '_self'); window.close(); } catch (_) {}
+    // Final fallback: redirect to root so the user isn't stuck on a blank page
+    setTimeout(() => { try { window.location.href = '/'; } catch (_) {} }, 120);
+  };
+
   useEffect(() => {
     if (!businessId) {
       setError('Invalid business ID');
@@ -135,14 +144,7 @@ export default function FeedbackForm() {
   };
 
   const handleMaybeLaterClick = () => {
-    // QR flow: Attempt to close; if blocked, navigate to about:blank (non-branded) and close again
-    try { window.close(); } catch (_) {}
-    setTimeout(() => {
-      try {
-        window.location.replace('about:blank');
-        setTimeout(() => { try { window.close(); } catch (_) {} }, 50);
-      } catch (_) {}
-    }, 150);
+    closeTabOrRedirect();
   };
 
   const renderStars = () => {
@@ -209,15 +211,7 @@ export default function FeedbackForm() {
               Your feedback has been submitted successfully. {business.name} appreciates your input!
             </p>
             <Button 
-              onClick={() => {
-                try { window.close(); } catch (_) {}
-                setTimeout(() => {
-                  try {
-                    window.location.replace('about:blank');
-                    setTimeout(() => { try { window.close(); } catch (_) {} }, 50);
-                  } catch (_) {}
-                }, 150);
-              }}
+              onClick={closeTabOrRedirect}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white"
             >
               Close
