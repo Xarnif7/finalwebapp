@@ -156,8 +156,11 @@ export default function FeedbackCollectionStandalone() {
   };
 
   const handleMaybeLaterClick = () => {
-    // Always close for this flow
     window.close();
+    setTimeout(() => {
+      const redirectUrl = business?.website || '/';
+      try { window.location.href = redirectUrl; } catch (_) {}
+    }, 150);
   };
 
   const renderStars = () => {

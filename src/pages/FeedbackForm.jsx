@@ -135,8 +135,16 @@ export default function FeedbackForm() {
   };
 
   const handleMaybeLaterClick = () => {
-    // Close the window/tab for QR flow
+    // Close if allowed; otherwise redirect to a safe URL
     window.close();
+    setTimeout(() => {
+      const redirectUrl = business?.website || '/';
+      try {
+        window.location.href = redirectUrl;
+      } catch (_) {
+        // no-op
+      }
+    }, 150);
   };
 
   const renderStars = () => {
@@ -203,8 +211,14 @@ export default function FeedbackForm() {
               Your feedback has been submitted successfully. {business.name} appreciates your input!
             </p>
             <Button 
-              onClick={() => window.close()}
-              className="w-full bg-gradient-to-r from-blue-600 to purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+              onClick={() => {
+                window.close();
+                setTimeout(() => {
+                  const redirectUrl = business?.website || '/';
+                  try { window.location.href = redirectUrl; } catch (_) {}
+                }, 150);
+              }}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white"
             >
               Close
             </Button>

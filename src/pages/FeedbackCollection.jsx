@@ -137,8 +137,14 @@ export default function FeedbackCollection() {
   };
 
   const handleMaybeLaterClick = () => {
-    // Always close the window/tab for email feedback
+    // Close if allowed; otherwise navigate away to a safe URL (business site or root)
     window.close();
+    setTimeout(() => {
+      const fallback = '/';
+      try {
+        window.location.href = fallback;
+      } catch (_) {}
+    }, 150);
   };
 
   const renderStars = () => {
