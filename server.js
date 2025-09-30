@@ -396,18 +396,31 @@ async function getOrCreatePortalConfiguration() {
       return null;
     }
     
-    // Get product IDs from each price (since each price is on a separate product)
-    const productIds = [];
+    // Get product IDs from each price and map prices to their products
+    const productToPricesMap = {};
+    
     for (const priceId of priceIds) {
       try {
         const price = await stripe.prices.retrieve(priceId);
-        if (price.product && !productIds.includes(price.product)) {
-          productIds.push(price.product);
+        const productId = typeof price.product === 'string' ? price.product : price.product?.id;
+        
+        if (!productId) {
+          console.warn('[PORTAL_CONFIG] Price has no product:', priceId);
+          continue;
         }
+        
+        if (!productToPricesMap[productId]) {
+          productToPricesMap[productId] = [];
+        }
+        
+        productToPricesMap[productId].push(priceId);
+        console.log('[PORTAL_CONFIG] Mapped price', priceId, 'to product', productId);
       } catch (error) {
         console.error('[PORTAL_CONFIG] Error retrieving price:', priceId, error.message);
       }
     }
+    
+    const productIds = Object.keys(productToPricesMap);
     
     if (productIds.length === 0) {
       console.warn('[PORTAL_CONFIG] Could not retrieve any product IDs from prices');
@@ -416,20 +429,14 @@ async function getOrCreatePortalConfiguration() {
     
     console.log('[PORTAL_CONFIG] Creating new portal configuration with:', {
       products: productIds,
-      prices: priceIds
+      productToPricesMap: productToPricesMap
     });
     
-    // Build products array for portal configuration
+    // Build products array for portal configuration - each product gets only its own prices
     const portalProducts = productIds.map(productId => {
-      // Find all prices that belong to this product
-      const productPrices = priceIds.filter(priceId => {
-        // We'll include all prices for now, Stripe will filter by product
-        return true;
-      });
-      
       return {
         product: productId,
-        prices: priceIds, // Include all prices, Stripe will show only relevant ones
+        prices: productToPricesMap[productId], // Only include prices that belong to this product
       };
     });
     
