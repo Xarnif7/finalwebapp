@@ -59,6 +59,10 @@
       "destination": "/server.js"
     },
     {
+      "source": "/api/private-feedback/(.*)",
+      "destination": "/server.js"
+    },
+    {
       "source": "/api/qr-feedback",
       "destination": "/server.js"
     },

@@ -865,6 +865,34 @@ app.patch('/api/private-feedback/:id/resolve', async (req, res) => {
       return res.status(400).json({ error: 'resolved must be a boolean' });
     }
 
+    // Enforce business ownership (RLS-safe)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('id', user.id)
+      .maybeSingle();
+    const businessId = profile?.business_id;
+    if (!businessId) return res.status(400).json({ error: 'User not linked to a business' });
+
+    // Ensure the feedback belongs to the same business
+    const { data: fb } = await supabase
+      .from('private_feedback')
+      .select('id, business_id, review_request_id, review_requests(business_id)')
+      .eq('id', id)
+      .maybeSingle();
+    if (!fb) return res.status(404).json({ error: 'Not found' });
+
+    let owner = fb.business_id || fb.review_requests?.business_id;
+    if (!owner && fb.review_request_id) {
+      const { data: rr } = await supabase
+        .from('review_requests')
+        .select('business_id')
+        .eq('id', fb.review_request_id)
+        .maybeSingle();
+      owner = rr?.business_id || owner;
+    }
+    if (owner !== businessId) return res.status(403).json({ error: 'Forbidden' });
+
     // Update the feedback record
     const { data, error } = await supabase
       .from('private_feedback')

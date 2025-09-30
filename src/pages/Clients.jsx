@@ -276,15 +276,35 @@ export default function ClientsPage() {
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [showAllCustomers, setShowAllCustomers] = useState(false);
+  // When filters/search change, reset visible window for infinite scroll
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [queryParams.search, queryParams.status, queryParams.segment]);
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const sentinel = document.getElementById('customers-infinite-sentinel');
+    if (!sentinel) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && hasMoreCustomers && !customersLoading) {
+          setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, customers.length));
+        }
+      });
+    }, { rootMargin: '200px' });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMoreCustomers, customersLoading, customers.length]);
 
   const segmentsEnabled = isFeatureEnabled('customersSegments');
 
   // Customer list display logic - Show first 10 by default, with option to show all
   // All customers are loaded in background, but UI shows manageable chunks
-  const DISPLAY_LIMIT = 10;
-  const displayedCustomers = showAllCustomers ? customers : customers.slice(0, DISPLAY_LIMIT);
-  const remainingCount = Math.max(0, customers.length - DISPLAY_LIMIT);
-  const hasMoreCustomers = customers.length > DISPLAY_LIMIT;
+  // Infinite scroll (8 at a time) — derive visible slice from a moving window
+  const PAGE_SIZE = 8;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const displayedCustomers = customers.slice(0, visibleCount);
+  const hasMoreCustomers = customers.length > visibleCount;
 
   // Multi-select handlers
   const handleSelectAll = () => {
@@ -844,28 +864,9 @@ export default function ClientsPage() {
                   ))}
                 </tbody>
               </table>
-              
-              {/* Show More/Less Button */}
               {hasMoreCustomers && (
-                <div className="mt-4 pt-4 border-t border-slate-200">
-                  <div className="flex justify-center">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowAllCustomers(!showAllCustomers)}
-                      className="flex items-center gap-2"
-                    >
-                      {showAllCustomers ? (
-                        <>
-                          <span>Show Less</span>
-                          <span className="text-slate-500">({DISPLAY_LIMIT} shown)</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Show {remainingCount} Remaining Customers</span>
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                <div className="flex justify-center py-3">
+                  <div id="customers-infinite-sentinel" className="h-1 w-24 bg-transparent"></div>
                 </div>
               )}
             </div>
