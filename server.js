@@ -17044,7 +17044,9 @@ app.get('/api/qr/png/:code', async (req, res) => {
 app.get('/api/r/:code', async (req, res) => {
   try {
     const { code } = req.params;
-    console.log(`🔍 Looking up QR code: ${code}`);
+    console.log(`🔍 QR REDIRECT HIT: Looking up QR code: ${code}`);
+    console.log(`🔍 Full request URL: ${req.url}`);
+    console.log(`🔍 Request headers:`, req.headers);
     
     // Find the QR code and increment scan count
     const { data: qrCode, error } = await supabase

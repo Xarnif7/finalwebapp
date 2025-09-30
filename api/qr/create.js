@@ -71,7 +71,12 @@ export default async function handler(req, res) {
       tech_id: tech_id || null,
       name: name || null,
       code: qrCode,
-      url: url
+      url: url,
+      baseUrl: baseUrl,
+      env_vars: {
+        APP_BASE_URL: process.env.APP_BASE_URL,
+        VITE_SITE_URL: process.env.VITE_SITE_URL
+      }
     });
     
     const { data: qrRecord, error: insertError } = await supabase
