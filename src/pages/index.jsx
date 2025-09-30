@@ -40,6 +40,7 @@ import PrivateFeedback from "./PrivateFeedback";
 import FeedbackCollectionStandalone from "./FeedbackCollectionStandalone";
 import FeedbackStandalone from "./FeedbackStandalone";
 import Feedback from "./Feedback";
+import FeedbackForm from "./FeedbackForm";
 import DashboardOverview from "./DashboardOverview";
 import DevOAuthTest from "./DevOAuthTest";
 import EnvTest from "./EnvTest";
@@ -347,6 +348,7 @@ const MarketingRoutes = () => (
     <Route path="/r/:code" element={<TrackedComponent component={QRRedirect} name="QRRedirect" />} />
     <Route path="/feedback/:requestId" element={<TrackedComponent component={FeedbackStandalone} name="FeedbackCollection" />} />
     <Route path="/private-feedback/:requestId" element={<TrackedComponent component={PrivateFeedback} name="PrivateFeedback" />} />
+    <Route path="/feedback-form/:businessId" element={<TrackedComponent component={FeedbackForm} name="FeedbackForm" />} />
     
     {/* Dev routes */}
     {process.env.NODE_ENV === 'development' && (

@@ -123,6 +123,10 @@
       "destination": "/server.js"
     },
     {
+      "source": "/api/r/(.*)",
+      "destination": "/server.js"
+    },
+    {
       "source": "/api/checkout/(.*)",
       "destination": "/server.js"
     },
