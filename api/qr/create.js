@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { tech_id } = req.body;
+    const { tech_id, name } = req.body;
 
     // Get user from JWT token
     const authHeader = req.headers.authorization;
@@ -68,6 +68,7 @@ export default async function handler(req, res) {
       .insert({
         business_id: profile.business_id,
         tech_id: tech_id || null,
+        name: name || null,
         code: qrCode,
         url: url
       })
@@ -96,6 +97,7 @@ export default async function handler(req, res) {
       qr_code: {
         id: qrRecord.id,
         code: qrCode,
+        name: name,
         url: url,
         tech_id: tech_id,
         created_at: qrRecord.created_at

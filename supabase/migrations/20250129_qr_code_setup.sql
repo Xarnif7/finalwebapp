@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS qr_codes (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
     tech_id UUID REFERENCES techs(id) ON DELETE SET NULL,
+    name VARCHAR(100),
     code TEXT NOT NULL UNIQUE,
     url TEXT NOT NULL,
     scans_count INTEGER DEFAULT 0,

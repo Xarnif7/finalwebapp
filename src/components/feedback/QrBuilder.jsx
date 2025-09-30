@@ -12,6 +12,7 @@ const QrBuilder = () => {
   const [qrCodes, setQrCodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [qrName, setQrName] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -55,6 +56,15 @@ const QrBuilder = () => {
   const generateQRCode = async () => {
     if (!user) return;
     
+    if (!qrName.trim()) {
+      toast({
+        title: "Name Required",
+        description: "Please enter a name for your QR code (e.g., 'Front Office', 'Back Office')",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
       setGenerating(true);
       const { data: { session } } = await supabase.auth.getSession();
@@ -73,7 +83,7 @@ const QrBuilder = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({ name: qrName.trim() })
       });
 
       const result = await response.json();
@@ -84,6 +94,7 @@ const QrBuilder = () => {
           description: "QR code generated successfully!",
         });
         loadQrCodes(); // Reload the list
+        setQrName(''); // Clear the name field
       } else {
         throw new Error(result.error || 'Failed to generate QR code');
       }
@@ -176,8 +187,22 @@ const QrBuilder = () => {
               <h3 className="font-medium">Your QR Codes</h3>
               <p className="text-sm text-gray-600">Generate QR codes for review collection</p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button onClick={generateQRCode} disabled={generating} className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={qrName}
+                  onChange={(e) => setQrName(e.target.value)}
+                  placeholder="Enter QR code name (e.g., Front Office, Back Office)"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={generating}
+                />
+              </div>
+              <Button 
+                onClick={generateQRCode} 
+                disabled={generating || !qrName.trim()} 
+                className="flex items-center gap-2 whitespace-nowrap"
+              >
                 <Plus className="w-4 h-4" />
                 {generating ? "Generating..." : "Generate QR Code"}
               </Button>
@@ -205,11 +230,11 @@ const QrBuilder = () => {
                         <QrCode className="w-6 h-6 text-gray-600" />
                       </div>
                       <div>
-                        <p className="font-medium">QR Code #{qr.code}</p>
+                        <p className="font-medium">{qr.name || `QR Code #${qr.code}`}</p>
                         <p className="text-sm text-gray-600">
                           {qr.scans_count || 0} scans • Created {new Date(qr.created_at).toLocaleDateString()}
-                          {qr.techs && (
-                            <span className="ml-2 text-blue-600">• {qr.techs.name}</span>
+                          {qr.name && (
+                            <span className="ml-2 text-blue-600">• {qr.code}</span>
                           )}
                         </p>
                       </div>
