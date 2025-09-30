@@ -52,15 +52,16 @@ export default async function handler(req, res) {
     }
 
     // Add download URLs to each QR code
+    const baseUrl = process.env.APP_BASE_URL || process.env.VITE_SITE_URL || 'https://myblipp.com';
     const qrCodesWithUrls = qrCodes.map(qr => {
-      const downloadUrl = `${process.env.APP_BASE_URL}/api/qr/download/${qr.code}`;
-      const pngUrl = `${process.env.APP_BASE_URL}/api/qr/png/${qr.code}`;
+      const downloadUrl = `${baseUrl}/api/qr/download/${qr.code}`;
+      const pngUrl = `${baseUrl}/api/qr/png/${qr.code}`;
       
       console.log(`🔍 QR Code ${qr.code} URLs:`, {
         redirect_url: qr.url,
         download_url: downloadUrl,
         png_url: pngUrl,
-        app_base_url: process.env.APP_BASE_URL
+        app_base_url: baseUrl
       });
       
       return {

@@ -63,7 +63,8 @@ export default async function handler(req, res) {
     }
 
     // Create QR code record
-    const url = `${process.env.APP_BASE_URL}/api/r/${qrCode}`;
+    const baseUrl = process.env.APP_BASE_URL || process.env.VITE_SITE_URL || 'https://myblipp.com';
+    const url = `${baseUrl}/api/r/${qrCode}`;
     
     console.log('🔍 Creating QR code record:', {
       business_id: profile.business_id,
@@ -114,8 +115,8 @@ export default async function handler(req, res) {
         tech_id: tech_id,
         created_at: qrRecord.created_at
       },
-      download_url: `${process.env.APP_BASE_URL}/api/qr/download/${qrCode}`,
-      png_url: `${process.env.APP_BASE_URL}/api/qr/png/${qrCode}`
+      download_url: `${baseUrl}/api/qr/download/${qrCode}`,
+      png_url: `${baseUrl}/api/qr/png/${qrCode}`
     });
 
   } catch (error) {
