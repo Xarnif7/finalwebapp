@@ -55,6 +55,8 @@ export default async function handler(req, res) {
     const { data: qrCode, error: qrError } = await supabase
       .rpc('generate_qr_code');
 
+    console.log('🔍 Generated QR code:', qrCode, 'Error:', qrError);
+
     if (qrError) {
       console.error('Error generating QR code:', qrError);
       return res.status(500).json({ error: 'Failed to generate QR code' });
@@ -62,6 +64,14 @@ export default async function handler(req, res) {
 
     // Create QR code record
     const url = `${process.env.APP_BASE_URL}/r/${qrCode}`;
+    
+    console.log('🔍 Creating QR code record:', {
+      business_id: profile.business_id,
+      tech_id: tech_id || null,
+      name: name || null,
+      code: qrCode,
+      url: url
+    });
     
     const { data: qrRecord, error: insertError } = await supabase
       .from('qr_codes')
@@ -74,6 +84,8 @@ export default async function handler(req, res) {
       })
       .select()
       .single();
+
+    console.log('🔍 QR code record created:', qrRecord, 'Error:', insertError);
 
     if (insertError) {
       console.error('Error creating QR code record:', insertError);
