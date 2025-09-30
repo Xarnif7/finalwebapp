@@ -851,6 +851,39 @@ app.post('/api/feedback-form-settings', async (req, res) => {
 });
 
 // Send follow-up email to customer
+// Mark feedback as resolved/unresolved
+app.patch('/api/private-feedback/:id/resolve', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { id } = req.params;
+    const { resolved } = req.body;
+
+    if (typeof resolved !== 'boolean') {
+      return res.status(400).json({ error: 'resolved must be a boolean' });
+    }
+
+    // Update the feedback record
+    const { data, error } = await supabase
+      .from('private_feedback')
+      .update({ resolved })
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      console.error('Error updating feedback:', error);
+      return res.status(500).json({ error: 'Failed to update feedback' });
+    }
+
+    res.json({ success: true, data });
+  } catch (e) {
+    console.error('Mark feedback resolved error:', e);
+    res.status(500).json({ error: 'Failed to update feedback: ' + e.message });
+  }
+});
+
 app.post('/api/send-followup-email', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -8519,10 +8552,17 @@ app.post('/api/automation-executor', async (req, res) => {
                   subject: 'Thank you for your business!',
                   html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                      <h2>Thank you for your business!</h2>
+                      <div style="text-align: center; margin: 20px 0;">
+                        <div style="width: 60px; height: 60px; background-color: #10b981; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                          <span style="color: white; font-size: 24px;">✓</span>
+                        </div>
+                      </div>
+                      <h2 style="text-align: center; color: #10b981; margin-bottom: 20px;">Thank you for your business!</h2>
                       <p>Hi ${request.customers.full_name || 'Customer'},</p>
                       <p>${request.message}</p>
-                      <p><a href="${request.review_link}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Leave a Review</a></p>
+                      <div style="text-align: center; margin: 30px 0;">
+                        <a href="${request.review_link}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">Leave a Review</a>
+                      </div>
                       <p>Best regards,<br>${request.businesses.name}</p>
                     </div>
                   `,
@@ -8634,10 +8674,17 @@ app.post('/api/automation-executor', async (req, res) => {
               subject: 'Thank you for your business!',
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <h2>Thank you for your business!</h2>
+                  <div style="text-align: center; margin: 20px 0;">
+                    <div style="width: 60px; height: 60px; background-color: #10b981; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                      <span style="color: white; font-size: 24px;">✓</span>
+                    </div>
+                  </div>
+                  <h2 style="text-align: center; color: #10b981; margin-bottom: 20px;">Thank you for your business!</h2>
                   <p>Hi ${request.customers.full_name || 'Customer'},</p>
                   <p>${request.message}</p>
-                  <p><a href="${request.review_link}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Leave a Review</a></p>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${request.review_link}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">Leave a Review</a>
+                  </div>
                   <p>Best regards,<br>${request.businesses.name}</p>
                 </div>
               `,

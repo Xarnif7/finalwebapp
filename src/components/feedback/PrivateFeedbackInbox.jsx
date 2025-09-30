@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
-import { Star, MessageSquare, Clock, User, Filter, Search, QrCode, Mail } from 'lucide-react';
+import { Star, MessageSquare, Clock, User, Filter, Search, QrCode, Mail, CheckCircle, X } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 
@@ -157,6 +157,43 @@ export default function PrivateFeedbackInbox() {
       sentiment: feedback.sentiment
     });
     setShowEmailComposer(true);
+  };
+
+  const handleMarkResolved = async (feedbackId, resolved) => {
+    try {
+      // Get user's session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`/api/private-feedback/${feedbackId}/resolve`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ resolved })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update feedback');
+      }
+
+      // Update the local state
+      setFeedback(prev => prev.map(item => 
+        item.id === feedbackId ? { ...item, resolved } : item
+      ));
+
+      // Update selected feedback if it's the same item
+      if (selectedFeedback?.id === feedbackId) {
+        setSelectedFeedback(prev => ({ ...prev, resolved }));
+      }
+
+    } catch (error) {
+      console.error('Error updating feedback:', error);
+      alert('Error updating feedback: ' + error.message);
+    }
   };
 
   const filteredFeedback = feedback.filter(item => {
@@ -360,7 +397,13 @@ export default function PrivateFeedbackInbox() {
                     </div>
                   </div>
                   
-                  <div className="ml-4">
+                  <div className="ml-4 flex items-center gap-2">
+                    {item.resolved && (
+                      <Badge className="bg-green-100 text-green-800 hover:bg-green-100 hover:text-green-800">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Resolved
+                      </Badge>
+                    )}
                     <Button variant="outline" size="sm">
                       View Details
                     </Button>
@@ -432,12 +475,25 @@ export default function PrivateFeedbackInbox() {
                   <Button size="sm" onClick={() => handleSendFollowup(selectedFeedback)}>
                     Send Follow-up Email
                   </Button>
-                  <Button variant="outline" size="sm">
-                    Mark as Resolved
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    Request Public Review
-                  </Button>
+                  {selectedFeedback.resolved ? (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleMarkResolved(selectedFeedback.id, false)}
+                    >
+                      <X className="w-4 h-4 mr-1" />
+                      Mark as Unresolved
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleMarkResolved(selectedFeedback.id, true)}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      Mark as Resolved
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -528,6 +584,43 @@ Best regards,
       alert('Failed to send email: ' + err.message);
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleMarkResolved = async (feedbackId, resolved) => {
+    try {
+      // Get user's session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`/api/private-feedback/${feedbackId}/resolve`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ resolved })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update feedback');
+      }
+
+      // Update the local state
+      setFeedback(prev => prev.map(item => 
+        item.id === feedbackId ? { ...item, resolved } : item
+      ));
+
+      // Update selected feedback if it's the same item
+      if (selectedFeedback?.id === feedbackId) {
+        setSelectedFeedback(prev => ({ ...prev, resolved }));
+      }
+
+    } catch (error) {
+      console.error('Error updating feedback:', error);
+      alert('Error updating feedback: ' + error.message);
     }
   };
 
