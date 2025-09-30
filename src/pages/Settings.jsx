@@ -326,15 +326,49 @@ const BillingSettings = () => {
         const errorData = await resp.json().catch(() => ({ error: 'Failed to open portal' }));
         console.log('Error data:', errorData);
         
-        // If no Stripe customer, show message to start subscription
+        // If no Stripe customer, try to link existing customer first
         if (resp.status === 404 && errorData.error === 'No Stripe customer on account') {
-          setHasStripeCustomer(false);
-          toast({
-            title: "No Subscription",
-            description: 'Start a subscription to manage billing',
-            variant: "destructive",
-          });
-          return;
+          console.log('No Stripe customer found, attempting to link existing customer...');
+          
+          try {
+            const linkResp = await fetch('/api/billing/link-customer', { 
+              method: 'POST', 
+              headers: { 
+                'Authorization': `Bearer ${session?.access_token || ''}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (linkResp.ok) {
+              const linkData = await linkResp.json();
+              console.log('Successfully linked customer:', linkData);
+              toast({
+                title: "Customer Linked",
+                description: 'Found and linked your existing Stripe customer. Try again!',
+                variant: "default",
+              });
+              setHasStripeCustomer(true);
+              return;
+            } else {
+              console.log('Failed to link customer, showing start subscription message');
+              setHasStripeCustomer(false);
+              toast({
+                title: "No Subscription",
+                description: 'Start a subscription to manage billing',
+                variant: "destructive",
+              });
+              return;
+            }
+          } catch (linkError) {
+            console.error('Error linking customer:', linkError);
+            setHasStripeCustomer(false);
+            toast({
+              title: "No Subscription",
+              description: 'Start a subscription to manage billing',
+              variant: "destructive",
+            });
+            return;
+          }
         }
         
         toast({

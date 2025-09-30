@@ -367,6 +367,69 @@ app.post('/api/stripe/portal', async (req, res) => {
   }
 });
 
+// Helper endpoint to link existing Stripe customer to profile
+app.post('/api/billing/link-customer', async (req, res) => {
+  try {
+    console.log('[LINK_CUSTOMER] Request received');
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      console.log('[LINK_CUSTOMER] No token provided');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    if (authError || !user) {
+      console.log('[LINK_CUSTOMER] Auth error:', authError?.message || 'No user');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    console.log('[LINK_CUSTOMER] User authenticated:', user.email);
+
+    // Look for existing Stripe customers by email
+    const customers = await stripe.customers.list({
+      email: user.email,
+      limit: 1
+    });
+
+    if (customers.data.length === 0) {
+      console.log('[LINK_CUSTOMER] No Stripe customer found for email:', user.email);
+      return res.status(404).json({ error: 'No Stripe customer found for this email' });
+    }
+
+    const stripeCustomer = customers.data[0];
+    console.log('[LINK_CUSTOMER] Found Stripe customer:', stripeCustomer.id);
+
+    // Update profile with stripe_customer_id
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        stripe_customer_id: stripeCustomer.id,
+        email: user.email,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'id'
+      });
+
+    if (updateError) {
+      console.error('[LINK_CUSTOMER] Error updating profile:', updateError);
+      return res.status(500).json({ error: 'Failed to update profile' });
+    }
+
+    console.log('[LINK_CUSTOMER] Successfully linked customer to profile');
+    res.setHeader('Content-Type', 'application/json');
+    return res.json({ 
+      success: true, 
+      message: 'Stripe customer linked successfully',
+      customer_id: stripeCustomer.id
+    });
+  } catch (e) {
+    console.error('[LINK_CUSTOMER] Error:', e);
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(500).json({ error: e.message || 'Failed to link customer' });
+  }
+});
+
 // Billing Portal endpoint (as requested in requirements)
 app.post('/api/billing/portal', async (req, res) => {
   try {
