@@ -1,5 +1,36 @@
 # Blipp Development Ledger
 
+## 2025-01-29: Feedback UI Improvements - Gradient Icons and Button Styling
+
+### What Changed
+- **FEEDBACK FORM UI ENHANCEMENTS**: Updated all feedback screens with consistent gradient styling
+- Applied cool gradient MessageSquare icon to main feedback form (already had it)
+- Added gradient styling to submit feedback button (already had it)
+- Removed empty green box from 1-3 star thank you screen
+- Added gradient close button to 1-3 star thank you screen
+- Updated 4-5 star screen to remove green box and keep "Maybe Later" button functionality
+- Applied gradient styling to QR code feedback buttons for consistency
+- Updated ReviewLanding.jsx button to use gradient styling
+
+### Why This Was Needed
+- User requested consistent gradient icon styling across all feedback screens
+- Empty green boxes looked bad and served no purpose
+- Buttons needed consistent gradient styling for better visual appeal
+- "Maybe Later" button should close window as expected
+- Close button on 1-3 star screen needed gradient and should just say "Close"
+
+### Files Touched
+- `src/pages/FeedbackCollection.jsx` - Updated 1-3 star and 4-5 star thank you screens
+- `src/pages/QRRedirect.jsx` - Applied gradient to Google Review button
+- `src/pages/ReviewLanding.jsx` - Applied gradient to Leave Review button
+
+### How Verified
+- Main feedback form already had gradient icon and submit button
+- 1-3 star screen now has gradient close button without external link icon
+- 4-5 star screen has clean layout without empty green box
+- QR feedback buttons have consistent gradient styling
+- All buttons maintain proper functionality while looking more polished
+
 ## 2025-01-29: QR Builder Complete Implementation
 
 ### What Changed

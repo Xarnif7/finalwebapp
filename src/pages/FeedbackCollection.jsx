@@ -208,6 +208,12 @@ export default function FeedbackCollection() {
               Thanks for your feedback! Our team will review this privately and work to improve your experience.
             </p>
             
+            <Button 
+              onClick={() => window.close()}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            >
+              Close
+            </Button>
 
             <div className="text-xs text-gray-500">
               <p>Your feedback is confidential and will be used for internal improvement.</p>
@@ -233,16 +239,6 @@ export default function FeedbackCollection() {
             <p className="text-gray-600">
               Thanks for your feedback! Would you also share it publicly?
             </p>
-            
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Star className="w-4 h-4 text-green-600" />
-                <span className="font-medium text-green-800">Great Experience!</span>
-              </div>
-              <p className="text-sm text-green-700">
-                We're thrilled you had a positive experience! Your public review helps other customers find us.
-              </p>
-            </div>
 
             <div className="space-y-3">
               <Button 
@@ -250,7 +246,7 @@ export default function FeedbackCollection() {
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
               >
                 <ExternalLink className="w-4 h-4 mr-2" />
-                Leave a Google Review
+                Leave a Public Review
               </Button>
               
               <Button 

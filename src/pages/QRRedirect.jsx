@@ -165,7 +165,7 @@ export default function QRRedirect() {
           {/* Google Review Button */}
           <Button 
             onClick={handleGoogleReview}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
             size="lg"
           >
             <Star className="w-5 h-5 mr-2" />
