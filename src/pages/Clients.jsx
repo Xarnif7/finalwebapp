@@ -298,14 +298,6 @@ export default function ClientsPage() {
 
   const segmentsEnabled = isFeatureEnabled('customersSegments');
 
-  // Customer list display logic - Show first 10 by default, with option to show all
-  // All customers are loaded in background, but UI shows manageable chunks
-  // Infinite scroll (8 at a time) — derive visible slice from a moving window
-  const PAGE_SIZE = 8;
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const displayedCustomers = customers.slice(0, visibleCount);
-  const hasMoreCustomers = customers.length > visibleCount;
-
   // Multi-select handlers
   const handleSelectAll = () => {
     if (selectedCustomers.length === customers.length) {
