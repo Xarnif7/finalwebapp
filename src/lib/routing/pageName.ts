@@ -94,6 +94,11 @@ export function getPageNameFromPath(pathname: string): string {
     return 'FeedbackCollection';
   }
   
+  // Handle feedback form (feedback-form/{businessId}) - public QR code form
+  if (normalizedPath.includes('/feedback-form/')) {
+    return 'FeedbackForm';
+  }
+  
   // Convert kebab-case to PascalCase for matching
   const pascalCaseUrl = urlLastPart
     .split('-')

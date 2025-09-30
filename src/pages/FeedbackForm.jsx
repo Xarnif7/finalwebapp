@@ -65,12 +65,22 @@ export default function FeedbackForm() {
       return;
     }
 
+    if (!customerName.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+
+    if (!customerEmail.trim()) {
+      setError('Please enter your email address');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
     try {
-      // Submit feedback to the private feedback system using the same API as existing forms
-      const response = await fetch('/api/private-feedback', {
+      // Submit feedback to the QR feedback system
+      const response = await fetch('/api/qr-feedback', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -306,7 +316,7 @@ export default function FeedbackForm() {
               {/* Customer Name (Optional) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Your name (optional)
+                  Your name *
                 </label>
                 <input
                   type="text"
@@ -314,13 +324,14 @@ export default function FeedbackForm() {
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="John Doe"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
                 />
               </div>
 
-              {/* Customer Email (Optional) */}
+              {/* Customer Email (Required) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Your email (optional)
+                  Your email address *
                 </label>
                 <input
                   type="email"
@@ -328,6 +339,7 @@ export default function FeedbackForm() {
                   onChange={(e) => setCustomerEmail(e.target.value)}
                   placeholder="john@example.com"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
                 />
               </div>
 

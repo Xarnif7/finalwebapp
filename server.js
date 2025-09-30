@@ -13801,6 +13801,53 @@ app.get('/api/reviews', async (req, res) => {
   }
 });
 
+// QR Code Feedback API endpoint
+app.post('/api/qr-feedback', async (req, res) => {
+  try {
+    const { business_id, sentiment, rating, message, category, customer_name, customer_email, source } = req.body;
+    
+    console.log('=== QR FEEDBACK API DEBUG ===');
+    console.log('Request body:', { business_id, sentiment, rating, message, category, customer_name, customer_email, source });
+    
+    // Validate required fields
+    if (!business_id || !sentiment) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Create QR feedback record
+    const { data: feedback, error } = await supabase
+      .from('private_feedback')
+      .insert({
+        business_id,
+        sentiment,
+        rating: rating || null,
+        message: message || null,
+        category: category || 'general_experience',
+        customer_name: customer_name || null,
+        customer_email: customer_email || null,
+        source: source || 'qr_code'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating QR feedback:', error);
+      return res.status(500).json({ error: 'Failed to create feedback record' });
+    }
+
+    console.log('QR feedback created successfully:', feedback);
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Feedback submitted successfully',
+      feedback 
+    });
+
+  } catch (error) {
+    console.error('QR feedback API error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Private Feedback API endpoints
 app.post('/api/private-feedback', async (req, res) => {
   try {
