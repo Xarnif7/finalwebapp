@@ -276,10 +276,16 @@ export default function ClientsPage() {
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [showAllCustomers, setShowAllCustomers] = useState(false);
+  // Infinite scroll window state
+  const PAGE_SIZE = 8;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const displayedCustomers = customers.slice(0, visibleCount);
+  const hasMoreCustomers = customers.length > visibleCount;
+
   // When filters/search change, reset visible window for infinite scroll
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [queryParams.search, queryParams.status, queryParams.segment]);
+  }, [queryParams.search, queryParams.status, queryParams.segment, customers.length]);
 
   // IntersectionObserver for infinite scroll
   useEffect(() => {

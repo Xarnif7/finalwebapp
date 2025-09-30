@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
-import { Star, MessageSquare, Clock, User, Filter, Search, QrCode, Mail, CheckCircle, X } from 'lucide-react';
+import { Star, MessageSquare, Clock, User, Filter, Search, QrCode, Mail, CheckCircle, X, Trash2 } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 
@@ -512,6 +512,7 @@ export default function PrivateFeedbackInbox() {
               {/* Delete floating action */}
               <div className="absolute bottom-4 right-4">
                 <Button variant="destructive" size="icon" onClick={async () => {
+                  if (!window.confirm('Are you sure you want to delete this feedback?')) return;
                   try {
                     const { data: { session } } = await supabase.auth.getSession();
                     if (!session?.access_token) return alert('Not authenticated');
@@ -530,7 +531,7 @@ export default function PrivateFeedbackInbox() {
                     alert('Failed to delete feedback: ' + e.message);
                   }
                 }}>
-                  <X className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
             </CardContent>
