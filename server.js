@@ -16825,6 +16825,151 @@ app.get('/api/email-track/click', async (req, res) => {
   }
 });
 
+// QR Code endpoints
+app.get('/api/qr/list', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    // Get user's business
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // Fetch QR codes for the business
+    const { data: qrCodes, error } = await supabase
+      .from('qr_codes')
+      .select(`
+        *,
+        techs (
+          id,
+          name,
+          role
+        )
+      `)
+      .eq('business_id', profile.business_id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching QR codes:', error);
+      return res.status(500).json({ error: 'Failed to fetch QR codes' });
+    }
+
+    // Add download and PNG URLs
+    const qrCodesWithUrls = qrCodes.map(qr => ({
+      ...qr,
+      download_url: `${process.env.APP_BASE_URL}/api/qr/download/${qr.code}`,
+      png_url: `${process.env.APP_BASE_URL}/api/qr/png/${qr.code}`
+    }));
+
+    res.json({ success: true, qr_codes: qrCodesWithUrls });
+  } catch (error) {
+    console.error('QR list error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/qr/create', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const { tech_id, name } = req.body;
+
+    // Get user's business
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // Generate unique QR code
+    const { data: qrCode, error: qrError } = await supabase.rpc('generate_qr_code');
+    if (qrError) {
+      console.error('Error generating QR code:', qrError);
+      return res.status(500).json({ error: 'Failed to generate QR code' });
+    }
+
+    // Create QR code record
+    const url = `${process.env.APP_BASE_URL}/r/${qrCode}`;
+    
+    const { data: qrRecord, error: insertError } = await supabase
+      .from('qr_codes')
+      .insert({
+        business_id: profile.business_id,
+        tech_id: tech_id || null,
+        name: name || null,
+        code: qrCode,
+        url: url
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error creating QR code record:', insertError);
+      return res.status(500).json({ error: 'Failed to create QR code record' });
+    }
+
+    // Log telemetry event
+    await supabase.rpc('log_telemetry_event', {
+      event_name: 'qr_code_created',
+      event_data: {
+        business_id: profile.business_id,
+        qr_code_id: qrRecord.id,
+        tech_id: tech_id,
+        name: name
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'QR code created successfully',
+      qr_code: {
+        id: qrRecord.id,
+        code: qrCode,
+        name: name,
+        url: url,
+        tech_id: tech_id,
+        created_at: qrRecord.created_at
+      },
+      download_url: `${process.env.APP_BASE_URL}/api/qr/download/${qrCode}`,
+      png_url: `${process.env.APP_BASE_URL}/api/qr/png/${qrCode}`
+    });
+
+  } catch (error) {
+    console.error('QR create error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

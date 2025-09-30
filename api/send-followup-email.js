@@ -14,6 +14,19 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Get user from JWT token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
     const { to, subject, message, customerName } = req.body;
 
     if (!to || !subject || !message) {

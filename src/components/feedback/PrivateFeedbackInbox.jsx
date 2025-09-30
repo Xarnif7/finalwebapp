@@ -80,10 +80,10 @@ export default function PrivateFeedbackInbox() {
 
   const getSentimentColor = (sentiment) => {
     switch (sentiment) {
-      case 'positive': return 'bg-green-100 text-green-800';
-      case 'negative': return 'bg-red-100 text-red-800';
-      case 'neutral': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'positive': return 'bg-green-100 text-green-800 hover:bg-green-100 hover:text-green-800';
+      case 'negative': return 'bg-red-100 text-red-800 hover:bg-red-100 hover:text-red-800';
+      case 'neutral': return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100 hover:text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800 hover:bg-gray-100 hover:text-gray-800';
     }
   };
 
@@ -425,10 +425,18 @@ Best regards,
   const handleSend = async () => {
     setSending(true);
     try {
+      // Get user's session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('Authentication required');
+        return;
+      }
+
       const response = await fetch('/api/send-followup-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           to: data.customerEmail,
