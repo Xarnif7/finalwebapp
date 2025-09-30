@@ -237,7 +237,7 @@ export default function PrivateFeedbackInbox() {
   if (error) {
     return (
       <Card>
-        <CardContent className="px-6 pt-8 pb-7">
+        <CardContent className="px-6 pt-10 pb-8">
           <div className="text-center text-red-600">
             <p>{error}</p>
             <Button onClick={fetchPrivateFeedback} className="mt-4">
@@ -277,7 +277,7 @@ export default function PrivateFeedbackInbox() {
                 />
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 mt-2 sm:mt-0">
               <div className="flex gap-2">
                 <Button
                   variant={sentimentFilter === 'all' ? 'default' : 'outline'}
