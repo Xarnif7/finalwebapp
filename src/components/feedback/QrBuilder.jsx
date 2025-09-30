@@ -134,7 +134,7 @@ const QrBuilder = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) return;
 
-      const response = await fetch(`/api/qr/delete/${qrId}`, {
+      const response = await fetch(`/api/qr/${qrId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${session.access_token}`

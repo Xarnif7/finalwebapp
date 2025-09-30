@@ -913,9 +913,6 @@ app.post('/api/send-followup-email', async (req, res) => {
                 ${processedMessage}
               </div>
             </div>
-            <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px;">
-              <p>This email was sent from Blipp - Reputation Management</p>
-            </div>
             ${followupTrackingPixel}
           </div>
         `
@@ -16987,8 +16984,8 @@ app.get('/api/qr/download/:code', async (req, res) => {
     }
 
     // Generate QR code image
-    const QRCode = require('qrcode');
-    const qrBuffer = await QRCode.toBuffer(qrCode.url, {
+    const QRCode = await import('qrcode');
+    const qrBuffer = await QRCode.default.toBuffer(qrCode.url, {
       type: 'png',
       width: 512,
       margin: 2,
@@ -17024,8 +17021,8 @@ app.get('/api/qr/png/:code', async (req, res) => {
     }
 
     // Generate QR code image
-    const QRCode = require('qrcode');
-    const qrBuffer = await QRCode.toBuffer(qrCode.url, {
+    const QRCode = await import('qrcode');
+    const qrBuffer = await QRCode.default.toBuffer(qrCode.url, {
       type: 'png',
       width: 512,
       margin: 2,
