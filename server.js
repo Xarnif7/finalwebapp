@@ -13964,20 +13964,36 @@ app.get('/api/private-feedback', async (req, res) => {
     }
 
     // Get private feedback with related data (both review_request and direct business feedback)
-    const { data: feedback, error } = await supabase
+    // First get feedback with review_requests
+    const { data: reviewRequestFeedback, error: reviewError } = await supabase
       .from('private_feedback')
       .select(`
         *,
-        review_requests(
+        review_requests!inner(
           id,
           customer_id,
           business_id,
           customers(id, full_name, email)
         )
       `)
-      .or(`review_requests.business_id.eq.${targetBusinessId},business_id.eq.${targetBusinessId}`)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .eq('review_requests.business_id', targetBusinessId)
+      .order('created_at', { ascending: false });
+
+    // Then get direct business feedback (QR codes)
+    const { data: directFeedback, error: directError } = await supabase
+      .from('private_feedback')
+      .select('*')
+      .eq('business_id', targetBusinessId)
+      .order('created_at', { ascending: false });
+
+    // Combine and sort the results
+    const allFeedback = [
+      ...(reviewRequestFeedback || []),
+      ...(directFeedback || [])
+    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    const feedback = allFeedback.slice(offset, offset + limit);
+    const error = reviewError || directError;
 
     if (error) {
       console.error('Error fetching private feedback:', error);
