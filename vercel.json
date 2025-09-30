@@ -123,11 +123,11 @@
       "destination": "/server.js"
     },
     {
-      "source": "/api/techs",
+      "source": "/api/r/(.*)",
       "destination": "/server.js"
     },
     {
-      "source": "/api/r/(.*)",
+      "source": "/api/techs",
       "destination": "/server.js"
     },
     {

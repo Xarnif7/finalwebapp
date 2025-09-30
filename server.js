@@ -16970,6 +16970,177 @@ app.post('/api/qr/create', async (req, res) => {
   }
 });
 
+// QR Code download endpoint
+app.get('/api/qr/download/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    
+    // Find the QR code
+    const { data: qrCode, error } = await supabase
+      .from('qr_codes')
+      .select('*')
+      .eq('code', code)
+      .single();
+
+    if (error || !qrCode) {
+      return res.status(404).json({ error: 'QR code not found' });
+    }
+
+    // Generate QR code image
+    const QRCode = require('qrcode');
+    const qrBuffer = await QRCode.toBuffer(qrCode.url, {
+      type: 'png',
+      width: 512,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Disposition', `attachment; filename="qr-${code}.png"`);
+    res.send(qrBuffer);
+  } catch (error) {
+    console.error('QR download error:', error);
+    res.status(500).json({ error: 'Failed to generate QR code' });
+  }
+});
+
+// QR Code PNG endpoint
+app.get('/api/qr/png/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    
+    // Find the QR code
+    const { data: qrCode, error } = await supabase
+      .from('qr_codes')
+      .select('*')
+      .eq('code', code)
+      .single();
+
+    if (error || !qrCode) {
+      return res.status(404).json({ error: 'QR code not found' });
+    }
+
+    // Generate QR code image
+    const QRCode = require('qrcode');
+    const qrBuffer = await QRCode.toBuffer(qrCode.url, {
+      type: 'png',
+      width: 512,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+
+    res.setHeader('Content-Type', 'image/png');
+    res.send(qrBuffer);
+  } catch (error) {
+    console.error('QR PNG error:', error);
+    res.status(500).json({ error: 'Failed to generate QR code' });
+  }
+});
+
+// QR Code redirect endpoint
+app.get('/api/r/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    
+    // Find the QR code and increment scan count
+    const { data: qrCode, error } = await supabase
+      .from('qr_codes')
+      .select('*')
+      .eq('code', code)
+      .single();
+
+    if (error || !qrCode) {
+      return res.status(404).send(`
+        <html>
+          <head><title>QR Code Not Found</title></head>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+            <div style="background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto;">
+              <h1 style="color: #e74c3c; margin-bottom: 20px;">QR Code Not Found</h1>
+              <p style="color: #666; margin-bottom: 30px;">This QR code is invalid or has expired.</p>
+              <button onclick="window.location.href='/'" style="background: #3498db; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer;">Go to Homepage</button>
+            </div>
+          </body>
+        </html>
+      `);
+    }
+
+    // Increment scan count
+    await supabase
+      .from('qr_codes')
+      .update({ scans_count: qrCode.scans_count + 1 })
+      .eq('id', qrCode.id);
+
+    // Log telemetry event
+    await supabase.rpc('log_telemetry_event', {
+      event_name: 'qr_code_scanned',
+      event_data: {
+        qr_code_id: qrCode.id,
+        business_id: qrCode.business_id,
+        code: code
+      }
+    });
+
+    // Redirect to feedback form
+    res.redirect(`/feedback-form/${qrCode.business_id}`);
+  } catch (error) {
+    console.error('QR redirect error:', error);
+    res.status(500).send('Error processing QR code');
+  }
+});
+
+// QR Code delete endpoint
+app.delete('/api/qr/:id', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const { id } = req.params;
+
+    // Get user's business
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // Delete the QR code (with RLS protection)
+    const { error: deleteError } = await supabase
+      .from('qr_codes')
+      .delete()
+      .eq('id', id)
+      .eq('business_id', profile.business_id);
+
+    if (deleteError) {
+      console.error('Error deleting QR code:', deleteError);
+      return res.status(500).json({ error: 'Failed to delete QR code' });
+    }
+
+    res.json({ success: true, message: 'QR code deleted successfully' });
+  } catch (error) {
+    console.error('QR delete error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
