@@ -14075,10 +14075,10 @@ app.delete('/api/private-feedback/:id', async (req, res) => {
     const { data: { user } } = await supabase.auth.getUser(token);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    const { data: profile } = await supabase
+  const { data: profile } = await supabase
       .from('profiles')
       .select('business_id')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .maybeSingle();
     const businessId = profile?.business_id;
     if (!businessId) return res.status(400).json({ error: 'User not linked to a business' });
@@ -14091,7 +14091,15 @@ app.delete('/api/private-feedback/:id', async (req, res) => {
       .maybeSingle();
     if (!fb) return res.status(404).json({ error: 'Not found' });
 
-    const owner = fb.business_id || fb.review_requests?.business_id;
+    let owner = fb.business_id || fb.review_requests?.business_id;
+    if (!owner && fb.review_request_id) {
+      const { data: rr } = await supabase
+        .from('review_requests')
+        .select('business_id')
+        .eq('id', fb.review_request_id)
+        .maybeSingle();
+      owner = rr?.business_id || owner;
+    }
     if (owner !== businessId) return res.status(403).json({ error: 'Forbidden' });
 
     const { error: delErr } = await supabase

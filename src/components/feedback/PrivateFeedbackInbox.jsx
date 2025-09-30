@@ -232,16 +232,7 @@ export default function PrivateFeedbackInbox() {
     return matchesSearch && matchesSentiment && matchesSource;
   });
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="w-8 h-8 mx-auto mb-4 border-4 border-blue-200 rounded-full animate-spin border-t-blue-600"></div>
-          <p className="text-gray-600">Loading private feedback...</p>
-        </div>
-      </div>
-    );
-  }
+  // Remove blocking full-screen loader; use inline progress if desired
 
   if (error) {
     return (
@@ -363,7 +354,7 @@ export default function PrivateFeedbackInbox() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4" onScroll={() => {}}>
+        <div className="grid gap-4">
           {filteredFeedback.map((item) => (
             <Card 
               key={item.id} 
@@ -436,7 +427,9 @@ export default function PrivateFeedbackInbox() {
           ))}
           {/* Infinite scroll sentinel */}
           {hasMore && (
-            <div id="feedback-infinite-sentinel" className="h-10"></div>
+            <div className="flex justify-center py-3">
+              <div id="feedback-infinite-sentinel" className="h-1 w-24 bg-transparent"></div>
+            </div>
           )}
         </div>
       )}
@@ -444,20 +437,14 @@ export default function PrivateFeedbackInbox() {
       {/* Feedback Detail Modal */}
       {selectedFeedback && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto relative">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="w-5 h-5" />
                   Feedback Details
                 </CardTitle>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setSelectedFeedback(null)}
-                >
-                  Close
-                </Button>
+                <Button variant="outline" size="sm" onClick={() => setSelectedFeedback(null)}>Close</Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -523,7 +510,7 @@ export default function PrivateFeedbackInbox() {
                 </div>
               </div>
               {/* Delete floating action */}
-              <div className="fixed bottom-6 right-6">
+              <div className="absolute bottom-4 right-4">
                 <Button variant="destructive" size="icon" onClick={async () => {
                   try {
                     const { data: { session } } = await supabase.auth.getSession();
