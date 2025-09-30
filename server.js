@@ -367,6 +367,81 @@ app.post('/api/stripe/portal', async (req, res) => {
   }
 });
 
+// Helper function to get or create Stripe Customer Portal configuration
+async function getOrCreatePortalConfiguration() {
+  try {
+    // Check if we have a saved configuration ID
+    const configId = process.env.STRIPE_PORTAL_CONFIG_ID;
+    
+    if (configId) {
+      try {
+        // Try to retrieve existing configuration
+        const config = await stripe.billingPortal.configurations.retrieve(configId);
+        return config.id;
+      } catch (error) {
+        console.log('[PORTAL_CONFIG] Saved config not found, creating new one...');
+      }
+    }
+    
+    // Create a new portal configuration with subscription management enabled
+    const config = await stripe.billingPortal.configurations.create({
+      business_profile: {
+        headline: 'Manage your Blipp subscription',
+      },
+      features: {
+        customer_update: {
+          enabled: true,
+          allowed_updates: ['email', 'address'],
+        },
+        invoice_history: {
+          enabled: true,
+        },
+        payment_method_update: {
+          enabled: true,
+        },
+        subscription_cancel: {
+          enabled: true,
+          mode: 'at_period_end',
+          cancellation_reason: {
+            enabled: true,
+            options: [
+              'too_expensive',
+              'missing_features',
+              'switched_service',
+              'unused',
+              'other',
+            ],
+          },
+        },
+        subscription_update: {
+          enabled: true,
+          default_allowed_updates: ['price', 'quantity', 'promotion_code'],
+          proration_behavior: 'always_invoice',
+          products: [
+            {
+              product: process.env.STRIPE_PRODUCT_ID,
+              prices: [
+                process.env.VITE_STRIPE_BASIC_PRICE_ID || process.env.STRIPE_PRICE_BASIC,
+                process.env.VITE_STRIPE_PRO_PRICE_ID || process.env.STRIPE_PRICE_STANDARD || process.env.STRIPE_PRICE_PRO,
+                process.env.VITE_STRIPE_ENTERPRISE_PRICE_ID || process.env.STRIPE_PRICE_ENTERPRISE,
+              ].filter(Boolean), // Remove any undefined values
+            },
+          ],
+        },
+      },
+    });
+    
+    console.log('[PORTAL_CONFIG] Created new portal configuration:', config.id);
+    console.log('[PORTAL_CONFIG] Save this ID to STRIPE_PORTAL_CONFIG_ID env var to reuse it:', config.id);
+    
+    return config.id;
+  } catch (error) {
+    console.error('[PORTAL_CONFIG] Error creating portal configuration:', error);
+    // Return null to use default configuration
+    return null;
+  }
+}
+
 // Helper endpoint to link existing Stripe customer to profile
 app.post('/api/billing/link-customer', async (req, res) => {
   try {
@@ -541,9 +616,11 @@ app.post('/api/billing/portal', async (req, res) => {
     const returnUrl = `${process.env.APP_BASE_URL || process.env.VITE_SITE_URL || 'https://myblipp.com'}/settings/billing?from=portal`;
     console.log('[BILLING_PORTAL] Creating portal session for customer:', stripeCustomerId, 'return URL:', returnUrl);
     
+    // Configure portal session to enable subscription management
     const session = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
-      return_url: returnUrl
+      return_url: returnUrl,
+      configuration: await getOrCreatePortalConfiguration()
     });
 
     console.log('[BILLING_PORTAL] Portal session created:', session.id);
