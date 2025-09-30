@@ -8,6 +8,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -282,6 +283,9 @@ const BillingSettings = () => {
   const [loading, setLoading] = useState(false);
   const [sub, setSub] = useState(null);
   const [schedule, setSchedule] = useState(null);
+  const [showPlans, setShowPlans] = useState(false);
+  const [showCards, setShowCards] = useState(false);
+  const [cards, setCards] = useState({ payment_methods: [], default_payment_method_id: null });
   const BASIC = import.meta.env.VITE_STRIPE_BASIC_PRICE_ID;
   const PRO = import.meta.env.VITE_STRIPE_PRO_PRICE_ID;
   const ENTERPRISE = import.meta.env.VITE_STRIPE_ENTERPRISE_PRICE_ID;
@@ -308,6 +312,13 @@ const BillingSettings = () => {
     const resp = await fetch('/api/stripe/portal', { method: 'POST', headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }});
     const data = await resp.json();
     if (resp.ok && data.url) window.location.href = data.url;
+  };
+
+  const loadCards = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const resp = await fetch('/api/stripe/payment-methods', { headers: { 'Authorization': `Bearer ${session?.access_token || ''}` } });
+    const data = await resp.json();
+    if (resp.ok) setCards(data);
   };
 
   const scheduleChange = async (priceId) => {
@@ -346,12 +357,13 @@ const BillingSettings = () => {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={openPortal}>Manage Payment Method</Button>
+            <Button variant="outline" onClick={() => { setShowCards(true); loadCards(); }}>Manage Payment Methods</Button>
             {!sub?.cancel_at_period_end ? (
               <Button variant="outline" onClick={cancelAtPeriodEnd}>Cancel at Period End</Button>
             ) : (
               <Button variant="outline" onClick={resume}>Resume</Button>
             )}
+            <Button onClick={() => setShowPlans(true)} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">Manage Subscription</Button>
           </div>
         </div>
 
@@ -368,6 +380,65 @@ const BillingSettings = () => {
         {loading && <div className="text-sm text-slate-500">Loading…</div>}
       </CardContent>
     </Card>
+
+    {/* Plans Modal */}
+    <Dialog open={showPlans} onOpenChange={setShowPlans}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Manage Subscription</DialogTitle>
+        </DialogHeader>
+        <div className="grid md:grid-cols-3 gap-4">
+          {[{id:'basic',label:'Basic',priceId:BASIC},{id:'pro',label:'Pro',priceId:PRO},{id:'enterprise',label:'Enterprise',priceId:ENTERPRISE}].map(p => {
+            const isActive = sub?.current_price === p.priceId;
+            const isScheduled = !isActive && schedule?.phases?.[1]?.prices?.some(pr => pr?.id === p.priceId);
+            return (
+              <div key={p.id} className={`rounded-xl border p-4 ${isActive? 'border-blue-500' : 'border-slate-200'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="font-medium">{p.label}</div>
+                  {isActive && <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">Active plan</span>}
+                  {isScheduled && <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700">Scheduled next</span>}
+                </div>
+                <Button disabled={isActive} onClick={() => scheduleChange(p.priceId)} className="w-full">{isActive? 'Current' : 'Switch next cycle'}</Button>
+              </div>
+            );
+          })}
+        </div>
+        <div className="text-xs text-slate-500 mt-2">Changes apply after your current billing period.</div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Cards Modal */}
+    <Dialog open={showCards} onOpenChange={setShowCards}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Payment Methods</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {cards.payment_methods.length === 0 ? (
+            <div className="text-sm text-slate-600">No cards on file yet.</div>
+          ) : (
+            cards.payment_methods.map(pm => (
+              <div key={pm.id} className="flex items-center justify-between rounded border p-3">
+                <div className="text-sm">{pm.brand?.toUpperCase()} •••• {pm.last4} — {pm.exp_month}/{pm.exp_year}</div>
+                {cards.default_payment_method_id === pm.id ? (
+                  <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">Default</span>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={async ()=>{ const { data:{session } } = await supabase.auth.getSession(); await fetch('/api/stripe/payment-methods/set-default',{method:'POST', headers:{'Authorization':`Bearer ${session?.access_token||''}`,'Content-Type':'application/json'}, body:JSON.stringify({paymentMethodId:pm.id})}); await loadCards(); }}>Make Default</Button>
+                    <Button size="sm" variant="outline" onClick={async ()=>{ const { data:{session } } = await supabase.auth.getSession(); await fetch('/api/stripe/payment-methods/detach',{method:'POST', headers:{'Authorization':`Bearer ${session?.access_token||''}`,'Content-Type':'application/json'}, body:JSON.stringify({paymentMethodId:pm.id})}); await loadCards(); }}>Remove</Button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+          <div className="flex justify-between items-center pt-2">
+            <Button onClick={openPortal} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">Add/Update Cards in Portal</Button>
+            <Button variant="outline" onClick={loadCards}>Refresh</Button>
+          </div>
+          <div className="text-xs text-slate-500">Securely managed by Stripe. We don’t store card numbers.</div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

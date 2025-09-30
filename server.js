@@ -460,6 +460,69 @@ app.post('/api/stripe/resume', async (req, res) => {
   }
 });
 
+// List customer's saved payment methods (cards)
+app.get('/api/stripe/payment-methods', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const { data: { user } } = await supabaseAuth.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    const customer = await getOrCreateStripeCustomerByEmail(user.email);
+    const list = await stripe.paymentMethods.list({ customer: customer.id, type: 'card' });
+    const customerObj = await stripe.customers.retrieve(customer.id);
+    const defaultPm = customerObj?.invoice_settings?.default_payment_method || null;
+    return res.json({
+      success: true,
+      default_payment_method_id: typeof defaultPm === 'string' ? defaultPm : defaultPm?.id || null,
+      payment_methods: list.data.map(pm => ({
+        id: pm.id,
+        brand: pm.card?.brand,
+        last4: pm.card?.last4,
+        exp_month: pm.card?.exp_month,
+        exp_year: pm.card?.exp_year,
+      }))
+    });
+  } catch (e) {
+    console.error('[API] list payment methods error', e);
+    return res.status(500).json({ error: 'Failed to load payment methods' });
+  }
+});
+
+// Set default card
+app.post('/api/stripe/payment-methods/set-default', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const { data: { user } } = await supabaseAuth.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    const { paymentMethodId } = req.body || {};
+    if (!paymentMethodId) return res.status(400).json({ error: 'paymentMethodId is required' });
+    const customer = await getOrCreateStripeCustomerByEmail(user.email);
+    await stripe.customers.update(customer.id, { invoice_settings: { default_payment_method: paymentMethodId } });
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('[API] set default pm error', e);
+    return res.status(500).json({ error: 'Failed to set default card' });
+  }
+});
+
+// Detach a card
+app.post('/api/stripe/payment-methods/detach', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const { data: { user } } = await supabaseAuth.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    const { paymentMethodId } = req.body || {};
+    if (!paymentMethodId) return res.status(400).json({ error: 'paymentMethodId is required' });
+    await stripe.paymentMethods.detach(paymentMethodId);
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('[API] detach pm error', e);
+    return res.status(500).json({ error: 'Failed to remove card' });
+  }
+});
+
 // Subscription status endpoint
 app.get('/api/subscription/status', async (req, res) => {
   try {
