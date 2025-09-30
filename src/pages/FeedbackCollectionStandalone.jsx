@@ -156,13 +156,8 @@ export default function FeedbackCollectionStandalone() {
   };
 
   const handleMaybeLaterClick = () => {
-    // Redirect to business website or close window
-    if (business.website) {
-      window.open(business.website, '_blank');
-    } else {
-      // Close the window/tab
-      window.close();
-    }
+    // Always close for this flow
+    window.close();
   };
 
   const renderStars = () => {
@@ -232,11 +227,7 @@ export default function FeedbackCollectionStandalone() {
               Thanks for your feedback! Our team will review this privately and work to improve your experience.
             </p>
             
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <MessageSquare className="w-4 h-4 text-green-600" />
-              </div>
-            </div>
+            {/* Removed empty green box */}
 
             <div className="text-xs text-gray-500">
               <p>Your feedback is confidential and will be used for internal improvement.</p>
@@ -270,15 +261,7 @@ export default function FeedbackCollectionStandalone() {
               Thanks for your feedback! Would you also share it publicly?
             </p>
             
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Star className="w-4 h-4 text-green-600" />
-                <span className="font-medium text-green-800">Great Experience!</span>
-              </div>
-              <p className="text-sm text-green-700">
-                We're thrilled you had a positive experience! Your public review helps other customers find us.
-              </p>
-            </div>
+            {/* Removed descriptive green box for a cleaner layout */}
 
             <div className="space-y-3">
               <Button 

@@ -135,16 +135,8 @@ export default function FeedbackForm() {
   };
 
   const handleMaybeLaterClick = () => {
-    // Redirect to business website or close window
-    console.log('🔍 Business data:', business);
-    console.log('🔍 Business website:', business?.website);
-    
-    if (business?.website) {
-      window.open(business.website, '_blank');
-    } else {
-      // Close the window/tab
-      window.close();
-    }
+    // Close the window/tab for QR flow
+    window.close();
   };
 
   const renderStars = () => {
@@ -210,15 +202,12 @@ export default function FeedbackForm() {
             <p className="text-gray-600 mb-6">
               Your feedback has been submitted successfully. {business.name} appreciates your input!
             </p>
-            {business.website && (
-              <Button 
-                onClick={() => window.close()}
-                className="flex items-center gap-2"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Close
-              </Button>
-            )}
+            <Button 
+              onClick={() => window.close()}
+              className="w-full bg-gradient-to-r from-blue-600 to purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            >
+              Close
+            </Button>
           </CardContent>
         </Card>
       </div>
