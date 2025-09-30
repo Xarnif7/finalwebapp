@@ -301,7 +301,7 @@ const QRBuilderSettings = () => {
     const [loading, setLoading] = useState(false);
     const [generating, setGenerating] = useState(false);
     const [techs, setTechs] = useState([]);
-    const [selectedTech, setSelectedTech] = useState("");
+    const [selectedTech, setSelectedTech] = useState("none");
 
     useEffect(() => {
         if (user) {
@@ -356,7 +356,7 @@ const QRBuilderSettings = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session.access_token}`
                 },
-                body: JSON.stringify({ tech_id: selectedTech || undefined })
+                body: JSON.stringify({ tech_id: selectedTech === 'none' ? undefined : selectedTech })
             });
 
             const result = await response.json();
@@ -367,6 +367,7 @@ const QRBuilderSettings = () => {
                     description: "QR code generated successfully!",
                 });
                 loadQRCodes(); // Refresh the list
+                setSelectedTech('none'); // Reset selection
             } else {
                 throw new Error(result.error || 'Failed to generate QR code');
             }
@@ -429,7 +430,7 @@ const QRBuilderSettings = () => {
                                 <SelectValue placeholder="Select technician (optional)" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">No tech (generic)</SelectItem>
+                                <SelectItem value="none">No tech (generic)</SelectItem>
                                 {techs.map(t => (
                                     <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                                 ))}

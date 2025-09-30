@@ -1,5 +1,46 @@
 # Blipp Development Ledger
 
+## 2025-01-29: QR Builder Complete Implementation
+
+### What Changed
+- **COMPLETE QR BUILDER SYSTEM**: Implemented full QR code generation and customer feedback flow
+- Created QR Builder tab in Feedback section (moved from Settings)
+- Added database migration for `qr_codes` and `techs` tables with RLS policies
+- Implemented QR redirect endpoint (`/api/r/[code]`) with scan tracking
+- Created public feedback form (`/feedback-form/:businessId`) with same UX as existing forms
+- Added public review flow: 4-5 stars → Google Reviews redirect, 1-3 stars → website redirect
+- Fixed Select component error in QR Builder (empty string value issue)
+- Integrated QR feedback with existing private feedback system
+
+### Why This Was Needed
+- User needed QR codes for physical business locations to collect customer feedback
+- QR codes should redirect to branded feedback forms, not generic review pages
+- Feedback flow should match existing email-based feedback system exactly
+- System needed to track QR code scans and manage technician attribution
+- QR feedback should integrate with existing Collected Feedback tab
+
+### Files Touched
+- `src/components/feedback/QrBuilder.jsx` - Fixed Select component error, improved UX
+- `src/pages/FeedbackForm.jsx` - Created public feedback form with same template system
+- `src/pages/Feedback.jsx` - Added QR Builder tab to feedback section
+- `src/pages/Settings.jsx` - Removed QR Builder and Integrations tabs
+- `api/r/[code].js` - Created QR redirect endpoint with scan tracking
+- `api/qr/download/[code].js` - QR code download endpoint
+- `api/qr/png/[code].js` - QR code PNG serving endpoint
+- `api/techs.js` - Technician management endpoint
+- `vercel.json` - Added routing for new endpoints
+- `supabase/migrations/20250129_qr_code_setup.sql` - Database schema and functions
+- `package.json` - Added qrcode library dependency
+
+### How Verified
+- QR Builder tab loads without Select component errors
+- QR code generation works and creates unique codes
+- QR redirect endpoint properly tracks scans and redirects to feedback form
+- Feedback form uses same API and UX as existing feedback system
+- Public review flow works: 4-5 stars → Google Reviews, 1-3 stars → website
+- Feedback submissions appear in Collected Feedback tab
+- Database migration applied successfully with RLS policies
+
 ## 2025-01-29: QuickBooks Online Integration End-to-End Implementation
 
 ### What Changed

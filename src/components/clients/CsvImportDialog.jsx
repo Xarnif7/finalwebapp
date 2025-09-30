@@ -180,7 +180,7 @@ const CsvImportDialog = ({ open, onOpenChange, onImport, loading = false }) => {
   };
 
   const handleMappingChange = (field, header) => {
-    const newMapping = { ...columnMapping, [field]: header };
+    const newMapping = { ...columnMapping, [field]: header === 'none' ? '' : header };
     setColumnMapping(newMapping);
     generatePreview(newMapping);
   };
@@ -400,7 +400,7 @@ const CsvImportDialog = ({ open, onOpenChange, onImport, loading = false }) => {
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No mapping</SelectItem>
+                <SelectItem value="none">No mapping</SelectItem>
                 {csvData.headers.map(header => (
                   <SelectItem key={header} value={header}>
                     {header}
