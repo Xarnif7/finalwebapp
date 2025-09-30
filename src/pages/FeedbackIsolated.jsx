@@ -210,19 +210,19 @@ export default function FeedbackIsolated() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-8 h-8 text-blue-600" />
+            <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Thank You!</h2>
             <p className="text-gray-600 mb-6">{successMessage}</p>
             
             {rating <= 3 && (
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded">
+              <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6 rounded">
                 <div className="flex items-center">
-                  <MessageSquare className="w-5 h-5 text-blue-600 mr-2" />
+                  <MessageSquare className="w-5 h-5 text-green-600 mr-2" />
                   <div>
-                    <p className="font-medium text-blue-800">Private Feedback Received</p>
-                    <p className="text-sm text-blue-700">We appreciate your honesty and will use this to make our service better.</p>
+                    <p className="font-medium text-green-800">Private Feedback Received</p>
+                    <p className="text-sm text-green-700">We appreciate your honesty and will use this to make our service better.</p>
                   </div>
                 </div>
               </div>
@@ -234,7 +234,10 @@ export default function FeedbackIsolated() {
 
             {showPublicReview ? (
               <div className="space-y-3">
-                <Button onClick={handlePublicReviewClick} className="w-full">
+                <Button 
+                  onClick={handlePublicReviewClick} 
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                >
                   <ExternalLink className="w-4 h-4 mr-2" />
                   Leave a Google Review
                 </Button>

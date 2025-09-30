@@ -222,22 +222,22 @@ export default function FeedbackCollectionStandalone() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-8 h-8 text-blue-600" />
+            <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
-            <CardTitle className="text-blue-600">Thank You!</CardTitle>
+            <CardTitle className="text-green-600">Thank You!</CardTitle>
           </CardHeader>
           <CardContent className="text-center space-y-4">
             <p className="text-gray-600">
               Thanks for your feedback! Our team will review this privately and work to improve your experience.
             </p>
             
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <MessageSquare className="w-4 h-4 text-blue-600" />
-                <span className="font-medium text-blue-800">Private Feedback Received</span>
+                <MessageSquare className="w-4 h-4 text-green-600" />
+                <span className="font-medium text-green-800">Private Feedback Received</span>
               </div>
-              <p className="text-sm text-blue-700">
+              <p className="text-sm text-green-700">
                 We appreciate your honesty and will use this to make our service better.
               </p>
             </div>
@@ -284,7 +284,7 @@ export default function FeedbackCollectionStandalone() {
             <div className="space-y-3">
               <Button 
                 onClick={handlePublicReviewClick}
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
               >
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Leave a Google Review
