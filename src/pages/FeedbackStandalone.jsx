@@ -236,19 +236,13 @@ export default function FeedbackStandalone() {
   };
 
   const handleMaybeLaterClick = () => {
-    console.log('Maybe Later clicked, business data:', business);
-    if (business?.website) {
-      // Ensure the website URL has a protocol
-      let websiteUrl = business.website;
-      if (!websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
-        websiteUrl = 'https://' + websiteUrl;
-      }
-      console.log('Opening website:', websiteUrl);
-      window.open(websiteUrl, '_blank');
-    } else {
-      console.log('No website found, closing window');
-      window.close();
-    }
+    // Prefer closing the window; if blocked, fall back to redirecting this tab
+    try { window.close(); } catch (_) {}
+    setTimeout(() => {
+      try {
+        window.location.href = '/';
+      } catch (_) {}
+    }, 150);
   };
 
   const handlePublicReviewClick = () => {
@@ -307,13 +301,7 @@ export default function FeedbackStandalone() {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Thank You!</h2>
             <p className="text-gray-600 mb-6">{successMessage}</p>
             
-            {rating <= 3 && (
-              <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6 rounded">
-                <div className="flex items-center">
-                  <MessageSquare className="w-5 h-5 text-green-600 mr-2" />
-                </div>
-              </div>
-            )}
+            {/* Removed empty green info box for low-star case */}
 
             <p className="text-sm text-gray-500 mb-6">
               Your feedback is confidential and will be used for internal improvement.
@@ -335,7 +323,7 @@ export default function FeedbackStandalone() {
             ) : (
               <Button 
                 onClick={handleMaybeLaterClick} 
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white"
               >
                 Close
               </Button>
@@ -352,6 +340,9 @@ export default function FeedbackStandalone() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+            <MessageSquare className="w-8 h-8 text-white" />
+          </div>
           <CardTitle className="text-2xl font-bold text-gray-900">
             {settings.title || 'How was your experience?'}
           </CardTitle>
@@ -412,7 +403,7 @@ export default function FeedbackStandalone() {
             <Button
               type="submit"
               disabled={rating === 0 || submitting}
-              className="w-full"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
             >
               {submitting ? 'Submitting...' : (settings.submitButtonText || 'Submit Feedback')}
             </Button>
