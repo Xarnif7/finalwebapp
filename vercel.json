@@ -119,6 +119,10 @@
       "destination": "/server.js"
     },
     {
+      "source": "/api/techs",
+      "destination": "/server.js"
+    },
+    {
       "source": "/api/checkout/(.*)",
       "destination": "/server.js"
     },
