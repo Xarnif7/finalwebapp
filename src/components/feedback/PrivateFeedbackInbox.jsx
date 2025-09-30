@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
-import { Star, MessageSquare, Clock, User, Filter, Search } from 'lucide-react';
+import { Star, MessageSquare, Clock, User, Filter, Search, QrCode, Mail } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 
@@ -14,6 +14,7 @@ export default function PrivateFeedbackInbox() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sentimentFilter, setSentimentFilter] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [showEmailComposer, setShowEmailComposer] = useState(false);
   const [emailComposerData, setEmailComposerData] = useState(null);
@@ -50,23 +51,29 @@ export default function PrivateFeedbackInbox() {
       
       // Transform the nested data structure
       const transformedFeedback = (data.feedback || []).map(item => {
+        // Handle both review_request feedback and direct business feedback (QR codes)
         const customerData = item.review_requests?.customers;
         const customerName = customerData ? 
           (customerData.full_name || 
            `${customerData.first_name || ''} ${customerData.last_name || ''}`.trim() || 
-           'Unknown Customer') : 'Unknown Customer';
+           'Unknown Customer') : 
+          (item.customer_name || 'Unknown Customer');
+        
+        const customerEmail = customerData?.email || item.customer_email || '';
         
         console.log('🔍 Customer data for item:', {
           itemId: item.id,
+          source: item.source,
           customerData,
           customerName,
-          customerEmail: customerData?.email
+          customerEmail,
+          hasReviewRequest: !!item.review_requests
         });
         
         return {
           ...item,
           customer_name: customerName,
-          customer_email: customerData?.email || ''
+          customer_email: customerEmail
         };
       });
       setFeedback(transformedFeedback);
@@ -93,6 +100,30 @@ export default function PrivateFeedbackInbox() {
       case 'negative': return '😞';
       case 'neutral': return '😐';
       default: return '❓';
+    }
+  };
+
+  const getSourceInfo = (source) => {
+    switch (source) {
+      case 'qr_code':
+        return {
+          label: 'QR Code',
+          icon: <QrCode className="w-3 h-3" />,
+          color: 'bg-blue-100 text-blue-800 hover:bg-blue-100 hover:text-blue-800'
+        };
+      case 'review_request':
+      case 'email':
+        return {
+          label: 'Email',
+          icon: <Mail className="w-3 h-3" />,
+          color: 'bg-purple-100 text-purple-800 hover:bg-purple-100 hover:text-purple-800'
+        };
+      default:
+        return {
+          label: 'Unknown',
+          icon: <MessageSquare className="w-3 h-3" />,
+          color: 'bg-gray-100 text-gray-800 hover:bg-gray-100 hover:text-gray-800'
+        };
     }
   };
 
@@ -135,7 +166,11 @@ export default function PrivateFeedbackInbox() {
     
     const matchesSentiment = sentimentFilter === 'all' || item.sentiment === sentimentFilter;
     
-    return matchesSearch && matchesSentiment;
+    const matchesSource = sourceFilter === 'all' || 
+      (sourceFilter === 'qr_code' && item.source === 'qr_code') ||
+      (sourceFilter === 'email' && (item.source === 'review_request' || item.source === 'email'));
+    
+    return matchesSearch && matchesSentiment && matchesSource;
   });
 
   if (loading) {
@@ -192,35 +227,63 @@ export default function PrivateFeedbackInbox() {
                 />
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant={sentimentFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSentimentFilter('all')}
-              >
-                All
-              </Button>
-              <Button
-                variant={sentimentFilter === 'positive' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSentimentFilter('positive')}
-              >
-                😊 Positive
-              </Button>
-              <Button
-                variant={sentimentFilter === 'neutral' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSentimentFilter('neutral')}
-              >
-                😐 Neutral
-              </Button>
-              <Button
-                variant={sentimentFilter === 'negative' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSentimentFilter('negative')}
-              >
-                😞 Negative
-              </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex gap-2">
+                <Button
+                  variant={sentimentFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSentimentFilter('all')}
+                >
+                  All
+                </Button>
+                <Button
+                  variant={sentimentFilter === 'positive' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSentimentFilter('positive')}
+                >
+                  😊 Positive
+                </Button>
+                <Button
+                  variant={sentimentFilter === 'neutral' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSentimentFilter('neutral')}
+                >
+                  😐 Neutral
+                </Button>
+                <Button
+                  variant={sentimentFilter === 'negative' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSentimentFilter('negative')}
+                >
+                  😞 Negative
+                </Button>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  variant={sourceFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSourceFilter('all')}
+                >
+                  All Sources
+                </Button>
+                <Button
+                  variant={sourceFilter === 'qr_code' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSourceFilter('qr_code')}
+                >
+                  <QrCode className="w-3 h-3 mr-1" />
+                  QR Code
+                </Button>
+                <Button
+                  variant={sourceFilter === 'email' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSourceFilter('email')}
+                >
+                  <Mail className="w-3 h-3 mr-1" />
+                  Email
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -233,7 +296,7 @@ export default function PrivateFeedbackInbox() {
             <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-400" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Private Feedback Yet</h3>
             <p className="text-gray-600">
-              {searchTerm || sentimentFilter !== 'all' 
+              {searchTerm || sentimentFilter !== 'all' || sourceFilter !== 'all'
                 ? 'No feedback matches your current filters.'
                 : 'Private feedback from customers will appear here when they submit it through your feedback collection forms.'
               }
@@ -257,6 +320,14 @@ export default function PrivateFeedbackInbox() {
                       <Badge className={getSentimentColor(item.sentiment)}>
                         {getSentimentIcon(item.sentiment)} {item.sentiment}
                       </Badge>
+                      {(() => {
+                        const sourceInfo = getSourceInfo(item.source);
+                        return (
+                          <Badge className={sourceInfo.color}>
+                            {sourceInfo.icon} {sourceInfo.label}
+                          </Badge>
+                        );
+                      })()}
                       {item.rating && (
                         <div className="flex items-center gap-1">
                           {renderStars(item.rating)}

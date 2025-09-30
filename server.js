@@ -13963,19 +13963,19 @@ app.get('/api/private-feedback', async (req, res) => {
       return res.status(400).json({ error: 'Business ID required' });
     }
 
-    // Get private feedback with related data
+    // Get private feedback with related data (both review_request and direct business feedback)
     const { data: feedback, error } = await supabase
       .from('private_feedback')
       .select(`
         *,
-        review_requests!inner(
+        review_requests(
           id,
           customer_id,
           business_id,
-          customers!inner(id, full_name, email)
+          customers(id, full_name, email)
         )
       `)
-      .eq('review_requests.business_id', targetBusinessId)
+      .or(`review_requests.business_id.eq.${targetBusinessId},business_id.eq.${targetBusinessId}`)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
