@@ -213,11 +213,6 @@ export default function FeedbackCollection() {
               Thanks for your feedback! Our team will review this privately and work to improve your experience.
             </p>
             
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <MessageSquare className="w-4 h-4 text-green-600" />
-              </div>
-            </div>
 
             <div className="text-xs text-gray-500">
               <p>Your feedback is confidential and will be used for internal improvement.</p>
@@ -333,7 +328,7 @@ export default function FeedbackCollection() {
 
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white" 
               disabled={submitting || rating === 0}
             >
               {submitting ? 'Submitting...' : 'Submit Feedback'}
