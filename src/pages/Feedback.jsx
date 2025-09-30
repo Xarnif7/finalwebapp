@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { MessageCircle, Settings } from 'lucide-react';
+import { MessageCircle, Settings, QrCode } from 'lucide-react';
 import PrivateFeedbackInbox from '../components/feedback/PrivateFeedbackInbox';
 import FeedbackFormSetup from '../components/feedback/FeedbackFormSetup';
+import QrBuilder from '../components/feedback/QrBuilder';
 
 const Feedback = () => {
   const location = useLocation();
@@ -26,6 +27,12 @@ const Feedback = () => {
       name: 'Form Setup',
       icon: Settings,
       description: 'Preview + settings for branded feedback form'
+    },
+    {
+      id: 'qr-builder',
+      name: 'QR Builder',
+      icon: QrCode,
+      description: 'Generate QR codes for physical review collection'
     }
   ];
 
@@ -37,6 +44,8 @@ const Feedback = () => {
       case 'collected':
         return <PrivateFeedbackInbox />;
 
+      case 'qr-builder':
+        return <QrBuilder />;
 
       default:
         return null;

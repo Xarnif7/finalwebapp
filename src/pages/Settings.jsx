@@ -12,12 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import PageHeader from "@/components/ui/PageHeader";
-import IntegrationsTab from "@/components/settings/IntegrationsTab";
 import { useDashboard } from "@/components/providers/DashboardProvider";
 import { supabase } from "@/lib/supabase/browser";
 import { useToast } from "@/components/ui/use-toast";
-import { QrCode, Download, Copy, Plus, Trash2 } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const SettingsTab = ({ children, title, isActive, onClick }) => (
   <button
@@ -296,6 +293,7 @@ const BillingSettings = () => (
     </Card>
 );
 
+// QRBuilderSettings component removed - moved to Feedback tab
 const QRBuilderSettings = () => {
     const { user } = useDashboard();
     const { toast } = useToast();
@@ -519,7 +517,7 @@ const QRBuilderSettings = () => {
 const SettingsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "profile";
-  const tabs = ["profile", "business", "billing", "integrations", "qr-builder"];
+  const tabs = ["profile", "business", "billing"];
 
   return (
     <div className="p-8 space-y-6">
@@ -531,7 +529,7 @@ const SettingsPage = () => {
         {tabs.map(tab => (
             <SettingsTab 
                 key={tab} 
-                title={tab === 'qr-builder' ? 'QR Builder' : tab.charAt(0).toUpperCase() + tab.slice(1)} 
+                title={tab.charAt(0).toUpperCase() + tab.slice(1)} 
                 isActive={activeTab === tab} 
                 onClick={() => setSearchParams({tab})} 
             />
@@ -541,8 +539,6 @@ const SettingsPage = () => {
         {activeTab === 'profile' && <ProfileSettings />}
         {activeTab === 'business' && <BusinessSettings />}
         {activeTab === 'billing' && <BillingSettings />}
-        {activeTab === 'integrations' && <IntegrationsTab />}
-        {activeTab === 'qr-builder' && <QRBuilderSettings />}
       </div>
     </div>
   );
