@@ -59,6 +59,10 @@
       "destination": "/server.js"
     },
     {
+      "source": "/api/send-followup-email",
+      "destination": "/server.js"
+    },
+    {
       "source": "/api/email-track/(.*)",
       "destination": "/server.js"
     },

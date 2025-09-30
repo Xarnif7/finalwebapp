@@ -457,13 +457,13 @@ const ReviewInbox = () => {
   const getSentimentBadge = (sentiment) => {
     switch (sentiment?.toLowerCase()) {
       case 'positive':
-        return <Badge variant="default" className="bg-green-100 text-green-800"><ThumbsUp className="w-3 h-3 mr-1" />Positive</Badge>;
+        return <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100 hover:text-green-800"><ThumbsUp className="w-3 h-3 mr-1" />Positive</Badge>;
       case 'negative':
-        return <Badge variant="destructive"><ThumbsDown className="w-3 h-3 mr-1" />Negative</Badge>;
+        return <Badge variant="destructive" className="bg-red-100 text-red-800 hover:bg-red-100 hover:text-red-800"><ThumbsDown className="w-3 h-3 mr-1" />Negative</Badge>;
       case 'neutral':
-        return <Badge variant="secondary"><Minus className="w-3 h-3 mr-1" />Neutral</Badge>;
+        return <Badge variant="secondary" className="bg-gray-100 text-gray-800 hover:bg-gray-100 hover:text-gray-800"><Minus className="w-3 h-3 mr-1" />Neutral</Badge>;
       default:
-        return <Badge variant="outline">Unknown</Badge>;
+        return <Badge variant="outline" className="hover:bg-transparent hover:text-gray-600">Unknown</Badge>;
     }
   };
 
