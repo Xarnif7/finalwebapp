@@ -316,7 +316,18 @@ export default function FeedbackStandalone() {
                   <ExternalLink className="w-4 h-4 mr-2" />
                   Leave a Google Review
                 </Button>
-                <Button onClick={handleMaybeLaterClick} variant="outline" className="w-full">
+                <Button onClick={() => {
+                  // Email high-star: go to business website (not close)
+                  if (business?.website) {
+                    let url = business.website;
+                    if (!url.startsWith('http://') && !url.startsWith('https://')) url = 'https://' + url;
+                    window.location.href = url;
+                    return;
+                  }
+                  // Fallback close/redirect
+                  try { window.close(); } catch (_) {}
+                  setTimeout(() => { try { window.location.href = '/'; } catch (_) {} }, 150);
+                }} variant="outline" className="w-full">
                   Maybe Later
                 </Button>
               </div>

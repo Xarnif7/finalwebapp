@@ -135,15 +135,13 @@ export default function FeedbackForm() {
   };
 
   const handleMaybeLaterClick = () => {
-    // Close if allowed; otherwise redirect to a safe URL
-    window.close();
+    // QR flow: Attempt to close; if blocked, navigate to about:blank (non-branded) and close again
+    try { window.close(); } catch (_) {}
     setTimeout(() => {
-      const redirectUrl = business?.website || '/';
       try {
-        window.location.href = redirectUrl;
-      } catch (_) {
-        // no-op
-      }
+        window.location.replace('about:blank');
+        setTimeout(() => { try { window.close(); } catch (_) {} }, 50);
+      } catch (_) {}
     }, 150);
   };
 
@@ -212,10 +210,12 @@ export default function FeedbackForm() {
             </p>
             <Button 
               onClick={() => {
-                window.close();
+                try { window.close(); } catch (_) {}
                 setTimeout(() => {
-                  const redirectUrl = business?.website || '/';
-                  try { window.location.href = redirectUrl; } catch (_) {}
+                  try {
+                    window.location.replace('about:blank');
+                    setTimeout(() => { try { window.close(); } catch (_) {} }, 50);
+                  } catch (_) {}
                 }, 150);
               }}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white"
