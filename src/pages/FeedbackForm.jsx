@@ -136,6 +136,9 @@ export default function FeedbackForm() {
 
   const handleMaybeLaterClick = () => {
     // Redirect to business website or close window
+    console.log('🔍 Business data:', business);
+    console.log('🔍 Business website:', business?.website);
+    
     if (business?.website) {
       window.open(business.website, '_blank');
     } else {

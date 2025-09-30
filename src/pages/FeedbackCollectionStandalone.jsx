@@ -235,18 +235,17 @@ export default function FeedbackCollectionStandalone() {
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <MessageSquare className="w-4 h-4 text-green-600" />
-                <span className="font-medium text-green-800">Private Feedback Received</span>
               </div>
-              <p className="text-sm text-green-700">
-                We appreciate your honesty and will use this to make our service better.
-              </p>
             </div>
 
             <div className="text-xs text-gray-500">
               <p>Your feedback is confidential and will be used for internal improvement.</p>
             </div>
 
-            <Button onClick={() => window.close()} variant="outline" className="w-full">
+            <Button 
+              onClick={() => window.close()} 
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            >
               Close
             </Button>
           </CardContent>

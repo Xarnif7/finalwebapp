@@ -216,11 +216,7 @@ export default function FeedbackCollection() {
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <MessageSquare className="w-4 h-4 text-green-600" />
-                <span className="font-medium text-green-800">Private Feedback Received</span>
               </div>
-              <p className="text-sm text-green-700">
-                We appreciate your honesty and will use this to make our service better.
-              </p>
             </div>
 
             <div className="text-xs text-gray-500">

@@ -220,10 +220,6 @@ export default function FeedbackIsolated() {
               <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6 rounded">
                 <div className="flex items-center">
                   <MessageSquare className="w-5 h-5 text-green-600 mr-2" />
-                  <div>
-                    <p className="font-medium text-green-800">Private Feedback Received</p>
-                    <p className="text-sm text-green-700">We appreciate your honesty and will use this to make our service better.</p>
-                  </div>
                 </div>
               </div>
             )}
@@ -246,7 +242,10 @@ export default function FeedbackIsolated() {
                 </Button>
               </div>
             ) : (
-              <Button onClick={handleMaybeLaterClick} className="w-full">
+              <Button 
+                onClick={handleMaybeLaterClick} 
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+              >
                 Close
               </Button>
             )}
