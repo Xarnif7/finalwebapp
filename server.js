@@ -3904,13 +3904,18 @@ function createAutomationEmailTemplate(customer, sequence) {
     subject: `Thank you for your business, ${full_name}!`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1A73E8;">Thank you for your business!</h2>
+        <div style="text-align: center; margin: 20px 0;">
+          <div style="width: 60px; height: 60px; background-color: #10b981; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+            <span style="color: white; font-size: 24px;">✓</span>
+          </div>
+        </div>
+        <h2 style="text-align: center; color: #10b981; margin-bottom: 20px;">Thank you for your business!</h2>
         <p>Hi ${full_name},</p>
         <p>We hope you're satisfied with our service! We'd love to hear about your experience.</p>
         <p>Could you take a moment to leave us a review? It really helps our business grow.</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="https://g.page/r/your-review-link" 
-             style="background: #1A73E8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+             style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
             Leave a Review
           </a>
         </div>
