@@ -377,11 +377,36 @@ async function getOrCreatePortalConfiguration() {
       try {
         // Try to retrieve existing configuration
         const config = await stripe.billingPortal.configurations.retrieve(configId);
+        console.log('[PORTAL_CONFIG] Using existing portal configuration:', config.id);
         return config.id;
       } catch (error) {
-        console.log('[PORTAL_CONFIG] Saved config not found, creating new one...');
+        console.log('[PORTAL_CONFIG] Saved config not found, will create new one...');
       }
     }
+    
+    // Check if we have the required STRIPE_PRODUCT_ID
+    if (!process.env.STRIPE_PRODUCT_ID) {
+      console.warn('[PORTAL_CONFIG] STRIPE_PRODUCT_ID not set - cannot create portal configuration with subscription updates');
+      console.warn('[PORTAL_CONFIG] Using default portal configuration (payment methods and invoices only)');
+      return null;
+    }
+    
+    // Get all price IDs
+    const priceIds = [
+      process.env.VITE_STRIPE_BASIC_PRICE_ID || process.env.STRIPE_PRICE_BASIC,
+      process.env.VITE_STRIPE_PRO_PRICE_ID || process.env.STRIPE_PRICE_STANDARD || process.env.STRIPE_PRICE_PRO,
+      process.env.VITE_STRIPE_ENTERPRISE_PRICE_ID || process.env.STRIPE_PRICE_ENTERPRISE,
+    ].filter(Boolean); // Remove any undefined values
+    
+    if (priceIds.length === 0) {
+      console.warn('[PORTAL_CONFIG] No price IDs configured - cannot create portal with subscription updates');
+      return null;
+    }
+    
+    console.log('[PORTAL_CONFIG] Creating new portal configuration with:', {
+      product: process.env.STRIPE_PRODUCT_ID,
+      prices: priceIds
+    });
     
     // Create a new portal configuration with subscription management enabled
     const config = await stripe.billingPortal.configurations.create({
@@ -420,24 +445,25 @@ async function getOrCreatePortalConfiguration() {
           products: [
             {
               product: process.env.STRIPE_PRODUCT_ID,
-              prices: [
-                process.env.VITE_STRIPE_BASIC_PRICE_ID || process.env.STRIPE_PRICE_BASIC,
-                process.env.VITE_STRIPE_PRO_PRICE_ID || process.env.STRIPE_PRICE_STANDARD || process.env.STRIPE_PRICE_PRO,
-                process.env.VITE_STRIPE_ENTERPRISE_PRICE_ID || process.env.STRIPE_PRICE_ENTERPRISE,
-              ].filter(Boolean), // Remove any undefined values
+              prices: priceIds,
             },
           ],
         },
       },
     });
     
-    console.log('[PORTAL_CONFIG] Created new portal configuration:', config.id);
-    console.log('[PORTAL_CONFIG] Save this ID to STRIPE_PORTAL_CONFIG_ID env var to reuse it:', config.id);
+    console.log('[PORTAL_CONFIG] ✅ Successfully created new portal configuration:', config.id);
+    console.log('[PORTAL_CONFIG] 💡 Save this ID to your .env.local file as:');
+    console.log('[PORTAL_CONFIG] STRIPE_PORTAL_CONFIG_ID=' + config.id);
     
     return config.id;
   } catch (error) {
-    console.error('[PORTAL_CONFIG] Error creating portal configuration:', error);
+    console.error('[PORTAL_CONFIG] ❌ Error creating portal configuration:', error.message);
+    if (error.raw) {
+      console.error('[PORTAL_CONFIG] Stripe error details:', error.raw);
+    }
     // Return null to use default configuration
+    console.log('[PORTAL_CONFIG] Falling back to default portal configuration');
     return null;
   }
 }
@@ -591,21 +617,20 @@ app.post('/api/billing/portal', async (req, res) => {
         stripeCustomerId = newCustomer.id;
         console.log('[BILLING_PORTAL] Created new customer:', stripeCustomerId);
         
-        // Save the customer ID to the profile
+        // Save the customer ID to the profile (update only, don't upsert)
         const { error: updateError } = await supabase
           .from('profiles')
-          .upsert({
-            id: user.id,
+          .update({
             stripe_customer_id: stripeCustomerId,
-            email: user.email,
             updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'id'
-          });
+          })
+          .eq('id', user.id);
 
         if (updateError) {
           console.error('[BILLING_PORTAL] Error saving customer ID:', updateError);
           // Continue anyway - the portal can still work
+        } else {
+          console.log('[BILLING_PORTAL] Successfully saved customer ID to profile');
         }
       } catch (customerError) {
         console.error('[BILLING_PORTAL] Error creating customer:', customerError);
@@ -617,11 +642,18 @@ app.post('/api/billing/portal', async (req, res) => {
     console.log('[BILLING_PORTAL] Creating portal session for customer:', stripeCustomerId, 'return URL:', returnUrl);
     
     // Configure portal session to enable subscription management
-    const session = await stripe.billingPortal.sessions.create({
+    const configId = await getOrCreatePortalConfiguration();
+    const sessionConfig = {
       customer: stripeCustomerId,
-      return_url: returnUrl,
-      configuration: await getOrCreatePortalConfiguration()
-    });
+      return_url: returnUrl
+    };
+    
+    // Only add configuration if we have one
+    if (configId) {
+      sessionConfig.configuration = configId;
+    }
+    
+    const session = await stripe.billingPortal.sessions.create(sessionConfig);
 
     console.log('[BILLING_PORTAL] Portal session created:', session.id);
     res.setHeader('Content-Type', 'application/json');
