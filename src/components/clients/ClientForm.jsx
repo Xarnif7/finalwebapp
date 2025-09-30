@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, X, Plus } from "lucide-react";
 import { Client } from '@/api/entities';
+import SmsOptInConsent from '../shared/SmsOptInConsent';
 
 const commonTags = [
   "New Client", "VIP", "Regular", "Referred", "High Value", 
@@ -50,7 +51,9 @@ export default function ClientForm({ isOpen, onClose, onSubmit, client, business
     service_date: '',
     service_time: '',
     tags: [],
-    notes: ''
+    notes: '',
+    sms_consent: false,
+    email_consent: true
   });
   const [newTag, setNewTag] = useState('');
 
@@ -77,7 +80,9 @@ export default function ClientForm({ isOpen, onClose, onSubmit, client, business
         service_date: serviceDate,
         service_time: serviceTime,
         tags: client.tags || [],
-        notes: client.notes || ''
+        notes: client.notes || '',
+        sms_consent: client.sms_consent || false,
+        email_consent: client.email_consent !== false // Default to true if not set
       });
     } else {
       setFormData({
@@ -88,7 +93,9 @@ export default function ClientForm({ isOpen, onClose, onSubmit, client, business
         service_date: '',
         service_time: '',
         tags: [],
-        notes: ''
+        notes: '',
+        sms_consent: false,
+        email_consent: true
       });
     }
   }, [client, isOpen]);
@@ -180,6 +187,17 @@ export default function ClientForm({ isOpen, onClose, onSubmit, client, business
                 placeholder="+1 (555) 123-4567" 
               />
             </div>
+
+            {/* SMS Consent - only show if phone number is provided */}
+            {formData.phone && formData.phone.trim() && (
+              <SmsOptInConsent
+                businessName="Blipp - Reputation Management Software"
+                onConsentChange={(consent) => setFormData(prev => ({ ...prev, sms_consent: consent }))}
+                initialConsent={formData.sms_consent}
+                showFullForm={false}
+                className="mt-4"
+              />
+            )}
             
             {/* Service Date and Time */}
             <div className="space-y-2">

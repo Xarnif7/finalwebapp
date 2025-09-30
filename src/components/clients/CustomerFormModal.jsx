@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { X, Plus } from 'lucide-react';
 import { customerCreateSchema } from '@/lib/validation/customers';
+import SmsOptInConsent from '../shared/SmsOptInConsent';
 
 export default function CustomerFormModal({ 
   open, 
@@ -23,6 +24,8 @@ export default function CustomerFormModal({
     tags: [],
     notes: '',
     status: 'active',
+    sms_consent: false,
+    email_consent: true,
   });
   const [errors, setErrors] = useState({});
   const [newTag, setNewTag] = useState('');
@@ -37,6 +40,8 @@ export default function CustomerFormModal({
         tags: customer.tags || [],
         notes: customer.notes || '',
         status: customer.status || 'active',
+        sms_consent: customer.sms_consent || false,
+        email_consent: customer.email_consent !== false, // Default to true if not set
       });
     } else {
       setFormData({
@@ -47,6 +52,8 @@ export default function CustomerFormModal({
         tags: [],
         notes: '',
         status: 'active',
+        sms_consent: false,
+        email_consent: true,
       });
     }
     setErrors({});
@@ -157,6 +164,17 @@ export default function CustomerFormModal({
               <p className="text-sm text-red-500">{errors.phone}</p>
             )}
           </div>
+
+          {/* SMS Consent - only show if phone number is provided */}
+          {formData.phone && formData.phone.trim() && (
+            <SmsOptInConsent
+              businessName="Blipp - Reputation Management Software"
+              onConsentChange={(consent) => setFormData(prev => ({ ...prev, sms_consent: consent }))}
+              initialConsent={formData.sms_consent}
+              showFullForm={false}
+              className="mt-4"
+            />
+          )}
 
           {/* Service Date */}
           <div className="space-y-2">

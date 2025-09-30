@@ -41,6 +41,7 @@ import FeedbackCollectionStandalone from "./FeedbackCollectionStandalone";
 import FeedbackStandalone from "./FeedbackStandalone";
 import Feedback from "./Feedback";
 import FeedbackForm from "./FeedbackForm";
+import SmsOptIn from "./SmsOptIn";
 import DashboardOverview from "./DashboardOverview";
 import DevOAuthTest from "./DevOAuthTest";
 import EnvTest from "./EnvTest";
@@ -346,6 +347,7 @@ const MarketingRoutes = () => (
     {/* Legal Pages - Public Access */}
     <Route path="/privacy" element={<TrackedComponent component={Privacy} name="Privacy" />} />
     <Route path="/terms" element={<TrackedComponent component={Terms} name="Terms" />} />
+    <Route path="/sms-opt-in" element={<TrackedComponent component={SmsOptIn} name="SmsOptIn" />} />
     
     {/* Public routes */}
     <Route path="/r/:code" element={<TrackedComponent component={QRRedirect} name="QRRedirect" />} />
