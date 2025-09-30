@@ -278,20 +278,98 @@ const BusinessSettings = () => {
     );
 };
 
-const BillingSettings = () => (
+const BillingSettings = () => {
+  const [loading, setLoading] = useState(false);
+  const [sub, setSub] = useState(null);
+  const [schedule, setSchedule] = useState(null);
+  const BASIC = import.meta.env.VITE_STRIPE_BASIC_PRICE_ID;
+  const PRO = import.meta.env.VITE_STRIPE_PRO_PRICE_ID;
+  const ENTERPRISE = import.meta.env.VITE_STRIPE_ENTERPRISE_PRICE_ID;
+
+  useEffect(() => { load(); }, []);
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const resp = await fetch('/api/stripe/subscription', {
+        headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        setSub(data.subscription);
+        setSchedule(data.schedule);
+      }
+    } finally { setLoading(false); }
+  };
+
+  const openPortal = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const resp = await fetch('/api/stripe/portal', { method: 'POST', headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }});
+    const data = await resp.json();
+    if (resp.ok && data.url) window.location.href = data.url;
+  };
+
+  const scheduleChange = async (priceId) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch('/api/stripe/change-plan', { method: 'POST', headers: { 'Authorization': `Bearer ${session?.access_token || ''}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ targetPriceId: priceId }) });
+    await load();
+  };
+
+  const cancelAtPeriodEnd = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch('/api/stripe/cancel', { method: 'POST', headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }});
+    await load();
+  };
+
+  const resume = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch('/api/stripe/resume', { method: 'POST', headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }});
+    await load();
+  };
+
+  const formatDate = (ms) => ms ? new Date(ms).toLocaleDateString() : '-';
+
+  return (
     <Card className="rounded-2xl">
-        <CardHeader><CardTitle>Billing</CardTitle><CardDescription>Manage your subscription and payment method.</CardDescription></CardHeader>
-        <CardContent className="space-y-4">
-            <div className="p-4 bg-slate-50 rounded-lg flex justify-between items-center">
-                <div>
-                    <p className="font-medium">Pro Plan</p>
-                    <p className="text-sm text-slate-500">$99/month, renews on Aug 20, 2024</p>
-                </div>
-                <Button variant="outline">Manage Subscription</Button>
-            </div>
-        </CardContent>
+      <CardHeader>
+        <CardTitle>Billing</CardTitle>
+        <CardDescription>Manage your subscription, cards and plan.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="p-4 bg-slate-50 rounded-lg flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <p className="font-medium">{sub?.status ? sub.status.toUpperCase() : 'No subscription'}</p>
+            <p className="text-sm text-slate-600">Renews: {formatDate(sub?.current_period_end)} • Cancel at period end: {sub?.cancel_at_period_end ? 'Yes' : 'No'}</p>
+            {schedule?.phases?.length > 1 && (
+              <p className="text-xs text-slate-500">Next plan change scheduled after current cycle.</p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={openPortal}>Manage Payment Method</Button>
+            {!sub?.cancel_at_period_end ? (
+              <Button variant="outline" onClick={cancelAtPeriodEnd}>Cancel at Period End</Button>
+            ) : (
+              <Button variant="outline" onClick={resume}>Resume</Button>
+            )}
+          </div>
+        </div>
+
+        <div className="p-4 border border-slate-200 rounded-lg">
+          <p className="font-medium mb-2">Change plan for next cycle</p>
+          <div className="flex flex-wrap gap-2">
+            {BASIC && <Button variant="outline" onClick={() => scheduleChange(BASIC)}>Basic</Button>}
+            {PRO && <Button variant="outline" onClick={() => scheduleChange(PRO)}>Pro</Button>}
+            {ENTERPRISE && <Button variant="outline" onClick={() => scheduleChange(ENTERPRISE)}>Enterprise</Button>}
+          </div>
+          <p className="text-xs text-slate-500 mt-2">Takes effect after your current paid period ends.</p>
+        </div>
+
+        {loading && <div className="text-sm text-slate-500">Loading…</div>}
+      </CardContent>
     </Card>
-);
+  );
+};
 
 // QRBuilderSettings component removed - moved to Feedback tab
 const QRBuilderSettings = () => {

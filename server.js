@@ -291,6 +291,175 @@ app.get('/api/stripe/verify', async (req, res) => {
   }
 });
 
+// Helper: get Stripe customer for a given email (create if missing)
+async function getOrCreateStripeCustomerByEmail(email) {
+  const existing = await stripe.customers.list({ email, limit: 1 });
+  if (existing.data && existing.data.length > 0) return existing.data[0];
+  return await stripe.customers.create({ email });
+}
+
+// Helper: find an active (or latest) subscription for a customer
+async function findLatestSubscriptionForCustomer(customerId) {
+  const subs = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 1 });
+  return subs.data && subs.data.length > 0 ? subs.data[0] : null;
+}
+
+// GET current subscription info for the authenticated user
+app.get('/api/stripe/subscription', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const { data: { user } } = await supabaseAuth.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const customer = await getOrCreateStripeCustomerByEmail(user.email);
+    const subscription = await findLatestSubscriptionForCustomer(customer.id);
+
+    let schedule = null;
+    if (subscription?.schedule) {
+      schedule = await stripe.subscriptionSchedules.retrieve(subscription.schedule);
+    } else {
+      // Try to find a schedule linked to this subscription
+      const schedules = await stripe.subscriptionSchedules.list({ customer: customer.id, limit: 1 });
+      schedule = schedules.data?.[0] || null;
+    }
+
+    return res.json({
+      success: true,
+      customer_id: customer.id,
+      subscription: subscription ? {
+        id: subscription.id,
+        status: subscription.status,
+        current_price: subscription.items?.data?.[0]?.price?.id || null,
+        current_period_end: subscription.current_period_end ? subscription.current_period_end * 1000 : null,
+        cancel_at_period_end: subscription.cancel_at_period_end || false,
+      } : null,
+      schedule: schedule ? {
+        id: schedule.id,
+        phases: schedule.phases?.map(p => ({
+          start_date: p.start_date ? p.start_date * 1000 : null,
+          end_date: p.end_date ? p.end_date * 1000 : null,
+          prices: p.items?.map(i => i.price) || []
+        })) || []
+      } : null
+    });
+  } catch (e) {
+    console.error('[API] subscription fetch error', e);
+    return res.status(500).json({ error: 'Failed to load subscription' });
+  }
+});
+
+// Create a Stripe Customer Portal session
+app.post('/api/stripe/portal', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const { data: { user } } = await supabaseAuth.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const customer = await getOrCreateStripeCustomerByEmail(user.email);
+    const returnUrl = `${process.env.VITE_SITE_URL || process.env.SITE_URL || 'https://myblipp.com'}/settings?tab=billing`;
+    const session = await stripe.billingPortal.sessions.create({ customer: customer.id, return_url: returnUrl });
+    return res.json({ url: session.url });
+  } catch (e) {
+    console.error('[API] portal error', e);
+    return res.status(500).json({ error: 'Failed to create portal session' });
+  }
+});
+
+// Schedule a plan change at period end using Subscription Schedule
+app.post('/api/stripe/change-plan', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const { data: { user } } = await supabaseAuth.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    const { targetPriceId } = req.body || {};
+    if (!targetPriceId) return res.status(400).json({ error: 'targetPriceId is required' });
+
+    const customer = await getOrCreateStripeCustomerByEmail(user.email);
+    const subscription = await findLatestSubscriptionForCustomer(customer.id);
+    if (!subscription) return res.status(400).json({ error: 'No subscription found' });
+
+    const currentPriceId = subscription.items?.data?.[0]?.price?.id;
+
+    // If a schedule already exists, update it; otherwise create one from the subscription
+    let scheduleId = subscription.schedule;
+    let schedule;
+    if (scheduleId) {
+      schedule = await stripe.subscriptionSchedules.retrieve(scheduleId);
+      const updated = await stripe.subscriptionSchedules.update(schedule.id, {
+        phases: [
+          {
+            items: [{ price: currentPriceId, quantity: 1 }],
+            start_date: 'now',
+            end_date: subscription.current_period_end,
+          },
+          {
+            items: [{ price: targetPriceId, quantity: 1 }],
+          },
+        ],
+      });
+      schedule = updated;
+    } else {
+      schedule = await stripe.subscriptionSchedules.create({
+        from_subscription: subscription.id,
+        phases: [
+          {
+            items: [{ price: currentPriceId, quantity: 1 }],
+            start_date: 'now',
+            end_date: subscription.current_period_end,
+          },
+          {
+            items: [{ price: targetPriceId, quantity: 1 }],
+          },
+        ],
+      });
+    }
+
+    return res.json({ success: true, schedule_id: schedule.id });
+  } catch (e) {
+    console.error('[API] change-plan error', e);
+    return res.status(500).json({ error: 'Failed to schedule plan change' });
+  }
+});
+
+// Cancel at period end
+app.post('/api/stripe/cancel', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const { data: { user } } = await supabaseAuth.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    const customer = await getOrCreateStripeCustomerByEmail(user.email);
+    const subscription = await findLatestSubscriptionForCustomer(customer.id);
+    if (!subscription) return res.status(400).json({ error: 'No subscription found' });
+    const updated = await stripe.subscriptions.update(subscription.id, { cancel_at_period_end: true });
+    return res.json({ success: true, subscription: { id: updated.id, cancel_at_period_end: updated.cancel_at_period_end } });
+  } catch (e) {
+    console.error('[API] cancel error', e);
+    return res.status(500).json({ error: 'Failed to cancel' });
+  }
+});
+
+// Resume (remove cancel_at_period_end)
+app.post('/api/stripe/resume', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const { data: { user } } = await supabaseAuth.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    const customer = await getOrCreateStripeCustomerByEmail(user.email);
+    const subscription = await findLatestSubscriptionForCustomer(customer.id);
+    if (!subscription) return res.status(400).json({ error: 'No subscription found' });
+    const updated = await stripe.subscriptions.update(subscription.id, { cancel_at_period_end: false });
+    return res.json({ success: true, subscription: { id: updated.id, cancel_at_period_end: updated.cancel_at_period_end } });
+  } catch (e) {
+    console.error('[API] resume error', e);
+    return res.status(500).json({ error: 'Failed to resume' });
+  }
+});
+
 // Subscription status endpoint
 app.get('/api/subscription/status', async (req, res) => {
   try {
