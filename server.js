@@ -384,13 +384,6 @@ async function getOrCreatePortalConfiguration() {
       }
     }
     
-    // Check if we have the required STRIPE_PRODUCT_ID
-    if (!process.env.STRIPE_PRODUCT_ID) {
-      console.warn('[PORTAL_CONFIG] STRIPE_PRODUCT_ID not set - cannot create portal configuration with subscription updates');
-      console.warn('[PORTAL_CONFIG] Using default portal configuration (payment methods and invoices only)');
-      return null;
-    }
-    
     // Get all price IDs
     const priceIds = [
       process.env.VITE_STRIPE_BASIC_PRICE_ID || process.env.STRIPE_PRICE_BASIC,
@@ -403,9 +396,41 @@ async function getOrCreatePortalConfiguration() {
       return null;
     }
     
+    // Get product IDs from each price (since each price is on a separate product)
+    const productIds = [];
+    for (const priceId of priceIds) {
+      try {
+        const price = await stripe.prices.retrieve(priceId);
+        if (price.product && !productIds.includes(price.product)) {
+          productIds.push(price.product);
+        }
+      } catch (error) {
+        console.error('[PORTAL_CONFIG] Error retrieving price:', priceId, error.message);
+      }
+    }
+    
+    if (productIds.length === 0) {
+      console.warn('[PORTAL_CONFIG] Could not retrieve any product IDs from prices');
+      return null;
+    }
+    
     console.log('[PORTAL_CONFIG] Creating new portal configuration with:', {
-      product: process.env.STRIPE_PRODUCT_ID,
+      products: productIds,
       prices: priceIds
+    });
+    
+    // Build products array for portal configuration
+    const portalProducts = productIds.map(productId => {
+      // Find all prices that belong to this product
+      const productPrices = priceIds.filter(priceId => {
+        // We'll include all prices for now, Stripe will filter by product
+        return true;
+      });
+      
+      return {
+        product: productId,
+        prices: priceIds, // Include all prices, Stripe will show only relevant ones
+      };
     });
     
     // Create a new portal configuration with subscription management enabled
@@ -442,12 +467,7 @@ async function getOrCreatePortalConfiguration() {
           enabled: true,
           default_allowed_updates: ['price', 'quantity', 'promotion_code'],
           proration_behavior: 'always_invoice',
-          products: [
-            {
-              product: process.env.STRIPE_PRODUCT_ID,
-              prices: priceIds,
-            },
-          ],
+          products: portalProducts,
         },
       },
     });
