@@ -237,7 +237,7 @@ export default function PrivateFeedbackInbox() {
   if (error) {
     return (
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="px-6 pt-7 pb-6">
           <div className="text-center text-red-600">
             <p>{error}</p>
             <Button onClick={fetchPrivateFeedback} className="mt-4">
@@ -363,7 +363,7 @@ export default function PrivateFeedbackInbox() {
               }`}
               onClick={() => setSelectedFeedback(item)}
             >
-              <CardContent className="p-6">
+              <CardContent className="px-6 pt-7 pb-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
