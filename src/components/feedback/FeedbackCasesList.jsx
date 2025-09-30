@@ -67,9 +67,9 @@ const FeedbackCaseCard = ({ case_, isSelected, onSelect, onAction }) => {
       <Card className={`hover:shadow-lg transition-all duration-200 ${
         isSelected ? 'bg-blue-50 border-blue-200' : 'hover:border-gray-300'
       }`}>
-        <CardContent className="p-4">
+        <CardContent className="p-6">
           {/* Header */}
-          <div className="flex items-start justify-between mb-3">
+          <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className={`text-xs ${priority.color}`}>
                 <PriorityIcon className="w-3 h-3 mr-1" />
@@ -88,12 +88,12 @@ const FeedbackCaseCard = ({ case_, isSelected, onSelect, onAction }) => {
           </div>
 
           {/* Title */}
-          <h3 className="font-medium text-gray-900 mb-2 line-clamp-1">
+          <h3 className="font-medium text-gray-900 mb-3 line-clamp-1">
             {case_.title}
           </h3>
 
           {/* Description */}
-          <p className="text-gray-700 text-sm mb-3 line-clamp-2">
+          <p className="text-gray-700 text-sm mb-4 line-clamp-2">
             {case_.description}
           </p>
 
@@ -214,7 +214,7 @@ export default function FeedbackCasesList({
       <div className="space-y-4">
         {[...Array(5)].map((_, i) => (
           <Card key={i} className="animate-pulse">
-            <CardContent className="p-4">
+            <CardContent className="p-6">
               <div className="h-32 bg-gray-200 rounded"></div>
             </CardContent>
           </Card>

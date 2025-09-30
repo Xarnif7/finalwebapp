@@ -179,7 +179,7 @@ export default function PrivateFeedbackInbox() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
@@ -250,10 +250,10 @@ export default function PrivateFeedbackInbox() {
               }`}
               onClick={() => setSelectedFeedback(item)}
             >
-              <CardContent className="p-4">
+              <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-3">
                       <Badge className={getSentimentColor(item.sentiment)}>
                         {getSentimentIcon(item.sentiment)} {item.sentiment}
                       </Badge>
@@ -266,7 +266,7 @@ export default function PrivateFeedbackInbox() {
                     </div>
                     
                     {item.message && (
-                      <p className="text-gray-700 mb-2 line-clamp-2">
+                      <p className="text-gray-700 mb-3 line-clamp-2">
                         {item.message}
                       </p>
                     )}

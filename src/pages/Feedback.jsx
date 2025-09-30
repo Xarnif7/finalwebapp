@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { MessageCircle, Settings, Eye, Code } from 'lucide-react';
+import { MessageCircle, Settings } from 'lucide-react';
 import PrivateFeedbackInbox from '../components/feedback/PrivateFeedbackInbox';
 import FeedbackFormSetup from '../components/feedback/FeedbackFormSetup';
 
