@@ -191,6 +191,26 @@
       "destination": "/index.html"
     },
     {
+      "source": "/settings",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings/billing",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings/business-profile",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings/team-roles",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings/audit-log",
+      "destination": "/index.html"
+    },
+    {
       "source": "/settings/(.*)",
       "destination": "/index.html"
     },

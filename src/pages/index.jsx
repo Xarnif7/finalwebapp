@@ -318,6 +318,9 @@ const DashboardRoutes = () => (
       
       {/* Onboarding */}
       <Route path="/onboarding" element={<RequireOnboardingAccess><TrackedComponent component={Onboarding} name="Onboarding" /></RequireOnboardingAccess>} />
+      
+      {/* Catch-all route for unmatched paths */}
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   </ErrorBoundary>
 );
