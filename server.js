@@ -712,6 +712,95 @@ app.post('/api/stripe/payment-methods/detach', async (req, res) => {
   }
 });
 
+// SMS Opt-in endpoint
+app.post('/api/sms/opt-in', async (req, res) => {
+  try {
+    const { phone, business_id, customer_id, action } = req.body;
+    
+    if (!phone || !business_id || !action) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (!['opt-in', 'opt-out'].includes(action)) {
+      return res.status(400).json({ error: 'Invalid action. Must be opt-in or opt-out' });
+    }
+
+    console.log('[SMS_OPT_IN] Processing SMS opt-in request:', { phone, business_id, customer_id, action });
+
+    // Update customer's SMS consent status
+    const updateData = {
+      sms_consent: action === 'opt-in',
+      opted_out: action === 'opt-out',
+      opted_out_at: action === 'opt-out' ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString()
+    };
+
+    let updateQuery = supabase
+      .from('customers')
+      .update(updateData)
+      .eq('business_id', business_id)
+      .eq('phone', phone.replace(/\D/g, '')); // Remove non-digits for matching
+
+    if (customer_id) {
+      updateQuery = updateQuery.eq('id', customer_id);
+    }
+
+    const { data: updatedCustomer, error: updateError } = await updateQuery.select().single();
+
+    if (updateError) {
+      console.error('[SMS_OPT_IN] Error updating customer:', updateError);
+      return res.status(500).json({ error: 'Failed to update SMS consent' });
+    }
+
+    if (!updatedCustomer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    // Log the opt-in/opt-out event
+    try {
+      await supabase
+        .from('audit_log')
+        .insert({
+          business_id: business_id,
+          user_id: 'sms_opt_in',
+          entity: 'customers',
+          entity_id: updatedCustomer.id,
+          action: action,
+          details: {
+            phone: phone,
+            sms_consent: updateData.sms_consent,
+            opted_out: updateData.opted_out
+          }
+        });
+    } catch (auditError) {
+      console.error('[SMS_OPT_IN] Audit log error:', auditError);
+      // Don't fail the request if audit logging fails
+    }
+
+    console.log('[SMS_OPT_IN] Successfully processed SMS opt-in:', {
+      customer_id: updatedCustomer.id,
+      phone: phone,
+      action: action,
+      sms_consent: updateData.sms_consent
+    });
+
+    res.json({ 
+      success: true, 
+      message: `SMS ${action} processed successfully`,
+      customer: {
+        id: updatedCustomer.id,
+        phone: updatedCustomer.phone,
+        sms_consent: updatedCustomer.sms_consent,
+        opted_out: updatedCustomer.opted_out
+      }
+    });
+
+  } catch (error) {
+    console.error('[SMS_OPT_IN] Error processing SMS opt-in:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Stripe webhook endpoint for subscription sync
 app.post('/api/stripe/webhook', async (req, res) => {
   try {
