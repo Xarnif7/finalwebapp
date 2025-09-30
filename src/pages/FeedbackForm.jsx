@@ -212,11 +212,11 @@ export default function FeedbackForm() {
             </p>
             {business.website && (
               <Button 
-                onClick={() => window.open(business.website, '_blank')}
+                onClick={() => window.close()}
                 className="flex items-center gap-2"
               >
                 <ExternalLink className="w-4 h-4" />
-                Visit {business.name}
+                Close
               </Button>
             )}
           </CardContent>

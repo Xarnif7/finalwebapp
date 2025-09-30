@@ -137,13 +137,8 @@ export default function FeedbackCollection() {
   };
 
   const handleMaybeLaterClick = () => {
-    // Redirect to business website or close window
-    if (business?.website) {
-      window.open(business.website, '_blank');
-    } else {
-      // Close the window/tab
-      window.close();
-    }
+    // Always close the window/tab for email feedback
+    window.close();
   };
 
   const renderStars = () => {
