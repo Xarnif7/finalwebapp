@@ -370,11 +370,20 @@ app.post('/api/stripe/portal', async (req, res) => {
 // Billing Portal endpoint (as requested in requirements)
 app.post('/api/billing/portal', async (req, res) => {
   try {
+    console.log('[BILLING_PORTAL] Request received');
     const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    if (!token) {
+      console.log('[BILLING_PORTAL] No token provided');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     
-    const { data: { user } } = await supabaseAuth.auth.getUser(token);
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    if (authError || !user) {
+      console.log('[BILLING_PORTAL] Auth error:', authError?.message || 'No user');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    console.log('[BILLING_PORTAL] User authenticated:', user.email);
 
     // Look up stripe_customer_id from profiles table
     const { data: profile, error: profileError } = await supabase
@@ -389,23 +398,29 @@ app.post('/api/billing/portal', async (req, res) => {
     }
 
     let stripeCustomerId = profile?.stripe_customer_id;
+    console.log('[BILLING_PORTAL] Stripe customer ID from DB:', stripeCustomerId);
     
     // Fallback: accept customerId from request body if not found in DB
     if (!stripeCustomerId) {
       const { customerId } = req.body || {};
       if (customerId) {
         stripeCustomerId = customerId;
+        console.log('[BILLING_PORTAL] Using customerId from request body:', customerId);
       } else {
+        console.log('[BILLING_PORTAL] No Stripe customer ID found');
         return res.status(404).json({ error: 'No Stripe customer on account' });
       }
     }
 
     const returnUrl = `${process.env.APP_BASE_URL || process.env.VITE_SITE_URL || 'https://myblipp.com'}/settings/billing?from=portal`;
+    console.log('[BILLING_PORTAL] Creating portal session for customer:', stripeCustomerId, 'return URL:', returnUrl);
+    
     const session = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
       return_url: returnUrl
     });
 
+    console.log('[BILLING_PORTAL] Portal session created:', session.id);
     res.setHeader('Content-Type', 'application/json');
     return res.json({ url: session.url });
   } catch (e) {

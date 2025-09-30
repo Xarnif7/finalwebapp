@@ -308,7 +308,10 @@ const BillingSettings = () => {
   const openPortal = async () => {
     try {
       setLoading(true);
+      console.log('Opening portal...');
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('Session:', session?.access_token ? 'Token present' : 'No token');
+      
       const resp = await fetch('/api/billing/portal', { 
         method: 'POST', 
         headers: { 
@@ -317,8 +320,11 @@ const BillingSettings = () => {
         }
       });
       
+      console.log('Response status:', resp.status);
+      
       if (!resp.ok) {
         const errorData = await resp.json().catch(() => ({ error: 'Failed to open portal' }));
+        console.log('Error data:', errorData);
         
         // If no Stripe customer, show message to start subscription
         if (resp.status === 404 && errorData.error === 'No Stripe customer on account') {
@@ -340,6 +346,7 @@ const BillingSettings = () => {
       }
       
       const data = await resp.json();
+      console.log('Portal data:', data);
       if (data.url) {
         window.location.href = data.url;
       } else {
