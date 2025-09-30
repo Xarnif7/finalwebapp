@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Star, Zap, Crown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -284,12 +283,9 @@ const BillingSettings = () => {
   const [loading, setLoading] = useState(false);
   const [sub, setSub] = useState(null);
   const [schedule, setSchedule] = useState(null);
-  const [showPlans, setShowPlans] = useState(false);
   const [showCards, setShowCards] = useState(false);
   const [cards, setCards] = useState({ payment_methods: [], default_payment_method_id: null });
-  const BASIC = import.meta.env.VITE_STRIPE_BASIC_PRICE_ID;
-  const PRO = import.meta.env.VITE_STRIPE_PRO_PRICE_ID;
-  const ENTERPRISE = import.meta.env.VITE_STRIPE_ENTERPRISE_PRICE_ID;
+  const [hasStripeCustomer, setHasStripeCustomer] = useState(true); // Assume true initially
 
   useEffect(() => { load(); }, []);
 
@@ -309,10 +305,59 @@ const BillingSettings = () => {
   };
 
   const openPortal = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const resp = await fetch('/api/stripe/portal', { method: 'POST', headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }});
-    const data = await resp.json();
-    if (resp.ok && data.url) window.location.href = data.url;
+    try {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const resp = await fetch('/api/billing/portal', { 
+        method: 'POST', 
+        headers: { 
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!resp.ok) {
+        const errorData = await resp.json().catch(() => ({ error: 'Failed to open portal' }));
+        
+        // If no Stripe customer, show message to start subscription
+        if (resp.status === 404 && errorData.error === 'No Stripe customer on account') {
+          setHasStripeCustomer(false);
+          toast({
+            title: "No Subscription",
+            description: 'Start a subscription to manage billing',
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        toast({
+          title: "Error",
+          description: errorData.error || 'Failed to open billing portal',
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const data = await resp.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast({
+          title: "Error",
+          description: 'No portal URL received',
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error opening portal:', error);
+      toast({
+        title: "Error",
+        description: 'Failed to open billing portal',
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadCards = async () => {
@@ -320,12 +365,6 @@ const BillingSettings = () => {
     const resp = await fetch('/api/stripe/payment-methods', { headers: { 'Authorization': `Bearer ${session?.access_token || ''}` } });
     const data = await resp.json();
     if (resp.ok) setCards(data);
-  };
-
-  const scheduleChange = async (priceId) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    await fetch('/api/stripe/change-plan', { method: 'POST', headers: { 'Authorization': `Bearer ${session?.access_token || ''}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ targetPriceId: priceId }) });
-    await load();
   };
 
   const cancelAtPeriodEnd = async () => {
@@ -341,55 +380,6 @@ const BillingSettings = () => {
   };
 
   const formatDate = (ms) => ms ? new Date(ms).toLocaleDateString() : '-';
-
-  // Pretty plan cards (same aesthetic as Paywall)
-  const plans = [
-    {
-      id: 'basic',
-      label: 'Standard',
-      priceId: BASIC,
-      price: '$49.99',
-      period: '/ month',
-      description: 'Perfect for small businesses getting started',
-      features: [
-        'Up to 100 review requests / mo',
-        'Basic automations',
-        'Email support',
-      ],
-      icon: Star,
-      popular: false,
-    },
-    {
-      id: 'pro',
-      label: 'Pro',
-      priceId: PRO,
-      price: '$89.99',
-      period: '/ month',
-      description: 'Ideal for growing teams with more needs',
-      features: [
-        'Up to 500 review requests / mo',
-        'Advanced sequences',
-        'Priority support',
-      ],
-      icon: Zap,
-      popular: true,
-    },
-    {
-      id: 'enterprise',
-      label: 'Enterprise',
-      priceId: ENTERPRISE,
-      price: '$179.99',
-      period: '/ month',
-      description: 'For large businesses with complex workflows',
-      features: [
-        'Unlimited requests',
-        'Custom workflows',
-        'Dedicated manager',
-      ],
-      icon: Crown,
-      popular: false,
-    },
-  ];
 
   return (
     <>
@@ -414,96 +404,34 @@ const BillingSettings = () => {
             ) : (
               <Button variant="outline" onClick={resume}>Resume</Button>
             )}
-            <Button onClick={() => setShowPlans(true)} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">Manage Subscription</Button>
+            {hasStripeCustomer ? (
+              <Button 
+                onClick={openPortal} 
+                disabled={loading}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+              >
+                {loading ? 'Opening...' : 'Manage Subscription'}
+              </Button>
+            ) : (
+              <div className="text-sm text-slate-600">
+                <span>Start subscription to manage</span>
+                <Button 
+                  variant="link" 
+                  className="p-0 h-auto text-blue-600 hover:text-blue-700"
+                  onClick={() => window.location.href = '/pricing'}
+                >
+                  Go to pricing
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="p-4 border border-slate-200 rounded-lg">
-          <p className="font-medium mb-2">Change plan for next cycle</p>
-          <div className="flex flex-wrap gap-2">
-            {BASIC && <Button variant="outline" onClick={() => scheduleChange(BASIC)}>Basic</Button>}
-            {PRO && <Button variant="outline" onClick={() => scheduleChange(PRO)}>Pro</Button>}
-            {ENTERPRISE && <Button variant="outline" onClick={() => scheduleChange(ENTERPRISE)}>Enterprise</Button>}
-          </div>
-          <p className="text-xs text-slate-500 mt-2">Takes effect after your current paid period ends.</p>
-        </div>
 
         {loading && <div className="text-sm text-slate-500">Loading…</div>}
       </CardContent>
     </Card>
 
-    {/* Plans Modal */}
-    <Dialog open={showPlans} onOpenChange={setShowPlans}>
-      <DialogContent className="max-w-5xl">
-        <DialogHeader>
-          <DialogTitle>Manage Subscription</DialogTitle>
-        </DialogHeader>
-        <div className="grid md:grid-cols-3 gap-6">
-          {plans.map((p) => {
-            const isActive = sub?.current_price === p.priceId;
-            const isScheduled = !isActive && (schedule?.phases?.[1]?.prices?.some(pr => pr?.id === p.priceId));
-            return (
-              <div
-                key={p.id}
-                className={`relative bg-white rounded-2xl shadow-xl border-2 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 ${
-                  p.popular ? 'border-purple-500 shadow-purple-100' : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                {p.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-semibold">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
-                <div className="p-6">
-                  <div className="text-center mb-6">
-                    <div className={`w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center ${
-                      p.popular ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-gradient-to-r from-blue-500 to-blue-600'
-                    }`}>
-                      <p.icon className="w-7 h-7 text-white" />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-1">{p.label}</h3>
-                    <p className="text-gray-600 mb-2">{p.description}</p>
-                    <div className="flex items-baseline justify-center">
-                      <span className="text-3xl font-bold text-gray-900">{p.price}</span>
-                      <span className="text-gray-600 ml-1">{p.period}</span>
-                    </div>
-                    <div className="mt-2 flex items-center justify-center gap-2">
-                      {isActive && (
-                        <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">Active plan</span>
-                      )}
-                      {isScheduled && (
-                        <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700">Scheduled next</span>
-                      )}
-                    </div>
-                  </div>
-                  <ul className="space-y-2 mb-6 text-sm">
-                    {p.features.map((f, i) => (
-                      <li key={i} className="flex items-center gap-2 text-gray-700">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />{f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    disabled={isActive}
-                    onClick={() => scheduleChange(p.priceId)}
-                    className={`w-full ${
-                      p.popular
-                        ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
-                        : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
-                    }`}
-                  >
-                    {isActive ? 'Current' : 'Switch next cycle'}
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="text-xs text-slate-500 mt-3">Changes apply after your current billing period.</div>
-      </DialogContent>
-    </Dialog>
 
     {/* Cards Modal */}
     <Dialog open={showCards} onOpenChange={setShowCards}>

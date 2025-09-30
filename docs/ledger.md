@@ -1,5 +1,37 @@
 # Blipp Development Ledger
 
+## 2025-01-29: Stripe Customer Portal Integration
+
+### What Changed
+- **STRIPE CUSTOMER PORTAL INTEGRATION**: Implemented full Stripe Customer Portal integration for subscription management
+- Created `/api/billing/portal` endpoint that creates Stripe Customer Portal sessions
+- Added `/api/stripe/webhook` endpoint for subscription sync with proper signature verification
+- Updated Settings.jsx to use Customer Portal instead of custom plan change modal
+- Added proper error handling and loading states for portal access
+- Implemented fallback for users without Stripe customer IDs
+- Added environment variables for Stripe webhook secret and price IDs
+- Removed unused plan change modal and related code
+
+### Why This Was Needed
+- User requested Stripe Customer Portal integration for better subscription management
+- Portal provides professional billing interface with proration, plan changes, and payment method management
+- Webhook ensures database stays in sync with Stripe subscription changes
+- Reduces maintenance burden by using Stripe's built-in billing interface
+- Provides better UX for subscription management compared to custom modal
+
+### Files Touched
+- `server.js` - Added `/api/billing/portal` and `/api/stripe/webhook` endpoints
+- `src/pages/Settings.jsx` - Updated to use Customer Portal, removed plan modal
+- `ENV.example` - Added Stripe webhook secret and price ID environment variables
+
+### How Verified
+- `/api/billing/portal` endpoint properly authenticates users and looks up stripe_customer_id
+- Webhook endpoint verifies Stripe signatures and updates subscription data
+- Settings page now opens Stripe Customer Portal instead of custom modal
+- Proper error handling for users without Stripe customer IDs
+- Loading states and toast notifications for better UX
+- All existing billing functionality preserved (cancel/resume, payment methods)
+
 ## 2025-01-29: Feedback UI Improvements - Gradient Icons and Button Styling
 
 ### What Changed

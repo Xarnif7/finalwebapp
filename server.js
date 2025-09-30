@@ -367,6 +367,54 @@ app.post('/api/stripe/portal', async (req, res) => {
   }
 });
 
+// Billing Portal endpoint (as requested in requirements)
+app.post('/api/billing/portal', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const { data: { user } } = await supabaseAuth.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    // Look up stripe_customer_id from profiles table
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('stripe_customer_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError && profileError.code !== 'PGRST116') {
+      console.error('[BILLING_PORTAL] Error fetching profile:', profileError);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    let stripeCustomerId = profile?.stripe_customer_id;
+    
+    // Fallback: accept customerId from request body if not found in DB
+    if (!stripeCustomerId) {
+      const { customerId } = req.body || {};
+      if (customerId) {
+        stripeCustomerId = customerId;
+      } else {
+        return res.status(404).json({ error: 'No Stripe customer on account' });
+      }
+    }
+
+    const returnUrl = `${process.env.APP_BASE_URL || process.env.VITE_SITE_URL || 'https://myblipp.com'}/settings/billing?from=portal`;
+    const session = await stripe.billingPortal.sessions.create({
+      customer: stripeCustomerId,
+      return_url: returnUrl
+    });
+
+    res.setHeader('Content-Type', 'application/json');
+    return res.json({ url: session.url });
+  } catch (e) {
+    console.error('[BILLING_PORTAL] Error:', e);
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(500).json({ error: e.message || 'Failed to create portal session' });
+  }
+});
+
 // Schedule a plan change at period end using Subscription Schedule
 app.post('/api/stripe/change-plan', async (req, res) => {
   try {
@@ -520,6 +568,116 @@ app.post('/api/stripe/payment-methods/detach', async (req, res) => {
   } catch (e) {
     console.error('[API] detach pm error', e);
     return res.status(500).json({ error: 'Failed to remove card' });
+  }
+});
+
+// Stripe webhook endpoint for subscription sync
+app.post('/api/stripe/webhook', async (req, res) => {
+  try {
+    const sig = req.headers['stripe-signature'];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    
+    if (!webhookSecret) {
+      console.error('[STRIPE_WEBHOOK] STRIPE_WEBHOOK_SECRET not configured');
+      return res.status(500).json({ error: 'Webhook secret not configured' });
+    }
+
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(req.rawBody || req.body, sig, webhookSecret);
+    } catch (err) {
+      console.error('[STRIPE_WEBHOOK] Webhook signature verification failed:', err.message);
+      return res.status(400).json({ error: 'Invalid signature' });
+    }
+
+    console.log('[STRIPE_WEBHOOK] Received event:', event.type);
+
+    // Handle subscription events
+    if (event.type === 'customer.subscription.created' || 
+        event.type === 'customer.subscription.updated' || 
+        event.type === 'customer.subscription.deleted') {
+      
+      const subscription = event.data.object;
+      const customerId = subscription.customer;
+      
+      console.log('[STRIPE_WEBHOOK] Processing subscription event:', {
+        type: event.type,
+        customerId,
+        subscriptionId: subscription.id,
+        status: subscription.status
+      });
+
+      // Map price ID to internal tier
+      const priceId = subscription.items?.data?.[0]?.price?.id;
+      let planTier = null;
+      
+      if (priceId) {
+        if (priceId === process.env.STRIPE_PRICE_BASIC) {
+          planTier = 'basic';
+        } else if (priceId === process.env.STRIPE_PRICE_STANDARD) {
+          planTier = 'standard';
+        } else if (priceId === process.env.STRIPE_PRICE_PRO) {
+          planTier = 'pro';
+        } else if (priceId === process.env.STRIPE_PRICE_ENTERPRISE) {
+          planTier = 'enterprise';
+        }
+      }
+
+      // Update subscription in database
+      try {
+        const subscriptionData = {
+          stripe_subscription_id: subscription.id,
+          plan_tier: planTier,
+          status: subscription.status,
+          current_period_end: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null,
+          plan_price_id: priceId,
+          updated_at: new Date().toISOString()
+        };
+
+        // Find user by stripe_customer_id
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('stripe_customer_id', customerId)
+          .single();
+
+        if (profileError) {
+          console.error('[STRIPE_WEBHOOK] Error finding user by customer ID:', profileError);
+          return res.status(200).json({ received: true }); // Still return 200 to acknowledge webhook
+        }
+
+        // Update or insert subscription record
+        const { error: upsertError } = await supabase
+          .from('subscriptions')
+          .upsert({
+            user_id: profile.id,
+            ...subscriptionData
+          }, {
+            onConflict: 'stripe_subscription_id'
+          });
+
+        if (upsertError) {
+          console.error('[STRIPE_WEBHOOK] Error updating subscription:', upsertError);
+        } else {
+          console.log('[STRIPE_WEBHOOK] Successfully updated subscription for user:', profile.id);
+        }
+
+      } catch (dbError) {
+        console.error('[STRIPE_WEBHOOK] Database error:', dbError);
+      }
+    }
+
+    // Handle checkout session completed (optional)
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      console.log('[STRIPE_WEBHOOK] Checkout session completed:', session.id);
+      // Additional logic for initial subscription activation can be added here
+    }
+
+    res.status(200).json({ received: true });
+  } catch (error) {
+    console.error('[STRIPE_WEBHOOK] Error processing webhook:', error);
+    res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
 
