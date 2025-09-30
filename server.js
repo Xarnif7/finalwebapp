@@ -13975,7 +13975,7 @@ app.post('/api/private-feedback', async (req, res) => {
 // Get private feedback for a business
 app.get('/api/private-feedback', async (req, res) => {
   try {
-    const { business_id, limit = 50, offset = 0 } = req.query;
+    const { business_id, limit = 8, offset = 0 } = req.query;
     const { data: { user } } = await supabase.auth.getUser(req.headers.authorization?.replace('Bearer ', ''));
     
     if (!user) {
@@ -14044,7 +14044,9 @@ app.get('/api/private-feedback', async (req, res) => {
       ...(directFeedback || [])
     ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    const feedback = allFeedback.slice(offset, offset + limit);
+    const start = Number(offset) || 0;
+    const pageSize = Number(limit) || 8;
+    const feedback = allFeedback.slice(start, start + pageSize);
     const error = reviewError || directError;
 
     if (error) {
@@ -14055,12 +14057,53 @@ app.get('/api/private-feedback', async (req, res) => {
     res.json({
       success: true,
       feedback: feedback || [],
-      count: feedback?.length || 0
+      count: feedback?.length || 0,
+      total: allFeedback.length
     });
 
   } catch (error) {
     console.error('Error fetching private feedback:', error);
     res.status(500).json({ error: 'Failed to fetch private feedback' });
+  }
+});
+
+// Delete a private feedback item (must belong to the user's business)
+app.delete('/api/private-feedback/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const businessId = profile?.business_id;
+    if (!businessId) return res.status(400).json({ error: 'User not linked to a business' });
+
+    // Fetch feedback and verify business ownership (via direct business_id or review_request linkage)
+    const { data: fb } = await supabase
+      .from('private_feedback')
+      .select('id, business_id, review_request_id, review_requests(business_id)')
+      .eq('id', id)
+      .maybeSingle();
+    if (!fb) return res.status(404).json({ error: 'Not found' });
+
+    const owner = fb.business_id || fb.review_requests?.business_id;
+    if (owner !== businessId) return res.status(403).json({ error: 'Forbidden' });
+
+    const { error: delErr } = await supabase
+      .from('private_feedback')
+      .delete()
+      .eq('id', id);
+    if (delErr) return res.status(500).json({ error: 'Failed to delete feedback' });
+
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('Delete private feedback failed:', e);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 

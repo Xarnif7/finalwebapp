@@ -12,6 +12,9 @@ export default function PrivateFeedbackInbox() {
   const [feedback, setFeedback] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pageOffset, setPageOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const PAGE_SIZE = 8;
   const [searchTerm, setSearchTerm] = useState('');
   const [sentimentFilter, setSentimentFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
@@ -20,10 +23,26 @@ export default function PrivateFeedbackInbox() {
   const [emailComposerData, setEmailComposerData] = useState(null);
 
   useEffect(() => {
-    fetchPrivateFeedback();
+    fetchPrivateFeedback(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchPrivateFeedback = async () => {
+  // Infinite scroll: observe sentinel
+  useEffect(() => {
+    const sentinel = document.getElementById('feedback-infinite-sentinel');
+    if (!sentinel) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && hasMore && !loading) {
+          fetchPrivateFeedback(false);
+        }
+      });
+    }, { rootMargin: '200px' });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loading, pageOffset]);
+
+  const fetchPrivateFeedback = async (reset = false) => {
     try {
       setLoading(true);
       
@@ -35,7 +54,7 @@ export default function PrivateFeedbackInbox() {
       }
 
       // Fetch private feedback for the user's business
-      const response = await fetch('/api/private-feedback', {
+      const response = await fetch(`/api/private-feedback?limit=${PAGE_SIZE}&offset=${reset ? 0 : pageOffset}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
@@ -47,10 +66,11 @@ export default function PrivateFeedbackInbox() {
       }
 
       const data = await response.json();
-      console.log('🔍 Raw feedback data:', data.feedback);
+      const fetched = data.feedback || [];
+      console.log('🔍 Raw feedback data:', fetched);
       
       // Transform the nested data structure
-      const transformedFeedback = (data.feedback || []).map(item => {
+      const transformedFeedback = fetched.map(item => {
         // Handle both review_request feedback and direct business feedback (QR codes)
         const customerData = item.review_requests?.customers;
         const customerName = customerData ? 
@@ -76,7 +96,9 @@ export default function PrivateFeedbackInbox() {
           customer_email: customerEmail
         };
       });
-      setFeedback(transformedFeedback);
+      setFeedback(prev => reset ? transformedFeedback : [...prev, ...transformedFeedback]);
+      setPageOffset(prev => reset ? PAGE_SIZE : prev + PAGE_SIZE);
+      setHasMore((data.total || 0) > (reset ? PAGE_SIZE : (pageOffset + PAGE_SIZE)));
     } catch (err) {
       console.error('Error fetching private feedback:', err);
       setError('Failed to load private feedback');
@@ -341,7 +363,7 @@ export default function PrivateFeedbackInbox() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4" onScroll={() => {}}>
           {filteredFeedback.map((item) => (
             <Card 
               key={item.id} 
@@ -412,6 +434,10 @@ export default function PrivateFeedbackInbox() {
               </CardContent>
             </Card>
           ))}
+          {/* Infinite scroll sentinel */}
+          {hasMore && (
+            <div id="feedback-infinite-sentinel" className="h-10"></div>
+          )}
         </div>
       )}
 
@@ -495,6 +521,30 @@ export default function PrivateFeedbackInbox() {
                     </Button>
                   )}
                 </div>
+              </div>
+              {/* Delete floating action */}
+              <div className="fixed bottom-6 right-6">
+                <Button variant="destructive" size="icon" onClick={async () => {
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session?.access_token) return alert('Not authenticated');
+                    const resp = await fetch(`/api/private-feedback/${selectedFeedback.id}`, {
+                      method: 'DELETE',
+                      headers: { 'Authorization': `Bearer ${session.access_token}` }
+                    });
+                    if (!resp.ok) {
+                      const e = await resp.json().catch(() => ({}));
+                      throw new Error(e.error || 'Failed to delete');
+                    }
+                    setFeedback(prev => prev.filter(f => f.id !== selectedFeedback.id));
+                    setSelectedFeedback(null);
+                  } catch (e) {
+                    console.error('Delete error', e);
+                    alert('Failed to delete feedback: ' + e.message);
+                  }
+                }}>
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
             </CardContent>
           </Card>
