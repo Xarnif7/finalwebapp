@@ -388,14 +388,52 @@ app.post('/api/billing/link-customer', async (req, res) => {
     // Look for existing Stripe customers by email
     const customers = await stripe.customers.list({
       email: user.email,
-      limit: 1
+      limit: 10 // Get more customers to see all possibilities
     });
+
+    console.log('[LINK_CUSTOMER] Found customers:', customers.data.length);
 
     if (customers.data.length === 0) {
       console.log('[LINK_CUSTOMER] No Stripe customer found for email:', user.email);
-      return res.status(404).json({ error: 'No Stripe customer found for this email' });
+      
+      // Create a new Stripe customer if none exists
+      console.log('[LINK_CUSTOMER] Creating new Stripe customer...');
+      const newCustomer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          supabase_user_id: user.id
+        }
+      });
+      
+      console.log('[LINK_CUSTOMER] Created new customer:', newCustomer.id);
+      
+      // Update profile with new customer ID
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          stripe_customer_id: newCustomer.id,
+          email: user.email,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'id'
+        });
+
+      if (updateError) {
+        console.error('[LINK_CUSTOMER] Error updating profile with new customer:', updateError);
+        return res.status(500).json({ error: 'Failed to update profile' });
+      }
+
+      console.log('[LINK_CUSTOMER] Successfully created and linked new customer');
+      res.setHeader('Content-Type', 'application/json');
+      return res.json({ 
+        success: true, 
+        message: 'Created and linked new Stripe customer',
+        customer_id: newCustomer.id
+      });
     }
 
+    // Use the most recent customer (first in list)
     const stripeCustomer = customers.data[0];
     console.log('[LINK_CUSTOMER] Found Stripe customer:', stripeCustomer.id);
 
@@ -463,15 +501,40 @@ app.post('/api/billing/portal', async (req, res) => {
     let stripeCustomerId = profile?.stripe_customer_id;
     console.log('[BILLING_PORTAL] Stripe customer ID from DB:', stripeCustomerId);
     
-    // Fallback: accept customerId from request body if not found in DB
+    // Fallback: create a new Stripe customer if none exists
     if (!stripeCustomerId) {
-      const { customerId } = req.body || {};
-      if (customerId) {
-        stripeCustomerId = customerId;
-        console.log('[BILLING_PORTAL] Using customerId from request body:', customerId);
-      } else {
-        console.log('[BILLING_PORTAL] No Stripe customer ID found');
-        return res.status(404).json({ error: 'No Stripe customer on account' });
+      console.log('[BILLING_PORTAL] No Stripe customer ID found, creating new customer...');
+      
+      try {
+        const newCustomer = await stripe.customers.create({
+          email: user.email,
+          metadata: {
+            supabase_user_id: user.id
+          }
+        });
+        
+        stripeCustomerId = newCustomer.id;
+        console.log('[BILLING_PORTAL] Created new customer:', stripeCustomerId);
+        
+        // Save the customer ID to the profile
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            stripe_customer_id: stripeCustomerId,
+            email: user.email,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'id'
+          });
+
+        if (updateError) {
+          console.error('[BILLING_PORTAL] Error saving customer ID:', updateError);
+          // Continue anyway - the portal can still work
+        }
+      } catch (customerError) {
+        console.error('[BILLING_PORTAL] Error creating customer:', customerError);
+        return res.status(500).json({ error: 'Failed to create Stripe customer' });
       }
     }
 
