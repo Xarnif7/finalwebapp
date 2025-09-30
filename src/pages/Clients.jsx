@@ -277,7 +277,7 @@ export default function ClientsPage() {
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [showAllCustomers, setShowAllCustomers] = useState(false);
   // Infinite scroll window state
-  const PAGE_SIZE = 8;
+  const PAGE_SIZE = 10;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const displayedCustomers = customers.slice(0, visibleCount);
   const hasMoreCustomers = customers.length > visibleCount;
