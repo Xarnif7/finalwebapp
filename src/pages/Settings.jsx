@@ -392,6 +392,7 @@ const BillingSettings = () => {
   ];
 
   return (
+    <>
     <Card className="rounded-2xl">
       <CardHeader>
         <CardTitle>Billing</CardTitle>
@@ -536,6 +537,7 @@ const BillingSettings = () => {
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 };
 
