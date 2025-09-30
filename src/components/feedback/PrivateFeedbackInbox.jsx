@@ -317,6 +317,7 @@ export default function PrivateFeedbackInbox() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
+                      <MessageSquare className="w-5 h-5 text-gray-400" />
                       <Badge className={getSentimentColor(item.sentiment)}>
                         {getSentimentIcon(item.sentiment)} {item.sentiment}
                       </Badge>

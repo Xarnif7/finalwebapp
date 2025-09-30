@@ -136,7 +136,7 @@ export default function FeedbackForm() {
 
   const handleMaybeLaterClick = () => {
     // Redirect to business website or close window
-    if (business.website) {
+    if (business?.website) {
       window.open(business.website, '_blank');
     } else {
       // Close the window/tab
@@ -227,18 +227,17 @@ export default function FeedbackForm() {
       <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-orange-50 flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
-            <div className="w-16 h-16 mx-auto mb-6 bg-yellow-100 rounded-full flex items-center justify-center">
-              <Star className="w-8 h-8 text-yellow-600 fill-current" />
+            <div className="w-16 h-16 mx-auto mb-6 bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Amazing!</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Thank You!</h2>
             <p className="text-gray-600 mb-6">
-              We're thrilled you had a great experience with {business.name}! 
-              Would you like to share your positive feedback publicly?
+              Thanks for your feedback! Would you also share it publicly?
             </p>
             <div className="space-y-3">
               <Button 
                 onClick={handlePublicReviewClick}
-                className="w-full flex items-center gap-2"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white flex items-center gap-2"
               >
                 <ExternalLink className="w-4 h-4" />
                 Leave a Public Review

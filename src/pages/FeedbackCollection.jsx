@@ -138,7 +138,7 @@ export default function FeedbackCollection() {
 
   const handleMaybeLaterClick = () => {
     // Redirect to business website or close window
-    if (business.website) {
+    if (business?.website) {
       window.open(business.website, '_blank');
     } else {
       // Close the window/tab
@@ -261,7 +261,7 @@ export default function FeedbackCollection() {
             <div className="space-y-3">
               <Button 
                 onClick={handlePublicReviewClick}
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
               >
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Leave a Google Review
