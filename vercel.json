@@ -143,6 +143,10 @@
       "destination": "/server.js"
     },
     {
+      "source": "/api/billing/(.*)",
+      "destination": "/server.js"
+    },
+    {
       "source": "/api/profile/(.*)",
       "destination": "/server.js"
     },
