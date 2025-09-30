@@ -253,7 +253,7 @@ export default function FeedbackForm() {
         <Card className="shadow-xl border-0">
           <CardHeader className="text-center pb-6">
             <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <Heart className="w-8 h-8 text-white" />
+              <MessageSquare className="w-8 h-8 text-white" />
             </div>
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               Share Your Experience

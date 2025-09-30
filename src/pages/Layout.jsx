@@ -36,7 +36,7 @@ export default function Layout({ children, currentPageName }) {
 
   console.log('[LAYOUT] Rendering with currentPageName:', pageName, 'pathname:', pathname, 'children type:', typeof children);
 
-  const isLandingSitePage = ["Landing", "Features", "HowItWorks", "SimpleSetup", "Testimonials", "Paywall", "PostCheckout", "NotFound", "FeedbackCollection", "QRRedirect"].includes(pageName);
+  const isLandingSitePage = ["Landing", "Features", "HowItWorks", "SimpleSetup", "Testimonials", "Paywall", "PostCheckout", "NotFound", "FeedbackCollection", "QRRedirect", "FeedbackForm"].includes(pageName);
   
   console.log('[LAYOUT] isLandingSitePage:', isLandingSitePage, 'currentPageName:', pageName);
 
