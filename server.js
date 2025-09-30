@@ -17044,6 +17044,7 @@ app.get('/api/qr/png/:code', async (req, res) => {
 app.get('/api/r/:code', async (req, res) => {
   try {
     const { code } = req.params;
+    console.log(`🔍 Looking up QR code: ${code}`);
     
     // Find the QR code and increment scan count
     const { data: qrCode, error } = await supabase
@@ -17051,6 +17052,8 @@ app.get('/api/r/:code', async (req, res) => {
       .select('*')
       .eq('code', code)
       .single();
+
+    console.log(`🔍 QR code lookup result:`, { qrCode, error });
 
     if (error || !qrCode) {
       return res.status(404).send(`

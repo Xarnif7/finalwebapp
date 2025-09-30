@@ -243,7 +243,7 @@ const QrBuilder = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(qr.url, '_blank')}
+                        onClick={() => window.open(qr.png_url, '_blank')}
                         className="flex items-center gap-1"
                       >
                         <Eye className="w-4 h-4" />
