@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { headers } from 'next/headers';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -15,7 +14,7 @@ export default async function handler(req, res) {
     const { tech_id } = req.body;
 
     // Get user from JWT token
-    const authHeader = headers().get('authorization');
+    const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Unauthorized' });
     }

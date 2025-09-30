@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useToast } from '../ui/use-toast';
 import { QrCode, Download, Copy, Plus, Trash2, Eye } from 'lucide-react';
 import { supabase } from '../../lib/supabase/browser';
@@ -11,39 +10,15 @@ const QrBuilder = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [qrCodes, setQrCodes] = useState([]);
-  const [techs, setTechs] = useState([]);
-  const [selectedTech, setSelectedTech] = useState('none');
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadQrCodes();
-      loadTechs();
     }
   }, [user]);
 
-  const loadTechs = async () => {
-    if (!user) return;
-    
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) return;
-
-      const response = await fetch('/api/techs', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setTechs(result.techs || []);
-      }
-    } catch (error) {
-      console.error('Error loading techs:', error);
-    }
-  };
 
   const loadQrCodes = async () => {
     if (!user) return;
@@ -98,7 +73,7 @@ const QrBuilder = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ tech_id: selectedTech === 'none' ? undefined : selectedTech })
+        body: JSON.stringify({})
       });
 
       const result = await response.json();
@@ -109,7 +84,6 @@ const QrBuilder = () => {
           description: "QR code generated successfully!",
         });
         loadQrCodes(); // Reload the list
-        setSelectedTech('none'); // Reset selection
       } else {
         throw new Error(result.error || 'Failed to generate QR code');
       }
@@ -203,17 +177,6 @@ const QrBuilder = () => {
               <p className="text-sm text-gray-600">Generate QR codes for review collection</p>
             </div>
             <div className="flex items-center gap-2">
-              <Select value={selectedTech} onValueChange={setSelectedTech}>
-                <SelectTrigger className="w-56">
-                  <SelectValue placeholder="Select technician (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No tech (generic)</SelectItem>
-                  {techs.map(t => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <Button onClick={generateQRCode} disabled={generating} className="flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 {generating ? "Generating..." : "Generate QR Code"}
