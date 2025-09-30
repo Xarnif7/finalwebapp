@@ -66,6 +66,14 @@ export default async function handler(req, res) {
     const baseUrl = process.env.APP_BASE_URL || process.env.VITE_SITE_URL || 'https://myblipp.com';
     const url = `${baseUrl}/api/r/${qrCode}`;
     
+    console.log('🔍 ENV DEBUG:', {
+      APP_BASE_URL: process.env.APP_BASE_URL,
+      VITE_SITE_URL: process.env.VITE_SITE_URL,
+      SITE_URL: process.env.SITE_URL,
+      selected_baseUrl: baseUrl,
+      final_url: url
+    });
+    
     console.log('🔍 Creating QR code record:', {
       business_id: profile.business_id,
       tech_id: tech_id || null,
