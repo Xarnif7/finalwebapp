@@ -21,13 +21,14 @@ export default function FeedbackForm() {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
 
-  // Robust close helper for QR flows (tries multiple strategies, then redirects)
-  const closeTabOrRedirect = () => {
+  // Robust close helper for QR flows (tries multiple strategies, avoids redirecting to our site)
+  const closeTabOrGoBack = () => {
+    try { window.opener = null; } catch (_) {}
     try { window.close(); } catch (_) {}
     try { window.top?.close?.(); } catch (_) {}
     try { window.open('', '_self'); window.close(); } catch (_) {}
-    // Final fallback: redirect to root so the user isn't stuck on a blank page
-    setTimeout(() => { try { window.location.href = '/'; } catch (_) {} }, 120);
+    // Last resort: navigate back to previous app (camera/browser back stack) instead of our site
+    setTimeout(() => { try { window.history.go(-1); } catch (_) {} }, 120);
   };
 
   useEffect(() => {
@@ -144,7 +145,7 @@ export default function FeedbackForm() {
   };
 
   const handleMaybeLaterClick = () => {
-    closeTabOrRedirect();
+    closeTabOrGoBack();
   };
 
   const renderStars = () => {
@@ -211,7 +212,7 @@ export default function FeedbackForm() {
               Your feedback has been submitted successfully. {business.name} appreciates your input!
             </p>
             <Button 
-              onClick={closeTabOrRedirect}
+              onClick={closeTabOrGoBack}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white"
             >
               Close
