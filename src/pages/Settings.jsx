@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Star, Zap, Crown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -341,6 +342,55 @@ const BillingSettings = () => {
 
   const formatDate = (ms) => ms ? new Date(ms).toLocaleDateString() : '-';
 
+  // Pretty plan cards (same aesthetic as Paywall)
+  const plans = [
+    {
+      id: 'basic',
+      label: 'Standard',
+      priceId: BASIC,
+      price: '$49.99',
+      period: '/ month',
+      description: 'Perfect for small businesses getting started',
+      features: [
+        'Up to 100 review requests / mo',
+        'Basic automations',
+        'Email support',
+      ],
+      icon: Star,
+      popular: false,
+    },
+    {
+      id: 'pro',
+      label: 'Pro',
+      priceId: PRO,
+      price: '$89.99',
+      period: '/ month',
+      description: 'Ideal for growing teams with more needs',
+      features: [
+        'Up to 500 review requests / mo',
+        'Advanced sequences',
+        'Priority support',
+      ],
+      icon: Zap,
+      popular: true,
+    },
+    {
+      id: 'enterprise',
+      label: 'Enterprise',
+      priceId: ENTERPRISE,
+      price: '$179.99',
+      period: '/ month',
+      description: 'For large businesses with complex workflows',
+      features: [
+        'Unlimited requests',
+        'Custom workflows',
+        'Dedicated manager',
+      ],
+      icon: Crown,
+      popular: false,
+    },
+  ];
+
   return (
     <Card className="rounded-2xl">
       <CardHeader>
@@ -383,27 +433,74 @@ const BillingSettings = () => {
 
     {/* Plans Modal */}
     <Dialog open={showPlans} onOpenChange={setShowPlans}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>Manage Subscription</DialogTitle>
         </DialogHeader>
-        <div className="grid md:grid-cols-3 gap-4">
-          {[{id:'basic',label:'Basic',priceId:BASIC},{id:'pro',label:'Pro',priceId:PRO},{id:'enterprise',label:'Enterprise',priceId:ENTERPRISE}].map(p => {
+        <div className="grid md:grid-cols-3 gap-6">
+          {plans.map((p) => {
             const isActive = sub?.current_price === p.priceId;
-            const isScheduled = !isActive && schedule?.phases?.[1]?.prices?.some(pr => pr?.id === p.priceId);
+            const isScheduled = !isActive && (schedule?.phases?.[1]?.prices?.some(pr => pr?.id === p.priceId));
             return (
-              <div key={p.id} className={`rounded-xl border p-4 ${isActive? 'border-blue-500' : 'border-slate-200'}`}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="font-medium">{p.label}</div>
-                  {isActive && <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">Active plan</span>}
-                  {isScheduled && <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700">Scheduled next</span>}
+              <div
+                key={p.id}
+                className={`relative bg-white rounded-2xl shadow-xl border-2 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 ${
+                  p.popular ? 'border-purple-500 shadow-purple-100' : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {p.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-semibold">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                <div className="p-6">
+                  <div className="text-center mb-6">
+                    <div className={`w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center ${
+                      p.popular ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                    }`}>
+                      <p.icon className="w-7 h-7 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-1">{p.label}</h3>
+                    <p className="text-gray-600 mb-2">{p.description}</p>
+                    <div className="flex items-baseline justify-center">
+                      <span className="text-3xl font-bold text-gray-900">{p.price}</span>
+                      <span className="text-gray-600 ml-1">{p.period}</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-center gap-2">
+                      {isActive && (
+                        <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">Active plan</span>
+                      )}
+                      {isScheduled && (
+                        <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700">Scheduled next</span>
+                      )}
+                    </div>
+                  </div>
+                  <ul className="space-y-2 mb-6 text-sm">
+                    {p.features.map((f, i) => (
+                      <li key={i} className="flex items-center gap-2 text-gray-700">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />{f}
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    disabled={isActive}
+                    onClick={() => scheduleChange(p.priceId)}
+                    className={`w-full ${
+                      p.popular
+                        ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
+                        : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
+                    }`}
+                  >
+                    {isActive ? 'Current' : 'Switch next cycle'}
+                  </Button>
                 </div>
-                <Button disabled={isActive} onClick={() => scheduleChange(p.priceId)} className="w-full">{isActive? 'Current' : 'Switch next cycle'}</Button>
               </div>
             );
           })}
         </div>
-        <div className="text-xs text-slate-500 mt-2">Changes apply after your current billing period.</div>
+        <div className="text-xs text-slate-500 mt-3">Changes apply after your current billing period.</div>
       </DialogContent>
     </Dialog>
 
