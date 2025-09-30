@@ -52,11 +52,23 @@ export default async function handler(req, res) {
     }
 
     // Add download URLs to each QR code
-    const qrCodesWithUrls = qrCodes.map(qr => ({
-      ...qr,
-      download_url: `${process.env.APP_BASE_URL}/api/qr/download/${qr.code}`,
-      png_url: `${process.env.APP_BASE_URL}/api/qr/png/${qr.code}`
-    }));
+    const qrCodesWithUrls = qrCodes.map(qr => {
+      const downloadUrl = `${process.env.APP_BASE_URL}/api/qr/download/${qr.code}`;
+      const pngUrl = `${process.env.APP_BASE_URL}/api/qr/png/${qr.code}`;
+      
+      console.log(`🔍 QR Code ${qr.code} URLs:`, {
+        redirect_url: qr.url,
+        download_url: downloadUrl,
+        png_url: pngUrl,
+        app_base_url: process.env.APP_BASE_URL
+      });
+      
+      return {
+        ...qr,
+        download_url: downloadUrl,
+        png_url: pngUrl
+      };
+    });
 
     return res.status(200).json({
       success: true,
