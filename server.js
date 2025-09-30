@@ -17021,6 +17021,7 @@ app.get('/api/qr/png/:code', async (req, res) => {
     }
 
     // Generate QR code image
+    console.log(`🔍 PNG: Generating QR code image for ${code} with URL: ${qrCode.url}`);
     const QRCode = await import('qrcode');
     const qrBuffer = await QRCode.default.toBuffer(qrCode.url, {
       type: 'png',
