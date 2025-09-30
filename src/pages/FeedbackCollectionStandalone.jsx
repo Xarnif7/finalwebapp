@@ -296,11 +296,11 @@ export default function FeedbackCollectionStandalone() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-            <MessageSquare className="w-8 h-8 text-white" />
-          </div>
-          <CardTitle className="text-xl">{formSettings?.title || 'How was your experience?'}</CardTitle>
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+              <MessageSquare className="w-8 h-8 text-white" />
+            </div>
+            <CardTitle className="text-xl">{formSettings?.title || 'How was your experience?'}</CardTitle>
           {formSettings?.subtitle && (
             <p className="text-gray-600 text-sm">{formSettings.subtitle}</p>
           )}
@@ -348,7 +348,7 @@ export default function FeedbackCollectionStandalone() {
 
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white" 
               disabled={submitting || rating === 0}
             >
               {submitting ? 'Submitting...' : (formSettings?.submitButtonText || 'Submit Feedback')}
