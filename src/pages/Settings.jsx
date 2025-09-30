@@ -280,6 +280,7 @@ const BusinessSettings = () => {
 };
 
 const BillingSettings = () => {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [sub, setSub] = useState(null);
   const [schedule, setSchedule] = useState(null);
