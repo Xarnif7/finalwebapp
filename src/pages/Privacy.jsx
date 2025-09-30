@@ -37,6 +37,9 @@ const Privacy = () => {
             <p className="text-gray-700 mb-4">
               We do not sell, trade, or otherwise transfer your personal information to third parties without your consent, except as described in this policy.
             </p>
+            <p className="text-gray-700 mb-4">
+              <strong>All the above categories exclude text messaging originator opt-in data and consent; this information will not be shared with any third parties.</strong>
+            </p>
 
             <h2 className="text-2xl font-semibold text-gray-900 mt-8 mb-4">4. Data Security</h2>
             <p className="text-gray-700 mb-4">
