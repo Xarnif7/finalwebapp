@@ -55,18 +55,26 @@ async function purchaseTollFreeNumber(accountId) {
       })
     });
     
+    console.log('[SURGE] Purchase TFN response status:', response.status);
+    console.log('[SURGE] Purchase TFN response ok:', response.ok);
+    
+    const responseText = await response.text();
+    console.log('[SURGE] Purchase TFN raw response:', responseText);
+    
     let data;
     try {
-      data = await response.json();
+      data = JSON.parse(responseText);
     } catch (jsonError) {
-      const text = await response.text();
-      console.error('[SURGE] Non-JSON response when purchasing TFN:', response.status, text);
-      throw new Error(`Surge API error: HTTP ${response.status} - ${text}`);
+      console.error('[SURGE] Could not parse JSON response');
+      throw new Error(`Surge API error: HTTP ${response.status} - ${responseText}`);
     }
     
+    console.log('[SURGE] Purchase TFN parsed data:', JSON.stringify(data));
+    
     if (!response.ok) {
-      console.error('[SURGE] Error purchasing TFN:', JSON.stringify(data, null, 2));
-      const errorMsg = data.message || data.error || JSON.stringify(data);
+      console.error('[SURGE] TFN purchase failed with status:', response.status);
+      console.error('[SURGE] Error data:', data);
+      const errorMsg = data?.error?.message || data?.message || data?.error || 'Unknown error';
       throw new Error(errorMsg);
     }
     
