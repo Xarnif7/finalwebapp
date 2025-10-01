@@ -294,10 +294,14 @@ const BillingSettings = () => {
     load(); 
     
     // Auto-refresh if returning from portal
-    const fromPortal = searchParams.get('from') === 'portal' || searchParams.get('tab') === 'billing';
+    const fromPortal = searchParams.get('from') === 'portal';
     if (fromPortal) {
-      // Wait a bit for webhook to process, then reload
-      setTimeout(() => load(), 2000);
+      // Wait for webhook to process (webhooks can take 3-5 seconds), then reload
+      console.log('[BILLING] Detected return from portal, will refresh in 5s...');
+      setTimeout(() => {
+        console.log('[BILLING] Refreshing subscription data after portal return...');
+        load();
+      }, 5000);
     }
   }, [searchParams]);
 
@@ -312,9 +316,12 @@ const BillingSettings = () => {
         return;
       }
       
-      // Fetch subscription status from our main endpoint
+      // Fetch subscription status from our main endpoint (with cache-busting)
       const statusResp = await fetch('/api/subscription/status', {
-        headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }
+        headers: { 
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
       });
       const statusData = await statusResp.json();
       
@@ -347,9 +354,12 @@ const BillingSettings = () => {
         
         console.log('[BILLING] DB subscription query:', { dbSub, dbError });
         
-        // Also fetch from Stripe API for most up-to-date info
+        // Also fetch from Stripe API for most up-to-date info (with cache-busting)
         const stripeResp = await fetch('/api/stripe/subscription', {
-          headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }
+          headers: { 
+            'Authorization': `Bearer ${session?.access_token || ''}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          }
         });
         const stripeData = await stripeResp.json();
         
