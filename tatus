@@ -3,3 +3,8 @@ public/images/landing-reviews-hero.jpg
 src/components/reviews/GoogleOAuthConnection.jsx
 src/components/reviews/ReviewsInbox.jsx
 src/hooks/useCustomersData.js
+[33mb403729[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Show scheduled plan upgrades immediately when user pays prorated amount
+[33m869387e[m Fix plan tier not updating after portal change - increase webhook processing delay to 5s and add cache-busting headers
+[33md828c0c[m Add fallback renewal date calculation for subscriptions missing billing period data
+[33m2b668a1[m Fix renewal date by retrieving full subscription object from Stripe
+[33m816ac4c[m Add server-side logging for Stripe subscription debugging
