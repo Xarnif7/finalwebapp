@@ -4,7 +4,8 @@
  * Handles all Surge webhook events: delivery status, inbound messages, verification updates
  */
 
-const { verifySignature } = require('../_lib/surgeClient');
+const { verifySignature, sendMessage } = require('../_lib/surgeClient');
+const { ensureFooter, matchesStopKeyword, matchesHelpKeyword } = require('../_lib/compliance');
 const {
   updateBusiness,
   upsertMessage,
@@ -45,43 +46,35 @@ async function handleInbound(event) {
       email: null
     });
 
-    // Check for STOP/UNSUBSCRIBE keywords
-    const bodyUpper = body.trim().toUpperCase();
-    const stopKeywords = ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'];
-    
-    if (stopKeywords.includes(bodyUpper)) {
+    // STOP keywords
+    if (matchesStopKeyword(body)) {
       console.log(`[WEBHOOK] STOP keyword detected from ${from}`);
       await setContactOptedOut(business.id, from, true);
-
-      // Auto-reply confirming opt-out
+      // One-time auto-reply confirming opt-out
       try {
-        const { sendMessage } = require('../_lib/surgeClient');
         await sendMessage({
           accountId: business.surge_account_id,
           from: business.from_number,
           to: from,
-          body: 'You have been opted out and will no longer receive messages. Reply HELP for help.'
+          body: "You're opted out and won't receive SMS from our business. Reply START to opt in."
         });
       } catch (replyError) {
-        console.error('[WEBHOOK] Error sending STOP auto-reply:', replyError);
+        console.error('[WEBHOOK] Error sending STOP auto-reply:', replyError.message);
       }
     }
 
-    // Check for HELP keyword
-    const helpKeywords = ['HELP', 'INFO', 'SUPPORT'];
-    if (helpKeywords.includes(bodyUpper)) {
+    // HELP keywords
+    if (matchesHelpKeyword(body)) {
       console.log(`[WEBHOOK] HELP keyword detected from ${from}`);
-      // Auto-reply with help information
       try {
-        const { sendMessage } = require('../_lib/surgeClient');
         await sendMessage({
           accountId: business.surge_account_id,
           from: business.from_number,
           to: from,
-          body: 'Blipp SMS: For assistance, reply here or email support@myblipp.com. Reply STOP to opt out.'
+          body: ensureFooter('Thanks for reaching out. For assistance, reply here or email support@myblipp.com.')
         });
       } catch (replyError) {
-        console.error('[WEBHOOK] Error sending HELP auto-reply:', replyError);
+        console.error('[WEBHOOK] Error sending HELP auto-reply:', replyError.message);
       }
     }
 

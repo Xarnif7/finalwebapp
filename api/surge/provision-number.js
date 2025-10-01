@@ -4,8 +4,8 @@
  * Creates Surge account, purchases TFN, submits verification
  */
 
-const { getBusiness, updateBusiness } = require('../_lib/db');
-const { supabase } = require('../_lib/db');
+const { getBusiness, updateBusiness, supabase } = require('../_lib/db');
+const { requireOwner } = require('../_lib/auth');
 const {
   createAccountForBusiness,
   purchaseTollFreeNumber,
@@ -117,8 +117,8 @@ module.exports = async (req, res) => {
       });
     }
 
-    // TODO: Add authentication check to ensure user owns businessId
-    console.log('[PROVISION] TODO: Add auth check for businessId:', businessId);
+    // Auth: ensure caller owns businessId
+    await requireOwner(req, businessId);
 
     // Get the business
     const business = await getBusiness(businessId);
@@ -174,6 +174,26 @@ module.exports = async (req, res) => {
       // Persist surge_account_id
       await updateBusiness(businessId, { surge_account_id: accountId });
       console.log('[PROVISION] Account ID:', accountId);
+    }
+
+    // Capacity guard
+    const maxNumbers = parseInt(process.env.SURGE_MAX_NUMBERS || '0', 10);
+    if (maxNumbers > 0) {
+      const { data: countRow } = await supabase
+        .from('businesses')
+        .select('id', { count: 'exact', head: true })
+        .not('from_number', 'is', null);
+      const inUse = (countRow && countRow.length) ? countRow.length : (supabase._count || 0);
+      // Supabase count via head isn't easily available here; fallback simple query
+      const { count } = await supabase
+        .from('businesses')
+        .select('id', { count: 'exact', head: true })
+        .not('from_number', 'is', null);
+      const numbersInUse = count || 0;
+      if (numbersInUse >= maxNumbers) {
+        await supabase.from('phone_provisioning_queue').insert({ business_id: businessId, status: 'queued' });
+        return res.status(200).json({ queued: true, message: "Provisioning queued. We’ll email you when capacity opens." });
+      }
     }
 
     // Step 2: Purchase toll-free number

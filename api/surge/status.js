@@ -6,6 +6,7 @@
 
 const { getBusiness, updateBusiness } = require('../_lib/db');
 const { getCapabilityStatus } = require('../_lib/surgeClient');
+const { requireOwner } = require('../_lib/auth');
 
 module.exports = async (req, res) => {
   if (req.method !== 'GET') {
@@ -19,8 +20,8 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'businessId query parameter required' });
     }
 
-    // TODO: Add authentication check to ensure user owns businessId
-    console.log('[STATUS] TODO: Add auth check for businessId:', businessId);
+    // Auth: ensure caller owns the business
+    await requireOwner(req, businessId);
 
     // Get the business
     const business = await getBusiness(businessId);

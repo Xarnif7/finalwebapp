@@ -8,22 +8,8 @@ const { getBusiness } = require('../../_lib/db');
 const { getContact, insertMessage } = require('../../_lib/db');
 const { sendMessage } = require('../../_lib/surgeClient');
 const { normalizeToE164, isLikelyE164 } = require('../../_lib/phone');
-
-// Ensure compliance footer
-function ensureFooter(message) {
-  const footer = 'Reply STOP to opt out, HELP for help.';
-  const lowerMessage = message.toLowerCase();
-  
-  if (
-    lowerMessage.includes('reply stop') ||
-    lowerMessage.includes('text stop') ||
-    lowerMessage.includes('send stop')
-  ) {
-    return message;
-  }
-  
-  return `${message.trim()} ${footer}`;
-}
+const { ensureFooter } = require('../../_lib/compliance');
+const { requireOwner } = require('../../_lib/auth');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
@@ -40,8 +26,8 @@ module.exports = async (req, res) => {
       });
     }
 
-    // TODO: Add authentication check to ensure user owns businessId
-    console.log('[SMS_SEND] TODO: Add auth check for businessId:', businessId);
+    // Auth: ensure caller owns businessId
+    await requireOwner(req, businessId);
 
     // Get the business
     const business = await getBusiness(businessId);
