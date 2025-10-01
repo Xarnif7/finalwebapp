@@ -16,6 +16,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import { useDashboard } from "@/components/providers/DashboardProvider";
 import { supabase } from "@/lib/supabase/browser";
 import { useToast } from "@/components/ui/use-toast";
+import MessagingSettings from "@/components/settings/MessagingSettings";
 
 const SettingsTab = ({ children, title, isActive, onClick }) => (
   <button
@@ -835,7 +836,7 @@ const QRBuilderSettings = () => {
 const SettingsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "profile";
-  const tabs = ["profile", "business", "billing"];
+  const tabs = ["profile", "business", "billing", "messaging"];
 
   return (
     <div className="p-8 space-y-6">
@@ -857,6 +858,7 @@ const SettingsPage = () => {
         {activeTab === 'profile' && <ProfileSettings />}
         {activeTab === 'business' && <BusinessSettings />}
         {activeTab === 'billing' && <BillingSettings />}
+        {activeTab === 'messaging' && <MessagingSettings />}
       </div>
     </div>
   );
