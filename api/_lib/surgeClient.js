@@ -12,18 +12,21 @@ const SURGE_USE_SUBACCOUNTS = process.env.SURGE_USE_SUBACCOUNTS === 'true';
 
 /**
  * Create or get account for business
+ * For now, uses 'me' which resolves to the API key's account
  * TODO: Implement real subaccount creation when SURGE_USE_SUBACCOUNTS=true
  */
 async function createOrGetAccountForBusiness(business) {
   if (!SURGE_USE_SUBACCOUNTS) {
-    // For now, return a sentinel value indicating we use the master account
-    return { accountId: 'master' };
+    // Use 'me' to reference the account associated with the API key
+    // This is the correct way to use your own Surge account
+    console.log('[SURGE] Using API key account (me) for business:', business.id);
+    return { accountId: 'me' };
   }
   
   // TODO: Implement subaccount creation via Surge API
-  // For now, return master account
+  // For now, return 'me' account
   console.log('[SURGE] TODO: Implement subaccount creation for business:', business.id);
-  return { accountId: 'master' };
+  return { accountId: 'me' };
 }
 
 /**
@@ -48,11 +51,19 @@ async function purchaseTollFreeNumber(accountId) {
       })
     });
     
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      const text = await response.text();
+      console.error('[SURGE] Non-JSON response when purchasing TFN:', response.status, text);
+      throw new Error(`Surge API error: HTTP ${response.status} - ${text}`);
+    }
     
     if (!response.ok) {
-      console.error('[SURGE] Error purchasing TFN:', data);
-      throw new Error(data.message || data.error || 'Failed to purchase TFN');
+      console.error('[SURGE] Error purchasing TFN:', JSON.stringify(data, null, 2));
+      const errorMsg = data.message || data.error || JSON.stringify(data);
+      throw new Error(errorMsg);
     }
     
     console.log('[SURGE] TFN purchased successfully:', data.number);
@@ -63,7 +74,7 @@ async function purchaseTollFreeNumber(accountId) {
     };
   } catch (error) {
     console.error('[SURGE] Error purchasing TFN:', error);
-    throw new Error(`Failed to purchase toll-free number: ${error.message}`);
+    throw error; // Re-throw with full details
   }
 }
 
