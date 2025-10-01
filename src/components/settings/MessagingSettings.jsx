@@ -60,6 +60,8 @@ export default function MessagingSettings() {
   const [smsStatus, setSmsStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
+  const [capacity, setCapacity] = useState(null);
+  const [resubmitting, setResubmitting] = useState(false);
 
   // Load business data
   useEffect(() => {
@@ -95,10 +97,12 @@ export default function MessagingSettings() {
   useEffect(() => {
     if (business?.id) {
       loadSmsStatus();
+      loadCapacity();
       
       // Poll for status updates every 30 seconds while on this page
       const interval = setInterval(() => {
         loadSmsStatus(true); // Silent poll
+        loadCapacity(true); // Silent poll
       }, 30000);
 
       return () => clearInterval(interval);
@@ -129,9 +133,93 @@ export default function MessagingSettings() {
     }
   };
 
+  const loadCapacity = async (silent = false) => {
+    try {
+      const response = await fetch('/api/surge/capacity');
+      if (response.ok) {
+        const data = await response.json();
+        setCapacity(data);
+      }
+    } catch (error) {
+      console.error('[MESSAGING] Error loading capacity:', error);
+    }
+  };
+
   const handleProvisioned = (data) => {
     console.log('[MESSAGING] Number provisioned:', data);
     loadSmsStatus(); // Refresh status
+    loadCapacity(); // Refresh capacity
+  };
+
+  const handleResubmit = async () => {
+    if (!business) return;
+    
+    setResubmitting(true);
+    try {
+      // Get current business data for resubmit
+      const { data: businessData } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', business.id)
+        .single();
+
+      if (!businessData) {
+        throw new Error('Business not found');
+      }
+
+      // Build resubmit payload from stored data
+      const businessInfo = {
+        legal_name: businessData.name,
+        brand_name: businessData.brand_name || businessData.name,
+        website: businessData.website,
+        address: {
+          street_line1: businessData.address_street_line1,
+          street_line2: businessData.address_street_line2,
+          city: businessData.address_city,
+          state: businessData.address_state,
+          postal_code: businessData.address_postal_code,
+          country: businessData.address_country || 'US'
+        },
+        ein: businessData.ein,
+        sole_prop: !businessData.ein,
+        contact_name: businessData.contact_name,
+        contact_email: businessData.contact_email,
+        contact_phone_e164: businessData.contact_phone,
+        opt_in_method: businessData.opt_in_method || 'website',
+        opt_in_evidence_url: businessData.opt_in_evidence_url,
+        terms_url: businessData.terms_url,
+        privacy_url: businessData.privacy_url,
+        estimated_monthly_volume: businessData.estimated_monthly_volume || 1000,
+        time_zone_iana: businessData.time_zone_iana || 'America/Denver'
+      };
+
+      const response = await fetch('/api/surge/verification/resubmit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({
+          businessId: business.id,
+          businessInfo
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to resubmit verification');
+      }
+
+      // Refresh status
+      loadSmsStatus();
+      setShowProvisionModal(false);
+    } catch (error) {
+      console.error('[MESSAGING] Error resubmitting:', error);
+      alert('Failed to resubmit verification: ' + error.message);
+    } finally {
+      setResubmitting(false);
+    }
   };
 
   if (!business) {
@@ -215,9 +303,17 @@ export default function MessagingSettings() {
                             size="sm"
                             variant="outline"
                             className="mt-3"
-                            onClick={() => setShowProvisionModal(true)}
+                            onClick={handleResubmit}
+                            disabled={resubmitting}
                           >
-                            Fix & Resubmit
+                            {resubmitting ? (
+                              <>
+                                <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                                Resubmitting...
+                              </>
+                            ) : (
+                              'Fix & Resubmit'
+                            )}
                           </Button>
                         </div>
                       </div>
@@ -254,6 +350,23 @@ export default function MessagingSettings() {
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {/* Capacity Display */}
+                  {capacity && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-md p-3 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">SMS Numbers in Use:</span>
+                        <span className="font-medium">
+                          {capacity.in_use} of {capacity.max === 0 ? '∞' : capacity.max}
+                        </span>
+                      </div>
+                      {capacity.queued > 0 && (
+                        <div className="text-yellow-600 mt-1">
+                          {capacity.queued} request{capacity.queued !== 1 ? 's' : ''} queued
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="text-center py-8">
                     <Phone className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold mb-2">No SMS Number Yet</h3>
@@ -264,10 +377,19 @@ export default function MessagingSettings() {
                     <Button
                       onClick={() => setShowProvisionModal(true)}
                       className="bg-blue-600 hover:bg-blue-700"
+                      disabled={capacity && capacity.max > 0 && capacity.in_use >= capacity.max}
                     >
                       <Phone className="w-4 h-4 mr-2" />
-                      Get a Free SMS Number
+                      {capacity && capacity.max > 0 && capacity.in_use >= capacity.max 
+                        ? 'Capacity Full' 
+                        : 'Get a Free SMS Number'
+                      }
                     </Button>
+                    {capacity && capacity.max > 0 && capacity.in_use >= capacity.max && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        All SMS numbers are currently in use. New requests will be queued.
+                      </p>
+                    )}
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-sm">

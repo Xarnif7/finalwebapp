@@ -233,7 +233,14 @@ module.exports = async (req, res) => {
       sender_type: 'tfn',
       verification_status: 'pending',
       last_verification_error: null,
-      tfn_verification_id: verificationId
+      tfn_verification_id: verificationId,
+      time_zone_iana: time_zone_iana || 'America/Denver',
+      address_street_line1: address.street_line1,
+      address_street_line2: address.street_line2,
+      address_city: address.city,
+      address_state: address.state,
+      address_postal_code: address.postal_code,
+      address_country: address.country
     });
 
     console.log('[PROVISION] Business updated successfully');
