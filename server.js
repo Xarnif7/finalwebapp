@@ -379,6 +379,15 @@ app.get('/api/stripe/subscription', async (req, res) => {
     const customer = await getOrCreateStripeCustomerByEmail(user.email);
     const subscription = await findLatestSubscriptionForCustomer(customer.id);
 
+    console.log('[STRIPE_SUB] Raw subscription from Stripe:', {
+      id: subscription?.id,
+      status: subscription?.status,
+      current_period_start: subscription?.current_period_start,
+      current_period_end: subscription?.current_period_end,
+      cancel_at_period_end: subscription?.cancel_at_period_end,
+      items: subscription?.items?.data?.map(i => ({ price: i.price?.id, quantity: i.quantity }))
+    });
+
     let schedule = null;
     if (subscription?.schedule) {
       schedule = await stripe.subscriptionSchedules.retrieve(subscription.schedule);
