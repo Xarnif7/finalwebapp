@@ -28,15 +28,15 @@ CREATE TABLE IF NOT EXISTS messages (
   body TEXT NOT NULL,
   status TEXT NULL,
   error TEXT NULL,
-  surge_message_id TEXT NULL UNIQUE,
+  surge_message_id TEXT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create indexes for messages
+-- Create indexes for messages (includes unique constraint on surge_message_id)
 CREATE INDEX IF NOT EXISTS messages_business_id_created_at_idx 
 ON messages(business_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS messages_surge_message_id_idx 
+CREATE UNIQUE INDEX IF NOT EXISTS messages_surge_message_id_idx 
 ON messages(surge_message_id) WHERE surge_message_id IS NOT NULL;
 
 -- Create contacts table
