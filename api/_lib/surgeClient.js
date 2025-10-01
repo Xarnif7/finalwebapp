@@ -27,27 +27,39 @@ async function createOrGetAccountForBusiness(business) {
 }
 
 /**
- * Purchase toll-free number
- * TODO: Implement actual TFN purchase via Surge API
+ * Purchase toll-free number via Surge API
  */
 async function purchaseTollFreeNumber(accountId) {
   try {
     console.log('[SURGE] Purchasing toll-free number for account:', accountId);
     
-    // TODO: Replace with actual Surge API call
-    // Example endpoint (check Surge docs): POST /v1/phone-numbers/available?type=toll-free
-    // Then: POST /v1/phone-numbers to purchase
+    if (!SURGE_API_KEY) {
+      throw new Error('SURGE_API_KEY not configured');
+    }
     
-    // For now, return a mock TFN for testing
-    const mockPhoneId = `PN${Date.now()}`;
-    const mockE164 = `+1${Math.floor(8000000000 + Math.random() * 999999999)}`;
+    const response = await fetch(`${SURGE_API_BASE}/accounts/${accountId}/phone_numbers`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SURGE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        type: 'toll_free'
+      })
+    });
     
-    console.log('[SURGE] TODO: Implement actual TFN purchase via Surge API');
-    console.log('[SURGE] Mock TFN generated:', mockE164);
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('[SURGE] Error purchasing TFN:', data);
+      throw new Error(data.message || data.error || 'Failed to purchase TFN');
+    }
+    
+    console.log('[SURGE] TFN purchased successfully:', data.number);
     
     return {
-      phoneId: mockPhoneId,
-      e164: mockE164
+      phoneId: data.id,
+      e164: data.number
     };
   } catch (error) {
     console.error('[SURGE] Error purchasing TFN:', error);
@@ -56,47 +68,65 @@ async function purchaseTollFreeNumber(accountId) {
 }
 
 /**
- * Submit TFN verification to Surge
- * TODO: Implement actual verification submission via Surge API
+ * Submit TFN verification via Surge Campaign API
  */
 async function submitTfnVerification(accountId, payload) {
   try {
-    console.log('[SURGE] Submitting TFN verification for account:', accountId);
+    console.log('[SURGE] Creating campaign for account:', accountId);
+    
+    if (!SURGE_API_KEY) {
+      throw new Error('SURGE_API_KEY not configured');
+    }
     
     const { legal_name, website, address, ein_or_sole_prop, contact_name, contact_email, opt_in_method, terms_url, privacy_url } = payload;
     
-    // Generate two sample messages with brand name and compliance footer
+    // Generate sample messages with brand name and compliance footer
     const sampleMessages = [
+      `You are now opted in to messages from ${legal_name}. Frequency varies. Msg&data rates apply. Reply STOP to opt out.`,
       `Hi! This is ${legal_name}. Your appointment is confirmed for tomorrow at 2 PM. Reply STOP to opt out, HELP for help. Msg & data rates may apply.`,
       `Thanks for choosing ${legal_name}! Your order #12345 is ready for pickup. Reply STOP to opt out, HELP for help. Msg & data rates may apply.`
     ];
     
-    // TODO: Replace with actual Surge API call for verification
-    // Example endpoint (check Surge docs): POST /v1/verifications
-    const verificationData = {
-      business_name: legal_name,
-      website,
-      address,
-      ein_or_tax_id: ein_or_sole_prop,
-      contact: {
-        name: contact_name,
-        email: contact_email
+    // Build consent flow description
+    const consentFlow = `Customers opt in through ${opt_in_method || 'our website form'}. ` +
+      `The opt-in form is located at ${website || terms_url} and clearly explains what messages they will receive. ` +
+      `We collect explicit consent before sending any messages.`;
+    
+    // Build campaign description
+    const description = `${legal_name} uses SMS to communicate with customers about appointments, orders, and account updates. ` +
+      `Messages include booking confirmations, order status updates, and important account notifications. ` +
+      `All messages include clear opt-out instructions and comply with TCPA regulations.`;
+    
+    const response = await fetch(`${SURGE_API_BASE}/accounts/${accountId}/campaigns`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SURGE_API_KEY}`,
+        'Content-Type': 'application/json'
       },
-      opt_in_method,
-      terms_url,
-      privacy_url,
-      sample_messages: sampleMessages
-    };
+      body: JSON.stringify({
+        description: description,
+        consent_flow: consentFlow,
+        message_samples: sampleMessages,
+        use_cases: ['account_notification', 'customer_care', 'delivery_notification'],
+        volume: 'low',
+        privacy_policy_url: privacy_url || 'https://myblipp.com/privacy',
+        terms_and_conditions_url: terms_url || 'https://myblipp.com/terms',
+        includes: ['links']
+      })
+    });
     
-    console.log('[SURGE] TODO: Implement actual verification submission via Surge API');
-    console.log('[SURGE] Verification data prepared:', { ...verificationData, sample_messages: '[2 messages]' });
+    const data = await response.json();
     
-    // Mock response for testing
-    const mockVerificationId = `VER${Date.now()}`;
+    if (!response.ok) {
+      console.error('[SURGE] Error creating campaign:', data);
+      throw new Error(data.message || data.error || 'Failed to create campaign');
+    }
+    
+    console.log('[SURGE] Campaign created successfully:', data.id);
     
     return {
-      verificationId: mockVerificationId,
-      status: 'pending'
+      verificationId: data.id,
+      status: 'pending' // Campaign starts as pending verification
     };
   } catch (error) {
     console.error('[SURGE] Error submitting verification:', error);
@@ -105,22 +135,52 @@ async function submitTfnVerification(accountId, payload) {
 }
 
 /**
- * Get capability/verification status
- * TODO: Implement actual status check via Surge API
+ * Get account capability status via Surge API
  */
 async function getCapabilityStatus(accountId) {
   try {
     console.log('[SURGE] Checking capability status for account:', accountId);
     
-    // TODO: Replace with actual Surge API call
-    // Example endpoint (check Surge docs): GET /v1/capabilities or /v1/verifications/{id}
+    if (!SURGE_API_KEY) {
+      throw new Error('SURGE_API_KEY not configured');
+    }
     
-    console.log('[SURGE] TODO: Implement actual status check via Surge API');
+    // Check account status with capabilities parameter
+    const response = await fetch(
+      `${SURGE_API_BASE}/accounts/${accountId}/status?capabilities=local_messaging&capabilities=toll_free_messaging`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${SURGE_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
     
-    // Mock response - return pending for now
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('[SURGE] Error getting status:', data);
+      throw new Error(data.message || data.error || 'Failed to get status');
+    }
+    
+    console.log('[SURGE] Account status:', data);
+    
+    // Map Surge capability status to our enum
+    const tollFreeStatus = data.capabilities?.toll_free_messaging?.status;
+    let mappedStatus = 'pending';
+    
+    if (tollFreeStatus === 'active' || tollFreeStatus === 'approved') {
+      mappedStatus = 'active';
+    } else if (tollFreeStatus === 'rejected' || tollFreeStatus === 'disabled') {
+      mappedStatus = 'disabled';
+    } else if (tollFreeStatus === 'action_required' || tollFreeStatus === 'incomplete') {
+      mappedStatus = 'action_needed';
+    }
+    
     return {
-      status: 'pending',
-      details: 'Verification is being reviewed by Surge'
+      status: mappedStatus,
+      details: data.capabilities?.toll_free_messaging?.message || null
     };
   } catch (error) {
     console.error('[SURGE] Error getting capability status:', error);
