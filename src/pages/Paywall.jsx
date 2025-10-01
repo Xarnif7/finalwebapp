@@ -114,7 +114,7 @@ export default function Paywall() {
       console.log('[PAYWALL] User has subscription, checking onboarding status:', onboardingCompleted);
       if (onboardingCompleted === true) {
         console.log('[PAYWALL] Onboarding completed, redirecting to dashboard');
-        navigate("/reporting", { replace: true });
+        navigate("/dashboard", { replace: true });
       } else if (onboardingCompleted === false) {
         console.log('[PAYWALL] Onboarding not completed, redirecting to onboarding');
         navigate("/onboarding", { replace: true });

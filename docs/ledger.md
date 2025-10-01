@@ -1,5 +1,34 @@
 # Blipp Development Ledger
 
+## 2025-01-29: Fix Default Landing Tab for Authenticated Users
+
+### What Changed
+- **FIXED DEFAULT LANDING TAB**: Updated routing logic to land authenticated users on Dashboard tab instead of Analytics tab
+- Changed all `/reporting` redirects to `/dashboard` across authentication guards and components
+- Updated AuthGuard.tsx to redirect authenticated users with active subscriptions to `/dashboard`
+- Fixed RouteGuards.tsx, Landing.jsx, Paywall.jsx, UserMenu.tsx, and AuthCTA.tsx to use `/dashboard`
+- Maintained existing `/reporting` → `/analytics` legacy mapping for backward compatibility
+
+### Why This Was Needed
+- User reported that authenticated users with active subscriptions were always landing on the Analytics tab
+- This was confusing UX as users expected to land on the main Dashboard tab first
+- The `/reporting` route was being used as the default redirect, which mapped to Analytics instead of Dashboard
+
+### Files Touched
+- `src/components/auth/AuthGuard.tsx` - Updated redirect paths from `/reporting` to `/dashboard`
+- `src/components/auth/RouteGuards.tsx` - Fixed LoginGuard redirect logic
+- `src/pages/Landing.jsx` - Updated auto-redirect and CTA button links
+- `src/pages/Paywall.jsx` - Fixed post-subscription redirect
+- `src/components/auth/UserMenu.tsx` - Updated dashboard link in user menu
+- `src/components/auth/AuthCTA.tsx` - Fixed "View Dashboard" button link
+
+### How Verified
+- Updated all authentication guards to redirect to `/dashboard` instead of `/reporting`
+- Maintained backward compatibility by keeping `/reporting` → `/analytics` mapping
+- All user-facing dashboard links now point to `/dashboard` (Dashboard tab)
+- Authentication flow now properly lands users on Dashboard tab as expected
+- Navigation structure remains intact with Dashboard as first tab in sidebar
+
 ## 2025-01-29: Stripe Customer Portal Integration
 
 ### What Changed

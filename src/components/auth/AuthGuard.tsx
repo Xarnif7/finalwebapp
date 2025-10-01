@@ -29,7 +29,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     if (pathname === '/login' || pathname === '/signup') {
       if (authStatus === 'signedIn') {
         if (hasActive) {
-          preserveParams('/reporting');
+          preserveParams('/dashboard');
         } else {
           preserveParams('/pricing');
         }
@@ -38,7 +38,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     }
 
     // Dashboard/App pages
-    if (pathname.startsWith('/reporting') || pathname.startsWith('/customers') || 
+    if (pathname.startsWith('/dashboard') || pathname.startsWith('/customers') || 
         pathname.startsWith('/automations') || pathname.startsWith('/reviews') || 
         pathname.startsWith('/settings') || pathname.startsWith('/public-feedback')) {
       
@@ -53,7 +53,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     // Pricing page
     if (pathname === '/pricing') {
       if (authStatus === 'signedIn' && hasActive) {
-        preserveParams('/reporting');
+        preserveParams('/dashboard');
       }
       return;
     }

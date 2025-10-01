@@ -14,7 +14,7 @@ export function LoginGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (authStatus === 'signedIn') {
       // Already signed in: send to dashboard if active, else to landing (no auto /pricing)
-      navigate(hasActive ? '/reporting' : '/', { replace: true });
+      navigate(hasActive ? '/dashboard' : '/', { replace: true });
     }
   }, [authStatus, hasActive, navigate]);
 

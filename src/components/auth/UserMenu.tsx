@@ -80,7 +80,7 @@ export function UserMenu() {
       <DropdownMenuContent align="end" className="w-56 z-50">
         {hasActive && (
           <>
-            <DropdownMenuItem onClick={() => navigate('/reporting')} className="cursor-pointer">
+            <DropdownMenuItem onClick={() => navigate('/dashboard')} className="cursor-pointer">
               <LayoutDashboard className="mr-2 h-4 w-4" />
               View Dashboard
             </DropdownMenuItem>

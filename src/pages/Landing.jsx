@@ -146,7 +146,7 @@ export default function Landing() {
   useEffect(() => {
     if (authStatus === 'signedIn' && !subLoading && hasSubscription && window.location.pathname === '/') {
       console.log('[LANDING] User has subscription, redirecting to dashboard');
-      navigate('/reporting', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [authStatus, subLoading, hasSubscription, navigate]);
 
@@ -271,7 +271,7 @@ export default function Landing() {
                     Loading...
                   </Button>
                 ) : hasSubscription ? (
-                  <Link to="/reporting">
+                  <Link to="/dashboard">
                     <Button 
                       size="lg" 
                       className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 text-lg font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
