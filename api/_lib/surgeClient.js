@@ -129,7 +129,7 @@ async function getCapabilityStatus(accountId) {
 }
 
 /**
- * Send SMS message
+ * Send SMS message via Surge API
  */
 async function sendMessage({ accountId, from, to, body }) {
   try {
@@ -139,6 +139,7 @@ async function sendMessage({ accountId, from, to, body }) {
       throw new Error('SURGE_API_KEY not configured');
     }
     
+    // Surge API format based on their docs
     const response = await fetch(`${SURGE_API_BASE}/v1/messages`, {
       method: 'POST',
       headers: {
@@ -146,9 +147,16 @@ async function sendMessage({ accountId, from, to, body }) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from,
-        to,
-        body
+        body: body,
+        conversation: {
+          contact: {
+            phone_number: to
+          }
+        },
+        metadata: {
+          account_id: accountId,
+          from_number: from
+        }
       })
     });
     
@@ -156,7 +164,7 @@ async function sendMessage({ accountId, from, to, body }) {
     
     if (!response.ok) {
       console.error('[SURGE] Error response:', data);
-      throw new Error(data.message || `HTTP ${response.status}`);
+      throw new Error(data.message || data.error || `HTTP ${response.status}`);
     }
     
     console.log('[SURGE] Message sent successfully:', data.id);
@@ -173,36 +181,54 @@ async function sendMessage({ accountId, from, to, body }) {
 
 /**
  * Verify Surge webhook signature
- * TODO: Implement actual signature verification when Surge provides specs
+ * Based on Surge's HMAC-SHA256 signature scheme
  */
 function verifySignature(headers, rawBody, signingKey) {
-  // TODO: Implement actual Surge signature verification
-  // This is a placeholder that returns true for now
-  // When implementing, use crypto.createHmac with the signing key
-  
-  console.log('[SURGE] TODO: Implement actual webhook signature verification');
-  console.log('[SURGE] Webhook signature verification - currently accepting all (INSECURE)');
-  
-  // Placeholder implementation
   const signature = headers['x-surge-signature'] || headers['X-Surge-Signature'];
   
   if (!signature || !signingKey) {
-    console.warn('[SURGE] Missing signature or signing key');
-    return true; // Return true for now during development
+    console.warn('[SURGE] Missing signature or signing key - rejecting webhook');
+    return false;
   }
   
-  // TODO: Implement proper HMAC verification
-  // Example (adjust based on Surge's actual signature scheme):
-  // const expectedSignature = crypto
-  //   .createHmac('sha256', signingKey)
-  //   .update(rawBody)
-  //   .digest('hex');
-  // return crypto.timingSafeEqual(
-  //   Buffer.from(signature),
-  //   Buffer.from(expectedSignature)
-  // );
-  
-  return true; // Placeholder - accept all for now
+  try {
+    // Surge signature format: "t=timestamp,v1=signature"
+    const [timestampPart, signaturePart] = signature.split(',');
+    
+    if (!timestampPart || !signaturePart) {
+      console.error('[SURGE] Invalid signature format');
+      return false;
+    }
+    
+    const timestamp = timestampPart.split('=')[1];
+    const receivedSignature = signaturePart.split('=')[1];
+    
+    // Create the signed payload: timestamp.rawBody
+    const signedPayload = `${timestamp}.${rawBody}`;
+    
+    // Generate expected signature
+    const expectedSignature = crypto
+      .createHmac('sha256', signingKey)
+      .update(signedPayload)
+      .digest('hex');
+    
+    // Constant-time comparison to prevent timing attacks
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(receivedSignature),
+      Buffer.from(expectedSignature)
+    );
+    
+    if (!isValid) {
+      console.error('[SURGE] Signature verification failed');
+      return false;
+    }
+    
+    console.log('[SURGE] Webhook signature verified successfully');
+    return true;
+  } catch (error) {
+    console.error('[SURGE] Error verifying signature:', error);
+    return false;
+  }
 }
 
 module.exports = {
