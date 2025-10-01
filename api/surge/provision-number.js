@@ -29,23 +29,91 @@ module.exports = async (req, res) => {
 
     const {
       legal_name,
+      brand_name,
       website,
       address,
-      ein_or_sole_prop,
+      ein,
+      sole_prop,
       contact_name,
       contact_email,
-      contact_phone,
+      contact_phone_e164,
       opt_in_method,
       opt_in_evidence_url,
       terms_url,
       privacy_url,
       estimated_monthly_volume,
-      time_zone
+      time_zone_iana
     } = businessInfo;
 
-    if (!legal_name || !contact_email || !opt_in_evidence_url || !estimated_monthly_volume) {
+    // Validate required fields
+    const requiredFields = ['legal_name', 'contact_email', 'opt_in_evidence_url', 'estimated_monthly_volume'];
+    const missingFields = requiredFields.filter(field => !businessInfo[field]);
+    
+    if (missingFields.length > 0) {
       return res.status(400).json({
-        error: 'Missing required business info: legal_name, contact_email, opt_in_evidence_url, estimated_monthly_volume'
+        error: `Missing required business info: ${missingFields.join(', ')}`
+      });
+    }
+
+    // Validate address structure
+    if (!address || !address.street_line1 || !address.city || 
+        !address.state || !address.postal_code || !address.country) {
+      return res.status(400).json({
+        error: 'Missing required address fields: street_line1, city, state, postal_code, country'
+      });
+    }
+
+    // Validate EIN vs sole_prop
+    if (!sole_prop && !ein) {
+      return res.status(400).json({
+        error: 'Either EIN or sole_prop must be provided'
+      });
+    }
+
+    if (ein && sole_prop) {
+      return res.status(400).json({
+        error: 'Cannot provide both EIN and sole_prop'
+      });
+    }
+
+    // Validate EIN format (9 digits)
+    if (ein) {
+      const einDigits = ein.replace(/\D/g, '');
+      if (einDigits.length !== 9) {
+        return res.status(400).json({
+          error: 'EIN must be exactly 9 digits'
+        });
+      }
+    }
+
+    // Validate phone number format
+    if (contact_phone_e164) {
+      const e164Regex = /^\+[1-9]\d{1,14}$/;
+      if (!e164Regex.test(contact_phone_e164)) {
+        return res.status(400).json({
+          error: 'Contact phone must be in E.164 format'
+        });
+      }
+    }
+
+    // Validate URLs
+    const urlFields = ['website', 'opt_in_evidence_url', 'terms_url', 'privacy_url'];
+    for (const field of urlFields) {
+      if (businessInfo[field]) {
+        try {
+          new URL(businessInfo[field]);
+        } catch {
+          return res.status(400).json({
+            error: `${field} must be a valid URL`
+          });
+        }
+      }
+    }
+
+    // Validate estimated_monthly_volume is integer
+    if (!Number.isInteger(estimated_monthly_volume) || estimated_monthly_volume <= 0) {
+      return res.status(400).json({
+        error: 'estimated_monthly_volume must be a positive integer'
       });
     }
 
@@ -72,21 +140,34 @@ module.exports = async (req, res) => {
     // Step 1: Create Surge account if needed
     let accountId = business.surge_account_id;
     if (!accountId) {
-      const { accountId: newAccountId } = await createAccountForBusiness({
-        name: business.name,
-        brand_name: legal_name,
-        organization: {
-          name: legal_name,
-          website: website,
-          address: address,
-          ein: ein_or_sole_prop,
-          contact: {
-            name: contact_name,
-            email: contact_email,
-            phone: contact_phone
-          }
+      // Build organization object
+      const organization = {
+        legal_name: legal_name,
+        ein_or_sole_prop: sole_prop ? "sole_prop" : ein,
+        website: website,
+        address: {
+          line1: address.street_line1,
+          line2: address.street_line2 || "",
+          city: address.city,
+          state: address.state,
+          postal_code: address.postal_code,
+          country: address.country
         },
-        time_zone: time_zone || 'America/New_York'
+        contact: {
+          name: contact_name,
+          email: contact_email,
+          phone: contact_phone_e164
+        }
+      };
+
+      const nameInternal = `${legal_name} — ${businessId}`;
+      const brandName = brand_name || legal_name;
+
+      const { accountId: newAccountId } = await createAccountForBusiness({
+        name: nameInternal,
+        brand_name: brandName,
+        organization,
+        time_zone: time_zone_iana || 'America/Denver'
       });
       accountId = newAccountId;
       
@@ -100,9 +181,28 @@ module.exports = async (req, res) => {
     console.log('[PROVISION] Purchased TFN:', e164);
 
     // Step 3: Submit TFN verification
+    const brandName = brand_name || legal_name;
+    
+    const verificationPayload = {
+      brand_name: brandName,
+      use_case_categories: ["account_notifications", "customer_care", "two_way_conversational"],
+      use_case_summary: `Transactional notifications and customer care for ${brandName}. Examples include service confirmations and review/feedback follow-ups. No promotional content. All messages honor STOP/HELP.`,
+      sample_messages: [
+        `Hi {First}—it's ${brandName}. Thanks again for choosing us today. Would you leave a quick review? {link} Reply STOP to opt out, HELP for help. Msg & data rates may apply.`,
+        `${brandName} support: We received your feedback and we're on it. Reply here with any details. Reply STOP to opt out, HELP for help. Msg & data rates may apply.`
+      ],
+      opt_in: {
+        method: opt_in_method,
+        evidence_url: opt_in_evidence_url
+      },
+      terms_url: terms_url,
+      privacy_url: privacy_url,
+      estimated_monthly_volume: Number(estimated_monthly_volume)
+    };
+
     const { verificationId, status } = await submitTfnVerification({ 
       accountId, 
-      payload: businessInfo 
+      payload: verificationPayload 
     });
     console.log('[PROVISION] Verification submitted:', verificationId, status);
 

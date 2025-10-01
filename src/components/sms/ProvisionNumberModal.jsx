@@ -11,26 +11,126 @@ export default function ProvisionNumberModal({ open, onClose, businessId, onProv
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     legal_name: '',
+    brand_name: '',
     website: '',
-    address: '',
-    ein_or_sole_prop: '',
+    street_line1: '',
+    street_line2: '',
+    city: '',
+    state: '',
+    postal_code: '',
+    country: 'US',
+    ein: '',
+    sole_prop: false,
     contact_name: '',
     contact_email: '',
     contact_phone: '',
     opt_in_method: 'website',
     opt_in_evidence_url: '',
-    terms_url: 'https://myblipp.com/terms',
-    privacy_url: 'https://myblipp.com/privacy',
+    terms_url: '',
+    privacy_url: '',
     estimated_monthly_volume: '',
-    time_zone: 'America/New_York'
+    time_zone_iana: 'America/Denver'
   });
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Phone normalization helper
+  const normalizePhone = (phone) => {
+    // Remove all non-digits
+    const digits = phone.replace(/\D/g, '');
+    
+    // If it starts with 1 and has 11 digits, it's already E.164 format
+    if (digits.length === 11 && digits.startsWith('1')) {
+      return `+${digits}`;
+    }
+    
+    // If it has 10 digits, add +1
+    if (digits.length === 10) {
+      return `+1${digits}`;
+    }
+    
+    // If it already starts with +, return as is
+    if (phone.startsWith('+')) {
+      return phone;
+    }
+    
+    return phone;
+  };
+
+  // E.164 validation
+  const isValidE164 = (phone) => {
+    const e164Regex = /^\+[1-9]\d{1,14}$/;
+    return e164Regex.test(phone);
+  };
+
+  // EIN validation (9 digits)
+  const isValidEIN = (ein) => {
+    const digits = ein.replace(/\D/g, '');
+    return digits.length === 9;
+  };
+
+  // URL validation
+  const isValidURL = (url) => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Client-side validation
+    const errors = [];
+    
+    // Required fields
+    if (!formData.legal_name) errors.push('Legal Business Name is required');
+    if (!formData.street_line1) errors.push('Street Address is required');
+    if (!formData.city) errors.push('City is required');
+    if (!formData.state) errors.push('State is required');
+    if (!formData.postal_code) errors.push('Postal Code is required');
+    if (!formData.contact_name) errors.push('Contact Name is required');
+    if (!formData.contact_email) errors.push('Contact Email is required');
+    if (!formData.opt_in_evidence_url) errors.push('Opt-In Evidence URL is required');
+    if (!formData.terms_url) errors.push('Terms URL is required');
+    if (!formData.privacy_url) errors.push('Privacy URL is required');
+    if (!formData.estimated_monthly_volume) errors.push('Estimated Monthly Volume is required');
+    
+    // EIN validation
+    if (!formData.sole_prop && formData.ein && !isValidEIN(formData.ein)) {
+      errors.push('EIN must be exactly 9 digits');
+    }
+    
+    // Phone validation
+    if (formData.contact_phone) {
+      const normalizedPhone = normalizePhone(formData.contact_phone);
+      if (!isValidE164(normalizedPhone)) {
+        errors.push('Contact Phone must be a valid phone number');
+      }
+    }
+    
+    // URL validation
+    if (formData.opt_in_evidence_url && !isValidURL(formData.opt_in_evidence_url)) {
+      errors.push('Opt-In Evidence URL must be a valid URL');
+    }
+    if (formData.terms_url && !isValidURL(formData.terms_url)) {
+      errors.push('Terms URL must be a valid URL');
+    }
+    if (formData.privacy_url && !isValidURL(formData.privacy_url)) {
+      errors.push('Privacy URL must be a valid URL');
+    }
+    if (formData.website && !isValidURL(formData.website)) {
+      errors.push('Website must be a valid URL');
+    }
+    
+    if (errors.length > 0) {
+      setError(errors.join('. '));
+      return;
+    }
     
     // Show confirmation warning
     const confirmed = window.confirm(
@@ -50,13 +150,42 @@ export default function ProvisionNumberModal({ open, onClose, businessId, onProv
     setIsSubmitting(true);
 
     try {
+      // Normalize phone number
+      const contact_phone_e164 = formData.contact_phone ? normalizePhone(formData.contact_phone) : '';
+      
+      // Build payload
+      const payload = {
+        businessId,
+        businessInfo: {
+          legal_name: formData.legal_name,
+          brand_name: formData.brand_name || formData.legal_name,
+          website: formData.website,
+          address: {
+            street_line1: formData.street_line1,
+            street_line2: formData.street_line2,
+            city: formData.city,
+            state: formData.state,
+            postal_code: formData.postal_code,
+            country: formData.country
+          },
+          ein: formData.sole_prop ? null : formData.ein,
+          sole_prop: formData.sole_prop,
+          contact_name: formData.contact_name,
+          contact_email: formData.contact_email,
+          contact_phone_e164: contact_phone_e164,
+          opt_in_method: formData.opt_in_method,
+          opt_in_evidence_url: formData.opt_in_evidence_url,
+          terms_url: formData.terms_url,
+          privacy_url: formData.privacy_url,
+          estimated_monthly_volume: parseInt(formData.estimated_monthly_volume),
+          time_zone_iana: formData.time_zone_iana
+        }
+      };
+
       const response = await fetch('/api/surge/provision-number', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessId,
-          businessInfo: formData
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
@@ -100,6 +229,16 @@ export default function ProvisionNumberModal({ open, onClose, businessId, onProv
               />
             </div>
 
+            <div className="col-span-2">
+              <Label htmlFor="brand_name">Brand / DBA (Optional)</Label>
+              <Input
+                id="brand_name"
+                value={formData.brand_name}
+                onChange={(e) => handleChange('brand_name', e.target.value)}
+                placeholder="Your Brand Name (leave blank to use legal name)"
+              />
+            </div>
+
             <div>
               <Label htmlFor="website">Website</Label>
               <Input
@@ -112,23 +251,118 @@ export default function ProvisionNumberModal({ open, onClose, businessId, onProv
             </div>
 
             <div>
-              <Label htmlFor="ein_or_sole_prop">EIN or "Sole Prop"</Label>
+              <Label htmlFor="country">Country *</Label>
+              <Select
+                value={formData.country}
+                onValueChange={(value) => handleChange('country', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="US">United States</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="col-span-2">
+              <Label htmlFor="street_line1">Street Address *</Label>
               <Input
-                id="ein_or_sole_prop"
-                value={formData.ein_or_sole_prop}
-                onChange={(e) => handleChange('ein_or_sole_prop', e.target.value)}
-                placeholder="12-3456789 or Sole Prop"
+                id="street_line1"
+                value={formData.street_line1}
+                onChange={(e) => handleChange('street_line1', e.target.value)}
+                required
+                placeholder="123 Main Street"
               />
             </div>
 
             <div className="col-span-2">
-              <Label htmlFor="address">Business Address</Label>
+              <Label htmlFor="street_line2">Street Address Line 2 (Optional)</Label>
               <Input
-                id="address"
-                value={formData.address}
-                onChange={(e) => handleChange('address', e.target.value)}
-                placeholder="123 Main St, City, State 12345"
+                id="street_line2"
+                value={formData.street_line2}
+                onChange={(e) => handleChange('street_line2', e.target.value)}
+                placeholder="Suite 100, Floor 2, etc."
               />
+            </div>
+
+            <div>
+              <Label htmlFor="city">City *</Label>
+              <Input
+                id="city"
+                value={formData.city}
+                onChange={(e) => handleChange('city', e.target.value)}
+                required
+                placeholder="New York"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="state">State *</Label>
+              <Input
+                id="state"
+                value={formData.state}
+                onChange={(e) => handleChange('state', e.target.value)}
+                required
+                placeholder="NY"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="postal_code">Postal Code *</Label>
+              <Input
+                id="postal_code"
+                value={formData.postal_code}
+                onChange={(e) => handleChange('postal_code', e.target.value)}
+                required
+                placeholder="10001"
+              />
+            </div>
+
+            <div className="col-span-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="sole_prop"
+                  checked={formData.sole_prop}
+                  onChange={(e) => handleChange('sole_prop', e.target.checked)}
+                  className="rounded"
+                />
+                <Label htmlFor="sole_prop">Sole proprietor (no EIN)</Label>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="ein">EIN *</Label>
+              <Input
+                id="ein"
+                value={formData.ein}
+                onChange={(e) => handleChange('ein', e.target.value)}
+                disabled={formData.sole_prop}
+                placeholder="123456789"
+                maxLength="9"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {formData.sole_prop ? 'Disabled for sole proprietors' : '9 digits only'}
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="time_zone_iana">Time Zone *</Label>
+              <Select
+                value={formData.time_zone_iana}
+                onValueChange={(value) => handleChange('time_zone_iana', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="America/New_York">America/New_York (Eastern)</SelectItem>
+                  <SelectItem value="America/Chicago">America/Chicago (Central)</SelectItem>
+                  <SelectItem value="America/Denver">America/Denver (Mountain)</SelectItem>
+                  <SelectItem value="America/Los_Angeles">America/Los_Angeles (Pacific)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -161,12 +395,12 @@ export default function ProvisionNumberModal({ open, onClose, businessId, onProv
                 type="tel"
                 value={formData.contact_phone}
                 onChange={(e) => handleChange('contact_phone', e.target.value)}
-                placeholder="+14155551234"
+                placeholder="+14155551234 or (415) 555-1234"
               />
             </div>
 
             <div>
-              <Label htmlFor="opt_in_method">Opt-In Method</Label>
+              <Label htmlFor="opt_in_method">Opt-In Method *</Label>
               <Select
                 value={formData.opt_in_method}
                 onValueChange={(value) => handleChange('opt_in_method', value)}
@@ -183,7 +417,7 @@ export default function ProvisionNumberModal({ open, onClose, businessId, onProv
               </Select>
             </div>
 
-            <div>
+            <div className="col-span-2">
               <Label htmlFor="opt_in_evidence_url">Opt-In Evidence URL *</Label>
               <Input
                 id="opt_in_evidence_url"
@@ -193,7 +427,9 @@ export default function ProvisionNumberModal({ open, onClose, businessId, onProv
                 required
                 placeholder="https://example.com/opt-in-form"
               />
-              <p className="text-xs text-gray-500 mt-1">URL to your opt-in form or evidence</p>
+              <p className="text-xs text-gray-500 mt-1">
+                URL to your opt-in form or evidence. Must show your brand and STOP/HELP line.
+              </p>
             </div>
 
             <div>
@@ -206,53 +442,39 @@ export default function ProvisionNumberModal({ open, onClose, businessId, onProv
                   <SelectValue placeholder="Select volume" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low (0-1,000 messages)</SelectItem>
-                  <SelectItem value="medium">Medium (1,000-10,000 messages)</SelectItem>
-                  <SelectItem value="high">High (10,000+ messages)</SelectItem>
+                  <SelectItem value="100">100 messages</SelectItem>
+                  <SelectItem value="300">300 messages</SelectItem>
+                  <SelectItem value="1000">1,000 messages</SelectItem>
+                  <SelectItem value="3000">3,000 messages</SelectItem>
+                  <SelectItem value="10000">10,000 messages</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label htmlFor="time_zone">Time Zone</Label>
-              <Select
-                value={formData.time_zone}
-                onValueChange={(value) => handleChange('time_zone', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="America/New_York">Eastern Time</SelectItem>
-                  <SelectItem value="America/Chicago">Central Time</SelectItem>
-                  <SelectItem value="America/Denver">Mountain Time</SelectItem>
-                  <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="terms_url">Terms URL (Required by Surge)</Label>
+              <Label htmlFor="terms_url">Terms URL *</Label>
               <Input
                 id="terms_url"
                 type="url"
                 value={formData.terms_url}
-                disabled
-                className="bg-gray-100 text-gray-600"
+                onChange={(e) => handleChange('terms_url', e.target.value)}
+                required
+                placeholder="https://example.com/terms"
               />
-              <p className="text-xs text-gray-500 mt-1">Platform-level terms (required for verification)</p>
+              <p className="text-xs text-gray-500 mt-1">Your business terms of service</p>
             </div>
 
-            <div className="col-span-2">
-              <Label htmlFor="privacy_url">Privacy Policy URL (Required by Surge)</Label>
+            <div>
+              <Label htmlFor="privacy_url">Privacy Policy URL *</Label>
               <Input
                 id="privacy_url"
                 type="url"
                 value={formData.privacy_url}
-                disabled
-                className="bg-gray-100 text-gray-600"
+                onChange={(e) => handleChange('privacy_url', e.target.value)}
+                required
+                placeholder="https://example.com/privacy"
               />
-              <p className="text-xs text-gray-500 mt-1">Platform-level privacy policy (required for verification)</p>
+              <p className="text-xs text-gray-500 mt-1">Your business privacy policy</p>
             </div>
           </div>
 

@@ -34,7 +34,7 @@ async function run() {
   console.log('Provision missing required fields ->', res.statusCode, res._json);
 
   // Happy path
-  req = { method: 'POST', headers: {}, body: { businessId: 'biz-1', businessInfo: { legal_name: 'Blipp', website: 'https://myblipp.com', address: '123 Main', ein_or_sole_prop: 'Sole Prop', contact_name: 'Alex', contact_email: 'x@example.com', contact_phone: '+14155550123', opt_in_method: 'website', opt_in_evidence_url: 'https://myblipp.com/opt-in', terms_url: 'https://myblipp.com/terms', privacy_url: 'https://myblipp.com/privacy', estimated_monthly_volume: 'low', time_zone: 'America/New_York' } } };
+  req = { method: 'POST', headers: {}, body: { businessId: 'biz-1', businessInfo: { legal_name: 'Blipp', brand_name: 'Blipp Brand', website: 'https://myblipp.com', address: { street_line1: '123 Main St', street_line2: 'Suite 100', city: 'New York', state: 'NY', postal_code: '10001', country: 'US' }, ein: '123456789', sole_prop: false, contact_name: 'Alex', contact_email: 'x@example.com', contact_phone_e164: '+14155550123', opt_in_method: 'website', opt_in_evidence_url: 'https://myblipp.com/opt-in', terms_url: 'https://myblipp.com/terms', privacy_url: 'https://myblipp.com/privacy', estimated_monthly_volume: 1000, time_zone_iana: 'America/New_York' } } };
   res = createMockRes();
   await handler(req, res);
   console.log('Provision happy path ->', res.statusCode, res._json);
