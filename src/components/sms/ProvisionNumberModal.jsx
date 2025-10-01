@@ -27,6 +27,21 @@ export default function ProvisionNumberModal({ open, onClose, businessId, onProv
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Show confirmation warning
+    const confirmed = window.confirm(
+      '⚠️ IMPORTANT: Please verify all information is correct.\n\n' +
+      'You can only submit this verification form ONCE. Make sure:\n' +
+      '• Business name and contact info are accurate\n' +
+      '• EIN or tax information is correct\n' +
+      '• All details match your business records\n\n' +
+      'Click OK to proceed with verification submission.'
+    );
+    
+    if (!confirmed) {
+      return; // User cancelled
+    }
+    
     setError('');
     setIsSubmitting(true);
 
@@ -154,25 +169,27 @@ export default function ProvisionNumberModal({ open, onClose, businessId, onProv
             </div>
 
             <div>
-              <Label htmlFor="terms_url">Terms URL</Label>
+              <Label htmlFor="terms_url">Terms URL (Required by Surge)</Label>
               <Input
                 id="terms_url"
                 type="url"
                 value={formData.terms_url}
-                onChange={(e) => handleChange('terms_url', e.target.value)}
-                placeholder="https://myblipp.com/terms"
+                disabled
+                className="bg-gray-100 text-gray-600"
               />
+              <p className="text-xs text-gray-500 mt-1">Platform-level terms (required for verification)</p>
             </div>
 
             <div className="col-span-2">
-              <Label htmlFor="privacy_url">Privacy Policy URL</Label>
+              <Label htmlFor="privacy_url">Privacy Policy URL (Required by Surge)</Label>
               <Input
                 id="privacy_url"
                 type="url"
                 value={formData.privacy_url}
-                onChange={(e) => handleChange('privacy_url', e.target.value)}
-                placeholder="https://myblipp.com/privacy"
+                disabled
+                className="bg-gray-100 text-gray-600"
               />
+              <p className="text-xs text-gray-500 mt-1">Platform-level privacy policy (required for verification)</p>
             </div>
           </div>
 
