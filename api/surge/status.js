@@ -36,23 +36,22 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Get live status from Surge
-    let liveStatus = null;
+    // Use database status (webhooks keep it up to date)
+    // Only query Surge API if we need to force a status check
+    const currentStatus = business.verification_status;
+    
+    // Optional: Get live status from Surge for additional details
     let details = null;
-
-    if (business.surge_account_id) {
+    if (business.surge_account_id && business.verification_status !== 'active') {
       try {
         const capabilityStatus = await getCapabilityStatus(business.surge_account_id);
-        liveStatus = capabilityStatus.status;
         details = capabilityStatus.details;
+        // Don't override DB status - webhooks are source of truth
       } catch (error) {
         console.error('[STATUS] Error getting capability status:', error);
-        // Fall back to database status
+        // Continue with database status
       }
     }
-
-    // Use live status if available, otherwise use database status
-    const currentStatus = liveStatus || business.verification_status;
 
     return res.status(200).json({
       status: currentStatus,
