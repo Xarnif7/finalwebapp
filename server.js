@@ -393,11 +393,24 @@ app.get('/api/stripe/subscription', async (req, res) => {
     console.log('[STRIPE_SUB] Final subscription object:', {
       id: subscription?.id,
       status: subscription?.status,
+      created: subscription?.created,
       current_period_start: subscription?.current_period_start,
       current_period_end: subscription?.current_period_end,
       cancel_at_period_end: subscription?.cancel_at_period_end,
       items: subscription?.items?.data?.map(i => ({ price: i.price?.id, quantity: i.quantity }))
     });
+
+    // Calculate period_end if missing (fallback for corrupted subscriptions)
+    let periodEnd = subscription?.current_period_end;
+    if (!periodEnd && subscription?.created) {
+      // If subscription is missing billing periods, estimate next renewal as 30 days from creation
+      console.log('[STRIPE_SUB] WARNING: Subscription missing period data, calculating fallback');
+      const createdDate = new Date(subscription.created * 1000);
+      const nextMonth = new Date(createdDate);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      periodEnd = Math.floor(nextMonth.getTime() / 1000);
+      console.log('[STRIPE_SUB] Calculated fallback period_end:', periodEnd, 'from created:', subscription.created);
+    }
 
     let schedule = null;
     if (subscription?.schedule) {
@@ -415,7 +428,7 @@ app.get('/api/stripe/subscription', async (req, res) => {
         id: subscription.id,
         status: subscription.status,
         current_price: subscription.items?.data?.[0]?.price?.id || null,
-        current_period_end: subscription.current_period_end ? subscription.current_period_end * 1000 : null,
+        current_period_end: periodEnd ? periodEnd * 1000 : null,
         cancel_at_period_end: subscription.cancel_at_period_end || false,
       } : null,
       schedule: schedule ? {
