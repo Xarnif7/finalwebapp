@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { MessageSquare, Phone, AlertCircle, CheckCircle2, Clock, XCircle, Loader2 } from 'lucide-react';
-import { useDashboard } from '../providers/DashboardProvider';
+import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../lib/supabase/browser';
 import ProvisionNumberModal from '../sms/ProvisionNumberModal';
 import TestSend from '../sms/TestSend';
 import { formatPhoneDisplay } from '../../lib/phone';
@@ -53,11 +54,43 @@ const StatusBadge = ({ status }) => {
 };
 
 export default function MessagingSettings() {
-  const { business } = useDashboard();
+  const { user } = useAuth();
+  const [business, setBusiness] = useState(null);
   const [showProvisionModal, setShowProvisionModal] = useState(false);
   const [smsStatus, setSmsStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
+
+  // Load business data
+  useEffect(() => {
+    const loadBusiness = async () => {
+      if (!user?.id) return;
+
+      try {
+        // Get business ID from profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('business_id')
+          .eq('id', user.id)
+          .single();
+
+        if (profile?.business_id) {
+          // Get business data
+          const { data: businessData } = await supabase
+            .from('businesses')
+            .select('*')
+            .eq('id', profile.business_id)
+            .single();
+
+          setBusiness(businessData);
+        }
+      } catch (error) {
+        console.error('[MESSAGING] Error loading business:', error);
+      }
+    };
+
+    loadBusiness();
+  }, [user?.id]);
 
   useEffect(() => {
     if (business?.id) {
