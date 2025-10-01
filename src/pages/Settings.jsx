@@ -287,22 +287,64 @@ const BillingSettings = () => {
   const [showCards, setShowCards] = useState(false);
   const [cards, setCards] = useState({ payment_methods: [], default_payment_method_id: null });
   const [hasStripeCustomer, setHasStripeCustomer] = useState(true); // Assume true initially
+  const [planName, setPlanName] = useState('No subscription');
+  const [searchParams] = useSearchParams();
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { 
+    load(); 
+    
+    // Auto-refresh if returning from portal
+    const fromPortal = searchParams.get('from') === 'portal' || searchParams.get('tab') === 'billing';
+    if (fromPortal) {
+      // Wait a bit for webhook to process, then reload
+      setTimeout(() => load(), 2000);
+    }
+  }, [searchParams]);
 
   const load = async () => {
     try {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
+      
+      // Fetch subscription from Stripe API
       const resp = await fetch('/api/stripe/subscription', {
         headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }
       });
       const data = await resp.json();
-      if (resp.ok) {
+      
+      if (resp.ok && data.subscription) {
         setSub(data.subscription);
         setSchedule(data.schedule);
+        
+        // Map price ID to plan name
+        const priceId = data.subscription.current_price;
+        let name = 'Active Subscription';
+        
+        // Match against your env var price IDs
+        if (priceId === import.meta.env.VITE_STRIPE_BASIC_PRICE_ID) {
+          name = 'Blipp Standard Plan';
+        } else if (priceId === import.meta.env.VITE_STRIPE_PRO_PRICE_ID) {
+          name = 'Blipp Pro Plan';
+        } else if (priceId === import.meta.env.VITE_STRIPE_ENTERPRISE_PRICE_ID) {
+          name = 'Blipp Enterprise Plan';
+        } else {
+          // Fallback: Try to get product name from Stripe
+          name = data.subscription.status === 'active' ? 'Active Subscription' : 'Subscription';
+        }
+        
+        setPlanName(name);
+        setHasStripeCustomer(true);
+      } else {
+        // No subscription found
+        setPlanName('No subscription');
+        setHasStripeCustomer(false);
       }
-    } finally { setLoading(false); }
+    } catch (error) {
+      console.error('Error loading subscription:', error);
+      setPlanName('No subscription');
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const openPortal = async () => {
@@ -394,24 +436,25 @@ const BillingSettings = () => {
     <Card className="rounded-2xl">
       <CardHeader>
         <CardTitle>Billing</CardTitle>
-        <CardDescription>Manage your subscription, cards and plan.</CardDescription>
+        <CardDescription>Manage your subscription and payment methods.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="p-4 bg-slate-50 rounded-lg flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <p className="font-medium">{sub?.status ? sub.status.toUpperCase() : 'No subscription'}</p>
-            <p className="text-sm text-slate-600">Renews: {formatDate(sub?.current_period_end)} • Cancel at period end: {sub?.cancel_at_period_end ? 'Yes' : 'No'}</p>
-            {schedule?.phases?.length > 1 && (
-              <p className="text-xs text-slate-500">Next plan change scheduled after current cycle.</p>
+            <p className="font-semibold text-lg text-slate-900">{planName}</p>
+            {sub?.status && (
+              <>
+                <p className="text-sm text-slate-600 mt-1">
+                  Status: <span className="font-medium capitalize">{sub.status}</span>
+                  {sub.cancel_at_period_end && <span className="text-amber-600"> (Cancels at period end)</span>}
+                </p>
+                <p className="text-sm text-slate-600">
+                  {sub.cancel_at_period_end ? 'Ends' : 'Renews'}: {formatDate(sub?.current_period_end)}
+                </p>
+              </>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => { setShowCards(true); loadCards(); }}>Manage Payment Methods</Button>
-            {!sub?.cancel_at_period_end ? (
-              <Button variant="outline" onClick={cancelAtPeriodEnd}>Cancel at Period End</Button>
-            ) : (
-              <Button variant="outline" onClick={resume}>Resume</Button>
-            )}
             {hasStripeCustomer ? (
               <Button 
                 onClick={openPortal} 
@@ -435,8 +478,7 @@ const BillingSettings = () => {
           </div>
         </div>
 
-
-        {loading && <div className="text-sm text-slate-500">Loading…</div>}
+        {loading && <div className="text-sm text-slate-500">Loading subscription details…</div>}
       </CardContent>
     </Card>
 
