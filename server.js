@@ -822,9 +822,7 @@ app.post('/api/billing/portal', async (req, res) => {
       }
     }
 
-    // Use app.myblipp.com for dashboard, not myblipp.com (marketing site)
-    const appUrl = process.env.APP_BASE_URL || process.env.VITE_APP_BASE_URL || 'https://app.myblipp.com';
-    const returnUrl = `${appUrl}/settings/billing?from=portal`;
+    const returnUrl = `${process.env.APP_BASE_URL || process.env.VITE_SITE_URL || 'https://myblipp.com'}/settings?tab=billing`;
     console.log('[BILLING_PORTAL] Creating portal session for customer:', stripeCustomerId, 'return URL:', returnUrl);
     
     // Configure portal session to enable subscription management
