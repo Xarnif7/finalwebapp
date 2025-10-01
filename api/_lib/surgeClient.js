@@ -139,8 +139,11 @@ async function sendMessage({ accountId, from, to, body }) {
       throw new Error('SURGE_API_KEY not configured');
     }
     
-    // Surge API format based on their docs
-    const response = await fetch(`${SURGE_API_BASE}/v1/messages`, {
+    // Surge API format - using accounts/{account_id}/messages endpoint
+    // Note: For now we're using the API key's account, not subaccounts
+    const accountPath = SURGE_API_KEY ? 'me' : accountId; // Use 'me' with API key auth
+    
+    const response = await fetch(`${SURGE_API_BASE}/accounts/${accountPath}/messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SURGE_API_KEY}`,
@@ -154,7 +157,6 @@ async function sendMessage({ accountId, from, to, body }) {
           }
         },
         metadata: {
-          account_id: accountId,
           from_number: from
         }
       })
