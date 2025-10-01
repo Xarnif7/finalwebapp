@@ -1,87 +1,105 @@
-import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Alert, AlertDescription } from '../components/ui/alert';
-import { CheckCircle, MessageSquare, Shield, Clock, DollarSign, X, Info } from 'lucide-react';
-import SmsOptInConsent from '../components/shared/SmsOptInConsent';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 
-const SmsOptIn = () => {
-  const navigate = useNavigate();
+/**
+ * Sanitize brand name for display
+ * - Strip HTML
+ * - Trim whitespace
+ * - Limit to 80 chars
+ * - Allow letters, numbers, spaces, & basic punctuation
+ * - Fallback to "Blipp" if empty/invalid
+ */
+function sanitizeBrand(input) {
+  if (!input || typeof input !== 'string') return 'Blipp';
+  
+  // Strip HTML tags
+  let sanitized = input.replace(/<[^>]*>/g, '');
+  
+  // Trim whitespace
+  sanitized = sanitized.trim();
+  
+  // Allow only letters, numbers, spaces, and basic punctuation (. , - ' &)
+  sanitized = sanitized.replace(/[^a-zA-Z0-9\s.,\-'&]/g, '');
+  
+  // Limit to 80 characters
+  sanitized = sanitized.substring(0, 80);
+  
+  // If empty after sanitization, return default
+  return sanitized || 'Blipp';
+}
+
+export default function SmsOptIn() {
   const [searchParams] = useSearchParams();
-  const [formData, setFormData] = useState({
-    phone: searchParams.get('phone') || '',
-    email: searchParams.get('email') || '',
-    name: searchParams.get('name') || '',
-    business: searchParams.get('business') || 'Blipp - Reputation Management Software'
-  });
-  const [smsConsent, setSmsConsent] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
+  // Get brand from query params, default to "Blipp"
+  const brand = sanitizeBrand(searchParams.get('business'));
+
+  // Pre-fill form if provided in query params
+  useEffect(() => {
+    const phoneParam = searchParams.get('phone');
+    const emailParam = searchParams.get('email');
+    const nameParam = searchParams.get('name');
+    
+    if (phoneParam) setPhoneNumber(phoneParam);
+    if (emailParam) setEmail(emailParam);
+    if (nameParam) setName(nameParam);
+  }, [searchParams]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
-    if (!formData.phone.trim()) {
-      setError('Phone number is required');
-      return;
-    }
-
-    if (!smsConsent) {
-      setError('SMS consent is required to receive messages');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      // Here you would typically send the opt-in data to your backend
-      // For now, we'll simulate a successful submission
+      // Basic validation
+      if (!phoneNumber) {
+        throw new Error('Phone number is required');
+      }
+
+      // TODO: Add API call to save opt-in
+      // const response = await fetch('/api/sms-opt-in', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ phoneNumber, email, name, brand }),
+      // });
+
+      // For now, just simulate success
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       setSubmitted(true);
     } catch (err) {
-      setError('Failed to process opt-in request. Please try again.');
-      console.error('SMS opt-in error:', err);
+      setError(err.message || 'Failed to submit opt-in. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
   if (submitted) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-8 h-8 text-green-600" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Opt-in Successful!</h2>
-                <p className="text-gray-600 mt-2">
-                  You have successfully opted in to receive SMS messages from {formData.business}.
-                </p>
-              </div>
-              <div className="space-y-2 text-sm text-gray-500">
-                <p><strong>Phone:</strong> {formData.phone}</p>
-                <p><strong>Business:</strong> {formData.business}</p>
-              </div>
-              <Button 
-                onClick={() => navigate('/')} 
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              >
-                Continue
-              </Button>
-            </div>
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle className="text-2xl text-center text-green-600">Success!</CardTitle>
+            <CardDescription className="text-center">
+              You've successfully opted in to receive SMS from {brand}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-sm text-gray-600 mb-4">
+              You'll start receiving text messages at {phoneNumber}.
+            </p>
+            <p className="text-sm text-gray-600">
+              Reply <strong>STOP</strong> at any time to opt out.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -90,109 +108,89 @@ const SmsOptIn = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-lg">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            <MessageSquare className="w-6 h-6 text-blue-600" />
-          </div>
-          <CardTitle className="text-2xl">SMS Communications Opt-In</CardTitle>
-          <p className="text-gray-600">
-            Opt in to receive SMS messages from {formData.business}
-          </p>
+      <Card className="max-w-md w-full">
+        <CardHeader>
+          <CardTitle className="text-2xl">SMS Opt-In for {brand}</CardTitle>
+          <CardDescription>
+            Enter your phone number to receive SMS from {brand} about your account and service updates.
+          </CardDescription>
         </CardHeader>
-        
-        <CardContent className="space-y-6">
+        <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Contact Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
-              
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Enter your full name"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  placeholder="Enter your email address"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number *</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  placeholder="+1 (555) 123-4567"
-                  required
-                />
-                <p className="text-xs text-gray-500">
-                  Enter the phone number where you want to receive SMS messages
-                </p>
-              </div>
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                Phone Number <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="(555) 123-4567"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                required
+                className="w-full"
+              />
             </div>
 
-            {/* SMS Consent */}
-            <SmsOptInConsent
-              businessName={formData.business}
-              onConsentChange={setSmsConsent}
-              initialConsent={smsConsent}
-              showFullForm={true}
-            />
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                Name (Optional)
+              </label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="John Doe"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full"
+              />
+            </div>
 
-            {/* Error Display */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email (Optional)
+              </label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="john@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full"
+              />
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-sm text-gray-700">
+              <p>
+                By providing your phone number, you agree to receive SMS from <strong>{brand}</strong>. 
+                Message & data rates may apply. Message frequency varies. Reply <strong>STOP</strong> to 
+                opt out, <strong>HELP</strong> for help. See our{' '}
+                <a href="https://myblipp.com/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                  Terms
+                </a>{' '}
+                and{' '}
+                <a href="https://myblipp.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                  Privacy
+                </a>.
+              </p>
+            </div>
+
             {error && (
-              <Alert className="bg-red-50 border-red-200">
-                <X className="h-4 w-4 text-red-600" />
-                <AlertDescription className="text-red-800">
-                  {error}
-                </AlertDescription>
-              </Alert>
+              <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-600">
+                {error}
+              </div>
             )}
 
-            {/* Submit Button */}
             <Button
               type="submit"
-              disabled={!smsConsent || isSubmitting}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+              disabled={isSubmitting}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {isSubmitting ? 'Processing...' : 'Opt In to SMS Messages'}
+              {isSubmitting ? 'Submitting...' : 'Opt In to SMS'}
             </Button>
           </form>
-
-          {/* Additional Information */}
-          <div className="pt-4 border-t border-gray-200">
-            <Alert className="bg-blue-50 border-blue-200">
-              <Info className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800 text-sm">
-                <div className="space-y-2">
-                  <p><strong>What happens next?</strong></p>
-                  <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>You'll receive a confirmation message at the phone number provided</li>
-                    <li>You can opt out at any time by replying STOP to any message</li>
-                    <li>Message frequency varies based on your service needs</li>
-                    <li>Standard message and data rates may apply</li>
-                  </ul>
-                </div>
-              </AlertDescription>
-            </Alert>
-          </div>
         </CardContent>
       </Card>
     </div>
   );
-};
-
-export default SmsOptIn;
+}
