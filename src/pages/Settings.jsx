@@ -305,6 +305,12 @@ const BillingSettings = () => {
     try {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) {
+        setPlanName('No subscription');
+        setHasStripeCustomer(false);
+        setLoading(false);
+        return;
+      }
       
       // Fetch subscription status from our main endpoint
       const statusResp = await fetch('/api/subscription/status', {
@@ -329,17 +335,36 @@ const BillingSettings = () => {
         setPlanName(name);
         setHasStripeCustomer(true);
         
-        // Also fetch detailed subscription info from Stripe for additional details
-        const stripeResp = await fetch('/api/stripe/subscription', {
-          headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }
-        });
-        const stripeData = await stripeResp.json();
+        // Fetch subscription details from database to get current_period_end
+        const { data: dbSub, error: dbError } = await supabase
+          .from('subscriptions')
+          .select('current_period_end, status, stripe_subscription_id')
+          .eq('user_id', session.user.id)
+          .in('status', ['active', 'trialing', 'past_due'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
         
-        if (stripeResp.ok && stripeData.subscription) {
-          setSub(stripeData.subscription);
-          setSchedule(stripeData.schedule);
+        if (!dbError && dbSub) {
+          console.log('[BILLING] DB subscription:', dbSub);
+          
+          // Also try to get cancel_at_period_end from Stripe
+          const stripeResp = await fetch('/api/stripe/subscription', {
+            headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }
+          });
+          const stripeData = await stripeResp.json();
+          
+          setSub({
+            status: statusData.status,
+            cancel_at_period_end: stripeData.subscription?.cancel_at_period_end || false,
+            current_period_end: dbSub.current_period_end ? new Date(dbSub.current_period_end).getTime() : null
+          });
+          
+          if (stripeData.schedule) {
+            setSchedule(stripeData.schedule);
+          }
         } else {
-          // Fallback: use status data to build a subscription object
+          // Fallback: use status data only
           setSub({
             status: statusData.status,
             cancel_at_period_end: false,
