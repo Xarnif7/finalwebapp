@@ -162,11 +162,20 @@ async function sendMessage({ accountId, from, to, body }) {
       })
     });
     
-    const data = await response.json();
+    // Parse response
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      const text = await response.text();
+      console.error('[SURGE] Non-JSON response:', response.status, text);
+      throw new Error(`Surge API error: HTTP ${response.status} - ${text}`);
+    }
     
     if (!response.ok) {
-      console.error('[SURGE] Error response:', data);
-      throw new Error(data.message || data.error || `HTTP ${response.status}`);
+      console.error('[SURGE] Error response:', JSON.stringify(data, null, 2));
+      const errorMessage = data.message || data.error || JSON.stringify(data) || `HTTP ${response.status}`;
+      throw new Error(errorMessage);
     }
     
     console.log('[SURGE] Message sent successfully:', data.id);
@@ -176,8 +185,8 @@ async function sendMessage({ accountId, from, to, body }) {
       status: data.status || 'queued'
     };
   } catch (error) {
-    console.error('[SURGE] Error sending message:', error.message);
-    throw new Error(`Failed to send SMS: ${error.message}`);
+    console.error('[SURGE] Error sending message:', error);
+    throw error; // Re-throw the original error with full details
   }
 }
 
