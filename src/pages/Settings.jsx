@@ -345,31 +345,37 @@ const BillingSettings = () => {
           .limit(1)
           .single();
         
-        if (!dbError && dbSub) {
-          console.log('[BILLING] DB subscription:', dbSub);
-          
-          // Also try to get cancel_at_period_end from Stripe
-          const stripeResp = await fetch('/api/stripe/subscription', {
-            headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }
-          });
-          const stripeData = await stripeResp.json();
-          
-          setSub({
-            status: statusData.status,
-            cancel_at_period_end: stripeData.subscription?.cancel_at_period_end || false,
-            current_period_end: dbSub.current_period_end ? new Date(dbSub.current_period_end).getTime() : null
-          });
-          
-          if (stripeData.schedule) {
-            setSchedule(stripeData.schedule);
-          }
-        } else {
-          // Fallback: use status data only
-          setSub({
-            status: statusData.status,
-            cancel_at_period_end: false,
-            current_period_end: null
-          });
+        console.log('[BILLING] DB subscription query:', { dbSub, dbError });
+        
+        // Also fetch from Stripe API for most up-to-date info
+        const stripeResp = await fetch('/api/stripe/subscription', {
+          headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }
+        });
+        const stripeData = await stripeResp.json();
+        
+        console.log('[BILLING] Stripe subscription data:', stripeData);
+        
+        // Use Stripe data as primary source, DB as fallback
+        let periodEnd = null;
+        let cancelAtPeriodEnd = false;
+        
+        if (stripeResp.ok && stripeData.subscription) {
+          periodEnd = stripeData.subscription.current_period_end;
+          cancelAtPeriodEnd = stripeData.subscription.cancel_at_period_end || false;
+          console.log('[BILLING] Using Stripe data - period end:', periodEnd);
+        } else if (!dbError && dbSub?.current_period_end) {
+          periodEnd = new Date(dbSub.current_period_end).getTime();
+          console.log('[BILLING] Using DB data - period end:', periodEnd);
+        }
+        
+        setSub({
+          status: statusData.status,
+          cancel_at_period_end: cancelAtPeriodEnd,
+          current_period_end: periodEnd
+        });
+        
+        if (stripeData?.schedule) {
+          setSchedule(stripeData.schedule);
         }
       } else {
         // No subscription found
