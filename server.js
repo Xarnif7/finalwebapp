@@ -364,7 +364,12 @@ async function getOrCreateStripeCustomerByEmail(email) {
 
 // Helper: find an active (or latest) subscription for a customer
 async function findLatestSubscriptionForCustomer(customerId) {
-  const subs = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 1 });
+  const subs = await stripe.subscriptions.list({ 
+    customer: customerId, 
+    status: 'all', 
+    limit: 1,
+    expand: ['data.items.data.price']
+  });
   return subs.data && subs.data.length > 0 ? subs.data[0] : null;
 }
 
@@ -377,9 +382,15 @@ app.get('/api/stripe/subscription', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     const customer = await getOrCreateStripeCustomerByEmail(user.email);
-    const subscription = await findLatestSubscriptionForCustomer(customer.id);
+    let subscription = await findLatestSubscriptionForCustomer(customer.id);
 
-    console.log('[STRIPE_SUB] Raw subscription from Stripe:', {
+    // If we found a subscription but it's missing period data, retrieve it directly
+    if (subscription?.id && !subscription.current_period_end) {
+      console.log('[STRIPE_SUB] Subscription missing period data, retrieving directly:', subscription.id);
+      subscription = await stripe.subscriptions.retrieve(subscription.id);
+    }
+
+    console.log('[STRIPE_SUB] Final subscription object:', {
       id: subscription?.id,
       status: subscription?.status,
       current_period_start: subscription?.current_period_start,
