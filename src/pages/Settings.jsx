@@ -289,6 +289,7 @@ const BillingSettings = () => {
   const [hasStripeCustomer, setHasStripeCustomer] = useState(true); // Assume true initially
   const [planName, setPlanName] = useState('No subscription');
   const [searchParams] = useSearchParams();
+  const [syncAttempted, setSyncAttempted] = useState(false); // Prevent infinite sync loop
 
   useEffect(() => { 
     load(); 
@@ -395,29 +396,32 @@ const BillingSettings = () => {
           setSchedule(stripeData.schedule);
         }
       } else {
-        // No subscription found in DB - try to sync from Stripe
-        console.log('[BILLING] No subscription in DB, attempting to sync from Stripe...');
-        
-        try {
-          const syncResp = await fetch('/api/billing/sync-subscription', {
-            method: 'POST',
-            headers: { 
-              'Authorization': `Bearer ${session?.access_token || ''}`,
-              'Content-Type': 'application/json'
-            }
-          });
+        // No subscription found in DB - try to sync from Stripe (only once)
+        if (!syncAttempted) {
+          console.log('[BILLING] No subscription in DB, attempting to sync from Stripe...');
+          setSyncAttempted(true);
           
-          if (syncResp.ok) {
-            const syncData = await syncResp.json();
-            console.log('[BILLING] Successfully synced subscription, reloading...');
-            // Reload to fetch the newly synced subscription
-            setTimeout(() => load(), 1000);
-            return;
-          } else {
-            console.log('[BILLING] No subscription found in Stripe either');
+          try {
+            const syncResp = await fetch('/api/billing/sync-subscription', {
+              method: 'POST',
+              headers: { 
+                'Authorization': `Bearer ${session?.access_token || ''}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (syncResp.ok) {
+              const syncData = await syncResp.json();
+              console.log('[BILLING] Successfully synced subscription, reloading...');
+              // Reload to fetch the newly synced subscription
+              setTimeout(() => load(), 1000);
+              return;
+            } else {
+              console.log('[BILLING] No subscription found in Stripe either');
+            }
+          } catch (syncError) {
+            console.error('[BILLING] Sync error:', syncError);
           }
-        } catch (syncError) {
-          console.error('[BILLING] Sync error:', syncError);
         }
         
         // No subscription found

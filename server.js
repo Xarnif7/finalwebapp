@@ -1674,14 +1674,15 @@ app.get('/api/subscription/status', async (req, res) => {
     const subscription = (subscriptions || []).find((s) => {
       if (!s) return false;
       const statusOk = ['active', 'trialing', 'past_due'].includes(s.status);
-      const endOk = s.current_period_end ? s.current_period_end > nowIso : false;
+      // Accept subscription if status is active, even without end date (fallback for Stripe API issues)
+      const endOk = s.current_period_end ? s.current_period_end > nowIso : statusOk;
       
       console.log('[API] Checking subscription:', {
         status: s.status,
         statusOk,
         current_period_end: s.current_period_end,
         endOk,
-        comparison: s.current_period_end ? `${s.current_period_end} > ${nowIso} = ${s.current_period_end > nowIso}` : 'no end date'
+        comparison: s.current_period_end ? `${s.current_period_end} > ${nowIso} = ${s.current_period_end > nowIso}` : 'no end date - accepting based on status'
       });
       
       return statusOk && endOk;
