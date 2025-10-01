@@ -11,9 +11,41 @@
     {
       "src": "server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "api/surge/provision-number.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/surge/status.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/sms/webhook.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/sms/send.js",
+      "use": "@vercel/node"
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/surge/provision-number",
+      "destination": "/api/surge/provision-number.js"
+    },
+    {
+      "source": "/api/surge/status",
+      "destination": "/api/surge/status.js"
+    },
+    {
+      "source": "/api/sms/webhook",
+      "destination": "/api/sms/webhook.js"
+    },
+    {
+      "source": "/api/sms/send",
+      "destination": "/api/sms/send.js"
+    },
     {
       "source": "/api/subscription/(.*)",
       "destination": "/server.js"
