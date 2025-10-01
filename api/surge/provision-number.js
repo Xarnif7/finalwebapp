@@ -5,8 +5,9 @@
  */
 
 const { getBusiness, updateBusiness } = require('../_lib/db');
+const { supabase } = require('../_lib/db');
 const {
-  createOrGetAccountForBusiness,
+  createAccountForBusiness,
   purchaseTollFreeNumber,
   submitTfnVerification
 } = require('../_lib/surgeClient');
@@ -33,14 +34,18 @@ module.exports = async (req, res) => {
       ein_or_sole_prop,
       contact_name,
       contact_email,
+      contact_phone,
       opt_in_method,
+      opt_in_evidence_url,
       terms_url,
-      privacy_url
+      privacy_url,
+      estimated_monthly_volume,
+      time_zone
     } = businessInfo;
 
-    if (!legal_name || !contact_email) {
+    if (!legal_name || !contact_email || !opt_in_evidence_url || !estimated_monthly_volume) {
       return res.status(400).json({
-        error: 'Missing required business info: legal_name, contact_email'
+        error: 'Missing required business info: legal_name, contact_email, opt_in_evidence_url, estimated_monthly_volume'
       });
     }
 
@@ -64,26 +69,51 @@ module.exports = async (req, res) => {
 
     console.log('[PROVISION] Starting SMS provisioning for business:', businessId);
 
-    // Step 1: Create or get Surge account
-    const { accountId } = await createOrGetAccountForBusiness(business);
-    console.log('[PROVISION] Account ID:', accountId);
+    // Step 1: Create Surge account if needed
+    let accountId = business.surge_account_id;
+    if (!accountId) {
+      const { accountId: newAccountId } = await createAccountForBusiness({
+        name: business.name,
+        brand_name: legal_name,
+        organization: {
+          name: legal_name,
+          website: website,
+          address: address,
+          ein: ein_or_sole_prop,
+          contact: {
+            name: contact_name,
+            email: contact_email,
+            phone: contact_phone
+          }
+        },
+        time_zone: time_zone || 'America/New_York'
+      });
+      accountId = newAccountId;
+      
+      // Persist surge_account_id
+      await updateBusiness(businessId, { surge_account_id: accountId });
+      console.log('[PROVISION] Account ID:', accountId);
+    }
 
     // Step 2: Purchase toll-free number
-    const { phoneId, e164 } = await purchaseTollFreeNumber(accountId);
+    const { phoneId, e164 } = await purchaseTollFreeNumber({ accountId });
     console.log('[PROVISION] Purchased TFN:', e164);
 
     // Step 3: Submit TFN verification
-    const { verificationId, status } = await submitTfnVerification(accountId, businessInfo);
+    const { verificationId, status } = await submitTfnVerification({ 
+      accountId, 
+      payload: businessInfo 
+    });
     console.log('[PROVISION] Verification submitted:', verificationId, status);
 
     // Step 4: Update business record
     await updateBusiness(businessId, {
-      surge_account_id: accountId,
       surge_phone_id: phoneId,
       from_number: e164,
       sender_type: 'tfn',
       verification_status: 'pending',
-      last_verification_error: null
+      last_verification_error: null,
+      tfn_verification_id: verificationId
     });
 
     console.log('[PROVISION] Business updated successfully');

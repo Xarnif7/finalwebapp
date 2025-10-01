@@ -1,42 +1,70 @@
 /**
  * Surge SMS Client
- * Handles all Surge API interactions
+ * Handles all Surge API interactions with subaccount support
  */
 
 const crypto = require('crypto');
 
 const SURGE_API_KEY = process.env.SURGE_API_KEY;
-const SURGE_ACCOUNT_ID = process.env.SURGE_ACCOUNT_ID;
-const SURGE_SIGNING_KEY = process.env.SURGE_SIGNING_KEY;
+const SURGE_WEBHOOK_SECRET = process.env.SURGE_WEBHOOK_SECRET;
+const SURGE_MASTER_ACCOUNT_ID = process.env.SURGE_MASTER_ACCOUNT_ID;
 const SURGE_API_BASE = process.env.SURGE_API_BASE || 'https://api.surge.app';
 const SURGE_USE_SUBACCOUNTS = process.env.SURGE_USE_SUBACCOUNTS === 'true';
 
 /**
- * Create or get account for business
- * Uses SURGE_ACCOUNT_ID from environment
- * TODO: Implement real subaccount creation when SURGE_USE_SUBACCOUNTS=true
+ * Create account for business
+ * If SURGE_USE_SUBACCOUNTS=false, returns master account ID
+ * If SURGE_USE_SUBACCOUNTS=true, creates subaccount via Surge API
  */
-async function createOrGetAccountForBusiness(business) {
-  if (!SURGE_ACCOUNT_ID) {
-    throw new Error('SURGE_ACCOUNT_ID not configured');
-  }
-  
+async function createAccountForBusiness({ name, brand_name, organization, time_zone }) {
   if (!SURGE_USE_SUBACCOUNTS) {
-    // Use the main Surge account ID from environment
-    console.log('[SURGE] Using main account for business:', business.id);
-    return { accountId: SURGE_ACCOUNT_ID };
+    if (!SURGE_MASTER_ACCOUNT_ID) {
+      throw new Error('SURGE_MASTER_ACCOUNT_ID not configured');
+    }
+    console.log('[SURGE] Using master account for business:', name);
+    return { accountId: SURGE_MASTER_ACCOUNT_ID };
   }
-  
-  // TODO: Implement subaccount creation via Surge API
-  // For now, return main account
-  console.log('[SURGE] TODO: Implement subaccount creation for business:', business.id);
-  return { accountId: SURGE_ACCOUNT_ID };
+
+  if (!SURGE_API_KEY) {
+    throw new Error('SURGE_API_KEY not configured');
+  }
+
+  try {
+    console.log('[SURGE] Creating subaccount for business:', name);
+    
+    const response = await fetch(`${SURGE_API_BASE}/accounts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SURGE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: name,
+        brand_name: brand_name,
+        organization: organization,
+        time_zone: time_zone
+      })
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('[SURGE] Error creating subaccount:', data);
+      throw new Error(data.message || data.error || 'Failed to create subaccount');
+    }
+    
+    console.log('[SURGE] Subaccount created successfully:', data.id);
+    return { accountId: data.id };
+  } catch (error) {
+    console.error('[SURGE] Error creating subaccount:', error);
+    throw new Error(`Failed to create subaccount: ${error.message}`);
+  }
 }
 
 /**
  * Purchase toll-free number via Surge API
  */
-async function purchaseTollFreeNumber(accountId) {
+async function purchaseTollFreeNumber({ accountId }) {
   try {
     console.log('[SURGE] Purchasing toll-free number for account:', accountId);
     
@@ -55,25 +83,10 @@ async function purchaseTollFreeNumber(accountId) {
       })
     });
     
-    console.log('[SURGE] Purchase TFN response status:', response.status);
-    console.log('[SURGE] Purchase TFN response ok:', response.ok);
-    
-    const responseText = await response.text();
-    console.log('[SURGE] Purchase TFN raw response:', responseText);
-    
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (jsonError) {
-      console.error('[SURGE] Could not parse JSON response');
-      throw new Error(`Surge API error: HTTP ${response.status} - ${responseText}`);
-    }
-    
-    console.log('[SURGE] Purchase TFN parsed data:', JSON.stringify(data));
+    const data = await response.json();
     
     if (!response.ok) {
-      console.error('[SURGE] TFN purchase failed with status:', response.status);
-      console.error('[SURGE] Error data:', data);
+      console.error('[SURGE] TFN purchase failed:', data);
       const errorMsg = data?.error?.message || data?.message || data?.error || 'Unknown error';
       throw new Error(errorMsg);
     }
@@ -86,14 +99,14 @@ async function purchaseTollFreeNumber(accountId) {
     };
   } catch (error) {
     console.error('[SURGE] Error purchasing TFN:', error);
-    throw error; // Re-throw with full details
+    throw error;
   }
 }
 
 /**
  * Submit TFN verification via Surge Campaign API
  */
-async function submitTfnVerification(accountId, payload) {
+async function submitTfnVerification({ accountId, payload }) {
   try {
     console.log('[SURGE] Creating campaign for account:', accountId);
     
@@ -101,24 +114,33 @@ async function submitTfnVerification(accountId, payload) {
       throw new Error('SURGE_API_KEY not configured');
     }
     
-    const { legal_name, website, address, ein_or_sole_prop, contact_name, contact_email, opt_in_method, terms_url, privacy_url } = payload;
+    const { 
+      legal_name, 
+      website, 
+      address, 
+      ein_or_sole_prop, 
+      contact_name, 
+      contact_email, 
+      contact_phone,
+      opt_in_method, 
+      opt_in_evidence_url,
+      terms_url, 
+      privacy_url, 
+      estimated_monthly_volume,
+      time_zone
+    } = payload;
     
-    // Generate sample messages with brand name and compliance footer
-    const sampleMessages = [
-      `You are now opted in to messages from ${legal_name}. Frequency varies. Msg&data rates apply. Reply STOP to opt out.`,
-      `Hi! This is ${legal_name}. Your appointment is confirmed for tomorrow at 2 PM. Reply STOP to opt out, HELP for help. Msg & data rates may apply.`,
-      `Thanks for choosing ${legal_name}! Your order #12345 is ready for pickup. Reply STOP to opt out, HELP for help. Msg & data rates may apply.`
+    // Build use case categories
+    const use_case_categories = ['account_notifications', 'customer_care', 'two_way_conversational'];
+    
+    // Build use case summary
+    const use_case_summary = `${legal_name} uses SMS to communicate with customers about appointments, orders, and account updates. Messages include booking confirmations, order status updates, and important account notifications. All messages include clear opt-out instructions and comply with TCPA regulations.`;
+    
+    // Generate sample messages with STOP/HELP footer
+    const sample_messages = [
+      `You are now opted in to messages from ${legal_name}. Frequency varies. Msg&data rates apply. Reply STOP to opt out, HELP for help.`,
+      `Hi! This is ${legal_name}. Your appointment is confirmed for tomorrow at 2 PM. Reply STOP to opt out, HELP for help. Msg & data rates may apply.`
     ];
-    
-    // Build consent flow description
-    const consentFlow = `Customers opt in through ${opt_in_method || 'our website form'}. ` +
-      `The opt-in form is located at ${website || terms_url} and clearly explains what messages they will receive. ` +
-      `We collect explicit consent before sending any messages.`;
-    
-    // Build campaign description
-    const description = `${legal_name} uses SMS to communicate with customers about appointments, orders, and account updates. ` +
-      `Messages include booking confirmations, order status updates, and important account notifications. ` +
-      `All messages include clear opt-out instructions and comply with TCPA regulations.`;
     
     const response = await fetch(`${SURGE_API_BASE}/accounts/${accountId}/campaigns`, {
       method: 'POST',
@@ -127,14 +149,26 @@ async function submitTfnVerification(accountId, payload) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        description: description,
-        consent_flow: consentFlow,
-        message_samples: sampleMessages,
-        use_cases: ['account_notification', 'customer_care', 'delivery_notification'],
-        volume: 'low',
-        privacy_policy_url: privacy_url || 'https://myblipp.com/privacy',
-        terms_and_conditions_url: terms_url || 'https://myblipp.com/terms',
-        includes: ['links']
+        brand_name: legal_name,
+        use_case_categories: use_case_categories,
+        use_case_summary: use_case_summary,
+        sample_messages: sample_messages,
+        opt_in_method: opt_in_method,
+        opt_in_evidence_url: opt_in_evidence_url,
+        terms_url: terms_url,
+        privacy_url: privacy_url,
+        estimated_monthly_volume: estimated_monthly_volume,
+        organization: {
+          name: legal_name,
+          website: website,
+          address: address,
+          ein: ein_or_sole_prop,
+          contact: {
+            name: contact_name,
+            email: contact_email,
+            phone: contact_phone
+          }
+        }
       })
     });
     
@@ -149,7 +183,7 @@ async function submitTfnVerification(accountId, payload) {
     
     return {
       verificationId: data.id,
-      status: 'pending' // Campaign starts as pending verification
+      status: 'pending'
     };
   } catch (error) {
     console.error('[SURGE] Error submitting verification:', error);
@@ -160,7 +194,7 @@ async function submitTfnVerification(accountId, payload) {
 /**
  * Get account capability status via Surge API
  */
-async function getCapabilityStatus(accountId) {
+async function getCapabilityStatus({ accountId }) {
   try {
     console.log('[SURGE] Checking capability status for account:', accountId);
     
@@ -168,9 +202,8 @@ async function getCapabilityStatus(accountId) {
       throw new Error('SURGE_API_KEY not configured');
     }
     
-    // Check account status with capabilities parameter
     const response = await fetch(
-      `${SURGE_API_BASE}/accounts/${accountId}/status?capabilities=local_messaging&capabilities=toll_free_messaging`,
+      `${SURGE_API_BASE}/accounts/${accountId}/status?capabilities=toll_free_messaging`,
       {
         method: 'GET',
         headers: {
@@ -222,11 +255,7 @@ async function sendMessage({ accountId, from, to, body }) {
       throw new Error('SURGE_API_KEY not configured');
     }
     
-    // Surge API format - using accounts/{account_id}/messages endpoint
-    // Note: For now we're using the API key's account, not subaccounts
-    const accountPath = SURGE_API_KEY ? 'me' : accountId; // Use 'me' with API key auth
-    
-    const response = await fetch(`${SURGE_API_BASE}/accounts/${accountPath}/messages`, {
+    const response = await fetch(`${SURGE_API_BASE}/accounts/${accountId}/messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SURGE_API_KEY}`,
@@ -245,15 +274,7 @@ async function sendMessage({ accountId, from, to, body }) {
       })
     });
     
-    // Parse response
-    let data;
-    try {
-      data = await response.json();
-    } catch (jsonError) {
-      const text = await response.text();
-      console.error('[SURGE] Non-JSON response:', response.status, text);
-      throw new Error(`Surge API error: HTTP ${response.status} - ${text}`);
-    }
+    const data = await response.json();
     
     if (!response.ok) {
       console.error('[SURGE] Error response:', JSON.stringify(data, null, 2));
@@ -269,7 +290,7 @@ async function sendMessage({ accountId, from, to, body }) {
     };
   } catch (error) {
     console.error('[SURGE] Error sending message:', error);
-    throw error; // Re-throw the original error with full details
+    throw error;
   }
 }
 
@@ -326,7 +347,7 @@ function verifySignature(headers, rawBody, signingKey) {
 }
 
 module.exports = {
-  createOrGetAccountForBusiness,
+  createAccountForBusiness,
   purchaseTollFreeNumber,
   submitTfnVerification,
   getCapabilityStatus,

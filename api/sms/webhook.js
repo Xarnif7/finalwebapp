@@ -11,7 +11,8 @@ const {
   updateMessageStatus,
   upsertContact,
   setContactOptedOut,
-  getBusinessByFromNumber
+  getBusinessByFromNumber,
+  supabase
 } = require('../_lib/db');
 
 /**
@@ -51,17 +52,37 @@ async function handleInbound(event) {
     if (stopKeywords.includes(bodyUpper)) {
       console.log(`[WEBHOOK] STOP keyword detected from ${from}`);
       await setContactOptedOut(business.id, from, true);
-      
-      // TODO: Send auto-reply confirming opt-out
-      console.log('[WEBHOOK] TODO: Send auto-reply for STOP keyword');
+
+      // Auto-reply confirming opt-out
+      try {
+        const { sendMessage } = require('../_lib/surgeClient');
+        await sendMessage({
+          accountId: business.surge_account_id,
+          from: business.from_number,
+          to: from,
+          body: 'You have been opted out and will no longer receive messages. Reply HELP for help.'
+        });
+      } catch (replyError) {
+        console.error('[WEBHOOK] Error sending STOP auto-reply:', replyError);
+      }
     }
 
     // Check for HELP keyword
     const helpKeywords = ['HELP', 'INFO', 'SUPPORT'];
     if (helpKeywords.includes(bodyUpper)) {
       console.log(`[WEBHOOK] HELP keyword detected from ${from}`);
-      // TODO: Send auto-reply with help information
-      console.log('[WEBHOOK] TODO: Send auto-reply for HELP keyword');
+      // Auto-reply with help information
+      try {
+        const { sendMessage } = require('../_lib/surgeClient');
+        await sendMessage({
+          accountId: business.surge_account_id,
+          from: business.from_number,
+          to: from,
+          body: 'Blipp SMS: For assistance, reply here or email support@myblipp.com. Reply STOP to opt out.'
+        });
+      } catch (replyError) {
+        console.error('[WEBHOOK] Error sending HELP auto-reply:', replyError);
+      }
     }
 
     // Insert inbound message
@@ -96,8 +117,12 @@ async function handleDeliveryStatus(event) {
       return;
     }
 
-    // Update message status
-    await updateMessageStatus(surgeMessageId, status, error || null);
+    // Upsert message by surge_message_id
+    await upsertMessage({
+      surge_message_id: surgeMessageId,
+      status: status,
+      error: error || null
+    });
 
     console.log('[WEBHOOK] Message status updated successfully');
   } catch (error) {
@@ -129,11 +154,7 @@ async function handleVerificationUpdate(event) {
       mappedStatus = 'action_needed';
     }
 
-    // Update business verification status
-    // Note: We need to find business by surge_account_id
-    // For now, update all businesses with this account_id (should be 1)
-    const { updateBusiness: updateBusinessHelper, supabase } = require('../_lib/db');
-    
+    // Find business by surge_account_id
     const { data: businesses } = await supabase
       .from('businesses')
       .select('id')
@@ -141,7 +162,7 @@ async function handleVerificationUpdate(event) {
 
     if (businesses && businesses.length > 0) {
       for (const business of businesses) {
-        await updateBusinessHelper(business.id, {
+        await updateBusiness(business.id, {
           verification_status: mappedStatus,
           last_verification_error: error || details || null
         });
@@ -166,8 +187,8 @@ module.exports = async (req, res) => {
     // Get raw body for signature verification
     const rawBody = JSON.stringify(req.body);
     
-    // Verify signature
-    const signingKey = process.env.SURGE_SIGNING_KEY;
+    // Verify signature using SURGE_WEBHOOK_SECRET
+    const signingKey = process.env.SURGE_WEBHOOK_SECRET;
     const isValid = verifySignature(req.headers, rawBody, signingKey);
     
     if (!isValid) {
@@ -185,6 +206,7 @@ module.exports = async (req, res) => {
     if (eventType === 'message.received' || eventType === 'inbound') {
       await handleInbound(event);
     } else if (
+      eventType === 'message.queued' ||
       eventType === 'message.sent' ||
       eventType === 'message.delivered' ||
       eventType === 'message.failed' ||

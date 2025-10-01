@@ -1,10 +1,10 @@
 /**
- * Get SMS Status Endpoint
- * GET /api/surge/status?businessId=...
- * Returns current verification status for business
+ * Surge Status Endpoint
+ * GET /api/surge/status?businessId=xxx
+ * Checks verification status and updates database
  */
 
-const { getBusiness } = require('../_lib/db');
+const { getBusiness, updateBusiness } = require('../_lib/db');
 const { getCapabilityStatus } = require('../_lib/surgeClient');
 
 module.exports = async (req, res) => {
@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
     const { businessId } = req.query;
 
     if (!businessId) {
-      return res.status(400).json({ error: 'Missing businessId parameter' });
+      return res.status(400).json({ error: 'businessId query parameter required' });
     }
 
     // TODO: Add authentication check to ensure user owns businessId
@@ -28,43 +28,39 @@ module.exports = async (req, res) => {
       return res.status(404).json({ error: 'Business not found' });
     }
 
-    // If no SMS number provisioned yet
-    if (!business.from_number) {
-      return res.status(200).json({
-        status: 'not_provisioned',
-        message: 'No SMS number provisioned yet'
+    if (!business.surge_account_id) {
+      return res.status(400).json({ 
+        error: 'Business has no Surge account',
+        message: 'Please provision an SMS number first'
       });
     }
 
-    // Use database status (webhooks keep it up to date)
-    // Only query Surge API if we need to force a status check
-    const currentStatus = business.verification_status;
-    
-    // Optional: Get live status from Surge for additional details
-    let details = null;
-    if (business.surge_account_id && business.verification_status !== 'active') {
-      try {
-        const capabilityStatus = await getCapabilityStatus(business.surge_account_id);
-        details = capabilityStatus.details;
-        // Don't override DB status - webhooks are source of truth
-      } catch (error) {
-        console.error('[STATUS] Error getting capability status:', error);
-        // Continue with database status
-      }
+    console.log('[STATUS] Checking capability status for account:', business.surge_account_id);
+
+    // Get capability status from Surge
+    const { status, details } = await getCapabilityStatus({ 
+      accountId: business.surge_account_id 
+    });
+
+    // Update business if status changed
+    if (status !== business.verification_status) {
+      await updateBusiness(businessId, {
+        verification_status: status,
+        last_verification_error: status === 'action_needed' ? details : null
+      });
+      console.log('[STATUS] Updated verification status:', status);
     }
 
     return res.status(200).json({
-      status: currentStatus,
-      from_number: business.from_number,
-      sender_type: business.sender_type,
-      last_error: business.last_verification_error,
+      success: true,
+      status: status,
       details: details || null
     });
 
   } catch (error) {
     console.error('[STATUS] Error:', error);
     return res.status(500).json({
-      error: 'Failed to get SMS status',
+      error: 'Failed to check status',
       details: error.message
     });
   }

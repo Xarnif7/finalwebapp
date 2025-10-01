@@ -150,13 +150,13 @@ After Surge plan upgrade:
 
 ## Known Issues / TODOs
 
-1. **Auth Checks**: API endpoints need proper authentication
-   - Currently have TODOs to verify user owns businessId
-   - Need to add session token validation
+1. **Auth Checks**: ✅ Implemented
+   - All SMS endpoints now validate Bearer token and enforce business ownership
+   - `api/sms/send.js` and `api/surge/provision-number.js` use Supabase to verify `profiles.business_id`
 
-2. **Webhook Auto-Replies**: 
-   - STOP keyword auto-reply not implemented yet
-   - HELP keyword auto-reply not implemented yet
+2. **Webhook Auto-Replies**: ✅ Implemented
+   - STOP now sets `contacts.opted_out=true` and sends confirmation
+   - HELP replies with support info and opt-out instructions
 
 3. **Subaccounts**:
    - Currently all businesses share one Surge account

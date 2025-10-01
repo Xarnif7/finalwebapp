@@ -16,9 +16,13 @@ export default function ProvisionNumberModal({ open, onClose, businessId, onProv
     ein_or_sole_prop: '',
     contact_name: '',
     contact_email: '',
+    contact_phone: '',
     opt_in_method: 'website',
+    opt_in_evidence_url: '',
     terms_url: 'https://myblipp.com/terms',
-    privacy_url: 'https://myblipp.com/privacy'
+    privacy_url: 'https://myblipp.com/privacy',
+    estimated_monthly_volume: '',
+    time_zone: 'America/New_York'
   });
 
   const handleChange = (field, value) => {
@@ -151,6 +155,17 @@ export default function ProvisionNumberModal({ open, onClose, businessId, onProv
             </div>
 
             <div>
+              <Label htmlFor="contact_phone">Contact Phone</Label>
+              <Input
+                id="contact_phone"
+                type="tel"
+                value={formData.contact_phone}
+                onChange={(e) => handleChange('contact_phone', e.target.value)}
+                placeholder="+14155551234"
+              />
+            </div>
+
+            <div>
               <Label htmlFor="opt_in_method">Opt-In Method</Label>
               <Select
                 value={formData.opt_in_method}
@@ -164,6 +179,54 @@ export default function ProvisionNumberModal({ open, onClose, businessId, onProv
                   <SelectItem value="verbal">Verbal Consent</SelectItem>
                   <SelectItem value="written">Written Agreement</SelectItem>
                   <SelectItem value="paper">Paper Form</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="opt_in_evidence_url">Opt-In Evidence URL *</Label>
+              <Input
+                id="opt_in_evidence_url"
+                type="url"
+                value={formData.opt_in_evidence_url}
+                onChange={(e) => handleChange('opt_in_evidence_url', e.target.value)}
+                required
+                placeholder="https://example.com/opt-in-form"
+              />
+              <p className="text-xs text-gray-500 mt-1">URL to your opt-in form or evidence</p>
+            </div>
+
+            <div>
+              <Label htmlFor="estimated_monthly_volume">Estimated Monthly Volume *</Label>
+              <Select
+                value={formData.estimated_monthly_volume}
+                onValueChange={(value) => handleChange('estimated_monthly_volume', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select volume" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low (0-1,000 messages)</SelectItem>
+                  <SelectItem value="medium">Medium (1,000-10,000 messages)</SelectItem>
+                  <SelectItem value="high">High (10,000+ messages)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="time_zone">Time Zone</Label>
+              <Select
+                value={formData.time_zone}
+                onValueChange={(value) => handleChange('time_zone', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="America/New_York">Eastern Time</SelectItem>
+                  <SelectItem value="America/Chicago">Central Time</SelectItem>
+                  <SelectItem value="America/Denver">Mountain Time</SelectItem>
+                  <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
                 </SelectContent>
               </Select>
             </div>

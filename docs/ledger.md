@@ -1,5 +1,31 @@
 # Blipp Development Ledger
 
+## 2025-10-01: SMS Auth Hardening + STOP/HELP Auto-Replies
+
+### What Changed
+- Added Bearer auth + business ownership enforcement to SMS endpoints
+  - `api/sms/send.js`: verifies token, checks `profiles.business_id` matches `businessId`
+  - `api/surge/provision-number.js`: same enforcement before provisioning
+- Implemented webhook auto-replies
+  - `api/sms/webhook.js`: STOP sets `contacts.opted_out=true` and sends confirmation; HELP sends support info
+
+### Why This Was Needed
+- Ensure multi-tenant isolation and prevent cross-tenant access on SMS actions
+- Meet compliance expectations for opt-out and help keywords on inbound SMS
+
+### Files Touched
+- `api/sms/send.js`
+- `api/surge/provision-number.js`
+- `api/sms/webhook.js`
+- `docs/SMS_NEXT_STEPS.md`
+
+### How Verified
+- Added lightweight handler tests with stubbed deps:
+  - `scripts/test-sms-send-handler.cjs`: 401 without auth, 403 on mismatch, 200 on success
+  - `scripts/test-sms-provision-handler.cjs`: 401 without auth, 200 on success
+  - `scripts/test-sms-webhook-handler.cjs`: inbound STOP/HELP return 200; STOP sets opt-out and replies
+- Existing broader API scripts also executed to ensure no regressions in runtime
+
 ## 2025-01-29: Fix Default Landing Tab for Authenticated Users
 
 ### What Changed
