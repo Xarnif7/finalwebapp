@@ -316,11 +316,14 @@ const BillingSettings = () => {
         return;
       }
       
-      // Fetch subscription status from our main endpoint (with cache-busting)
-      const statusResp = await fetch('/api/subscription/status', {
+      // Fetch subscription status from our main endpoint (with aggressive cache-busting)
+      const cacheBuster = `?_=${Date.now()}`;
+      const statusResp = await fetch(`/api/subscription/status${cacheBuster}`, {
         headers: { 
           'Authorization': `Bearer ${session?.access_token || ''}`,
-          'Cache-Control': 'no-cache, no-store, must-revalidate'
+          'Cache-Control': 'no-cache, no-store, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       });
       const statusData = await statusResp.json();
@@ -328,58 +331,33 @@ const BillingSettings = () => {
       console.log('[BILLING] Subscription status:', statusData);
       
       if (statusResp.ok && statusData.active) {
-        let currentPlanTier = statusData.plan_tier;
-        
-        // Check if there's a scheduled upgrade (from Stripe subscription schedule)
-        const stripeResp = await fetch('/api/stripe/subscription', {
-          headers: { 
-            'Authorization': `Bearer ${session?.access_token || ''}`,
-            'Cache-Control': 'no-cache, no-store, must-revalidate'
-          }
-        });
-        const stripeData = await stripeResp.json();
-        
-        // If there's a schedule with a future phase, check if it's an upgrade
-        if (stripeData?.schedule?.phases && stripeData.schedule.phases.length > 1) {
-          const currentPhase = stripeData.schedule.phases[0];
-          const nextPhase = stripeData.schedule.phases[1];
-          
-          console.log('[BILLING] Found subscription schedule:', {
-            currentPhase,
-            nextPhase
-          });
-          
-          // If next phase has a different (presumably higher) price, show that plan immediately
-          if (nextPhase?.prices && nextPhase.prices.length > 0) {
-            const nextPriceId = nextPhase.prices[0];
-            
-            // Map to tier
-            if (nextPriceId === process.env.VITE_STRIPE_PRO_PRICE_ID || nextPriceId === 'price_1Rvn5oFr7CPBk7jl2CryiFFX') {
-              currentPlanTier = 'pro';
-              console.log('[BILLING] User has scheduled upgrade to Pro, showing Pro immediately');
-            } else if (nextPriceId === process.env.VITE_STRIPE_ENTERPRISE_PRICE_ID || nextPriceId === 'price_1RvnATFr7CPBk7jlpYCYcU9q') {
-              currentPlanTier = 'enterprise';
-              console.log('[BILLING] User has scheduled upgrade to Enterprise, showing Enterprise immediately');
-            } else if (nextPriceId === process.env.VITE_STRIPE_BASIC_PRICE_ID || nextPriceId === 'price_1Rull2Fr7CPBk7jlff5ak4uq') {
-              currentPlanTier = 'basic';
-              console.log('[BILLING] User has scheduled change to Basic');
-            }
-          }
-        }
+        console.log('[BILLING] Raw plan_tier from API:', statusData.plan_tier);
         
         // Map plan_tier to plan name
         let name = 'Active Subscription';
         
-        if (currentPlanTier === 'basic' || currentPlanTier === 'standard') {
+        if (statusData.plan_tier === 'basic' || statusData.plan_tier === 'standard') {
           name = 'Blipp Standard Plan';
-        } else if (currentPlanTier === 'pro') {
+        } else if (statusData.plan_tier === 'pro') {
           name = 'Blipp Pro Plan';
-        } else if (currentPlanTier === 'enterprise') {
+        } else if (statusData.plan_tier === 'enterprise') {
           name = 'Blipp Enterprise Plan';
         }
         
+        console.log('[BILLING] Mapped plan name:', name);
         setPlanName(name);
         setHasStripeCustomer(true);
+        
+        // Fetch Stripe data for renewal date
+        const stripeResp = await fetch('/api/stripe/subscription', {
+          headers: { 
+            'Authorization': `Bearer ${session?.access_token || ''}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
+        const stripeData = await stripeResp.json();
         
         // Fetch subscription details from database to get current_period_end
         const { data: dbSub, error: dbError } = await supabase
