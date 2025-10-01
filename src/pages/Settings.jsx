@@ -306,42 +306,56 @@ const BillingSettings = () => {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Fetch subscription from Stripe API
-      const resp = await fetch('/api/stripe/subscription', {
+      // Fetch subscription status from our main endpoint
+      const statusResp = await fetch('/api/subscription/status', {
         headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }
       });
-      const data = await resp.json();
+      const statusData = await statusResp.json();
       
-      if (resp.ok && data.subscription) {
-        setSub(data.subscription);
-        setSchedule(data.schedule);
-        
-        // Map price ID to plan name
-        const priceId = data.subscription.current_price;
+      console.log('[BILLING] Subscription status:', statusData);
+      
+      if (statusResp.ok && statusData.active) {
+        // Map plan_tier to plan name
         let name = 'Active Subscription';
         
-        // Match against your env var price IDs
-        if (priceId === import.meta.env.VITE_STRIPE_BASIC_PRICE_ID) {
+        if (statusData.plan_tier === 'basic' || statusData.plan_tier === 'standard') {
           name = 'Blipp Standard Plan';
-        } else if (priceId === import.meta.env.VITE_STRIPE_PRO_PRICE_ID) {
+        } else if (statusData.plan_tier === 'pro') {
           name = 'Blipp Pro Plan';
-        } else if (priceId === import.meta.env.VITE_STRIPE_ENTERPRISE_PRICE_ID) {
+        } else if (statusData.plan_tier === 'enterprise') {
           name = 'Blipp Enterprise Plan';
-        } else {
-          // Fallback: Try to get product name from Stripe
-          name = data.subscription.status === 'active' ? 'Active Subscription' : 'Subscription';
         }
         
         setPlanName(name);
         setHasStripeCustomer(true);
+        
+        // Also fetch detailed subscription info from Stripe for additional details
+        const stripeResp = await fetch('/api/stripe/subscription', {
+          headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }
+        });
+        const stripeData = await stripeResp.json();
+        
+        if (stripeResp.ok && stripeData.subscription) {
+          setSub(stripeData.subscription);
+          setSchedule(stripeData.schedule);
+        } else {
+          // Fallback: use status data to build a subscription object
+          setSub({
+            status: statusData.status,
+            cancel_at_period_end: false,
+            current_period_end: null
+          });
+        }
       } else {
         // No subscription found
         setPlanName('No subscription');
         setHasStripeCustomer(false);
+        setSub(null);
       }
     } catch (error) {
       console.error('Error loading subscription:', error);
       setPlanName('No subscription');
+      setHasStripeCustomer(false);
     } finally { 
       setLoading(false); 
     }
