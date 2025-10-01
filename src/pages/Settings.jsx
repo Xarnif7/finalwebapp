@@ -395,6 +395,31 @@ const BillingSettings = () => {
           setSchedule(stripeData.schedule);
         }
       } else {
+        // No subscription found in DB - try to sync from Stripe
+        console.log('[BILLING] No subscription in DB, attempting to sync from Stripe...');
+        
+        try {
+          const syncResp = await fetch('/api/billing/sync-subscription', {
+            method: 'POST',
+            headers: { 
+              'Authorization': `Bearer ${session?.access_token || ''}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (syncResp.ok) {
+            const syncData = await syncResp.json();
+            console.log('[BILLING] Successfully synced subscription, reloading...');
+            // Reload to fetch the newly synced subscription
+            setTimeout(() => load(), 1000);
+            return;
+          } else {
+            console.log('[BILLING] No subscription found in Stripe either');
+          }
+        } catch (syncError) {
+          console.error('[BILLING] Sync error:', syncError);
+        }
+        
         // No subscription found
         setPlanName('No subscription');
         setHasStripeCustomer(false);

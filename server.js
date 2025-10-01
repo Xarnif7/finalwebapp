@@ -446,6 +446,78 @@ app.get('/api/stripe/subscription', async (req, res) => {
   }
 });
 
+// Manual sync endpoint - fetch subscription from Stripe and save to DB
+app.post('/api/billing/sync-subscription', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    
+    const { data: { user } } = await supabaseAuth.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    console.log('[BILLING_SYNC] Syncing subscription for user:', user.email);
+
+    // Get or create Stripe customer
+    const customer = await getOrCreateStripeCustomerByEmail(user.email);
+    const subscription = await findLatestSubscriptionForCustomer(customer.id);
+
+    if (!subscription) {
+      return res.status(404).json({ error: 'No subscription found in Stripe' });
+    }
+
+    // Retrieve full subscription object
+    const fullSub = await stripe.subscriptions.retrieve(subscription.id);
+    
+    console.log('[BILLING_SYNC] Full subscription from Stripe:', {
+      id: fullSub.id,
+      status: fullSub.status,
+      current_period_end: fullSub.current_period_end,
+      price: fullSub.items?.data?.[0]?.price?.id
+    });
+
+    // Map price ID to tier
+    const priceId = fullSub.items?.data?.[0]?.price?.id;
+    let planTier = null;
+    
+    if (priceId === process.env.STRIPE_PRICE_BASIC || priceId === 'price_1Rull2Fr7CPBk7jlff5ak4uq') {
+      planTier = 'basic';
+    } else if (priceId === process.env.STRIPE_PRICE_PRO || priceId === 'price_1Rvn5oFr7CPBk7jl2CryiFFX') {
+      planTier = 'pro';
+    } else if (priceId === process.env.STRIPE_PRICE_ENTERPRISE || priceId === 'price_1RvnATFr7CPBk7jlpYCYcU9q') {
+      planTier = 'enterprise';
+    }
+
+    // Upsert to database
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .upsert({
+        user_id: user.id,
+        stripe_subscription_id: fullSub.id,
+        plan_tier: planTier,
+        status: fullSub.status,
+        current_period_end: fullSub.current_period_end ? new Date(fullSub.current_period_end * 1000).toISOString() : null,
+        plan_price_id: priceId,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'stripe_subscription_id'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[BILLING_SYNC] Error saving subscription:', error);
+      return res.status(500).json({ error: 'Failed to save subscription', details: error });
+    }
+
+    console.log('[BILLING_SYNC] Successfully synced subscription:', data);
+    return res.json({ success: true, subscription: data });
+
+  } catch (error) {
+    console.error('[BILLING_SYNC] Error:', error);
+    return res.status(500).json({ error: 'Failed to sync subscription' });
+  }
+});
+
 // Create a Stripe Customer Portal session
 app.post('/api/stripe/portal', async (req, res) => {
   try {
