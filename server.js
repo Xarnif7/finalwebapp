@@ -101,22 +101,82 @@ app.post('/api/checkout/create-session', async (req, res) => {
     // In production, you'd validate the Supabase token here
     console.log('[API] Creating Stripe session for price:', priceId);
 
-    // Get user email from the auth token
-    let customerEmail = null;
+    // Get user from auth token
+    let user = null;
+    let stripeCustomerId = null;
+    
     if (supabaseAuth) {
       try {
-        const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
-        if (!authError && user) {
-          customerEmail = user.email;
-          console.log('[API] Using authenticated email for checkout:', customerEmail);
-        } else {
-          console.log('[API] Auth error:', authError?.message || 'Unknown error');
+        const { data: { user: authUser }, error: authError } = await supabaseAuth.auth.getUser(token);
+        if (!authError && authUser) {
+          user = authUser;
+          console.log('[CHECKOUT] Authenticated user:', user.email);
+          
+          // Look up existing stripe_customer_id from profile
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('stripe_customer_id')
+            .eq('id', user.id)
+            .single();
+          
+          stripeCustomerId = profile?.stripe_customer_id;
+          console.log('[CHECKOUT] Existing customer ID from DB:', stripeCustomerId);
         }
       } catch (error) {
-        console.log('[API] Could not get user email, will use Stripe form email:', error.message);
+        console.log('[CHECKOUT] Could not get user:', error.message);
       }
-    } else {
-      console.log('[API] Supabase auth client not available, will use Stripe form email');
+    }
+
+    // If we have a customer ID, verify it exists in Stripe
+    if (stripeCustomerId) {
+      try {
+        const customer = await stripe.customers.retrieve(stripeCustomerId);
+        console.log('[CHECKOUT] Verified existing customer:', customer.id);
+      } catch (error) {
+        console.log('[CHECKOUT] Existing customer not found, will search/create new one');
+        stripeCustomerId = null;
+      }
+    }
+
+    // If no customer ID, search by email or create new one
+    if (!stripeCustomerId && user?.email) {
+      try {
+        // Search for existing customer by email
+        const customers = await stripe.customers.list({
+          email: user.email,
+          limit: 1
+        });
+
+        if (customers.data.length > 0) {
+          stripeCustomerId = customers.data[0].id;
+          console.log('[CHECKOUT] Found existing customer by email:', stripeCustomerId);
+        } else {
+          // Create new customer
+          const newCustomer = await stripe.customers.create({
+            email: user.email,
+            metadata: {
+              supabase_user_id: user.id
+            }
+          });
+          stripeCustomerId = newCustomer.id;
+          console.log('[CHECKOUT] Created new customer:', stripeCustomerId);
+        }
+
+        // Save customer ID to profile
+        if (user) {
+          await supabase
+            .from('profiles')
+            .update({
+              stripe_customer_id: stripeCustomerId,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', user.id);
+          
+          console.log('[CHECKOUT] Saved customer ID to profile');
+        }
+      } catch (error) {
+        console.error('[CHECKOUT] Error finding/creating customer:', error);
+      }
     }
 
     const sessionConfig = {
@@ -131,14 +191,18 @@ app.post('/api/checkout/create-session', async (req, res) => {
       success_url: `${process.env.VITE_SITE_URL || process.env.SITE_URL || 'https://myblipp.com'}/post-checkout?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.VITE_SITE_URL || process.env.SITE_URL || 'https://myblipp.com'}/pricing`,
       metadata: {
-        // Add any metadata you need
-        source: 'blipp_checkout'
+        source: 'blipp_checkout',
+        supabase_user_id: user?.id || null
       }
     };
 
-    // Only add customer_email if we have a valid email
-    if (customerEmail && customerEmail.trim()) {
-      sessionConfig.customer_email = customerEmail;
+    // Prefer using customer ID over customer_email to prevent duplicates
+    if (stripeCustomerId) {
+      sessionConfig.customer = stripeCustomerId;
+      console.log('[CHECKOUT] Using existing customer:', stripeCustomerId);
+    } else if (user?.email) {
+      sessionConfig.customer_email = user.email;
+      console.log('[CHECKOUT] Using customer_email (fallback):', user.email);
     }
 
     const session = await stripe.checkout.sessions.create(sessionConfig);
@@ -629,9 +693,102 @@ app.post('/api/billing/portal', async (req, res) => {
     let stripeCustomerId = profile?.stripe_customer_id;
     console.log('[BILLING_PORTAL] Stripe customer ID from DB:', stripeCustomerId);
     
+    // Check if DB customer has active subscriptions, if not, try to find the right customer
+    if (stripeCustomerId) {
+      try {
+        const subs = await stripe.subscriptions.list({
+          customer: stripeCustomerId,
+          status: 'all',
+          limit: 10
+        });
+
+        const activeSubs = subs.data.filter(s => 
+          ['active', 'trialing', 'past_due'].includes(s.status) &&
+          (!s.current_period_end || s.current_period_end * 1000 > Date.now())
+        );
+
+        if (activeSubs.length === 0 && subs.data.length === 0) {
+          console.log('[BILLING_PORTAL] DB customer has no subscriptions, searching by email...');
+          
+          // Search for customers by email
+          const customers = await stripe.customers.list({
+            email: user.email,
+            limit: 10
+          });
+
+          // Find a customer with an active subscription
+          for (const customer of customers.data) {
+            const customerSubs = await stripe.subscriptions.list({
+              customer: customer.id,
+              status: 'all',
+              limit: 10
+            });
+
+            const customerActiveSubs = customerSubs.data.filter(s => 
+              ['active', 'trialing', 'past_due'].includes(s.status) &&
+              (!s.current_period_end || s.current_period_end * 1000 > Date.now())
+            );
+
+            if (customerActiveSubs.length > 0) {
+              console.log('[BILLING_PORTAL] Found customer with active subscription:', customer.id);
+              
+              // Update DB with correct customer ID
+              await supabase
+                .from('profiles')
+                .update({
+                  stripe_customer_id: customer.id,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', user.id);
+
+              stripeCustomerId = customer.id;
+              console.log('[BILLING_PORTAL] Auto-repaired customer ID to:', stripeCustomerId);
+              break;
+            }
+          }
+
+          if (!stripeCustomerId || stripeCustomerId === profile?.stripe_customer_id) {
+            return res.status(404).json({ error: 'No subscription found for this account' });
+          }
+        }
+      } catch (error) {
+        console.error('[BILLING_PORTAL] Error checking subscriptions:', error);
+      }
+    }
+    
     // Fallback: create a new Stripe customer if none exists
     if (!stripeCustomerId) {
-      console.log('[BILLING_PORTAL] No Stripe customer ID found, creating new customer...');
+      console.log('[BILLING_PORTAL] No Stripe customer ID found, searching by email first...');
+      
+      // Try to find existing customer by email before creating new one
+      try {
+        const customers = await stripe.customers.list({
+          email: user.email,
+          limit: 10
+        });
+
+        if (customers.data.length > 0) {
+          // Use the most recent customer
+          stripeCustomerId = customers.data[0].id;
+          console.log('[BILLING_PORTAL] Found existing customer by email:', stripeCustomerId);
+          
+          // Save to profile
+          await supabase
+            .from('profiles')
+            .update({
+              stripe_customer_id: stripeCustomerId,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', user.id);
+        }
+      } catch (searchError) {
+        console.error('[BILLING_PORTAL] Error searching for customer:', searchError);
+      }
+    }
+    
+    // If still no customer, create a new one
+    if (!stripeCustomerId) {
+      console.log('[BILLING_PORTAL] Creating new Stripe customer...');
       
       try {
         const newCustomer = await stripe.customers.create({
@@ -848,6 +1005,230 @@ app.post('/api/stripe/payment-methods/detach', async (req, res) => {
   }
 });
 
+// Billing diagnostics endpoint - identify customer mismatches
+app.post('/api/billing/diagnostics', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    console.log('[BILLING_DIAGNOSTICS] Running diagnostics for user:', user.email);
+
+    // Determine test/live mode from Stripe key
+    const envMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'live' : 'test';
+    
+    // Get stripe_customer_id from DB
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('stripe_customer_id')
+      .eq('id', user.id)
+      .single();
+
+    const dbCustomerId = profile?.stripe_customer_id || null;
+    console.log('[BILLING_DIAGNOSTICS] DB customer ID:', dbCustomerId);
+
+    const diagnostics = {
+      envMode,
+      dbCustomerId,
+      customerExists: false,
+      customerEmail: null,
+      customerLivemode: null,
+      subscriptions: [],
+      candidates: []
+    };
+
+    // If we have a DB customer ID, check it in Stripe
+    if (dbCustomerId) {
+      try {
+        const customer = await stripe.customers.retrieve(dbCustomerId);
+        diagnostics.customerExists = true;
+        diagnostics.customerEmail = customer.email;
+        diagnostics.customerLivemode = customer.livemode;
+        
+        console.log('[BILLING_DIAGNOSTICS] DB customer found in Stripe:', {
+          id: customer.id,
+          email: customer.email,
+          livemode: customer.livemode
+        });
+
+        // Get subscriptions for this customer
+        const subs = await stripe.subscriptions.list({
+          customer: dbCustomerId,
+          status: 'all',
+          expand: ['data.items.data.price']
+        });
+
+        diagnostics.subscriptions = subs.data.map(sub => ({
+          id: sub.id,
+          status: sub.status,
+          current_period_end: sub.current_period_end ? sub.current_period_end * 1000 : null,
+          priceId: sub.items?.data?.[0]?.price?.id || null,
+          productId: sub.items?.data?.[0]?.price?.product || null,
+          cancel_at_period_end: sub.cancel_at_period_end || false
+        }));
+
+        console.log('[BILLING_DIAGNOSTICS] Found', diagnostics.subscriptions.length, 'subscriptions');
+      } catch (customerError) {
+        console.error('[BILLING_DIAGNOSTICS] Error retrieving DB customer:', customerError);
+        diagnostics.customerExists = false;
+      }
+    }
+
+    // If no DB customer or no active subscriptions, search by email
+    if (!dbCustomerId || diagnostics.subscriptions.filter(s => ['active', 'trialing', 'past_due'].includes(s.status)).length === 0) {
+      console.log('[BILLING_DIAGNOSTICS] Searching for customers by email:', user.email);
+      
+      try {
+        const customers = await stripe.customers.list({
+          email: user.email,
+          limit: 10
+        });
+
+        console.log('[BILLING_DIAGNOSTICS] Found', customers.data.length, 'customers by email');
+
+        // For each customer, get their subscriptions
+        for (const customer of customers.data) {
+          const subs = await stripe.subscriptions.list({
+            customer: customer.id,
+            status: 'all',
+            expand: ['data.items.data.price']
+          });
+
+          const activeSubs = subs.data.filter(s => 
+            ['active', 'trialing', 'past_due'].includes(s.status) &&
+            (!s.current_period_end || s.current_period_end * 1000 > Date.now())
+          );
+
+          if (activeSubs.length > 0 || subs.data.length > 0) {
+            diagnostics.candidates.push({
+              customerId: customer.id,
+              email: customer.email,
+              livemode: customer.livemode,
+              isDbCustomer: customer.id === dbCustomerId,
+              subscriptions: subs.data.map(sub => ({
+                id: sub.id,
+                status: sub.status,
+                current_period_end: sub.current_period_end ? sub.current_period_end * 1000 : null,
+                priceId: sub.items?.data?.[0]?.price?.id || null,
+                productId: sub.items?.data?.[0]?.price?.product || null
+              }))
+            });
+          }
+        }
+
+        console.log('[BILLING_DIAGNOSTICS] Found', diagnostics.candidates.length, 'candidate customers');
+      } catch (searchError) {
+        console.error('[BILLING_DIAGNOSTICS] Error searching by email:', searchError);
+      }
+    }
+
+    // Add helpful analysis
+    diagnostics.analysis = {
+      hasDbCustomer: !!dbCustomerId,
+      dbCustomerExists: diagnostics.customerExists,
+      hasActiveSubscription: diagnostics.subscriptions.some(s => 
+        ['active', 'trialing', 'past_due'].includes(s.status) &&
+        (!s.current_period_end || s.current_period_end > Date.now())
+      ),
+      candidatesWithActiveSubscriptions: diagnostics.candidates.filter(c => 
+        c.subscriptions.some(s => ['active', 'trialing', 'past_due'].includes(s.status))
+      ).length,
+      modeMismatch: diagnostics.customerLivemode !== null && 
+                    diagnostics.customerLivemode !== (envMode === 'live')
+    };
+
+    console.log('[BILLING_DIAGNOSTICS] Analysis:', diagnostics.analysis);
+
+    res.json(diagnostics);
+  } catch (error) {
+    console.error('[BILLING_DIAGNOSTICS] Error:', error);
+    res.status(500).json({ error: 'Diagnostics failed' });
+  }
+});
+
+// Billing repair endpoint - fix customer ID mismatches
+app.post('/api/billing/repair', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { targetCustomerId } = req.body;
+    
+    if (!targetCustomerId) {
+      return res.status(400).json({ error: 'targetCustomerId is required' });
+    }
+
+    console.log('[BILLING_REPAIR] Repairing customer ID for user:', user.email, 'target:', targetCustomerId);
+
+    // Validate that targetCustomerId belongs to this account
+    try {
+      const customer = await stripe.customers.retrieve(targetCustomerId);
+      
+      // Check if email matches
+      if (customer.email !== user.email) {
+        console.error('[BILLING_REPAIR] Email mismatch:', {
+          userEmail: user.email,
+          customerEmail: customer.email
+        });
+        return res.status(403).json({ error: 'Customer does not belong to this account' });
+      }
+
+      // Verify customer has at least one subscription
+      const subs = await stripe.subscriptions.list({
+        customer: targetCustomerId,
+        limit: 1
+      });
+
+      if (subs.data.length === 0) {
+        return res.status(400).json({ error: 'Customer has no subscriptions' });
+      }
+
+      console.log('[BILLING_REPAIR] Validation passed, updating profile...');
+
+      // Update profile with correct customer ID
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          stripe_customer_id: targetCustomerId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('[BILLING_REPAIR] Error updating profile:', updateError);
+        return res.status(500).json({ error: 'Failed to update profile' });
+      }
+
+      console.log('[BILLING_REPAIR] ✅ Successfully repaired customer ID');
+
+      res.json({ 
+        repaired: true,
+        customerId: targetCustomerId,
+        email: customer.email
+      });
+    } catch (stripeError) {
+      console.error('[BILLING_REPAIR] Stripe error:', stripeError);
+      return res.status(400).json({ error: 'Invalid customer ID or customer not found' });
+    }
+  } catch (error) {
+    console.error('[BILLING_REPAIR] Error:', error);
+    res.status(500).json({ error: 'Repair failed' });
+  }
+});
+
 // SMS Opt-in endpoint
 app.post('/api/sms/opt-in', async (req, res) => {
   try {
@@ -1001,15 +1382,51 @@ app.post('/api/stripe/webhook', async (req, res) => {
         };
 
         // Find user by stripe_customer_id
-        const { data: profile, error: profileError } = await supabase
+        let { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('id')
+          .select('id, stripe_customer_id')
           .eq('stripe_customer_id', customerId)
           .single();
 
+        // If not found by customer ID, try to find by email (backfill case)
         if (profileError) {
-          console.error('[STRIPE_WEBHOOK] Error finding user by customer ID:', profileError);
-          return res.status(200).json({ received: true }); // Still return 200 to acknowledge webhook
+          console.log('[STRIPE_WEBHOOK] User not found by customer ID, trying by email...');
+          
+          try {
+            // Get customer email from Stripe
+            const customer = await stripe.customers.retrieve(customerId);
+            
+            if (customer.email) {
+              // Find user in Supabase auth by email
+              const { data: authUsers } = await supabase.auth.admin.listUsers();
+              const matchingUser = authUsers?.users?.find(u => u.email === customer.email);
+
+              if (matchingUser) {
+                // Update profile with customer ID (backfill)
+                await supabase
+                  .from('profiles')
+                  .update({
+                    stripe_customer_id: customerId,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', matchingUser.id);
+
+                profile = { id: matchingUser.id, stripe_customer_id: customerId };
+                console.log('[STRIPE_WEBHOOK] Backfilled customer ID for user:', matchingUser.id);
+              } else {
+                console.error('[STRIPE_WEBHOOK] No user found for email:', customer.email);
+                return res.status(200).json({ received: true });
+              }
+            }
+          } catch (backfillError) {
+            console.error('[STRIPE_WEBHOOK] Backfill error:', backfillError);
+            return res.status(200).json({ received: true });
+          }
+        }
+
+        if (!profile) {
+          console.error('[STRIPE_WEBHOOK] Could not find or create profile for customer:', customerId);
+          return res.status(200).json({ received: true });
         }
 
         // Update or insert subscription record
@@ -1033,11 +1450,48 @@ app.post('/api/stripe/webhook', async (req, res) => {
       }
     }
 
-    // Handle checkout session completed (optional)
+    // Handle checkout session completed - backfill customer ID
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      console.log('[STRIPE_WEBHOOK] Checkout session completed:', session.id);
-      // Additional logic for initial subscription activation can be added here
+      const customerId = session.customer;
+      const subscriptionId = session.subscription;
+      
+      console.log('[STRIPE_WEBHOOK] Checkout session completed:', {
+        sessionId: session.id,
+        customerId,
+        subscriptionId,
+        customerEmail: session.customer_details?.email
+      });
+
+      // Backfill stripe_customer_id to profile
+      if (customerId && session.customer_details?.email) {
+        try {
+          // Find user by email
+          const { data: authUsers } = await supabase.auth.admin.listUsers();
+          const matchingUser = authUsers?.users?.find(u => u.email === session.customer_details.email);
+
+          if (matchingUser) {
+            // Update profile with customer ID
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update({
+                stripe_customer_id: customerId,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', matchingUser.id);
+
+            if (updateError) {
+              console.error('[STRIPE_WEBHOOK] Error backfilling customer ID:', updateError);
+            } else {
+              console.log('[STRIPE_WEBHOOK] Backfilled customer ID for user:', matchingUser.id);
+            }
+          } else {
+            console.log('[STRIPE_WEBHOOK] No matching user found for email:', session.customer_details.email);
+          }
+        } catch (backfillError) {
+          console.error('[STRIPE_WEBHOOK] Error during backfill:', backfillError);
+        }
+      }
     }
 
     res.status(200).json({ received: true });
