@@ -6,27 +6,31 @@
 const crypto = require('crypto');
 
 const SURGE_API_KEY = process.env.SURGE_API_KEY;
+const SURGE_ACCOUNT_ID = process.env.SURGE_ACCOUNT_ID;
 const SURGE_SIGNING_KEY = process.env.SURGE_SIGNING_KEY;
 const SURGE_API_BASE = process.env.SURGE_API_BASE || 'https://api.surge.app';
 const SURGE_USE_SUBACCOUNTS = process.env.SURGE_USE_SUBACCOUNTS === 'true';
 
 /**
  * Create or get account for business
- * For now, uses 'me' which resolves to the API key's account
+ * Uses SURGE_ACCOUNT_ID from environment
  * TODO: Implement real subaccount creation when SURGE_USE_SUBACCOUNTS=true
  */
 async function createOrGetAccountForBusiness(business) {
+  if (!SURGE_ACCOUNT_ID) {
+    throw new Error('SURGE_ACCOUNT_ID not configured');
+  }
+  
   if (!SURGE_USE_SUBACCOUNTS) {
-    // Use 'me' to reference the account associated with the API key
-    // This is the correct way to use your own Surge account
-    console.log('[SURGE] Using API key account (me) for business:', business.id);
-    return { accountId: 'me' };
+    // Use the main Surge account ID from environment
+    console.log('[SURGE] Using main account for business:', business.id);
+    return { accountId: SURGE_ACCOUNT_ID };
   }
   
   // TODO: Implement subaccount creation via Surge API
-  // For now, return 'me' account
+  // For now, return main account
   console.log('[SURGE] TODO: Implement subaccount creation for business:', business.id);
-  return { accountId: 'me' };
+  return { accountId: SURGE_ACCOUNT_ID };
 }
 
 /**
