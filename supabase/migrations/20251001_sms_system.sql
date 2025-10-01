@@ -18,8 +18,11 @@ ALTER TABLE businesses
 ADD CONSTRAINT businesses_verification_status_check 
 CHECK (verification_status IN ('pending', 'active', 'action_needed', 'disabled'));
 
+-- Drop messages table if it exists (clean slate)
+DROP TABLE IF EXISTS messages CASCADE;
+
 -- Create messages table
-CREATE TABLE IF NOT EXISTS messages (
+CREATE TABLE messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
   customer_id UUID NULL REFERENCES customers(id) ON DELETE SET NULL,
@@ -33,14 +36,17 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 -- Create indexes for messages (includes unique constraint on surge_message_id)
-CREATE INDEX IF NOT EXISTS messages_business_id_created_at_idx 
+CREATE INDEX messages_business_id_created_at_idx 
 ON messages(business_id, created_at DESC);
 
-CREATE UNIQUE INDEX IF NOT EXISTS messages_surge_message_id_idx 
+CREATE UNIQUE INDEX messages_surge_message_id_idx 
 ON messages(surge_message_id) WHERE surge_message_id IS NOT NULL;
 
+-- Drop contacts table if it exists (clean slate)
+DROP TABLE IF EXISTS contacts CASCADE;
+
 -- Create contacts table
-CREATE TABLE IF NOT EXISTS contacts (
+CREATE TABLE contacts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
   phone_e164 TEXT NOT NULL,
@@ -50,13 +56,13 @@ CREATE TABLE IF NOT EXISTS contacts (
   consent_source TEXT NULL,
   consent_at TIMESTAMPTZ NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(business_id, phone_e164)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create index for contacts
-CREATE INDEX IF NOT EXISTS contacts_business_id_idx ON contacts(business_id);
-CREATE INDEX IF NOT EXISTS contacts_phone_e164_idx ON contacts(phone_e164);
+-- Create unique constraint and indexes for contacts
+CREATE UNIQUE INDEX contacts_business_phone_idx ON contacts(business_id, phone_e164);
+CREATE INDEX contacts_business_id_idx ON contacts(business_id);
+CREATE INDEX contacts_phone_e164_idx ON contacts(phone_e164);
 
 -- Enable RLS on new tables
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
