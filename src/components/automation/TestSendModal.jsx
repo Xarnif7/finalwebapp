@@ -97,13 +97,10 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
       console.log('🚀 Auth token:', token ? 'Present' : 'Missing');
 
       // Send the test message
-      console.log('🚀 Calling send-immediate API...', {
+      console.log('🚀 Calling send-test API...', {
         businessId: business.id,
-        customerId: testCustomer.id,
-        templateId: template.id,
-        message: customMessage,
-        channel: testEmail ? 'email' : 'sms',
-        to: testEmail || testPhone // Use original email/phone for sending
+        to: testEmail || testPhone,
+        message: customMessage
       });
 
       const response = await fetch('/api/send-test', {
@@ -114,11 +111,8 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
         },
         body: JSON.stringify({
           businessId: business.id,
-          customerId: testCustomer.id,
-          templateId: template.id,
-          message: customMessage,
-          channel: testEmail ? 'email' : 'sms',
-          to: testEmail || testPhone // Override the customer email with the test email
+          to: testEmail || testPhone,
+          message: customMessage
         })
       });
 

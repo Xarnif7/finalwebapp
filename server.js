@@ -2320,6 +2320,90 @@ app.post('/api/send-followup-email', async (req, res) => {
     res.status(500).json({ error: 'Failed to send follow-up email: ' + e.message });
   }
 });
+
+// Test Send API - Based on send-followup-email but for template testing
+app.post('/api/send-test', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { to, message, businessId, customerId, templateId } = req.body || {};
+    
+    if (!to || !message) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Get business info
+    let businessName = 'Your Business';
+    let businessEmail = 'noreply@myblipp.com';
+    
+    if (businessId) {
+      const { data: business } = await supabase
+        .from('businesses')
+        .select('name, email')
+        .eq('id', businessId)
+        .single();
+      if (business?.name) businessName = business.name;
+      if (business?.email) businessEmail = business.email;
+    }
+
+    // Personalize message
+    const personalizedMessage = message
+      .replace(/\{\{customer\.name\}\}/g, 'Test Customer')
+      .replace(/\{\{business\.name\}\}/g, businessName)
+      .replace(/\{\{review_link\}\}/g, `https://www.google.com/search?q=${encodeURIComponent(businessName)}`);
+
+    // Send email via Resend (same as send-followup-email)
+    const emailResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: `${businessName} <${businessEmail}>`,
+        to: [to],
+        subject: 'Test Email - Thank you for your business!',
+        html: `
+          <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+              <h1 style="color: white; margin: 0;">${businessName}</h1>
+            </div>
+            <div style="padding: 30px;">
+              <div style="white-space: pre-line; line-height: 1.6; color: #333;">
+                ${personalizedMessage}
+              </div>
+            </div>
+            <div style="text-align: center; padding: 20px; background: #f8f9fa; color: #666; font-size: 12px;">
+              This is a test email sent from Blipp
+            </div>
+          </div>
+        `,
+        text: personalizedMessage
+      })
+    });
+
+    if (!emailResponse.ok) {
+      const errorData = await emailResponse.json();
+      throw new Error(errorData.message || 'Failed to send email');
+    }
+
+    const emailData = await emailResponse.json();
+    
+    console.log('🚀 Test email sent successfully:', emailData);
+
+    res.json({ 
+      success: true, 
+      message: 'Test email sent successfully!',
+      emailId: emailData.id,
+      recipient: to
+    });
+  } catch (e) {
+    console.error('Send test email error', e);
+    res.status(500).json({ error: 'Failed to send test email: ' + e.message });
+  }
+});
 app.post('/api/zapier/upsert-customer', async (req, res) => {
   try {
     // Validate Zapier token (check both header and URL param)
