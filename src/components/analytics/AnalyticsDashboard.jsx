@@ -67,16 +67,35 @@ const AnalyticsDashboard = () => {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/analytics/overview?businessId=${businessId}&timeRange=${timeRange}`);
+      console.log('[ANALYTICS] Fetching data for businessId:', businessId, 'timeRange:', timeRange);
+      
+      const response = await fetch(`/api/analytics/overview?businessId=${businessId}&timeRange=${timeRange}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('[ANALYTICS] Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[ANALYTICS] Response error:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+      
       const data = await response.json();
+      console.log('[ANALYTICS] Response data:', data);
       
       if (data.success) {
         setAnalyticsData(data.data);
       } else {
-        console.error('Error fetching analytics:', data.error);
+        console.error('[ANALYTICS] API error:', data.error);
+        throw new Error(data.error || 'Failed to fetch analytics data');
       }
     } catch (error) {
-      console.error('Error fetching analytics:', error);
+      console.error('[ANALYTICS] Fetch error:', error);
+      setAnalyticsData(null);
     } finally {
       setLoading(false);
     }

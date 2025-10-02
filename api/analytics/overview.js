@@ -6,16 +6,30 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
+    console.log('[ANALYTICS] Request received:', { method: req.method, query: req.query });
+    
     const { businessId, timeRange = '30' } = req.query;
 
     if (!businessId) {
+      console.log('[ANALYTICS] Missing businessId');
       return res.status(400).json({ error: 'businessId is required' });
     }
+
+    console.log('[ANALYTICS] Processing for businessId:', businessId, 'timeRange:', timeRange);
 
     // Calculate date range
     const now = new Date();
@@ -79,7 +93,12 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('[ANALYTICS] Error:', error);
-    res.status(500).json({ error: 'Failed to fetch analytics data' });
+    console.error('[ANALYTICS] Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to fetch analytics data',
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
 }
 

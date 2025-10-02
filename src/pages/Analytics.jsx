@@ -1,10 +1,10 @@
 import React from 'react';
-import AnalyticsDashboard from '../components/analytics/AnalyticsDashboard';
+import RealTimeAnalytics from '../components/analytics/RealTimeAnalytics';
 
 const Analytics = () => {
   return (
     <div className="h-full">
-      <AnalyticsDashboard />
+      <RealTimeAnalytics />
     </div>
   );
 };
