@@ -2362,9 +2362,9 @@ app.post('/api/send-test', async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: `${businessName} <${businessEmail}>`,
+        from: 'Blipp <noreply@myblipp.com>',
         to: [to],
-        subject: 'Test Email - Thank you for your business!',
+        subject: `Test Email from ${businessName} - Thank you for your business!`,
         html: `
           <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
