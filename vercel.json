@@ -104,7 +104,7 @@
     },
     {
       "source": "/api/send-test",
-      "destination": "/pages/api/send-test.js"
+      "destination": "/server.js"
     },
     {
       "source": "/api/email-track/(.*)",
