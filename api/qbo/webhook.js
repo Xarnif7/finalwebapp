@@ -425,7 +425,7 @@ async function findMatchingTemplate(businessId, jobHint, triggerType) {
     .from('automation_templates')
     .select('id, name, key, status, config_json, channels')
     .eq('business_id', businessId)
-    .eq('status', 'active');
+    .in('status', ['active', 'ready']);
 
   if (templatesError || !templates || templates.length === 0) {
     console.log('[QBO] No active automation templates found');
@@ -531,6 +531,7 @@ async function triggerAutomation(businessId, customerId, templateId, metadata) {
       .select('*')
       .eq('id', templateId)
       .eq('business_id', businessId)
+      .in('status', ['active', 'ready'])
       .single();
 
     if (templateError || !template) {
