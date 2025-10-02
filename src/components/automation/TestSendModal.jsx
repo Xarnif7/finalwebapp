@@ -30,6 +30,8 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
   }, [isOpen, template]);
 
   const handleSend = async () => {
+    console.log('🚀 TestSendModal handleSend clicked!', { testEmail, testPhone, business, template });
+    
     if (!testEmail && !testPhone) {
       toast.error('Please enter an email address or phone number');
       return;
@@ -40,6 +42,7 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
       return;
     }
 
+    console.log('🚀 Starting send process...');
     setSending(true);
 
     try {
@@ -146,7 +149,7 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
               </Badge>
             </div>
             <p className="text-sm text-gray-600">
-              Send this template message to test how it looks
+              Send yourself a test email to see how it looks!
             </p>
           </div>
 
@@ -215,7 +218,10 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
             Cancel
           </Button>
           <Button 
-            onClick={handleSend} 
+            onClick={() => {
+              console.log('🚀 Send button clicked!', { testEmail, testPhone, sending, sent });
+              handleSend();
+            }} 
             disabled={sending || (!testEmail && !testPhone) || sent}
             className="bg-blue-600 hover:bg-blue-700"
           >
