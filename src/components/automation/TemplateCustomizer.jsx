@@ -671,6 +671,10 @@ export default function TemplateCustomizer({
             body: JSON.stringify({
               ...formData,
               custom_message: filterSwearWords(customMessage),
+              config_json: {
+                ...formData.config_json,
+                message: filterSwearWords(customMessage) // Also save in config_json.message
+              },
               message_subject: formData.config_json?.subject || '',
               ai_generated: aiGenerating || aiEnhancing,
               service_types: formData.service_types || [],

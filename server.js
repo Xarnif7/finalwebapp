@@ -17545,11 +17545,13 @@ app.post('/api/qbo/webhook', async (req, res) => {
       console.log('⏰ Delay calculation:', { delayHours, delayMinutes, totalDelayMs, scheduledFor });
       
       // Debug: Log the template message being used
-      const templateMessage = selectedTemplate?.config_json?.message 
-        || selectedTemplate?.custom_message 
+      const templateMessage = selectedTemplate?.custom_message 
+        || selectedTemplate?.config_json?.message 
         || selectedTemplate?.name 
         || 'Please review us';
       console.log('📝 Template message being used:', templateMessage);
+      console.log('📝 Selected template custom_message:', selectedTemplate?.custom_message);
+      console.log('📝 Selected template config_json.message:', selectedTemplate?.config_json?.message);
       console.log('📝 Selected template config_json:', selectedTemplate?.config_json);
       
       const { data: createdReq, error: rrError } = await supabase
