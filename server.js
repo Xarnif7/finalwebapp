@@ -18792,8 +18792,577 @@ app.delete('/api/qr/:id', async (req, res) => {
   }
 });
 
+// Middleware to extract business_id from Authorization header
+app.use('/api/google/sheets', async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing or invalid authorization header' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    // Get business_id from user profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(401).json({ error: 'User profile not found' });
+    }
+
+    req.user = user;
+    req.businessId = profile.business_id;
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(401).json({ error: 'Authentication failed' });
+  }
+});
+
+// Google Sheets API routes
+app.get('/api/google/sheets/auth', async (req, res) => {
+  try {
+    const { google } = await import('googleapis');
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_SHEETS_CLIENT_ID,
+      process.env.GOOGLE_SHEETS_CLIENT_SECRET,
+      process.env.GOOGLE_SHEETS_REDIRECT_URI
+    );
+
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+      state: crypto.randomBytes(32).toString('hex')
+    });
+
+    res.json({ authUrl });
+  } catch (error) {
+    console.error('Google Sheets auth error:', error);
+    res.status(500).json({ error: 'Failed to generate auth URL' });
+  }
+});
+
+app.get('/api/google/sheets/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    const { google } = await import('googleapis');
+    
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_SHEETS_CLIENT_ID,
+      process.env.GOOGLE_SHEETS_CLIENT_SECRET,
+      process.env.GOOGLE_SHEETS_REDIRECT_URI
+    );
+
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+
+    // Store tokens in database
+    const { error } = await supabase
+      .from('google_oauth_tokens')
+      .upsert({
+        user_id: req.user?.id,
+        business_id: req.businessId,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        token_type: tokens.token_type,
+        scope: tokens.scope,
+        expires_at: new Date(tokens.expiry_date).toISOString()
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    res.redirect(`${process.env.VITE_APP_URL || 'http://localhost:5173'}/clients?sheets=connected`);
+  } catch (error) {
+    console.error('Google Sheets callback error:', error);
+    res.status(500).json({ error: 'Failed to process callback' });
+  }
+});
+
+app.get('/api/google/sheets/status', async (req, res) => {
+  try {
+    const { data: tokens, error } = await supabase
+      .from('google_oauth_tokens')
+      .select('*')
+      .eq('business_id', req.businessId)
+      .single();
+
+    if (error || !tokens) {
+      return res.json({ connected: false });
+    }
+
+    // Check if token is expired
+    if (new Date(tokens.expires_at) < new Date()) {
+      // Try to refresh token
+      const { google } = await import('googleapis');
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_SHEETS_CLIENT_ID,
+        process.env.GOOGLE_SHEETS_CLIENT_SECRET,
+        process.env.GOOGLE_SHEETS_REDIRECT_URI
+      );
+
+      oauth2Client.setCredentials({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token
+      });
+
+      try {
+        const { credentials } = await oauth2Client.refreshAccessToken();
+        
+        // Update tokens in database
+        await supabase
+          .from('google_oauth_tokens')
+          .update({
+            access_token: credentials.access_token,
+            expires_at: new Date(credentials.expiry_date).toISOString()
+          })
+          .eq('id', tokens.id);
+
+        res.json({ connected: true, refreshed: true });
+      } catch (refreshError) {
+        res.json({ connected: false, error: 'Token refresh failed' });
+      }
+    } else {
+      res.json({ connected: true });
+    }
+  } catch (error) {
+    console.error('Google Sheets status error:', error);
+    res.status(500).json({ error: 'Failed to check status' });
+  }
+});
+
+app.get('/api/google/sheets/list', async (req, res) => {
+  try {
+    const { data: tokens, error } = await supabase
+      .from('google_oauth_tokens')
+      .select('*')
+      .eq('business_id', req.businessId)
+      .single();
+
+    if (error || !tokens) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { google } = await import('googleapis');
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_SHEETS_CLIENT_ID,
+      process.env.GOOGLE_SHEETS_CLIENT_SECRET,
+      process.env.GOOGLE_SHEETS_REDIRECT_URI
+    );
+
+    oauth2Client.setCredentials({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+
+    const response = await drive.files.list({
+      q: "mimeType='application/vnd.google-apps.spreadsheet'",
+      fields: 'files(id,name,modifiedTime)'
+    });
+
+    const spreadsheets = response.data.files.map(file => ({
+      id: file.id,
+      name: file.name,
+      modifiedTime: file.modifiedTime
+    }));
+
+    res.json({ spreadsheets });
+  } catch (error) {
+    console.error('Google Sheets list error:', error);
+    res.status(500).json({ error: 'Failed to fetch spreadsheets' });
+  }
+});
+
+app.get('/api/google/sheets/sheets', async (req, res) => {
+  try {
+    const { spreadsheetId } = req.query;
+    const { data: tokens, error } = await supabase
+      .from('google_oauth_tokens')
+      .select('*')
+      .eq('business_id', req.businessId)
+      .single();
+
+    if (error || !tokens) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { google } = await import('googleapis');
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_SHEETS_CLIENT_ID,
+      process.env.GOOGLE_SHEETS_CLIENT_SECRET,
+      process.env.GOOGLE_SHEETS_REDIRECT_URI
+    );
+
+    oauth2Client.setCredentials({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+    const response = await sheets.spreadsheets.get({
+      spreadsheetId
+    });
+
+    const sheetNames = response.data.sheets.map(sheet => sheet.properties.title);
+    res.json({ sheets: sheetNames });
+  } catch (error) {
+    console.error('Google Sheets sheets error:', error);
+    res.status(500).json({ error: 'Failed to fetch sheet names' });
+  }
+});
+
+app.post('/api/google/sheets/preview', async (req, res) => {
+  try {
+    const { spreadsheetId, sheetName } = req.body;
+    const { data: tokens, error } = await supabase
+      .from('google_oauth_tokens')
+      .select('*')
+      .eq('business_id', req.businessId)
+      .single();
+
+    if (error || !tokens) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { google } = await import('googleapis');
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_SHEETS_CLIENT_ID,
+      process.env.GOOGLE_SHEETS_CLIENT_SECRET,
+      process.env.GOOGLE_SHEETS_REDIRECT_URI
+    );
+
+    oauth2Client.setCredentials({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A1:Z100`
+    });
+
+    const rows = response.data.values || [];
+    const headers = rows[0] || [];
+    const data = rows.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((header, index) => {
+        obj[header] = row[index] || '';
+      });
+      return obj;
+    });
+
+    res.json({ preview: data });
+  } catch (error) {
+    console.error('Google Sheets preview error:', error);
+    res.status(500).json({ error: 'Failed to preview data' });
+  }
+});
+
+app.post('/api/google/sheets/sync', async (req, res) => {
+  try {
+    const { spreadsheetId, sheetName, autoEnroll } = req.body;
+    const { data: tokens, error } = await supabase
+      .from('google_oauth_tokens')
+      .select('*')
+      .eq('business_id', req.businessId)
+      .single();
+
+    if (error || !tokens) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { google } = await import('googleapis');
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_SHEETS_CLIENT_ID,
+      process.env.GOOGLE_SHEETS_CLIENT_SECRET,
+      process.env.GOOGLE_SHEETS_REDIRECT_URI
+    );
+
+    oauth2Client.setCredentials({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A1:Z1000`
+    });
+
+    const rows = response.data.values || [];
+    const headers = rows[0] || [];
+    const data = rows.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((header, index) => {
+        obj[header] = row[index] || '';
+      });
+      return obj;
+    });
+
+    // Process and import customers
+    let customersImported = 0;
+    let skipped = 0;
+    const enrollmentSummary = { enrolled: 0, skipped: 0 };
+
+    for (const row of data) {
+      try {
+        // Map Google Sheets columns to customer fields
+        const customerData = {
+          name: row.name || row.Name || row.customer_name || '',
+          email: row.email || row.Email || row.customer_email || '',
+          phone: row.phone || row.Phone || row.customer_phone || '',
+          business_id: req.businessId
+        };
+
+        if (!customerData.name || !customerData.email) {
+          skipped++;
+          continue;
+        }
+
+        // Check if customer already exists
+        const { data: existingCustomer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('email', customerData.email)
+          .eq('business_id', req.businessId)
+          .single();
+
+        if (existingCustomer) {
+          skipped++;
+          continue;
+        }
+
+        // Create customer
+        const { error: createError } = await supabase
+          .from('customers')
+          .insert([customerData]);
+
+        if (createError) {
+          console.error('Error creating customer:', createError);
+          skipped++;
+          continue;
+        }
+
+        customersImported++;
+
+        // Auto-enroll if enabled
+        if (autoEnroll) {
+          // Get active templates
+          const { data: templates } = await supabase
+            .from('automation_templates')
+            .select('*')
+            .eq('business_id', req.businessId)
+            .eq('is_active', true);
+
+          if (templates && templates.length > 0) {
+            // Enroll in first active template
+            const template = templates[0];
+            const { error: enrollError } = await supabase
+              .from('automation_sequences')
+              .insert([{
+                customer_id: customerData.id,
+                template_id: template.id,
+                business_id: req.businessId,
+                status: 'active'
+              }]);
+
+            if (!enrollError) {
+              enrollmentSummary.enrolled++;
+            } else {
+              enrollmentSummary.skipped++;
+            }
+          }
+        }
+      } catch (rowError) {
+        console.error('Error processing row:', rowError);
+        skipped++;
+      }
+    }
+
+    res.json({
+      success: true,
+      customers_imported: customersImported,
+      skipped,
+      enrollmentSummary
+    });
+  } catch (error) {
+    console.error('Google Sheets sync error:', error);
+    res.status(500).json({ error: 'Failed to sync data' });
+  }
+});
+
+app.post('/api/google/sheets/resync', async (req, res) => {
+  try {
+    const { spreadsheetId, sheetName } = req.body;
+    const { data: tokens, error } = await supabase
+      .from('google_oauth_tokens')
+      .select('*')
+      .eq('business_id', req.businessId)
+      .single();
+
+    if (error || !tokens) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { google } = await import('googleapis');
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_SHEETS_CLIENT_ID,
+      process.env.GOOGLE_SHEETS_CLIENT_SECRET,
+      process.env.GOOGLE_SHEETS_REDIRECT_URI
+    );
+
+    oauth2Client.setCredentials({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A1:Z1000`
+    });
+
+    const rows = response.data.values || [];
+    const headers = rows[0] || [];
+    const data = rows.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((header, index) => {
+        obj[header] = row[index] || '';
+      });
+      return obj;
+    });
+
+    // Process and sync customers
+    let customersImported = 0;
+    let skipped = 0;
+
+    for (const row of data) {
+      try {
+        const customerData = {
+          name: row.name || row.Name || row.customer_name || '',
+          email: row.email || row.Email || row.customer_email || '',
+          phone: row.phone || row.Phone || row.customer_phone || '',
+          business_id: req.businessId
+        };
+
+        if (!customerData.name || !customerData.email) {
+          skipped++;
+          continue;
+        }
+
+        // Check if customer exists
+        const { data: existingCustomer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('email', customerData.email)
+          .eq('business_id', req.businessId)
+          .single();
+
+        if (existingCustomer) {
+          // Update existing customer
+          const { error: updateError } = await supabase
+            .from('customers')
+            .update(customerData)
+            .eq('id', existingCustomer.id);
+
+          if (updateError) {
+            console.error('Error updating customer:', updateError);
+            skipped++;
+          } else {
+            customersImported++;
+          }
+        } else {
+          // Create new customer
+          const { error: createError } = await supabase
+            .from('customers')
+            .insert([customerData]);
+
+          if (createError) {
+            console.error('Error creating customer:', createError);
+            skipped++;
+          } else {
+            customersImported++;
+          }
+        }
+      } catch (rowError) {
+        console.error('Error processing row:', rowError);
+        skipped++;
+      }
+    }
+
+    res.json({
+      success: true,
+      customers_imported: customersImported,
+      skipped
+    });
+  } catch (error) {
+    console.error('Google Sheets resync error:', error);
+    res.status(500).json({ error: 'Failed to resync data' });
+  }
+});
+
+app.get('/api/google/sheets/sync-settings', async (req, res) => {
+  try {
+    const { data: settings, error } = await supabase
+      .from('google_sheets_sync_settings')
+      .select('*')
+      .eq('business_id', req.businessId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    res.json({ settings });
+  } catch (error) {
+    console.error('Google Sheets sync settings error:', error);
+    res.status(500).json({ error: 'Failed to fetch sync settings' });
+  }
+});
+
+app.post('/api/google/sheets/sync-settings', async (req, res) => {
+  try {
+    const { spreadsheetId, sheetName, autoSyncEnabled } = req.body;
+    
+    const { data: settings, error } = await supabase
+      .from('google_sheets_sync_settings')
+      .upsert({
+        business_id: req.businessId,
+        spreadsheet_id: spreadsheetId,
+        sheet_name: sheetName,
+        auto_sync_enabled: autoSyncEnabled,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    res.json({ success: true, settings });
+  } catch (error) {
+    console.error('Google Sheets sync settings error:', error);
+    res.status(500).json({ error: 'Failed to save sync settings' });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`QBO Integration endpoints loaded`);
+  console.log(`Google Sheets API endpoints loaded`);
 });

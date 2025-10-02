@@ -1,30 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Progress } from '@/components/ui/progress';
-import { 
-  FileSpreadsheet, 
-  Loader2, 
-  CheckCircle, 
-  AlertCircle, 
-  ExternalLink, 
-  RefreshCw,
-  Settings,
-  Eye,
-  Link
-} from 'lucide-react';
-import { useAuth } from '@/components/auth/AuthProvider';
-import { useCurrentBusinessId } from '@/lib/tenancy';
-import { supabase } from '@/lib/supabase/browser';
-import { toast } from 'react-hot-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Switch } from '../ui/switch';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Progress } from '../ui/progress';
+import { Loader2, FileSpreadsheet, RefreshCw, CheckCircle, AlertCircle, ExternalLink, Settings } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { useCurrentBusinessId } from '../../hooks/useCurrentBusinessId';
+import { supabase } from '../../lib/supabase/browser';
+import toast from 'react-hot-toast';
 
-const GoogleSheetsDialog = ({ open, onOpenChange, onImport, loading = false }) => {
+const GoogleSheetsDialog = ({ open, onOpenChange, onImport, loading }) => {
   const { user } = useAuth();
   const { businessId } = useCurrentBusinessId();
+  
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,159 +32,121 @@ const GoogleSheetsDialog = ({ open, onOpenChange, onImport, loading = false }) =
   const [syncSettings, setSyncSettings] = useState(null);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
   const [isResyncing, setIsResyncing] = useState(false);
-  
-  // Auto-enroll states
-  const [autoEnrollEnabled, setAutoEnrollEnabled] = useState(false);
-  const [selectedSequence, setSelectedSequence] = useState('');
-  const [availableSequences, setAvailableSequences] = useState([]);
+  const [session, setSession] = useState(null);
 
-  // Check connection status on mount
   useEffect(() => {
-    if (open && businessId) {
+    if (open) {
+      getSession();
       checkConnectionStatus();
+      fetchSyncSettings();
     }
-  }, [open, businessId]);
+  }, [open]);
 
-  // Fetch available sequences for auto-enroll
-  useEffect(() => {
-    const fetchSequences = async () => {
-      try {
-        const response = await fetch('/api/sequences', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
-          }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setAvailableSequences(data.sequences || []);
-          if (data.sequences && data.sequences.length > 0) {
-            setSelectedSequence(data.sequences[0].id);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching sequences:', error);
-      }
-    };
-
-    if (autoEnrollEnabled) {
-      fetchSequences();
-    }
-  }, [autoEnrollEnabled]);
+  const getSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    setSession(session);
+  };
 
   const checkConnectionStatus = async () => {
     try {
-      setIsLoading(true);
-      setError('');
-
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`/api/google/sheets/status?business_id=${businessId}`, {
+      const response = await fetch('/api/google/sheets/status', {
         headers: {
           'Authorization': `Bearer ${session?.access_token}`
         }
       });
-
       const data = await response.json();
-      setIsConnected(data.connected && data.token_valid);
       
-      if (data.connected && data.token_valid) {
+      if (data.connected) {
+        setIsConnected(true);
         setStep('select');
         await fetchSpreadsheets();
+      } else {
+        setIsConnected(false);
+        setStep('connect');
       }
     } catch (error) {
       console.error('Error checking connection status:', error);
-      setError('Failed to check connection status');
-    } finally {
-      setIsLoading(false);
+      setIsConnected(false);
+      setStep('connect');
+    }
+  };
+
+  const fetchSyncSettings = async () => {
+    try {
+      const response = await fetch('/api/google/sheets/sync-settings', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
+      const data = await response.json();
+      
+      if (data.settings) {
+        setSyncSettings(data.settings);
+        setAutoSyncEnabled(data.settings.auto_sync_enabled);
+      }
+    } catch (error) {
+      console.error('Error fetching sync settings:', error);
     }
   };
 
   const handleConnect = async () => {
+    setIsConnecting(true);
+    setError('');
+    
     try {
-      setIsConnecting(true);
-      setError('');
-
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`/api/google/sheets/auth?business_id=${businessId}`, {
+      const response = await fetch('/api/google/sheets/auth', {
         headers: {
           'Authorization': `Bearer ${session?.access_token}`
         }
       });
-
       const data = await response.json();
       
-      if (data.auth_url) {
-        // Open OAuth flow in new window
-        const authWindow = window.open(data.auth_url, 'google-sheets-oauth', 'width=500,height=600,scrollbars=yes,resizable=yes');
-        
-        // Poll for window closure
-        const pollTimer = setInterval(() => {
-          if (authWindow.closed) {
-            clearInterval(pollTimer);
-            // Check connection status after OAuth flow
-            setTimeout(checkConnectionStatus, 1000);
-          }
-        }, 1000);
+      if (data.authUrl) {
+        window.location.href = data.authUrl;
       } else {
-        setError(data.error || 'Failed to initiate Google OAuth');
+        throw new Error('Failed to get authorization URL');
       }
     } catch (error) {
-      console.error('Error connecting to Google Sheets:', error);
-      setError('Failed to connect to Google Sheets');
-    } finally {
+      setError(error.message || 'Failed to connect to Google Sheets');
       setIsConnecting(false);
     }
   };
 
   const fetchSpreadsheets = async () => {
     try {
-      setIsLoading(true);
-      setError('');
-
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`/api/google/sheets/list?business_id=${businessId}`, {
+      const response = await fetch('/api/google/sheets/list', {
         headers: {
           'Authorization': `Bearer ${session?.access_token}`
         }
       });
-
       const data = await response.json();
       
-      if (data.ok) {
+      if (data.spreadsheets) {
         setSpreadsheets(data.spreadsheets);
-        if (data.spreadsheets.length > 0) {
-          setSelectedSpreadsheet(data.spreadsheets[0].id);
-          await fetchSheetNames(data.spreadsheets[0].id);
-        }
       } else {
-        setError(data.error || 'Failed to fetch spreadsheets');
+        throw new Error(data.error || 'Failed to fetch spreadsheets');
       }
     } catch (error) {
-      console.error('Error fetching spreadsheets:', error);
-      setError('Failed to fetch spreadsheets');
-    } finally {
-      setIsLoading(false);
+      setError(error.message || 'Failed to fetch spreadsheets');
     }
   };
 
   const fetchSheetNames = async (spreadsheetId) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`/api/google/sheets/sheets?business_id=${businessId}&spreadsheet_id=${spreadsheetId}`, {
+      const response = await fetch(`/api/google/sheets/sheets?spreadsheetId=${spreadsheetId}`, {
         headers: {
           'Authorization': `Bearer ${session?.access_token}`
         }
       });
-
       const data = await response.json();
       
-      if (data.ok) {
+      if (data.sheets) {
         setSheetNames(data.sheets);
-        if (data.sheets.length > 0) {
-          setSelectedSheet(data.sheets[0]);
-        }
+      } else {
+        throw new Error(data.error || 'Failed to fetch sheet names');
       }
     } catch (error) {
-      console.error('Error fetching sheet names:', error);
+      setError(error.message || 'Failed to fetch sheet names');
     }
   };
 
@@ -207,28 +161,32 @@ const GoogleSheetsDialog = ({ open, onOpenChange, onImport, loading = false }) =
       return;
     }
 
-    try {
-      setIsLoading(true);
-      setError('');
+    setIsLoading(true);
+    setError('');
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`/api/google/sheets/preview?business_id=${businessId}&spreadsheet_id=${selectedSpreadsheet}&sheet_name=${selectedSheet}`, {
+    try {
+      const response = await fetch('/api/google/sheets/preview', {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`
-        }
+        },
+        body: JSON.stringify({
+          spreadsheetId: selectedSpreadsheet,
+          sheetName: selectedSheet,
+        }),
       });
 
       const data = await response.json();
-      
-      if (data.ok) {
+
+      if (data.preview) {
         setPreviewData(data.preview);
         setStep('preview');
       } else {
-        setError(data.error || 'Failed to preview data');
+        throw new Error(data.error || 'Failed to preview data');
       }
     } catch (error) {
-      console.error('Error previewing data:', error);
-      setError('Failed to preview data');
+      setError(error.message || 'Failed to preview data');
     } finally {
       setIsLoading(false);
     }
@@ -240,17 +198,12 @@ const GoogleSheetsDialog = ({ open, onOpenChange, onImport, loading = false }) =
       return;
     }
 
+    setIsLoading(true);
+    setError('');
     setStep('importing');
     setImportProgress(0);
-    
-    try {
-      // Prepare auto-enroll parameters if enabled
-      const autoEnrollParams = autoEnrollEnabled ? {
-        enabled: true,
-        sequence_id: selectedSequence
-      } : null;
 
-      const { data: { session } } = await supabase.auth.getSession();
+    try {
       const response = await fetch('/api/google/sheets/sync', {
         method: 'POST',
         headers: {
@@ -258,56 +211,39 @@ const GoogleSheetsDialog = ({ open, onOpenChange, onImport, loading = false }) =
           'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({
-          spreadsheet_id: selectedSpreadsheet,
-          sheet_name: selectedSheet,
-          business_id,
-          auto_enroll: autoEnrollParams
-        })
+          spreadsheetId: selectedSpreadsheet,
+          sheetName: selectedSheet,
+          autoEnroll: true,
+        }),
       });
 
       const data = await response.json();
-      
-      if (data.ok) {
+
+      if (data.success) {
         setImportResult(data);
         setStep('complete');
-        
-        // Save sync settings if auto-sync is enabled
-        if (autoSyncEnabled) {
-          await saveSyncSettings();
-        }
-        
-        // Call the parent import handler
-        if (onImport) {
-          await onImport(data);
-        }
+        onImport(data);
       } else {
-        setError(data.error || 'Import failed');
-        setStep('preview');
+        throw new Error(data.error || 'Failed to import data');
       }
     } catch (error) {
-      console.error('Error importing from Google Sheets:', error);
-      setError('Import failed: ' + error.message);
+      setError(error.message || 'Failed to import data');
       setStep('preview');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleResync = async () => {
-    if (!selectedSpreadsheet || !selectedSheet) {
-      setError('Please select a spreadsheet and sheet');
+    if (!syncSettings) {
+      setError('No sync settings found');
       return;
     }
 
     setIsResyncing(true);
     setError('');
-    
-    try {
-      // Prepare auto-enroll parameters if enabled
-      const autoEnrollParams = autoEnrollEnabled ? {
-        enabled: true,
-        sequence_id: selectedSequence
-      } : null;
 
-      const { data: { session } } = await supabase.auth.getSession();
+    try {
       const response = await fetch('/api/google/sheets/resync', {
         method: 'POST',
         headers: {
@@ -315,91 +251,72 @@ const GoogleSheetsDialog = ({ open, onOpenChange, onImport, loading = false }) =
           'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({
-          spreadsheet_id: selectedSpreadsheet,
-          sheet_name: selectedSheet,
-          business_id,
-          auto_enroll: autoEnrollParams
-        })
+          spreadsheetId: syncSettings.spreadsheet_id,
+          sheetName: syncSettings.sheet_name,
+        }),
       });
 
       const data = await response.json();
-      
-      if (data.ok) {
-        let message = `Resync completed: ${data.customers_imported} new, ${data.customers_updated} updated, ${data.customers_skipped} skipped`;
-        
-        if (data.enrollmentSummary) {
-          const { enrolled, skipped } = data.enrollmentSummary;
-          message += ` | Auto-enrollment: ${enrolled} enrolled, ${skipped} skipped`;
-        }
-        
-        toast.success(message);
-        
-        // Call the parent import handler
-        if (onImport) {
-          await onImport(data);
-        }
+
+      if (data.success) {
+        toast.success(`Resync completed: ${data.customers_imported} imported, ${data.skipped} skipped`);
+        onImport(data);
       } else {
-        setError(data.error || 'Resync failed');
+        throw new Error(data.error || 'Failed to resync data');
       }
     } catch (error) {
-      console.error('Error resyncing from Google Sheets:', error);
-      setError('Resync failed: ' + error.message);
+      setError(error.message || 'Failed to resync data');
+      toast.error(error.message || 'Failed to resync data');
     } finally {
       setIsResyncing(false);
     }
   };
 
   const saveSyncSettings = async () => {
+    if (!selectedSpreadsheet || !selectedSheet) {
+      setError('Please select a spreadsheet and sheet');
+      return;
+    }
+
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      await fetch('/api/google/sheets/save-settings', {
+      const response = await fetch('/api/google/sheets/sync-settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({
-          business_id,
-          spreadsheet_id: selectedSpreadsheet,
-          sheet_name: selectedSheet,
-          auto_sync_enabled: autoSyncEnabled
-        })
-      });
-    } catch (error) {
-      console.error('Error saving sync settings:', error);
-    }
-  };
-
-  const fetchSyncSettings = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`/api/google/sheets/sync-settings?business_id=${businessId}`, {
-        headers: {
-          'Authorization': `Bearer ${session?.access_token}`
-        }
+          spreadsheetId: selectedSpreadsheet,
+          sheetName: selectedSheet,
+          autoSyncEnabled,
+        }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json();
+
+      if (data.success) {
         setSyncSettings(data.settings);
-        setAutoSyncEnabled(data.settings?.auto_sync_enabled || false);
+        toast.success('Sync settings saved successfully');
+      } else {
+        throw new Error(data.error || 'Failed to save sync settings');
       }
     } catch (error) {
-      console.error('Error fetching sync settings:', error);
+      setError(error.message || 'Failed to save sync settings');
+      toast.error(error.message || 'Failed to save sync settings');
     }
   };
 
   const resetForm = () => {
+    setStep('connect');
     setError('');
     setImportResult(null);
-    setIsLoading(false);
-    setIsConnecting(false);
-    setStep('connect');
+    setSpreadsheets([]);
     setSelectedSpreadsheet('');
     setSelectedSheet('');
     setSheetNames([]);
     setPreviewData([]);
     setImportProgress(0);
+    setIsResyncing(false);
   };
 
   const handleClose = () => {
@@ -407,344 +324,257 @@ const GoogleSheetsDialog = ({ open, onOpenChange, onImport, loading = false }) =
     onOpenChange(false);
   };
 
-  const renderConnectStep = () => (
-    <div className="space-y-6">
-      <div className="text-center">
-        <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-blue-500" />
-        <h3 className="text-lg font-medium mb-2">Connect Google Sheets</h3>
-        <p className="text-sm text-gray-600 mb-6">
-          Connect your Google account to sync customers from Google Sheets
-        </p>
-      </div>
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5" />
+            Google Sheets Integration
+          </DialogTitle>
+        </DialogHeader>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-        </div>
-      ) : isConnected ? (
-        <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-lg">
-          <CheckCircle className="w-5 h-5" />
-          <p className="text-sm font-medium">Google Sheets is connected!</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <Button
-            onClick={handleConnect}
-            disabled={isConnecting}
-            className="w-full"
-          >
-            {isConnecting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Connecting...
-              </>
-            ) : (
-              <>
-                <Link className="h-4 w-4 mr-2" />
-                Connect Google Sheets
-              </>
-            )}
-          </Button>
-          
-          <div className="text-xs text-gray-500 text-center">
-            You'll be redirected to Google to authorize access to your sheets
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <div className="flex items-center gap-2 text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              <span className="font-medium">Error</span>
+            </div>
+            <p className="text-red-600 text-sm mt-1">{error}</p>
           </div>
-        </div>
-      )}
+        )}
 
-      {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg">
-          <AlertCircle className="w-5 h-5" />
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
-    </div>
-  );
+        {step === 'connect' && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <FileSpreadsheet className="h-16 w-16 mx-auto text-blue-500 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Connect to Google Sheets</h3>
+              <p className="text-gray-600 mb-6">
+                Connect your Google account to import customers from Google Sheets
+              </p>
+            </div>
 
-  const renderSelectStep = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Select Spreadsheet</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={fetchSpreadsheets}
-          disabled={isLoading}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </div>
-
-      <div className="space-y-4">
-        <div>
-          <Label className="text-sm font-medium">Choose a spreadsheet</Label>
-          <Select
-            value={selectedSpreadsheet}
-            onValueChange={handleSpreadsheetChange}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select spreadsheet" />
-            </SelectTrigger>
-            <SelectContent>
-              {spreadsheets.map(sheet => (
-                <SelectItem key={sheet.id} value={sheet.id}>
-                  {sheet.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {sheetNames.length > 0 && (
-          <div>
-            <Label className="text-sm font-medium">Choose a sheet</Label>
-            <Select
-              value={selectedSheet}
-              onValueChange={setSelectedSheet}
+            <Button
+              onClick={handleConnect}
+              disabled={isConnecting}
+              className="w-full"
+              size="lg"
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select sheet" />
-              </SelectTrigger>
-              <SelectContent>
-                {sheetNames.map(sheet => (
-                  <SelectItem key={sheet} value={sheet}>
-                    {sheet}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              {isConnecting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Connect to Google Sheets
+                </>
+              )}
+            </Button>
           </div>
         )}
-      </div>
 
-      {/* Auto-sync Section */}
-      <div className="space-y-4 border-t pt-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium">Auto-sync Settings</h3>
-            <Switch
-              checked={autoSyncEnabled}
-              onCheckedChange={setAutoSyncEnabled}
-            />
-          </div>
-        </div>
-
-        {autoSyncEnabled && (
-          <div className="pl-6 border-l-2 border-green-200 bg-green-50/30 p-4 rounded-r-lg">
-            <p className="text-sm text-green-700 mb-2">
-              <strong>Auto-sync enabled:</strong> Changes to your Google Sheet will automatically sync to Blipp.
-            </p>
-            <p className="text-xs text-green-600">
-              This will monitor your sheet for changes and update your customer database in real-time.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Auto-enroll Section */}
-      <div className="space-y-4 border-t pt-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium">Auto-enroll in Automation</h3>
-            <Switch
-              checked={autoEnrollEnabled}
-              onCheckedChange={setAutoEnrollEnabled}
-            />
-          </div>
-        </div>
-
-        {autoEnrollEnabled && (
-          <div className="space-y-4 pl-6 border-l-2 border-blue-200 bg-blue-50/30 p-4 rounded-r-lg">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Choose Sequence</Label>
-              <Select
-                value={selectedSequence}
-                onValueChange={setSelectedSequence}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select sequence">
-                    {availableSequences.find(s => s.id === selectedSequence)?.name || "Select sequence"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSequences.map(sequence => (
-                    <SelectItem key={sequence.id} value={sequence.id}>
-                      {sequence.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {step === 'select' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Select Spreadsheet</h3>
+              <Badge variant="outline" className="text-green-600 border-green-200">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Connected
+              </Badge>
             </div>
 
-            <div className="text-xs text-gray-600 bg-white p-3 rounded border">
-              <strong>Note:</strong> Customers will be automatically enrolled in the selected sequence if they have a valid email address.
-            </div>
-          </div>
-        )}
-      </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Choose a spreadsheet</label>
+                <Select value={selectedSpreadsheet} onValueChange={handleSpreadsheetChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a spreadsheet" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {spreadsheets.map((spreadsheet) => (
+                      <SelectItem key={spreadsheet.id} value={spreadsheet.id}>
+                        {spreadsheet.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-      <div className="flex gap-2 pt-4">
-        <Button variant="outline" onClick={() => setStep('connect')}>
-          Back
-        </Button>
-        <Button 
-          onClick={handlePreviewData}
-          disabled={!selectedSpreadsheet || !selectedSheet || isLoading}
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Loading...
-            </>
-          ) : (
-            <>
-              <Eye className="h-4 w-4 mr-2" />
-              Preview Data
-            </>
-          )}
-        </Button>
-      </div>
-
-      {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg">
-          <AlertCircle className="w-5 h-5" />
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderPreviewStep = () => (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Eye className="h-5 w-5 text-blue-500" />
-        <h3 className="text-lg font-medium">Preview Data</h3>
-      </div>
-
-      {previewData.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-sm text-gray-600">
-            Found {previewData.length} rows. Here's a preview of the first 5:
-          </p>
-          <div className="max-h-40 overflow-y-auto border rounded-lg p-3 bg-gray-50">
-            <pre className="text-xs">{JSON.stringify(previewData.slice(0, 5), null, 2)}</pre>
-          </div>
-        </div>
-      )}
-
-      <div className="flex gap-2 pt-4">
-        <Button variant="outline" onClick={() => setStep('select')}>
-          Back
-        </Button>
-        <Button 
-          onClick={handleResync}
-          disabled={isResyncing}
-          variant="outline"
-        >
-          {isResyncing ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Resyncing...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Resync
-            </>
-          )}
-        </Button>
-        <Button onClick={handleImport}>
-          Import Customers
-        </Button>
-      </div>
-    </div>
-  );
-
-  const renderImportingStep = () => (
-    <div className="space-y-6">
-      <div className="text-center">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
-        <h3 className="font-medium mb-2">Importing customers...</h3>
-        <Progress value={importProgress} className="w-full" />
-        <p className="text-sm text-gray-500 mt-2">{Math.round(importProgress)}% complete</p>
-      </div>
-    </div>
-  );
-
-  const renderCompleteStep = () => (
-    <div className="space-y-6">
-      {importResult && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-lg">
-            <CheckCircle className="w-5 h-5" />
-            <p className="text-sm font-medium">Import completed successfully!</p>
-          </div>
-          <div className="grid grid-cols-3 gap-4 text-sm">
-            <div className="text-center p-2 bg-blue-50 rounded">
-              <div className="font-bold text-blue-600">{importResult.customers_imported}</div>
-              <div className="text-blue-500">Imported</div>
-            </div>
-            <div className="text-center p-2 bg-yellow-50 rounded">
-              <div className="font-bold text-yellow-600">{importResult.skipped}</div>
-              <div className="text-yellow-500">Skipped</div>
-            </div>
-            <div className="text-center p-2 bg-gray-50 rounded">
-              <div className="font-bold text-gray-600">{importResult.total_rows}</div>
-              <div className="text-gray-500">Total Rows</div>
-            </div>
-          </div>
-
-          {importResult.enrollmentSummary && (
-            <div className="space-y-3 border-t pt-4">
-              <h4 className="font-medium text-gray-900">Auto-enrollment Summary</h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <div className="font-bold text-green-600 text-lg">{importResult.enrollmentSummary.enrolled}</div>
-                  <div className="text-green-500">Enrolled</div>
+              {selectedSpreadsheet && sheetNames.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Choose a sheet</label>
+                  <Select value={selectedSheet} onValueChange={setSelectedSheet}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a sheet" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sheetNames.map((sheet) => (
+                        <SelectItem key={sheet} value={sheet}>
+                          {sheet}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                  <div className="font-bold text-yellow-600 text-lg">{importResult.enrollmentSummary.skipped}</div>
-                  <div className="text-yellow-500">Skipped</div>
+              )}
+
+              {selectedSpreadsheet && selectedSheet && (
+                <Button
+                  onClick={handlePreviewData}
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Loading Preview...
+                    </>
+                  ) : (
+                    'Preview Data'
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {step === 'preview' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Preview Data</h3>
+              <Badge variant="outline">
+                {previewData.length} rows found
+              </Badge>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Data Preview</CardTitle>
+                <CardDescription>
+                  Found {previewData.length} rows. Here's a preview of the first 5:
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <pre className="text-xs bg-gray-50 p-4 rounded-lg overflow-auto max-h-40">
+                  {JSON.stringify(previewData.slice(0, 5), null, 2)}
+                </pre>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-4 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium">Auto-sync Settings</h3>
+                  <Switch
+                    checked={autoSyncEnabled}
+                    onCheckedChange={setAutoSyncEnabled}
+                  />
                 </div>
               </div>
+
+              {autoSyncEnabled && (
+                <div className="pl-6 border-l-2 border-green-200 bg-green-50/30 p-4 rounded-r-lg">
+                  <p className="text-sm text-green-700 mb-2">
+                    <strong>Auto-sync enabled:</strong> Changes to your Google Sheet will automatically sync to Blipp.
+                  </p>
+                  <p className="text-xs text-green-600">
+                    This will monitor your sheet for changes and update your customer database in real-time.
+                  </p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
-      
-      <div className="flex justify-center pt-4">
-        <Button onClick={handleClose}>
-          Done
-        </Button>
-      </div>
-    </div>
-  );
 
-  const renderContent = () => {
-    switch (step) {
-      case 'connect':
-        return renderConnectStep();
-      case 'select':
-        return renderSelectStep();
-      case 'preview':
-        return renderPreviewStep();
-      case 'importing':
-        return renderImportingStep();
-      case 'complete':
-        return renderCompleteStep();
-      default:
-        return renderConnectStep();
-    }
-  };
+            <div className="flex gap-3">
+              <Button
+                onClick={handleImport}
+                disabled={isLoading}
+                className="flex-1"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  'Import Customers'
+                )}
+              </Button>
+              <Button
+                onClick={saveSyncSettings}
+                disabled={isLoading}
+                variant="outline"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Save Settings
+              </Button>
+            </div>
+          </div>
+        )}
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Import Customers from Google Sheets</DialogTitle>
-        </DialogHeader>
-        {renderContent()}
+        {step === 'importing' && (
+          <div className="space-y-6 text-center">
+            <Loader2 className="h-16 w-16 mx-auto animate-spin text-blue-500" />
+            <h3 className="text-lg font-semibold">Importing Customers</h3>
+            <p className="text-gray-600">Please wait while we import your data...</p>
+            <Progress value={importProgress} className="w-full" />
+          </div>
+        )}
+
+        {step === 'complete' && importResult && (
+          <div className="space-y-6 text-center">
+            <CheckCircle className="h-16 w-16 mx-auto text-green-500" />
+            <h3 className="text-lg font-semibold">Import Complete!</h3>
+            <div className="space-y-2">
+              <p className="text-gray-600">
+                Successfully imported <strong>{importResult.customers_imported}</strong> customers
+              </p>
+              {importResult.skipped > 0 && (
+                <p className="text-gray-500">
+                  Skipped <strong>{importResult.skipped}</strong> duplicates
+                </p>
+              )}
+              {importResult.enrollmentSummary && (
+                <p className="text-gray-500">
+                  Auto-enrolled <strong>{importResult.enrollmentSummary.enrolled}</strong> customers
+                </p>
+              )}
+            </div>
+            <Button onClick={handleClose} className="w-full">
+              Done
+            </Button>
+          </div>
+        )}
+
+        {syncSettings && (
+          <div className="border-t pt-4 mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-medium">Quick Actions</h3>
+              <Button 
+                onClick={handleResync}
+                disabled={isResyncing}
+                variant="outline"
+                size="sm"
+              >
+                {isResyncing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Resyncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Resync
+                  </>
+                )}
+              </Button>
+            </div>
+            <p className="text-sm text-gray-600">
+              Connected to: <strong>{syncSettings.spreadsheet_name}</strong> - {syncSettings.sheet_name}
+            </p>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
