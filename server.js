@@ -16314,10 +16314,10 @@ async function getQuickBooksInvoiceDetails(integrationData, invoiceId) {
 // Helper function to use AI to select the best template
 async function selectTemplateByAI(businessId, invoiceDetails, customerData, triggerType) {
   try {
-    // Get automations templates from Automations tab
+    // Get automations templates from Automations tab with ALL fields including custom_message
     const { data: templates, error: templatesError } = await supabase
       .from('automation_templates')
-      .select('id, name, key, status, channels, trigger_type, config_json')
+      .select('id, name, key, status, channels, trigger_type, config_json, custom_message, updated_at')
       .eq('business_id', businessId)
       .in('status', ['active', 'ready']);
     
@@ -17544,26 +17544,25 @@ app.post('/api/qbo/webhook', async (req, res) => {
       }
       
       console.log('📝 Selected template:', selectedTemplate.name);
-      // Ensure we use the freshest template right after a save: brief retry if just updated
+      // Always fetch the absolute latest template data to ensure we use current custom_message
       try {
-        // Double-read pattern to defeat replica lag: read, short wait, read again; keep newest
-        const first = await supabase
+        const { data: freshTemplate, error: freshError } = await supabase
           .from('automation_templates')
           .select('*')
           .eq('id', selectedTemplate.id)
           .single();
-        await new Promise(r => setTimeout(r, 200));
-        const second = await supabase
-          .from('automation_templates')
-          .select('*')
-          .eq('id', selectedTemplate.id)
-          .single();
-        const row1 = first.data || selectedTemplate;
-        const row2 = second.data || row1;
-        const ts1 = new Date(row1.updated_at || 0).getTime();
-        const ts2 = new Date(row2.updated_at || 0).getTime();
-        selectedTemplate = ts2 >= ts1 ? row2 : row1;
-      } catch {}
+        
+        if (!freshError && freshTemplate) {
+          selectedTemplate = freshTemplate;
+          console.log('🔄 Fetched fresh template data:', {
+            id: freshTemplate.id,
+            custom_message: freshTemplate.custom_message,
+            updated_at: freshTemplate.updated_at
+          });
+        }
+      } catch (error) {
+        console.error('⚠️ Failed to fetch fresh template data, using cached:', error.message);
+      }
 
       // Prepare idempotency values; actual upsert happens after we create review_request
       const idemKey = `qbo:${integration.business_id}:${invoiceId}`;
@@ -19451,6 +19450,91 @@ app.get('/api/cron/refresh-qbo-tokens', async (req, res) => {
   } catch (error) {
     console.error('[CRON] Token refresh job failed:', error);
     res.status(500).json({ error: 'Token refresh job failed' });
+  }
+});
+
+// QBO connection health check cron job (every 2 hours)
+app.get('/api/cron/check-qbo-connections', async (req, res) => {
+  try {
+    console.log('[CRON] Starting QBO connection health check...');
+    
+    // Get all QBO integrations
+    const { data: integrations, error } = await supabase
+      .from('integrations_quickbooks')
+      .select('*')
+      .eq('status', 'active');
+    
+    if (error) {
+      console.error('[CRON] Error fetching integrations:', error);
+      return res.status(500).json({ error: 'Failed to fetch integrations' });
+    }
+    
+    if (!integrations || integrations.length === 0) {
+      console.log('[CRON] No QBO integrations found');
+      return res.json({ message: 'No integrations to check', checked: 0 });
+    }
+    
+    let healthyCount = 0;
+    let unhealthyCount = 0;
+    
+    for (const integration of integrations) {
+      try {
+        // Test the connection by making a simple API call
+        const testResponse = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${integration.realm_id}/companyinfo/${integration.realm_id}`, {
+          headers: {
+            'Authorization': `Bearer ${integration.access_token}`,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (testResponse.ok) {
+          healthyCount++;
+          // Update last_sync_at to show connection is working
+          await supabase
+            .from('integrations_quickbooks')
+            .update({ 
+              last_sync_at: new Date().toISOString(),
+              connection_status: 'connected'
+            })
+            .eq('id', integration.id);
+        } else if (testResponse.status === 401) {
+          // Token expired, try to refresh
+          try {
+            await refreshQBOtoken(integration);
+            healthyCount++;
+            console.log(`[CRON] Refreshed expired token for business ${integration.business_id}`);
+          } catch (refreshError) {
+            unhealthyCount++;
+            console.error(`[CRON] Failed to refresh expired token for business ${integration.business_id}:`, refreshError.message);
+            
+            await supabase
+              .from('integrations_quickbooks')
+              .update({ 
+                connection_status: 'token_expired',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', integration.id);
+          }
+        } else {
+          unhealthyCount++;
+          console.error(`[CRON] QBO API error for business ${integration.business_id}: ${testResponse.status}`);
+        }
+      } catch (error) {
+        unhealthyCount++;
+        console.error(`[CRON] Connection test failed for business ${integration.business_id}:`, error.message);
+      }
+    }
+    
+    console.log(`[CRON] QBO connection health check completed: ${healthyCount} healthy, ${unhealthyCount} unhealthy`);
+    res.json({ 
+      message: 'QBO connection health check completed', 
+      healthy: healthyCount, 
+      unhealthy: unhealthyCount 
+    });
+    
+  } catch (error) {
+    console.error('[CRON] QBO connection health check error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

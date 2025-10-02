@@ -3,6 +3,14 @@
     {
       "path": "/api/automation-executor",
       "schedule": "*/1 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh-qbo-tokens",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/check-qbo-connections",
+      "schedule": "0 */2 * * *"
     }
   ]
 }
