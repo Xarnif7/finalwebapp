@@ -115,9 +115,7 @@ async function handlePatch(req, res, businessId, templateId) {
     if (updateData.channels !== undefined) updatePayload.channels = updateData.channels;
     if (updateData.trigger_type !== undefined) updatePayload.trigger_type = updateData.trigger_type;
     if (updateData.config_json !== undefined) updatePayload.config_json = updateData.config_json;
-    if (updateData.service_types !== undefined) updatePayload.service_types = updateData.service_types;
-    if (updateData.is_default !== undefined) updatePayload.is_default = updateData.is_default;
-    if (updateData.trigger_events !== undefined) updatePayload.trigger_events = updateData.trigger_events;
+    // Note: service_types, is_default, trigger_events columns don't exist in the schema
 
     // Handle custom message updates - prioritize custom_message over config_json.message
     if (updateData.custom_message !== undefined) {
@@ -127,6 +125,9 @@ async function handlePatch(req, res, businessId, templateId) {
       updatePayload.custom_message = updateData.config_json.message;
       console.log('✅ Setting custom_message from config_json.message:', updateData.config_json.message);
     }
+    
+    // Handle other message-related fields that exist in the schema
+    if (updateData.message_subject !== undefined) updatePayload.message_subject = updateData.message_subject;
     
     console.log('🔧 Final updatePayload.custom_message:', updatePayload.custom_message);
     console.log('🔧 Final updatePayload:', JSON.stringify(updatePayload, null, 2));
