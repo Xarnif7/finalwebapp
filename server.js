@@ -16670,7 +16670,7 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData, trig
       });
       nameParts.forEach(n => { 
         if (n && n.length > 2 && invoiceText.includes(n)) {
-          hits += 1; 
+          hits += 3; // Give more weight to template name matches
           matchedKeywords.push(n);
         }
       });
