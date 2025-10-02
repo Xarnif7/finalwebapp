@@ -17555,12 +17555,12 @@ app.post('/api/qbo/webhook', async (req, res) => {
         selectedTemplate = ts2 >= ts1 ? row2 : row1;
       } catch {}
 
-      // Strong idempotency guard: only one job per invoice per business
-      const idemKey = `qbo:${integration.business_id}:${invoiceId}:emailed`;
+      // Strong idempotency guard: only one job per invoice per business (same key for Create/Emailed)
+      const idemKey = `qbo:${integration.business_id}:${invoiceId}`;
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data: existingJobs, error: idemErr } = await supabase
         .from('scheduled_jobs')
-        .select('id,status,created_at')
+        .select('id,status,created_at,payload')
         .eq('job_type', 'automation_email')
         .contains('payload', { idempotency_key: idemKey })
         .gte('created_at', twentyFourHoursAgo)
@@ -17570,13 +17570,25 @@ app.post('/api/qbo/webhook', async (req, res) => {
         console.log('Idempotency check error (continuing safely):', idemErr);
       }
       if (existingJobs && existingJobs.length > 0) {
-        console.log(`🛑 Idempotency guard hit for invoice ${invoiceId} (job ${existingJobs[0].id}), skipping duplicate end-to-end`);
-        // Update last webhook time and exit early
+        // Update existing queued job with freshest message and keep earliest run_at if already <= now
+        const existing = existingJobs[0];
+        const newPayload = {
+          ...(existing.payload || {}),
+          review_request_id: createdReq?.id || existing.payload?.review_request_id,
+          invoice_id: invoiceId,
+          idempotency_key: idemKey,
+          message: templateMessage
+        };
+        await supabase
+          .from('scheduled_jobs')
+          .update({ payload: newPayload, run_at: existing.run_at <= scheduledFor ? existing.run_at : scheduledFor })
+          .eq('id', existing.id);
         await supabase
           .from('integrations_quickbooks')
           .update({ last_webhook_at: new Date().toISOString() })
           .eq('id', integration.id);
-        return res.status(200).json({ success: true, message: 'Already queued for this invoice' });
+        console.log(`🔁 Updated existing job ${existing.id} for invoice ${invoiceId} with latest message`);
+        return res.status(200).json({ success: true, message: 'Updated existing queued job' });
       }
       
       // Create review request and enqueue scheduled job for email
