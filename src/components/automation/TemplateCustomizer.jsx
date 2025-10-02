@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Mail, MessageSquare, Clock, Settings, ArrowRight, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, Wand2, Eye, User, Link, Building, Calendar, Star, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useSmsStatus } from "@/hooks/useSmsStatus";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function TemplateCustomizer({ 
@@ -23,6 +24,7 @@ export default function TemplateCustomizer({
   isCreating = false
 }) {
   const { user: authUser } = useAuth();
+  const { isSmsEnabled, isSmsPending, isSmsActionNeeded, isSmsNotProvisioned, getSmsStatusMessage } = useSmsStatus();
   const user = propUser || authUser; // Use prop user if available, otherwise use auth user
   const [formData, setFormData] = useState({
     name: '',
@@ -827,11 +829,19 @@ export default function TemplateCustomizer({
                 variant={formData.channels && formData.channels.includes('sms') ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => formData.channels && formData.channels.includes('sms') ? removeChannel('sms') : addChannel('sms')}
-                className="flex items-center gap-2"
+                disabled={!isSmsEnabled()}
+                className={`flex items-center gap-2 ${!isSmsEnabled() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={!isSmsEnabled() ? getSmsStatusMessage() : 'SMS messaging'}
               >
                 <MessageSquare className="h-4 w-4" />
                 SMS
-                <Badge variant="secondary" className="ml-1 text-xs">Coming Soon</Badge>
+                {!isSmsEnabled() && (
+                  <Badge variant="outline" className="ml-1 text-xs">
+                    {isSmsNotProvisioned() ? 'Not Set Up' : 
+                     isSmsPending() ? 'Pending' : 
+                     isSmsActionNeeded() ? 'Action Needed' : 'Disabled'}
+                  </Badge>
+                )}
               </Button>
             </div>
           </div>

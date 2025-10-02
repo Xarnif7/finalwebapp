@@ -15,6 +15,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { useSequenceDesigner } from '../../hooks/useSequenceDesigner';
+import { useSmsStatus } from '../../hooks/useSmsStatus';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 const SequenceDesigner = ({ sequenceId, onClose, onSave }) => {
+  const { isSmsEnabled, isSmsPending, isSmsActionNeeded, isSmsNotProvisioned, getSmsStatusMessage } = useSmsStatus();
   const {
     sequence,
     steps,
@@ -361,9 +363,19 @@ const SequenceDesigner = ({ sequenceId, onClose, onSave }) => {
                   size="sm"
                   variant="outline"
                   onClick={() => handleAddStep('send_sms')}
+                  disabled={!isSmsEnabled()}
+                  className={!isSmsEnabled() ? 'opacity-50 cursor-not-allowed' : ''}
+                  title={!isSmsEnabled() ? getSmsStatusMessage() : 'Add SMS step'}
                 >
                   <MessageSquare className="w-4 h-4 mr-2" />
                   Add SMS
+                  {!isSmsEnabled() && (
+                    <Badge variant="outline" className="ml-1 text-xs">
+                      {isSmsNotProvisioned() ? 'Not Set Up' : 
+                       isSmsPending() ? 'Pending' : 
+                       isSmsActionNeeded() ? 'Action Needed' : 'Disabled'}
+                    </Badge>
+                  )}
                 </Button>
                 <Button
                   size="sm"

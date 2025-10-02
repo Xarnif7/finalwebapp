@@ -27,9 +27,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMessageTemplates } from '../../hooks/useMessageTemplates';
+import { useSmsStatus } from '../../hooks/useSmsStatus';
 
 const TemplatesTab = () => {
   const { templates, loading, error, createTemplate, updateTemplate, deleteTemplate, duplicateTemplate } = useMessageTemplates();
+  const { isSmsEnabled, isSmsPending, isSmsActionNeeded, isSmsNotProvisioned, getSmsStatusMessage } = useSmsStatus();
   const [searchQuery, setSearchQuery] = useState('');
   const [channelFilter, setChannelFilter] = useState('all');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -462,7 +464,19 @@ const TemplateEditor = ({ template, onSave, onCancel }) => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="email">Email</SelectItem>
-              <SelectItem value="sms">SMS</SelectItem>
+              <SelectItem value="sms" disabled={!isSmsEnabled()}>
+                <div className={`flex items-center gap-2 ${!isSmsEnabled() ? 'opacity-50' : ''}`}>
+                  <MessageSquare className="w-4 h-4" />
+                  SMS
+                  {!isSmsEnabled() && (
+                    <Badge variant="outline" className="ml-2 text-xs">
+                      {isSmsNotProvisioned() ? 'Not Set Up' : 
+                       isSmsPending() ? 'Pending' : 
+                       isSmsActionNeeded() ? 'Action Needed' : 'Disabled'}
+                    </Badge>
+                  )}
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
