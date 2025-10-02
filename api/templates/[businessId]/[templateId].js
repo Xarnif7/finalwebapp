@@ -97,17 +97,27 @@ async function handlePatch(req, res, businessId, templateId) {
     }
 
     // Update the template with enhanced data structure
+    console.log('🔧 Template update data received:', {
+      custom_message: updateData.custom_message,
+      config_json_message: updateData.config_json?.message,
+      has_custom_message: updateData.custom_message !== undefined
+    });
+    
     const updatePayload = {
       ...updateData,
       updated_at: new Date().toISOString()
     };
 
-    // Handle custom message updates
-    if (updateData.custom_message) {
+    // Handle custom message updates - prioritize custom_message over config_json.message
+    if (updateData.custom_message !== undefined) {
       updatePayload.custom_message = updateData.custom_message;
+      console.log('✅ Setting custom_message from updateData.custom_message:', updateData.custom_message);
     } else if (updateData.config_json && updateData.config_json.message) {
       updatePayload.custom_message = updateData.config_json.message;
+      console.log('✅ Setting custom_message from config_json.message:', updateData.config_json.message);
     }
+    
+    console.log('🔧 Final updatePayload.custom_message:', updatePayload.custom_message);
 
     // Handle AI generation tracking
     if (updateData.ai_generated !== undefined) {
