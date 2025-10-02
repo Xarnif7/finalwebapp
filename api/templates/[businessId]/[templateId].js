@@ -99,7 +99,8 @@ async function handlePatch(req, res, businessId, templateId) {
     console.log('🔧 Template update data received:', {
       custom_message: updateData.custom_message,
       config_json_message: updateData.config_json?.message,
-      has_custom_message: updateData.custom_message !== undefined
+      has_custom_message: updateData.custom_message !== undefined,
+      all_updateData: updateData
     });
     
     // Only update safe fields to avoid constraint violations
@@ -128,6 +129,7 @@ async function handlePatch(req, res, businessId, templateId) {
     }
     
     console.log('🔧 Final updatePayload.custom_message:', updatePayload.custom_message);
+    console.log('🔧 Final updatePayload:', JSON.stringify(updatePayload, null, 2));
 
     // Handle AI generation tracking
     if (updateData.ai_generated !== undefined) {
