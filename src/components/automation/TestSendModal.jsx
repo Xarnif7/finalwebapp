@@ -55,15 +55,13 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
       // Create a temporary customer record for testing
       const { data: testCustomer, error: customerError } = await supabase
         .from('customers')
-        .upsert({
+        .insert({
           business_id: business.id,
           full_name: 'Test Customer',
           email: testEmail || null,
           phone: testPhone || null,
           status: 'active',
           created_by: business.id
-        }, {
-          onConflict: 'business_id,email'
         })
         .select()
         .single();
