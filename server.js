@@ -10015,8 +10015,8 @@ app.get('/api/automation-executor', async (req, res) => {
         try {
           console.log(`Processing job ${job.id}... (current status: ${job.status})`);
           
-          // If job is stuck in processing state, reset it
-          if (job.status === 'processing') {
+          // If job is stuck in running state, reset it
+          if (job.status === 'running') {
             const processedAt = new Date(job.processed_at);
             const now = new Date();
             const timeDiff = now - processedAt;
@@ -10046,7 +10046,7 @@ app.get('/api/automation-executor', async (req, res) => {
           const { data: updateResult, error: lockError } = await supabase
             .from('scheduled_jobs')
             .update({ 
-              status: 'processing',
+              status: 'running',
               processed_at: new Date().toISOString()
             })
             .eq('id', job.id)
@@ -10261,24 +10261,29 @@ app.get('/api/automation-executor', async (req, res) => {
             body: JSON.stringify({
               from: 'noreply@myblipp.com', // Always use verified domain
               to: [request.customers.email],
-              subject: 'Thank you for your business!',
+              subject: `How was your experience with ${request.businesses.name}?`,
               html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <div style="text-align: center; margin: 20px 0;">
-                    <div style="width: 60px; height: 60px; background-color: #10b981; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-                      <span style="color: white; font-size: 24px;">✓</span>
-                    </div>
-                  </div>
-                  <h2 style="text-align: center; color: #10b981; margin-bottom: 20px;">Thank you for your business!</h2>
-                  <p>Hi ${request.customers.full_name || 'Customer'},</p>
-                  <p>${request.message}</p>
-                  <div style="text-align: center; margin: 30px 0;">
-                    <a href="${request.review_link}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">Leave a Review</a>
-                  </div>
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                  <h2 style="color: #333; margin-bottom: 20px;">How was your experience with ${request.businesses.name}?</h2>
+                  <p>Hi ${request.customers.full_name || 'Valued Customer'},</p>
+                  <p>Thank you for choosing ${request.businesses.name}! We'd love to hear about your experience.</p>
+                  <p>Please take a moment to share your feedback:</p>
+                  <p><a href="${request.review_link}" style="color: #007bff; text-decoration: none;">${request.review_link}</a></p>
+                  <p>Your feedback helps us improve and serve our customers better.</p>
                   <p>Best regards,<br>${request.businesses.name}</p>
                 </div>
               `,
-              text: `Hi ${request.customers.full_name || 'Customer'},\n\n${request.message}\n\n${request.review_link}\n\nBest regards,\n${request.businesses.name}`
+              text: `Hi ${request.customers.full_name || 'Valued Customer'},
+
+Thank you for choosing ${request.businesses.name}! We'd love to hear about your experience.
+
+Please take a moment to share your feedback:
+${request.review_link}
+
+Your feedback helps us improve and serve our customers better.
+
+Best regards,
+${request.businesses.name}`
             })
           });
 
