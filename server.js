@@ -10259,28 +10259,36 @@ app.get('/api/automation-executor', async (req, res) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              from: 'noreply@myblipp.com', // Always use verified domain
+              from: `${request.businesses.name} <noreply@myblipp.com>`, // Show business name in sender
               to: [request.customers.email],
-              subject: `How was your experience with ${request.businesses.name}?`,
+              subject: `Thank you for your business, ${request.customers.full_name || 'Valued Customer'}!`,
               html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <h2 style="color: #333; margin-bottom: 20px;">How was your experience with ${request.businesses.name}?</h2>
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <div style="text-align: center; margin: 20px 0;">
+                    <div style="width: 60px; height: 60px; background-color: #10b981; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                      <span style="color: white; font-size: 24px;">✓</span>
+                    </div>
+                  </div>
+                  <h2 style="text-align: center; color: #10b981; margin-bottom: 20px;">Thank you for your business!</h2>
                   <p>Hi ${request.customers.full_name || 'Valued Customer'},</p>
-                  <p>Thank you for choosing ${request.businesses.name}! We'd love to hear about your experience.</p>
-                  <p>Please take a moment to share your feedback:</p>
-                  <p><a href="${request.review_link}" style="color: #007bff; text-decoration: none;">${request.review_link}</a></p>
-                  <p>Your feedback helps us improve and serve our customers better.</p>
+                  <p>${request.message}</p>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${request.review_link}" 
+                       style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
+                      Leave a Review
+                    </a>
+                  </div>
+                  <p>Thank you for choosing ${request.businesses.name}!</p>
                   <p>Best regards,<br>${request.businesses.name}</p>
                 </div>
               `,
               text: `Hi ${request.customers.full_name || 'Valued Customer'},
 
-Thank you for choosing ${request.businesses.name}! We'd love to hear about your experience.
+${request.message}
 
-Please take a moment to share your feedback:
-${request.review_link}
+Leave a review: ${request.review_link}
 
-Your feedback helps us improve and serve our customers better.
+Thank you for choosing ${request.businesses.name}!
 
 Best regards,
 ${request.businesses.name}`
@@ -17499,6 +17507,15 @@ app.post('/api/qbo/webhook', async (req, res) => {
       
       // Create review request and enqueue scheduled job for email
       const scheduledFor = new Date(Date.now() + (selectedTemplate.delay_minutes || 0) * 60000).toISOString();
+      
+      // Debug: Log the template message being used
+      const templateMessage = selectedTemplate?.config_json?.message 
+        || selectedTemplate?.custom_message 
+        || selectedTemplate?.name 
+        || 'Please review us';
+      console.log('📝 Template message being used:', templateMessage);
+      console.log('📝 Selected template config_json:', selectedTemplate?.config_json);
+      
       const { data: createdReq, error: rrError } = await supabase
         .from('review_requests')
         .insert({
@@ -17506,12 +17523,8 @@ app.post('/api/qbo/webhook', async (req, res) => {
           customer_id: customer.id,
           channel: 'email',
           review_link: null,
-          // Use config_json.message first (UI stores editable content there),
-          // then custom_message, then fallbacks
-          message: (selectedTemplate?.config_json?.message 
-                    || selectedTemplate?.custom_message 
-                    || selectedTemplate?.name 
-                    || 'Please review us'),
+          // Use the template message we debugged above
+          message: templateMessage,
           status: 'pending',
           created_at: new Date().toISOString()
         })
