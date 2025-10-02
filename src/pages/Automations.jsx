@@ -30,6 +30,7 @@ import FlowCard from "@/components/automation/FlowCard";
 import SequenceCreator from "@/components/automation/SequenceCreator";
 import ActiveSequences from "@/components/automation/ActiveSequences";
 import TemplateCustomizer from "@/components/automation/TemplateCustomizer";
+import TestSendModal from "@/components/automation/TestSendModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -46,6 +47,7 @@ const AutomationsPage = () => {
   const [updating, setUpdating] = useState({});
   const [customizeModalOpen, setCustomizeModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [testSendModalOpen, setTestSendModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [customizationData, setCustomizationData] = useState({
     name: '',
@@ -637,48 +639,9 @@ const AutomationsPage = () => {
     }
   };
 
-  const handleSendNow = async (template) => {
-    try {
-      // Get a random customer for testing
-      const { data: customers, error: customerError } = await supabase
-        .from('customers')
-        .select('id, full_name, email, phone')
-        .eq('business_id', business.id)
-        .limit(1);
-
-      if (customerError || !customers || customers.length === 0) {
-        throw new Error('No customers found. Please add a customer first.');
-      }
-
-      const customer = customers[0];
-      
-      // Send immediate message
-      const response = await fetch('/api/automation/send-immediate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: JSON.stringify({
-          businessId: business.id,
-          customerId: customer.id,
-          templateId: template.id,
-          channel: template.channels?.[0] || 'email'
-        })
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to send message');
-      }
-
-      console.log('Immediate send successful:', result);
-      
-    } catch (error) {
-      console.error('Error sending immediate message:', error);
-      throw error;
-    }
+  const handleTestSend = (template) => {
+    setSelectedTemplate(template);
+    setTestSendModalOpen(true);
   };
 
 
@@ -860,7 +823,7 @@ const AutomationsPage = () => {
                   onToggle={(status) => handleTemplateToggle(template.id, status)}
                   onCustomize={() => handleCustomize(template)}
                   onTest={() => handleTest(template)}
-                  onSendNow={handleSendNow}
+                  onTestSend={handleTestSend}
                   onDelete={() => handleDelete(template)}
                   updating={updating[template.id]}
                 />
@@ -1046,6 +1009,14 @@ const AutomationsPage = () => {
         }}
         user={user}
         isCreating={true}
+      />
+
+      {/* Test Send Modal */}
+      <TestSendModal
+        isOpen={testSendModalOpen}
+        onClose={() => setTestSendModalOpen(false)}
+        template={selectedTemplate}
+        business={business}
       />
     </div>
   );

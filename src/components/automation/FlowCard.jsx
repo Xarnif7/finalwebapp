@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { CheckCircle, Clock, Mail, MessageSquare, ArrowRight, Settings, Trash2, Send, Loader2 } from "lucide-react";
+import { CheckCircle, Clock, Mail, MessageSquare, ArrowRight, Settings, Trash2, Play, Loader2 } from "lucide-react";
 import { toast } from 'sonner';
 
 export default function FlowCard({ 
@@ -14,7 +14,7 @@ export default function FlowCard({
   onTest, 
   onEdit,
   onDelete,
-  onSendNow, // New prop for immediate sending
+  onTestSend, // New prop for test sending
   updating = false 
 }) {
   // Use template if provided, otherwise use sequence
@@ -207,31 +207,15 @@ export default function FlowCard({
             <Settings className="w-3 h-3 mr-1" />
             Customize
           </Button>
-          {onSendNow && data.status === 'active' && (
+          {onTestSend && (
             <Button 
               size="sm" 
-              variant="default"
-              onClick={async () => {
-                if (sendingNow) return;
-                setSendingNow(true);
-                try {
-                  await onSendNow(data);
-                  toast.success('Message sent immediately!');
-                } catch (error) {
-                  toast.error('Failed to send message: ' + error.message);
-                } finally {
-                  setSendingNow(false);
-                }
-              }}
-              disabled={sendingNow}
-              className="bg-blue-600 hover:bg-blue-700"
+              variant="outline"
+              onClick={() => onTestSend(data)}
+              className="border-blue-200 text-blue-600 hover:bg-blue-50"
             >
-              {sendingNow ? (
-                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-              ) : (
-                <Send className="w-3 h-3 mr-1" />
-              )}
-              Send Now
+              <Play className="w-3 h-3 mr-1" />
+              Test Send
             </Button>
           )}
           {onEdit && (
