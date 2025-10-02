@@ -9984,6 +9984,11 @@ app.get('/api/automation-executor', async (req, res) => {
 
     console.log('🔍 DEBUG: Query result - error:', jobsError);
     console.log('🔍 DEBUG: Query result - jobs found:', scheduledJobs ? scheduledJobs.length : 0);
+    console.log('🔍 DEBUG: Current time for job query:', currentTime);
+    if (scheduledJobs && scheduledJobs.length > 0) {
+      console.log('🔍 DEBUG: First job run_at:', scheduledJobs[0].run_at);
+      console.log('🔍 DEBUG: First job payload:', scheduledJobs[0].payload);
+    }
     if (scheduledJobs && scheduledJobs.length > 0) {
       console.log('🔍 DEBUG: First job details:', scheduledJobs[0]);
     } else {
@@ -10263,35 +10268,60 @@ app.get('/api/automation-executor', async (req, res) => {
               to: [request.customers.email],
               subject: `Thank you for your business, ${request.customers.full_name || 'Valued Customer'}!`,
               html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <div style="text-align: center; margin: 20px 0;">
-                    <div style="width: 60px; height: 60px; background-color: #10b981; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-                      <span style="color: white; font-size: 24px;">✓</span>
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+                  <!-- Purple Gradient Header Banner -->
+                  <div style="background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%); padding: 40px 20px; text-align: center; margin: 0;">
+                    <h1 style="color: white; font-size: 32px; font-weight: bold; margin: 0 0 8px 0;">Thank You</h1>
+                    <p style="color: white; font-size: 16px; margin: 0; opacity: 0.9;">We appreciate your business</p>
+                  </div>
+                  
+                  <!-- Main Content -->
+                  <div style="padding: 30px 20px;">
+                    <h2 style="color: #1F2937; font-size: 24px; font-weight: bold; margin: 0 0 20px 0;">Hi ${request.customers.full_name || 'Valued Customer'},</h2>
+                    
+                    <!-- Custom Message Box with Blue Border -->
+                    <div style="background-color: #F9FAFB; border-left: 4px solid #3B82F6; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                      <p style="color: #374151; font-size: 16px; margin: 0; line-height: 1.5;">${request.message}</p>
                     </div>
+                    
+                    <p style="color: #6B7280; font-size: 16px; margin: 20px 0;">Your feedback helps us improve our services and assists other customers in making informed decisions.</p>
+                    
+                    <!-- Call to Action Button -->
+                    <div style="text-align: center; margin: 30px 0;">
+                      <a href="${request.review_link}" 
+                         style="background-color: #3B82F6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                        Leave Feedback
+                      </a>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <p style="color: #6B7280; font-size: 16px; margin: 20px 0;">
+                      Thank you for choosing <strong>${request.businesses.name}</strong> • <a href="#" style="color: #3B82F6; text-decoration: none;">Website</a>
+                    </p>
                   </div>
-                  <h2 style="text-align: center; color: #10b981; margin-bottom: 20px;">Thank you for your business!</h2>
-                  <p>Hi ${request.customers.full_name || 'Valued Customer'},</p>
-                  <p>${request.message}</p>
-                  <div style="text-align: center; margin: 30px 0;">
-                    <a href="${request.review_link}" 
-                       style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
-                      Leave a Review
-                    </a>
+                  
+                  <!-- Platform Footer -->
+                  <div style="background-color: #F9FAFB; padding: 20px; text-align: center; border-top: 1px solid #E5E7EB;">
+                    <p style="color: #9CA3AF; font-size: 14px; margin: 0 0 8px 0;">This email was sent by Blipp - Review Automation Platform</p>
+                    <p style="color: #9CA3AF; font-size: 14px; margin: 0;">If you have any questions, please contact ${request.businesses.name} directly.</p>
                   </div>
-                  <p>Thank you for choosing ${request.businesses.name}!</p>
-                  <p>Best regards,<br>${request.businesses.name}</p>
                 </div>
               `,
-              text: `Hi ${request.customers.full_name || 'Valued Customer'},
+              text: `Thank You - We appreciate your business
+
+Hi ${request.customers.full_name || 'Valued Customer'},
 
 ${request.message}
 
-Leave a review: ${request.review_link}
+Your feedback helps us improve our services and assists other customers in making informed decisions.
 
-Thank you for choosing ${request.businesses.name}!
+Leave Feedback: ${request.review_link}
 
-Best regards,
-${request.businesses.name}`
+Thank you for choosing ${request.businesses.name} • Website
+
+---
+This email was sent by Blipp - Review Automation Platform
+If you have any questions, please contact ${request.businesses.name} directly.`
             })
           });
 
@@ -17506,7 +17536,13 @@ app.post('/api/qbo/webhook', async (req, res) => {
       console.log('📝 Selected template:', selectedTemplate.name);
       
       // Create review request and enqueue scheduled job for email
-      const scheduledFor = new Date(Date.now() + (selectedTemplate.delay_minutes || 0) * 60000).toISOString();
+      // Calculate delay - check both delay_hours and delay_minutes
+      const delayHours = selectedTemplate.config_json?.delay_hours || 0;
+      const delayMinutes = selectedTemplate.config_json?.delay_minutes || selectedTemplate.delay_minutes || 0;
+      const totalDelayMs = (delayHours * 60 + delayMinutes) * 60000;
+      const scheduledFor = new Date(Date.now() + totalDelayMs).toISOString();
+      
+      console.log('⏰ Delay calculation:', { delayHours, delayMinutes, totalDelayMs, scheduledFor });
       
       // Debug: Log the template message being used
       const templateMessage = selectedTemplate?.config_json?.message 
