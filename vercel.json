@@ -151,10 +151,6 @@
       "destination": "/server.js"
     },
     {
-      "source": "/api/_cron/(.*)",
-      "destination": "/server.js"
-    },
-    {
       "source": "/api/csv/(.*)",
       "destination": "/server.js"
     },

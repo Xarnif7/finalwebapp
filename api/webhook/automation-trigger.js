@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     console.log('🔔 Webhook triggered - calling automation executor...');
     
     // Call the automation executor API
-    const response = await fetch(`${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/api/_cron/automation-executor`, {
+    const response = await fetch(`${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/api/automation-executor`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

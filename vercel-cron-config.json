@@ -1,8 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/_cron/automation-executor",
-      "schedule": "*/5 * * * *"
+      "path": "/api/automation-executor",
+      "schedule": "*/1 * * * *"
     }
   ]
 }
