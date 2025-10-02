@@ -10247,8 +10247,8 @@ app.get('/api/automation-executor', async (req, res) => {
           continue;
         }
         
-          // Determine final message (prefer job payload override)
-          const finalMessage = (job && job.payload && job.payload.message) ? job.payload.message : request.message;
+          // Determine final message (pending list has no job context)
+          const finalMessage = request.message;
 
           // Add delay between emails to respect rate limits (2 requests per second)
         if (sentCount > 0) {
