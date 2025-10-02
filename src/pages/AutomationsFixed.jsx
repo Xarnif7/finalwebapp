@@ -102,28 +102,6 @@ const AutomationsPageFixed = () => {
     }
   };
 
-  // Save template to localStorage
-  const saveTemplateToStorage = (template) => {
-    try {
-      const userEmail = user?.email || 'unknown';
-      const sanitizedEmail = userEmail.replace(/[^a-zA-Z0-9]/g, '_');
-      const localStorageKey = `blipp_templates_${sanitizedEmail}`;
-      
-      const savedData = localStorage.getItem(localStorageKey);
-      const savedTemplates = savedData ? JSON.parse(savedData) : {};
-      
-      savedTemplates[template.id] = {
-        ...template,
-        user_email: userEmail,
-        updated_at: new Date().toISOString()
-      };
-      
-      localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
-      console.log('💾 Template saved to localStorage:', template.name);
-    } catch (error) {
-      console.error('❌ Error saving template:', error);
-    }
-  };
 
   // Handle template toggle
   const handleTemplateToggle = async (templateId, newStatus) => {
@@ -363,25 +341,38 @@ const AutomationsPageFixed = () => {
     try {
       console.log('🗑️ Deleting template:', templateId, templateName);
       
+      // Get business ID
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (!profile?.business_id) {
+        console.error('❌ No business ID found');
+        return;
+      }
+      
+      // Delete from database
+      const { error: deleteError } = await supabase
+        .from('automation_templates')
+        .delete()
+        .eq('id', templateId)
+        .eq('business_id', profile.business_id);
+      
+      if (deleteError) {
+        console.error('❌ Error deleting template from database:', deleteError);
+        alert('Error deleting template from database. Please try again.');
+        return;
+      }
+      
       // Remove from local state
       setTemplates(prev => prev.filter(t => t.id !== templateId));
-      
-      // Remove from localStorage
-      const userEmail = user?.email || 'unknown';
-      const sanitizedEmail = userEmail.replace(/[^a-zA-Z0-9]/g, '_');
-      const localStorageKey = `blipp_templates_${sanitizedEmail}`;
-      
-      const savedData = localStorage.getItem(localStorageKey);
-      if (savedData) {
-        const savedTemplates = JSON.parse(savedData);
-        delete savedTemplates[templateId];
-        localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
-      }
       
       // Close modal if it's open
       setCustomizeModalOpen(false);
       
-      console.log('✅ Template deleted successfully');
+      console.log('✅ Template deleted successfully from database');
     } catch (error) {
       console.error('❌ Error deleting template:', error);
       alert('Error deleting template. Please try again.');
