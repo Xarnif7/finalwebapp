@@ -228,17 +228,17 @@ async function processInvoiceData(businessId, realmId, invoice, operation) {
     return;
   }
 
-  const externalId = `qbo_${customerRefValue}`;
+  // QBO customers are stored with external_id = qbCustomer.Id (without qbo_ prefix)
   const { data: customer, error: customerError } = await supabase
     .from('customers')
     .select('id, full_name, email, external_meta')
     .eq('business_id', businessId)
     .eq('external_source', 'qbo')
-    .eq('external_id', externalId)
+    .eq('external_id', customerRefValue)
     .single();
 
   if (customerError || !customer) {
-    console.log(`[QBO] Customer not found for external_id: ${externalId}`);
+    console.log(`[QBO] Customer not found for external_id: ${customerRefValue}`);
     return;
   }
 
@@ -420,23 +420,43 @@ function deriveJobHint(invoice) {
 async function findMatchingTemplate(businessId, jobHint, triggerType) {
   console.log(`[QBO] Finding template for business ${businessId}, hint: ${jobHint}, trigger: ${triggerType}`);
 
-  // Get all active templates for this business
+  // Get all active automation templates for this business
   const { data: templates, error: templatesError } = await supabase
-    .from('message_templates')
-    .select('id, name, content, external_meta')
+    .from('automation_templates')
+    .select('id, name, key, status, config_json, channels')
     .eq('business_id', businessId)
-    .eq('is_active', true);
+    .eq('status', 'active');
 
   if (templatesError || !templates || templates.length === 0) {
-    console.log('[QBO] No active templates found');
+    console.log('[QBO] No active automation templates found');
     return null;
+  }
+
+  // Map trigger types to template keys
+  const triggerToKey = {
+    'invoice_sent': 'invoice_sent',
+    'invoice_paid': 'invoice_paid',
+    'job_completed': 'job_completed',
+    'service_completed': 'service_completed'
+  };
+
+  const targetKey = triggerToKey[triggerType];
+  console.log(`[QBO] Looking for template with key: ${targetKey}`);
+
+  // First, try to find template by exact key match
+  if (targetKey) {
+    const keyMatch = templates.find(t => t.key === targetKey);
+    if (keyMatch) {
+      console.log(`[QBO] Found template by key match: ${keyMatch.name}`);
+      return keyMatch.id;
+    }
   }
 
   // Try exact/substring match against template name and keywords
   if (jobHint) {
     for (const template of templates) {
       const templateName = template.name.toLowerCase();
-      const templateKeywords = template.external_meta?.keywords || [];
+      const templateKeywords = template.config_json?.keywords || [];
       
       // Check template name
       if (templateName.includes(jobHint) || jobHint.includes(templateName)) {
@@ -455,15 +475,15 @@ async function findMatchingTemplate(businessId, jobHint, triggerType) {
   }
 
   // Try to find a generic template based on trigger type
-  const genericTemplateNames = [
-    'Job Completed',
-    'Invoice Paid',
-    'Payment Received',
-    'Service Complete',
-    'Work Completed'
-  ];
+  const genericTemplateNames = {
+    'invoice_sent': ['Invoice Sent', 'Invoice Delivered', 'Invoice Email'],
+    'invoice_paid': ['Invoice Paid', 'Payment Received', 'Payment Complete'],
+    'job_completed': ['Job Completed', 'Service Complete', 'Work Done', 'Project Complete'],
+    'service_completed': ['Service Complete', 'Work Done', 'Job Finished']
+  };
 
-  for (const genericName of genericTemplateNames) {
+  const genericNames = genericTemplateNames[triggerType] || [];
+  for (const genericName of genericNames) {
     const genericTemplate = templates.find(t => 
       t.name.toLowerCase().includes(genericName.toLowerCase())
     );
@@ -472,6 +492,18 @@ async function findMatchingTemplate(businessId, jobHint, triggerType) {
       console.log(`[QBO] Found generic template: ${genericTemplate.name}`);
       return genericTemplate.id;
     }
+  }
+
+  // Try to find any template that has the trigger type enabled in config
+  const triggerEnabledTemplate = templates.find(t => {
+    const config = t.config_json || {};
+    const triggers = config.triggers || {};
+    return triggers[triggerType] === true || triggers[targetKey] === true;
+  });
+
+  if (triggerEnabledTemplate) {
+    console.log(`[QBO] Found template with trigger enabled: ${triggerEnabledTemplate.name}`);
+    return triggerEnabledTemplate.id;
   }
 
   // Return the first template as fallback
@@ -483,7 +515,7 @@ async function findMatchingTemplate(businessId, jobHint, triggerType) {
   return null;
 }
 
-// Trigger automation (placeholder - integrate with existing system)
+// Trigger automation - integrated with existing automation system
 async function triggerAutomation(businessId, customerId, templateId, metadata) {
   console.log(`[QBO] Triggering automation:`, {
     businessId,
@@ -492,18 +524,42 @@ async function triggerAutomation(businessId, customerId, templateId, metadata) {
     metadata
   });
 
-  // TODO: Integrate with existing automation system
-  // This should call the same function used for manual triggers
-  // e.g., automations.queueForCustomer or startSequenceForCustomer
-  
   try {
-    // For now, create a review request record
-    const { error } = await supabase
+    // Get template details for automation
+    const { data: template, error: templateError } = await supabase
+      .from('automation_templates')
+      .select('*')
+      .eq('id', templateId)
+      .eq('business_id', businessId)
+      .single();
+
+    if (templateError || !template) {
+      console.error('[QBO] Template not found:', templateError);
+      return;
+    }
+
+    // Get customer details
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .select('id, full_name, email, phone')
+      .eq('id', customerId)
+      .eq('business_id', businessId)
+      .single();
+
+    if (customerError || !customer) {
+      console.error('[QBO] Customer not found:', customerError);
+      return;
+    }
+
+    // Create review request entry first
+    const { data: reviewRequest, error: requestError } = await supabase
       .from('review_requests')
       .insert({
         business_id: businessId,
         customer_id: customerId,
-        template_id: templateId,
+        channel: template.channels?.[0] || 'email',
+        review_link: 'pending', // Will be updated after creation
+        message: template.custom_message || template.config_json?.message || 'Thank you for your business! Please consider leaving us a review.',
         status: 'pending',
         trigger_type: metadata.trigger_type,
         external_source: 'qbo_webhook',
@@ -515,14 +571,71 @@ async function triggerAutomation(businessId, customerId, templateId, metadata) {
           customer_external_id: metadata.customer_external_id,
           triggered_at: new Date().toISOString()
         },
-        created_at: new Date().toISOString()
+        send_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (requestError) {
+      console.error('[QBO] Failed to create review request:', requestError);
+      return;
+    }
+
+    // Generate review link using the actual review request ID
+    const reviewLink = `${process.env.APP_BASE_URL || 'https://myblipp.com'}/feedback/${reviewRequest.id}`;
+
+    // Update the review request with the correct link
+    const { error: updateError } = await supabase
+      .from('review_requests')
+      .update({ review_link: reviewLink })
+      .eq('id', reviewRequest.id);
+
+    if (updateError) {
+      console.error('[QBO] Error updating review link:', updateError);
+    }
+
+    // Calculate delay based on template configuration
+    const delayHours = template.config_json?.delay_hours || 0;
+    const sendTime = new Date();
+    if (delayHours > 0) {
+      sendTime.setHours(sendTime.getHours() + delayHours);
+    }
+
+    // Schedule the automation email to be sent
+    const { error: scheduleError } = await supabase
+      .from('scheduled_jobs')
+      .insert({
+        job_type: 'automation_email',
+        payload: {
+          review_request_id: reviewRequest.id,
+          business_id: businessId,
+          template_id: templateId,
+          template_name: template.name,
+          customer_id: customerId,
+          customer_name: customer.full_name,
+          customer_email: customer.email,
+          trigger_source: 'qbo_webhook',
+          invoice_id: metadata.invoice_id,
+          invoice_total: metadata.invoice_total
+        },
+        run_at: sendTime.toISOString(),
+        status: 'queued'
       });
 
-    if (error) {
-      console.error('[QBO] Failed to create review request:', error);
-    } else {
-      console.log('[QBO] Review request created successfully');
+    if (scheduleError) {
+      console.error('[QBO] Error scheduling automation email:', scheduleError);
+      return;
     }
+
+    console.log(`[QBO] Automation scheduled successfully for customer ${customer.full_name} at ${sendTime.toISOString()}`);
+
+    // Record automation event for audit
+    await recordAutomationEvent(businessId, customerId, templateId, metadata.trigger_type, {
+      ...metadata,
+      review_request_id: reviewRequest.id,
+      scheduled_for: sendTime.toISOString()
+    });
+
   } catch (error) {
     console.error('[QBO] Error triggering automation:', error);
   }
