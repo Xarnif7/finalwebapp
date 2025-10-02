@@ -10247,12 +10247,15 @@ app.get('/api/automation-executor', async (req, res) => {
           continue;
         }
         
-        // Add delay between emails to respect rate limits (2 requests per second)
+          // Determine final message (prefer job payload override)
+          const finalMessage = (job && job.payload && job.payload.message) ? job.payload.message : request.message;
+
+          // Add delay between emails to respect rate limits (2 requests per second)
         if (sentCount > 0) {
           await new Promise(resolve => setTimeout(resolve, 600)); // 600ms delay = ~1.67 requests per second
         }
 
-        // Send email
+          // Send email
         if (request.channel === 'email' && request.customers.email) {
           console.log(`📧 Sending email to ${request.customers.email} using Resend API`);
           console.log(`📧 Resend API key configured: ${process.env.RESEND_API_KEY ? 'Yes' : 'No'}`);
@@ -10280,8 +10283,8 @@ app.get('/api/automation-executor', async (req, res) => {
                     <h2 style="color: #1F2937; font-size: 24px; font-weight: bold; margin: 0 0 20px 0;">Hi ${request.customers.full_name || 'Valued Customer'},</h2>
                     
                     <!-- Custom Message Box with Blue Border -->
-                  <div style="background-color: #F9FAFB; border-left: 4px solid #3B82F6; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-                      <p style="color: #374151; font-size: 16px; margin: 0; line-height: 1.5;">${request.message}</p>
+                    <div style="background-color: #F9FAFB; border-left: 4px solid #3B82F6; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                      <p style="color: #374151; font-size: 16px; margin: 0; line-height: 1.5;">${finalMessage}</p>
                     </div>
                     
           <p style="color: #6B7280; font-size: 16px; margin: 20px 0;">Your feedback helps us improve our services and assists other customers in making informed decisions.</p>
@@ -10311,7 +10314,7 @@ app.get('/api/automation-executor', async (req, res) => {
 
 Hi ${request.customers.full_name || 'Valued Customer'},
 
-${request.message}
+${finalMessage}
 
 Your feedback helps us improve our services and assists other customers in making informed decisions.
 
