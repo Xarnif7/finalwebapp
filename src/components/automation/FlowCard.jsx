@@ -77,7 +77,13 @@ export default function FlowCard({
     }
     
     // Format trigger text
-    const triggerText = (key || 'event').replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    // Use friendly names for standard keys; fall back to template name for custom keys
+    const standardTriggers = {
+      invoice_paid: 'Invoice Paid',
+      job_completed: 'Job Completed',
+      service_reminder: 'Service Reminder'
+    };
+    const triggerText = standardTriggers[key] || (data?.name || 'Event');
     
     // Generate smart description based on settings
     if (channels.length === 1) {

@@ -17697,7 +17697,12 @@ app.post('/api/qbo/webhook', async (req, res) => {
           customer_id: customer.id,
           channel: 'email',
           review_link: null,
-          message: (selectedTemplate.config_json?.message || selectedTemplate.custom_message || selectedTemplate.name || 'Please review us'),
+          // Use config_json.message first (UI stores editable content there),
+          // then custom_message, then fallbacks
+          message: (selectedTemplate?.config_json?.message 
+                    || selectedTemplate?.custom_message 
+                    || selectedTemplate?.name 
+                    || 'Please review us'),
           status: 'pending',
           created_at: new Date().toISOString()
         })
