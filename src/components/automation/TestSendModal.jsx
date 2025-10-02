@@ -50,28 +50,46 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
     setSending(true);
 
     try {
-      console.log('🚀 Creating test customer...', { businessId: business.id, testEmail, testPhone });
+      console.log('🚀 Finding or creating test customer...', { businessId: business.id, testEmail, testPhone });
       
-      // Create a temporary customer record for testing
-      const { data: testCustomer, error: customerError } = await supabase
+      // First, try to find existing customer with this email
+      let testCustomer;
+      const { data: existingCustomer, error: findError } = await supabase
         .from('customers')
-        .insert({
-          business_id: business.id,
-          full_name: 'Test Customer',
-          email: testEmail || null,
-          phone: testPhone || null,
-          status: 'active',
-          created_by: business.id
-        })
-        .select()
+        .select('*')
+        .eq('business_id', business.id)
+        .eq('email', testEmail)
         .single();
 
-      if (customerError) {
-        console.error('🚀 Customer creation error:', customerError);
-        throw new Error('Failed to create test customer: ' + customerError.message);
-      }
+      if (existingCustomer && !findError) {
+        console.log('🚀 Found existing customer:', existingCustomer);
+        testCustomer = existingCustomer;
+      } else {
+        console.log('🚀 No existing customer found, creating new one...');
+        
+        // Create a new customer with unique email to avoid conflicts
+        const uniqueEmail = `test-${Date.now()}@${testEmail.split('@')[1]}`;
+        const { data: newCustomer, error: customerError } = await supabase
+          .from('customers')
+          .insert({
+            business_id: business.id,
+            full_name: 'Test Customer',
+            email: uniqueEmail,
+            phone: testPhone || null,
+            status: 'active',
+            created_by: business.id
+          })
+          .select()
+          .single();
 
-      console.log('🚀 Test customer created:', testCustomer);
+        if (customerError) {
+          console.error('🚀 Customer creation error:', customerError);
+          throw new Error('Failed to create test customer: ' + customerError.message);
+        }
+
+        console.log('🚀 New test customer created:', newCustomer);
+        testCustomer = newCustomer;
+      }
 
       // Get auth token
       const session = await supabase.auth.getSession();
@@ -84,7 +102,8 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
         customerId: testCustomer.id,
         templateId: template.id,
         message: customMessage,
-        channel: testEmail ? 'email' : 'sms'
+        channel: testEmail ? 'email' : 'sms',
+        to: testEmail || testPhone // Use original email/phone for sending
       });
 
       const response = await fetch('/api/automation/send-immediate', {
@@ -98,7 +117,8 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
           customerId: testCustomer.id,
           templateId: template.id,
           message: customMessage,
-          channel: testEmail ? 'email' : 'sms'
+          channel: testEmail ? 'email' : 'sms',
+          to: testEmail || testPhone // Override the customer email with the test email
         })
       });
 

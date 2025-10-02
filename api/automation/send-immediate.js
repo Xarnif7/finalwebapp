@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { businessId, customerId, templateId, message, channel = 'email' } = req.body;
+    const { businessId, customerId, templateId, message, channel = 'email', to } = req.body;
 
     if (!businessId || !customerId || !templateId) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -63,8 +63,9 @@ export default async function handler(req, res) {
 
     let result = { success: true, message: 'Message sent successfully' };
 
-    if (channel === 'email' && customer.email) {
+    if (channel === 'email' && (customer.email || to)) {
       // Send email via Resend
+      const recipientEmail = to || customer.email;
       const emailResponse = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -73,7 +74,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           from: business.email || 'noreply@myblipp.com',
-          to: [customer.email],
+          to: [recipientEmail],
           subject: 'Thank you for your business!',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -97,8 +98,9 @@ export default async function handler(req, res) {
       result.emailId = emailData.id;
       result.channel = 'email';
 
-    } else if (channel === 'sms' && customer.phone) {
+    } else if (channel === 'sms' && (customer.phone || to)) {
       // Send SMS via Surge API
+      const recipientPhone = to || customer.phone;
       const smsResponse = await fetch(`${process.env.APP_BASE_URL}/api/surge/sms/send`, {
         method: 'POST',
         headers: {
@@ -107,7 +109,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           businessId: businessId,
-          to: customer.phone,
+          to: recipientPhone,
           body: personalizedMessage
         })
       });
