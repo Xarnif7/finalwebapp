@@ -10266,13 +10266,13 @@ app.get('/api/automation-executor', async (req, res) => {
             body: JSON.stringify({
               from: `${request.businesses.name} <noreply@myblipp.com>`, // Show business name in sender
               to: [request.customers.email],
-              subject: `Thank you for your business, ${request.customers.full_name || 'Valued Customer'}!`,
+              subject: `Thank you from ${request.businesses.name}`,
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
                   <!-- Purple Gradient Header Banner -->
                   <div style="background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%); padding: 40px 20px; text-align: center; margin: 0;">
                     <h1 style="color: white; font-size: 32px; font-weight: bold; margin: 0 0 8px 0;">Thank You</h1>
-                    <p style="color: white; font-size: 16px; margin: 0; opacity: 0.9;">We appreciate your business</p>
+                    <p style="color: white; font-size: 16px; margin: 0; opacity: 0.9;">We appreciate your business at ${request.businesses.name}</p>
                   </div>
                   
                   <!-- Main Content -->
@@ -10290,7 +10290,7 @@ app.get('/api/automation-executor', async (req, res) => {
                     <div style="text-align: center; margin: 30px 0;">
                       <a href="${request.review_link}" 
                          style="background-color: #3B82F6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                        Leave Feedback
+                        Leave a Review
                       </a>
                     </div>
                     
