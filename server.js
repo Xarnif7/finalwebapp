@@ -17658,7 +17658,11 @@ app.post('/api/qbo/webhook', async (req, res) => {
       }
       
       // Find customer in Blipp
-      const { data: customer, error: customerError } = await supabase
+      console.log('🔍 Looking for customer with external_id:', invoiceDetails.CustomerRef.value);
+      console.log('🔍 CustomerRef object:', JSON.stringify(invoiceDetails.CustomerRef, null, 2));
+      
+      let customer;
+      const { data: customerData, error: customerError } = await supabase
         .from('customers')
         .select('*')
         .eq('business_id', integration.business_id)
@@ -17666,9 +17670,39 @@ app.post('/api/qbo/webhook', async (req, res) => {
         .eq('external_id', invoiceDetails.CustomerRef.value)
         .single();
       
+      customer = customerData;
+      
       if (customerError || !customer) {
         console.error('❌ Customer not found in Blipp:', invoiceDetails.CustomerRef.value);
-        return res.status(404).json({ error: 'Customer not found' });
+        console.error('❌ CustomerError details:', customerError);
+        
+        // Try to find customer with different external_id formats
+        console.log('🔍 Trying alternative lookups...');
+        const { data: altCustomer1 } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('business_id', integration.business_id)
+          .eq('external_source', 'qbo')
+          .eq('external_id', `qbo_${invoiceDetails.CustomerRef.value}`)
+          .single();
+        
+        const { data: altCustomer2 } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('business_id', integration.business_id)
+          .eq('external_source', 'qbo')
+          .eq('external_id', String(invoiceDetails.CustomerRef.value))
+          .single();
+        
+        if (altCustomer1) {
+          console.log('✅ Found customer with qbo_ prefix:', altCustomer1.full_name);
+          customer = altCustomer1;
+        } else if (altCustomer2) {
+          console.log('✅ Found customer with string conversion:', altCustomer2.full_name);
+          customer = altCustomer2;
+        } else {
+          return res.status(404).json({ error: 'Customer not found' });
+        }
       }
       
       console.log('👤 Found customer:', customer.full_name || customer.name);
