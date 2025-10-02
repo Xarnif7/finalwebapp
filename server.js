@@ -17534,6 +17534,29 @@ app.post('/api/qbo/webhook', async (req, res) => {
       }
       
       console.log('📝 Selected template:', selectedTemplate.name);
+      // Ensure we use the freshest template right after a save: brief retry if just updated
+      try {
+        const nowIso = new Date().toISOString();
+        let attempts = 0;
+        while (attempts < 3) {
+          const { data: freshTemplate } = await supabase
+            .from('automation_templates')
+            .select('*')
+            .eq('id', selectedTemplate.id)
+            .single();
+          if (freshTemplate) {
+            selectedTemplate = freshTemplate;
+          }
+          // If updated very recently, break; otherwise small wait then retry once
+          const updatedAt = new Date(selectedTemplate.updated_at || nowIso);
+          const driftMs = Date.now() - updatedAt.getTime();
+          if (driftMs >= -2000) {
+            break;
+          }
+          await new Promise(r => setTimeout(r, 250));
+          attempts++;
+        }
+      } catch {}
 
       // Strong idempotency guard: only one job per invoice per business
       const idemKey = `qbo:${integration.business_id}:${invoiceId}:emailed`;
