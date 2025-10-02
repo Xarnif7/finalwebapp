@@ -10281,7 +10281,7 @@ app.get('/api/automation-executor', async (req, res) => {
                     
                     <!-- Custom Message Box with Blue Border -->
                     <div style="background-color: #F9FAFB; border-left: 4px solid #3B82F6; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-                      <p style="color: #374151; font-size: 16px; margin: 0; line-height: 1.5;">${request.message}</p>
+                      <p style="color: #374151; font-size: 16px; margin: 0; line-height: 1.5;">${(job && job.payload && job.payload.message) || request.message}</p>
                     </div>
                     
                     <p style="color: #6B7280; font-size: 16px; margin: 20px 0;">Your feedback helps us improve our services and assists other customers in making informed decisions.</p>
@@ -10311,7 +10311,7 @@ app.get('/api/automation-executor', async (req, res) => {
 
 Hi ${request.customers.full_name || 'Valued Customer'},
 
-${request.message}
+${(job && job.payload && job.payload.message) || request.message}
 
 Your feedback helps us improve our services and assists other customers in making informed decisions.
 
@@ -17657,7 +17657,7 @@ app.post('/api/qbo/webhook', async (req, res) => {
           job_type: 'automation_email',
           status: 'queued',
           run_at: scheduledFor,
-          payload: { review_request_id: createdReq.id, invoice_id: invoiceId, idempotency_key: idemKey }
+          payload: { review_request_id: createdReq.id, invoice_id: invoiceId, idempotency_key: idemKey, message: templateMessage }
         });
 
       if (jobError) {
