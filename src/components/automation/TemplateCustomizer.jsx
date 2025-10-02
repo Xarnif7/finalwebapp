@@ -12,6 +12,7 @@ import { Mail, MessageSquare, Clock, Settings, ArrowRight, CheckCircle, AlertCir
 import { useAuth } from "@/hooks/useAuth";
 import { useSmsStatus } from "@/hooks/useSmsStatus";
 import { supabase } from "@/lib/supabaseClient";
+import TestSendModal from "./TestSendModal";
 
 export default function TemplateCustomizer({ 
   isOpen, 
@@ -19,7 +20,6 @@ export default function TemplateCustomizer({
   template, 
   onSave,
   onDelete,
-  onTestSend,
   businessId,
   user: propUser,
   isCreating = false
@@ -57,6 +57,7 @@ export default function TemplateCustomizer({
   const [testServiceType, setTestServiceType] = useState('');
   const [aiTesting, setAiTesting] = useState(false);
   const [aiTestResult, setAiTestResult] = useState(null);
+  const [testSendModalOpen, setTestSendModalOpen] = useState(false);
   const textareaRef = useRef(null);
   const previewTimeoutRef = useRef(null);
 
@@ -902,19 +903,8 @@ export default function TemplateCustomizer({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    console.log('🧪 Test Send button clicked in TemplateCustomizer');
-                    console.log('🧪 onTestSend function:', onTestSend);
-                    // Create a temporary template object for testing
-                    const testTemplate = {
-                      id: template?.id || 'test',
-                      name: formData.name || 'Test Template',
-                      channels: formData.channels || ['email'],
-                      config_json: {
-                        message: customMessage
-                      }
-                    };
-                    console.log('🧪 Calling onTestSend with:', testTemplate);
-                    onTestSend?.(testTemplate);
+                    console.log('🧪 Test Send button clicked - opening modal directly');
+                    setTestSendModalOpen(true);
                   }}
                   className="text-xs px-2 py-1 h-7"
                 >
@@ -1335,6 +1325,25 @@ export default function TemplateCustomizer({
           </div>
         </div>
       </DialogContent>
+
+      {/* Test Send Modal */}
+      <TestSendModal
+        isOpen={testSendModalOpen}
+        onClose={() => setTestSendModalOpen(false)}
+        template={{
+          id: template?.id || 'test',
+          name: formData.name || 'Test Template',
+          channels: formData.channels || ['email'],
+          config_json: {
+            message: customMessage
+          }
+        }}
+        business={{
+          id: businessId,
+          name: 'Your Business',
+          email: user?.email || 'noreply@myblipp.com'
+        }}
+      />
     </Dialog>
   );
 }
