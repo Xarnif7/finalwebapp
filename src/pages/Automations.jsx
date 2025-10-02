@@ -986,6 +986,7 @@ const AutomationsPage = () => {
         onClose={() => setCustomizeModalOpen(false)}
         template={selectedTemplate}
         onSave={handleTemplateSaved}
+        onTestSend={handleTestSend}
         businessId={business?.id}
         user={user}
       />
@@ -995,6 +996,7 @@ const AutomationsPage = () => {
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onSave={handleCreateTemplate}
+        onTestSend={handleTestSend}
         template={{
           id: null, // New template
           name: '',

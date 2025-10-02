@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Mail, MessageSquare, Clock, Settings, ArrowRight, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, Wand2, Eye, User, Link, Building, Calendar, Star, Trash2 } from "lucide-react";
+import { Mail, MessageSquare, Clock, Settings, ArrowRight, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Sparkles, Wand2, Eye, User, Link, Building, Calendar, Star, Trash2, Play } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSmsStatus } from "@/hooks/useSmsStatus";
 import { supabase } from "@/lib/supabaseClient";
@@ -19,6 +19,7 @@ export default function TemplateCustomizer({
   template, 
   onSave,
   onDelete,
+  onTestSend,
   businessId,
   user: propUser,
   isCreating = false
@@ -894,7 +895,30 @@ export default function TemplateCustomizer({
             <h3 className="text-lg font-medium">Message Content</h3>
             
             <div>
-              <Label htmlFor="message">Email/SMS Message</Label>
+              <div className="flex items-center justify-between mb-2">
+                <Label htmlFor="message">Email/SMS Message</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Create a temporary template object for testing
+                    const testTemplate = {
+                      id: template?.id || 'test',
+                      name: formData.name || 'Test Template',
+                      channels: formData.channels || ['email'],
+                      config_json: {
+                        message: customMessage
+                      }
+                    };
+                    onTestSend?.(testTemplate);
+                  }}
+                  className="text-xs px-2 py-1 h-7"
+                >
+                  <Play className="w-3 h-3 mr-1" />
+                  Test Send
+                </Button>
+              </div>
               <Textarea
                 ref={textareaRef}
                 id="message"
