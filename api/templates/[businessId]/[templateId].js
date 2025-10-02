@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { headers } from 'next/headers';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -24,7 +23,7 @@ export default async function handler(req, res) {
 async function handleGet(req, res, businessId, templateId) {
   try {
     // Get user from JWT token
-    const authHeader = headers().get('authorization');
+    const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -68,7 +67,7 @@ async function handlePatch(req, res, businessId, templateId) {
     const updateData = req.body;
 
     // Get user from JWT token
-    const authHeader = headers().get('authorization');
+    const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -189,7 +188,7 @@ async function handlePatch(req, res, businessId, templateId) {
 async function handleDelete(req, res, businessId, templateId) {
   try {
     // Get user from JWT token
-    const authHeader = headers().get('authorization');
+    const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
