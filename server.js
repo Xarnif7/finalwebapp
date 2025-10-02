@@ -17544,6 +17544,10 @@ app.post('/api/qbo/webhook', async (req, res) => {
       
       console.log('⏰ Delay calculation:', { delayHours, delayMinutes, totalDelayMs, scheduledFor });
       
+      // Prefer explicit custom_message; if missing, mirror config_json.message for consistency
+      if (!selectedTemplate?.custom_message && selectedTemplate?.config_json?.message) {
+        selectedTemplate.custom_message = selectedTemplate.config_json.message;
+      }
       // Debug: Log the template message being used
       const templateMessage = selectedTemplate?.custom_message 
         || selectedTemplate?.config_json?.message 
@@ -17554,6 +17558,7 @@ app.post('/api/qbo/webhook', async (req, res) => {
       console.log('📝 Selected template config_json.message:', selectedTemplate?.config_json?.message);
       console.log('📝 Selected template config_json:', selectedTemplate?.config_json);
       
+      // Create review request first so we have the ID to build the public link
       const { data: createdReq, error: rrError } = await supabase
         .from('review_requests')
         .insert({
@@ -17572,6 +17577,16 @@ app.post('/api/qbo/webhook', async (req, res) => {
       if (rrError || !createdReq) {
         console.error('❌ Failed to create review request:', rrError);
         return res.status(500).json({ error: 'Failed to create review request' });
+      }
+
+      // After creation, set the public review link to /feedback/{id}
+      if (createdReq?.id) {
+        const baseUrl = process.env.PUBLIC_BASE_URL || 'https://myblipp.com';
+        const reviewLink = `${baseUrl}/feedback/${createdReq.id}`;
+        await supabase
+          .from('review_requests')
+          .update({ review_link: reviewLink })
+          .eq('id', createdReq.id);
       }
 
       const { error: jobError } = await supabase
