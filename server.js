@@ -10013,6 +10013,35 @@ app.get('/api/automation-executor', async (req, res) => {
       
       for (const job of scheduledJobs) {
         try {
+          console.log(`Processing job ${job.id}... (current status: ${job.status})`);
+          
+          // If job is stuck in processing state, reset it
+          if (job.status === 'processing') {
+            const processedAt = new Date(job.processed_at);
+            const now = new Date();
+            const timeDiff = now - processedAt;
+            
+            // If job has been processing for more than 5 minutes, reset it
+            if (timeDiff > 5 * 60 * 1000) {
+              console.log(`Job ${job.id} stuck in processing for ${Math.round(timeDiff / 1000)}s, resetting to queued`);
+              const { error: resetError } = await supabase
+                .from('scheduled_jobs')
+                .update({ 
+                  status: 'queued',
+                  processed_at: null
+                })
+                .eq('id', job.id);
+              
+              if (resetError) {
+                console.log(`Failed to reset job ${job.id}:`, resetError);
+                continue;
+              }
+            } else {
+              console.log(`Job ${job.id} still being processed (${Math.round(timeDiff / 1000)}s ago), skipping`);
+              continue;
+            }
+          }
+          
           // First, mark job as processing to prevent race conditions
           const { error: lockError } = await supabase
             .from('scheduled_jobs')
@@ -10209,6 +10238,9 @@ app.get('/api/automation-executor', async (req, res) => {
 
         // Send email
         if (request.channel === 'email' && request.customers.email) {
+          console.log(`📧 Sending email to ${request.customers.email} using Resend API`);
+          console.log(`📧 Resend API key configured: ${process.env.RESEND_API_KEY ? 'Yes' : 'No'}`);
+          
           const emailResponse = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
@@ -10252,7 +10284,12 @@ app.get('/api/automation-executor', async (req, res) => {
               })
               .eq('id', request.id);
           } else {
-            console.error(`❌ Failed to send email to ${request.customers.email}`);
+            const errorData = await emailResponse.text();
+            console.error(`❌ Failed to send email to ${request.customers.email}:`, {
+              status: emailResponse.status,
+              statusText: emailResponse.statusText,
+              error: errorData
+            });
           }
         }
       } catch (error) {
