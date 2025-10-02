@@ -159,8 +159,11 @@ async function handlePatch(req, res, businessId, templateId) {
       .single();
 
     if (updateError) {
-      console.error('Error updating template:', updateError);
-      return res.status(500).json({ error: 'Failed to update template' });
+      console.error('❌ Error updating template:', updateError);
+      console.error('❌ Update payload:', JSON.stringify(updatePayload, null, 2));
+      console.error('❌ Template ID:', templateId);
+      console.error('❌ Business ID:', businessId);
+      return res.status(500).json({ error: 'Failed to update template', details: updateError.message });
     }
 
     // Log the update
