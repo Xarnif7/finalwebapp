@@ -10043,16 +10043,22 @@ app.get('/api/automation-executor', async (req, res) => {
           }
           
           // First, mark job as processing to prevent race conditions
-          const { error: lockError } = await supabase
+          const { data: updateResult, error: lockError } = await supabase
             .from('scheduled_jobs')
             .update({ 
               status: 'processing',
               processed_at: new Date().toISOString()
             })
             .eq('id', job.id)
-            .eq('status', 'queued'); // Only update if still queued
+            .eq('status', 'queued') // Only update if still queued
+            .select('id');
           
           if (lockError) {
+            console.log(`Job ${job.id} database error:`, lockError);
+            continue;
+          }
+          
+          if (!updateResult || updateResult.length === 0) {
             console.log(`Job ${job.id} already being processed by another instance, skipping`);
             continue;
           }
@@ -10235,6 +10241,11 @@ app.get('/api/automation-executor', async (req, res) => {
         if (request.channel === 'sms') {
           continue;
         }
+        
+        // Add delay between emails to respect rate limits (2 requests per second)
+        if (sentCount > 0) {
+          await new Promise(resolve => setTimeout(resolve, 600)); // 600ms delay = ~1.67 requests per second
+        }
 
         // Send email
         if (request.channel === 'email' && request.customers.email) {
@@ -10248,7 +10259,7 @@ app.get('/api/automation-executor', async (req, res) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              from: request.businesses.email || 'noreply@myblipp.com',
+              from: 'noreply@myblipp.com', // Always use verified domain
               to: [request.customers.email],
               subject: 'Thank you for your business!',
               html: `
