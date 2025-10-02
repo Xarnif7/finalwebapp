@@ -9957,7 +9957,7 @@ app.get('/api/health', (req, res) => {
 });
 // Cron endpoint for automation execution
 // Automation executor endpoint for cron jobs
-app.post('/api/automation-executor', async (req, res) => {
+app.get('/api/automation-executor', async (req, res) => {
   try {
     console.log('🔄 Automation executor cron job triggered');
     console.log('🔍 DEBUG: Method:', req.method);

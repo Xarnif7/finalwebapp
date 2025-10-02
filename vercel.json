@@ -202,6 +202,10 @@
       "source": "/api/google/(.*)",
       "destination": "/server.js"
     },
+    {
+      "source": "/api/automation-executor",
+      "destination": "/server.js"
+    },
             {
               "source": "/api/qbo-oauth-callback",
               "destination": "/server.js"
