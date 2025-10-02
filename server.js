@@ -17536,26 +17536,23 @@ app.post('/api/qbo/webhook', async (req, res) => {
       console.log('📝 Selected template:', selectedTemplate.name);
       // Ensure we use the freshest template right after a save: brief retry if just updated
       try {
-        const nowIso = new Date().toISOString();
-        let attempts = 0;
-        while (attempts < 3) {
-          const { data: freshTemplate } = await supabase
-            .from('automation_templates')
-            .select('*')
-            .eq('id', selectedTemplate.id)
-            .single();
-          if (freshTemplate) {
-            selectedTemplate = freshTemplate;
-          }
-          // If updated very recently, break; otherwise small wait then retry once
-          const updatedAt = new Date(selectedTemplate.updated_at || nowIso);
-          const driftMs = Date.now() - updatedAt.getTime();
-          if (driftMs >= -2000) {
-            break;
-          }
-          await new Promise(r => setTimeout(r, 250));
-          attempts++;
-        }
+        // Double-read pattern to defeat replica lag: read, short wait, read again; keep newest
+        const first = await supabase
+          .from('automation_templates')
+          .select('*')
+          .eq('id', selectedTemplate.id)
+          .single();
+        await new Promise(r => setTimeout(r, 200));
+        const second = await supabase
+          .from('automation_templates')
+          .select('*')
+          .eq('id', selectedTemplate.id)
+          .single();
+        const row1 = first.data || selectedTemplate;
+        const row2 = second.data || row1;
+        const ts1 = new Date(row1.updated_at || 0).getTime();
+        const ts2 = new Date(row2.updated_at || 0).getTime();
+        selectedTemplate = ts2 >= ts1 ? row2 : row1;
       } catch {}
 
       // Strong idempotency guard: only one job per invoice per business
@@ -17634,6 +17631,23 @@ app.post('/api/qbo/webhook', async (req, res) => {
           .from('review_requests')
           .update({ review_link: reviewLink })
           .eq('id', createdReq.id);
+
+        // Absolute freshness: write back the chosen template text again to the review_request
+        // with the latest read to defeat any stale first insert
+        try {
+          const { data: latestT } = await supabase
+            .from('automation_templates')
+            .select('custom_message, config_json, updated_at')
+            .eq('id', selectedTemplate.id)
+            .single();
+          const latestMsg = latestT?.custom_message || latestT?.config_json?.message || templateMessage;
+          if (latestMsg && latestMsg !== templateMessage) {
+            await supabase
+              .from('review_requests')
+              .update({ message: latestMsg })
+              .eq('id', createdReq.id);
+          }
+        } catch {}
       }
 
       const { error: jobError } = await supabase
