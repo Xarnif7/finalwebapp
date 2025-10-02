@@ -103,6 +103,10 @@
       "destination": "/server.js"
     },
     {
+      "source": "/api/send-test",
+      "destination": "/pages/api/send-test.js"
+    },
+    {
       "source": "/api/email-track/(.*)",
       "destination": "/server.js"
     },
