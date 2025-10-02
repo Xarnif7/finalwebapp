@@ -10171,7 +10171,7 @@ app.get('/api/automation-executor', async (req, res) => {
                   .update({ status: 'success', processed_at: new Date().toISOString() })
                   .eq('id', job.id);
                 
-                // Mark review request as sent
+            // Mark review request as sent
                 await supabase
                   .from('review_requests')
                   .update({ 
@@ -10284,7 +10284,7 @@ app.get('/api/automation-executor', async (req, res) => {
                       <p style="color: #374151; font-size: 16px; margin: 0; line-height: 1.5;">${(job && job.payload && job.payload.message) || request.message}</p>
                     </div>
                     
-                    <p style="color: #6B7280; font-size: 16px; margin: 20px 0;">Your feedback helps us improve our services and assists other customers in making informed decisions.</p>
+          <p style="color: #6B7280; font-size: 16px; margin: 20px 0;">Your feedback helps us improve our services and assists other customers in making informed decisions.</p>
                     
                     <!-- Call to Action Button -->
                     <div style="text-align: center; margin: 30px 0;">
@@ -17555,41 +17555,9 @@ app.post('/api/qbo/webhook', async (req, res) => {
         selectedTemplate = ts2 >= ts1 ? row2 : row1;
       } catch {}
 
-      // Strong idempotency guard: only one job per invoice per business (same key for Create/Emailed)
+      // Prepare idempotency values; actual upsert happens after we create review_request
       const idemKey = `qbo:${integration.business_id}:${invoiceId}`;
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { data: existingJobs, error: idemErr } = await supabase
-        .from('scheduled_jobs')
-        .select('id,status,created_at,payload')
-        .eq('job_type', 'automation_email')
-        .contains('payload', { idempotency_key: idemKey })
-        .gte('created_at', twentyFourHoursAgo)
-        .limit(1);
-
-      if (idemErr) {
-        console.log('Idempotency check error (continuing safely):', idemErr);
-      }
-      if (existingJobs && existingJobs.length > 0) {
-        // Update existing queued job with freshest message and keep earliest run_at if already <= now
-        const existing = existingJobs[0];
-        const newPayload = {
-          ...(existing.payload || {}),
-          review_request_id: createdReq?.id || existing.payload?.review_request_id,
-          invoice_id: invoiceId,
-          idempotency_key: idemKey,
-          message: templateMessage
-        };
-        await supabase
-          .from('scheduled_jobs')
-          .update({ payload: newPayload, run_at: existing.run_at <= scheduledFor ? existing.run_at : scheduledFor })
-          .eq('id', existing.id);
-        await supabase
-          .from('integrations_quickbooks')
-          .update({ last_webhook_at: new Date().toISOString() })
-          .eq('id', integration.id);
-        console.log(`🔁 Updated existing job ${existing.id} for invoice ${invoiceId} with latest message`);
-        return res.status(200).json({ success: true, message: 'Updated existing queued job' });
-      }
       
       // Create review request and enqueue scheduled job for email
       // Calculate delay - check both delay_hours and delay_minutes
@@ -17662,15 +17630,46 @@ app.post('/api/qbo/webhook', async (req, res) => {
         } catch {}
       }
 
-      const { error: jobError } = await supabase
-        .from('scheduled_jobs')
-        .insert({
-          business_id: integration.business_id,
-          job_type: 'automation_email',
-          status: 'queued',
-          run_at: scheduledFor,
-          payload: { review_request_id: createdReq.id, invoice_id: invoiceId, idempotency_key: idemKey, message: templateMessage }
-        });
+      // Idempotent upsert: if a job exists, update its payload/message; else insert
+      let jobError = null;
+      try {
+        const { data: existingJobs2 } = await supabase
+          .from('scheduled_jobs')
+          .select('id, run_at, payload')
+          .eq('job_type', 'automation_email')
+          .contains('payload', { idempotency_key: idemKey })
+          .gte('created_at', twentyFourHoursAgo)
+          .limit(1);
+
+        if (existingJobs2 && existingJobs2.length > 0) {
+          const existing = existingJobs2[0];
+          const payload = {
+            ...(existing.payload || {}),
+            review_request_id: createdReq.id,
+            invoice_id: invoiceId,
+            idempotency_key: idemKey,
+            message: templateMessage
+          };
+          const { error: updErr2 } = await supabase
+            .from('scheduled_jobs')
+            .update({ payload, run_at: existing.run_at <= scheduledFor ? existing.run_at : scheduledFor, status: 'queued' })
+            .eq('id', existing.id);
+          if (updErr2) jobError = updErr2;
+        } else {
+          const { error: insErr } = await supabase
+            .from('scheduled_jobs')
+            .insert({
+              business_id: integration.business_id,
+              job_type: 'automation_email',
+              status: 'queued',
+              run_at: scheduledFor,
+              payload: { review_request_id: createdReq.id, invoice_id: invoiceId, idempotency_key: idemKey, message: templateMessage }
+            });
+          if (insErr) jobError = insErr;
+        }
+      } catch (e) {
+        jobError = e;
+      }
 
       if (jobError) {
         console.error('❌ Failed to enqueue scheduled job:', jobError);
