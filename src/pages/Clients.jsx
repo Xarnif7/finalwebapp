@@ -3,11 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Users, TrendingUp, UserCheck, Search, Upload, Edit, Archive, Trash2, Calendar, Mail, Phone, MoreVertical, Send, PlayCircle, Clock, Settings } from "lucide-react";
+import { Plus, Users, TrendingUp, UserCheck, Search, Upload, Edit, Archive, Trash2, Calendar, Mail, Phone, MoreVertical, Send, PlayCircle, Clock, Settings, FileSpreadsheet } from "lucide-react";
 import { useCustomersData } from "@/hooks/useCustomersData";
 import CustomerFormModal from "../components/clients/CustomerFormModal";
 import { supabase } from "@/lib/supabase/browser";
 import CsvImportDialog from "../components/clients/CsvImportDialog";
+import GoogleSheetsDialog from "../components/clients/GoogleSheetsDialog";
+import GoogleSheetsConnectionCard from "../components/clients/GoogleSheetsConnectionCard";
 import PageHeader from "@/components/ui/PageHeader";
 import { isFeatureEnabled } from "@/lib/featureFlags";
 import { toast } from "react-hot-toast";
@@ -23,6 +25,7 @@ export default function ClientsPage() {
   const { activeTemplates, loading: templatesLoading } = useActiveTemplates();
   const [showAddForm, setShowAddForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showGoogleSheets, setShowGoogleSheets] = useState(false);
   const [showCrmConnection, setShowCrmConnection] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -205,6 +208,30 @@ export default function ClientsPage() {
       await fetchStats(); // Refresh stats
     } catch (error) {
       toast.error(error.message || 'Failed to import CSV');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImportGoogleSheets = async (importResult) => {
+    setLoading(true);
+    try {
+      let message = `Google Sheets import completed: ${importResult.customers_imported} imported, ${importResult.skipped} skipped`;
+      
+      if (importResult.enrollmentSummary) {
+        const { enrolled, skipped } = importResult.enrollmentSummary;
+        message += ` | Auto-enrollment: ${enrolled} enrolled, ${skipped} skipped`;
+      }
+      
+      // Auto-create default sequences if this is the first customer import
+      if (importResult.customers_imported > 0) {
+        await createDefaultSequences();
+      }
+      
+      toast.success(message);
+      await fetchStats(); // Refresh stats
+    } catch (error) {
+      toast.error(error.message || 'Failed to import from Google Sheets');
     } finally {
       setLoading(false);
     }
@@ -515,6 +542,11 @@ export default function ClientsPage() {
         </div>
       </div>
 
+      {/* Google Sheets Connection Card */}
+      <div className="mb-6">
+        <GoogleSheetsConnectionCard onResync={handleImportGoogleSheets} />
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 mb-8">
         <div className="relative overflow-visible rounded-2xl border border-slate-200 bg-white p-5 shadow-sm motion-safe:transition motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-[0_12px_35px_rgba(59,130,246,0.25),0_6px_20px_rgba(139,92,246,0.15),0_2px_8px_rgba(59,130,246,0.1)] motion-reduce:transform-none motion-reduce:shadow-sm">
@@ -609,6 +641,14 @@ export default function ClientsPage() {
           >
             <Upload className="h-4 w-4 mr-2" />
             Import CSV
+          </Button>
+          <Button
+            onClick={() => setShowGoogleSheets(true)}
+            variant="outline"
+            disabled={loading}
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Google Sheets
           </Button>
           <Button
             onClick={() => setShowAddForm(true)}
@@ -940,6 +980,13 @@ export default function ClientsPage() {
         open={showImport}
         onOpenChange={setShowImport}
         onImport={handleImportCsv}
+        loading={loading}
+      />
+
+      <GoogleSheetsDialog
+        open={showGoogleSheets}
+        onOpenChange={setShowGoogleSheets}
+        onImport={handleImportGoogleSheets}
         loading={loading}
       />
 
