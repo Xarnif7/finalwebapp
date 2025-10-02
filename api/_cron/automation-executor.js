@@ -141,7 +141,7 @@ export default async function handler(req, res) {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  from: request.businesses.email || 'noreply@myblipp.com',
+                  from: `${request.businesses?.name || 'Blipp'} <noreply@myblipp.com>`,
                   to: [request.customers.email],
                   subject: 'Thank you for your business!',
                   html: `
@@ -257,7 +257,7 @@ export default async function handler(req, res) {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              from: request.businesses.email || 'noreply@myblipp.com',
+              from: `${request.businesses?.name || 'Blipp'} <noreply@myblipp.com>`,
               to: [request.customers.email],
               subject: 'Thank you for your business!',
               html: `
