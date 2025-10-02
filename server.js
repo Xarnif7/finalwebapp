@@ -16736,6 +16736,26 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData, trig
       return scored[0].t;
     }
 
+    // Fallback: pick by name-token overlap if all scores are zero
+    try {
+      const normalize = (text) => String(text || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const stem = (token) => token.replace(/ing$|ed$|s$/g, '').trim();
+      const invoiceTokens = normalize(invoiceText).split(' ').filter(Boolean).map(stem);
+      const overlapSorted = (candidateTemplates || []).map(t => {
+        const nameTokens = String(t.name || '').toLowerCase().split(/[^a-z0-9]+/).map(stem).filter(Boolean);
+        const overlap = nameTokens.reduce((acc, tok) => acc + (invoiceTokens.includes(tok) ? 1 : 0), 0);
+        return { t, overlap };
+      }).sort((a,b) => b.overlap - a.overlap);
+      if (overlapSorted.length && overlapSorted[0].overlap > 0) {
+        console.log('🧲 Fallback pick by name overlap:', overlapSorted[0].t.name, 'overlap:', overlapSorted[0].overlap);
+        return overlapSorted[0].t;
+      }
+    } catch (_) {}
+
     // Build safe fields for prompt to avoid TypeErrors
     const safeTemplates = Array.isArray(candidateTemplates) ? candidateTemplates : [];
     const safeJobType = (invoiceDetails && invoiceDetails.jobType) ? String(invoiceDetails.jobType) : '';
@@ -16775,25 +16795,34 @@ Select the most appropriate template number (1-${safeTemplates.length}) based on
 Respond with only the template number (1-${candidateTemplates.length}).
 `;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 10,
-        temperature: 0.1
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+    // Call OpenAI with single retry on 429
+    let aiResponse;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 10,
+          temperature: 0.1
+        })
+      });
+      if (response.ok) {
+        aiResponse = await response.json();
+        break;
+      }
+      const status = response.status;
+      if (status === 429 && attempt === 0) {
+        console.warn('⏳ OpenAI 429 rate limit, retrying after short backoff...');
+        await new Promise(r => setTimeout(r, 600));
+        continue;
+      }
+      throw new Error(`OpenAI API error: ${status}`);
     }
-    
-    const aiResponse = await response.json();
     const selectedIndex = parseInt(aiResponse.choices[0].message.content.trim()) - 1;
     
     if (selectedIndex >= 0 && selectedIndex < candidateTemplates.length) {
