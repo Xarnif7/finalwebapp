@@ -252,19 +252,27 @@ const AutomationsPageFixed = () => {
       // Generate unique key for custom template
       const customKey = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
+      // Normalize visual defaults
+      const displayName = (templateData.name || '').trim();
+      const titleCaseName = displayName
+        .toLowerCase()
+        .split(/\s+/)
+        .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+        .join(' ');
+
       // Create template in database
       const { data: newTemplate, error: createError } = await supabase
         .from('automation_templates')
         .insert({
           business_id: profile.business_id,
           key: customKey, // Use unique custom key
-          name: templateData.name,
-          status: 'ready',
-          channels: templateData.channels || ['email'],
+          name: titleCaseName || 'Custom Template',
+          status: templateData.status || 'active',
+          channels: templateData.channels && templateData.channels.length ? templateData.channels : ['email'],
           trigger_type: templateData.trigger_type || 'event',
           config_json: {
-            message: templateData.message || 'Thank you for your business!',
-            delay_hours: templateData.delay_hours ?? 24,
+            message: (templateData.message || 'Thank you for your business! Please consider leaving us a review.'),
+            delay_hours: (templateData.delay_hours ?? 24),
             keywords: templateData.keywords || []
           },
           description: templateData.description || ''

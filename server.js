@@ -2166,6 +2166,33 @@ app.post('/api/feedback-form-settings', async (req, res) => {
   }
 });
 
+// Automation performance stub to avoid 404s and provide basic metrics
+app.get('/api/automation/performance/:businessId', async (req, res) => {
+  try {
+    const { businessId } = req.params;
+    if (!businessId) return res.status(400).json({ ok: false, error: 'businessId required' });
+    // Minimal stats; expand later with real analytics
+    const { count: totalTemplates } = await supabase
+      .from('automation_templates')
+      .select('id', { count: 'exact', head: true })
+      .eq('business_id', businessId);
+
+    const { count: totalRequests } = await supabase
+      .from('review_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('business_id', businessId);
+
+    return res.json({ ok: true, metrics: {
+      total_templates: totalTemplates ?? 0,
+      total_review_requests: totalRequests ?? 0,
+      generated_at: new Date().toISOString()
+    }});
+  } catch (error) {
+    console.error('[PERF] Error building automation performance:', error);
+    return res.status(200).json({ ok: true, metrics: { total_templates: 0, total_review_requests: 0 } });
+  }
+});
+
 // Send follow-up email to customer
 // Mark feedback as resolved/unresolved
 app.patch('/api/private-feedback/:id/resolve', async (req, res) => {
@@ -16648,21 +16675,35 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData, trig
       return templates[0]; // Fallback to first template
     }
     
-    // Build text for simple keyword pre-filtering before AI
-    const invoiceText = [
-      invoiceDetails?.jobType,
-      invoiceDetails?.serviceCategory,
-      ...(invoiceDetails?.lineItems || []).map(item => item.Description || item.SalesItemLineDetail?.ItemRef?.name)
-    ].filter(Boolean).join(' ').toLowerCase();
+        // Build text for simple keyword pre-filtering before AI
+        // Be extremely defensive about the shape of invoiceDetails
+        let invoiceTextParts = [];
+        if (typeof invoiceDetails === 'string') {
+          invoiceTextParts.push(invoiceDetails);
+        } else if (invoiceDetails && typeof invoiceDetails === 'object') {
+          if (invoiceDetails.jobType) invoiceTextParts.push(String(invoiceDetails.jobType));
+          if (invoiceDetails.serviceCategory) invoiceTextParts.push(String(invoiceDetails.serviceCategory));
+          if (invoiceDetails.Description) invoiceTextParts.push(String(invoiceDetails.Description));
+          // QBO payload can send line items under Line; our normalized shape may use lineItems
+          let lines = invoiceDetails.lineItems || invoiceDetails.Line || [];
+          if (!Array.isArray(lines)) lines = [];
+          lines.forEach(item => {
+            try {
+              const name = item?.Description || item?.SalesItemLineDetail?.ItemRef?.name || item?.name;
+              if (name) invoiceTextParts.push(String(name));
+            } catch (_) {}
+          });
+        }
+        const invoiceText = invoiceTextParts.join(' ').toLowerCase();
     
     console.log('🔍 Invoice text for template matching:', invoiceText);
 
     // Score candidates by keyword/name first
-    const scored = candidateTemplates.map(t => {
+        const scored = (candidateTemplates || []).map(t => {
       const cfg = t.config_json || {};
-      const keywords = ([])
-        .concat(cfg.keywords || [])
-        .concat(cfg.service_types || [])
+          const keywords = ([])
+            .concat(Array.isArray(cfg.keywords) ? cfg.keywords : [])
+            .concat(Array.isArray(cfg.service_types) ? cfg.service_types : [])
         .map(k => String(k).toLowerCase());
       const nameParts = String(t.name || '').toLowerCase().split(/[^a-z0-9]+/);
       let hits = 0;
@@ -16691,7 +16732,7 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData, trig
 
     console.log('🏆 Best template match:', scored[0]?.t?.name, 'with score:', scored[0]?.score);
 
-    if (scored.length && scored[0].score > 0) {
+        if (scored.length && scored[0].score > 0) {
       return scored[0].t;
     }
 
