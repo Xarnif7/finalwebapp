@@ -61,11 +61,7 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
           email: testEmail || null,
           phone: testPhone || null,
           status: 'active',
-          created_by: business.id,
-          metadata: {
-            source: 'test_send',
-            test_mode: true
-          }
+          created_by: business.id
         }, {
           onConflict: 'business_id,email'
         })
