@@ -17531,7 +17531,7 @@ app.post('/api/qbo/webhook', async (req, res) => {
       }
       
       // Use AI to select the best template
-      const selectedTemplate = await selectTemplateByAI(
+      let selectedTemplate = await selectTemplateByAI(
         integration.business_id,
         invoiceDetails,
         customer,
