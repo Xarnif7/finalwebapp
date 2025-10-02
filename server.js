@@ -9974,7 +9974,8 @@ app.post('/api/automation-executor', async (req, res) => {
         id,
         job_type,
         payload,
-        run_at
+        run_at,
+        status
       `)
       .eq('job_type', 'automation_email')
       .eq('status', 'queued')
@@ -9985,6 +9986,24 @@ app.post('/api/automation-executor', async (req, res) => {
     console.log('🔍 DEBUG: Query result - jobs found:', scheduledJobs ? scheduledJobs.length : 0);
     if (scheduledJobs && scheduledJobs.length > 0) {
       console.log('🔍 DEBUG: First job details:', scheduledJobs[0]);
+    } else {
+      // Debug: Check what jobs exist in the database
+      const { data: allJobs, error: allJobsError } = await supabase
+        .from('scheduled_jobs')
+        .select('id, job_type, status, run_at, created_at')
+        .eq('job_type', 'automation_email')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      console.log('🔍 DEBUG: All automation_email jobs in DB:', allJobs?.length || 0);
+      if (allJobs && allJobs.length > 0) {
+        console.log('🔍 DEBUG: Recent jobs:', allJobs.map(j => ({
+          id: j.id,
+          status: j.status,
+          run_at: j.run_at,
+          created_at: j.created_at
+        })));
+      }
     }
 
     if (jobsError) {
@@ -17392,6 +17411,23 @@ app.post('/api/qbo/webhook', async (req, res) => {
       }
       
       console.log('👤 Found customer:', customer.full_name || customer.name);
+      
+      // Check if we've already processed this invoice recently (prevent duplicates)
+      const recentCutoff = new Date(Date.now() - 5 * 60 * 1000); // 5 minutes ago
+      const { data: existingRequest, error: existingError } = await supabase
+        .from('review_requests')
+        .select('id, created_at')
+        .eq('business_id', integration.business_id)
+        .eq('customer_id', customer.id)
+        .gte('created_at', recentCutoff.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (existingRequest) {
+        console.log(`⚠️ Invoice ${invoiceId} already processed recently (${existingRequest.created_at}), skipping duplicate`);
+        return res.status(200).json({ success: true, message: 'Already processed' });
+      }
       
       // Use AI to select the best template
       const selectedTemplate = await selectTemplateByAI(
