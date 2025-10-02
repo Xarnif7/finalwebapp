@@ -661,6 +661,7 @@ export default function TemplateCustomizer({
 
       // Try to save to database first (only if we have a valid businessId)
       if (businessId && businessId !== 'null' && businessId !== 'undefined') {
+        console.log('🔧 Attempting API save with businessId:', businessId, 'templateId:', template.id);
         try {
           const response = await fetch(`/api/templates/${businessId}/${template.id}`, {
             method: 'PATCH',
@@ -692,14 +693,17 @@ export default function TemplateCustomizer({
 
           if (response.ok) {
             const dbTemplate = await response.json();
+            console.log('✅ API save successful:', dbTemplate);
             onSave(dbTemplate);
             onClose();
             return; // Exit early if database save successful
           } else {
-            throw new Error('Database save failed');
+            const errorText = await response.text();
+            console.error('❌ API save failed:', response.status, errorText);
+            throw new Error(`Database save failed: ${response.status} ${errorText}`);
           }
         } catch (dbError) {
-          console.log('Database save failed, saving to localStorage as backup:', dbError);
+          console.log('❌ Database save failed, saving to localStorage as backup:', dbError);
           // Fall through to localStorage save
         }
       }
