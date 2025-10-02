@@ -16846,6 +16846,75 @@ Respond with only the template number (1-${candidateTemplates.length}).
   }
 }
 
+// Centralized QBO token refresh utility
+async function refreshQBOtoken(integration) {
+  try {
+    if (!integration.refresh_token || !process.env.QBO_CLIENT_ID || !process.env.QBO_CLIENT_SECRET) {
+      throw new Error('Missing refresh token or client credentials');
+    }
+
+    const basic = Buffer.from(`${process.env.QBO_CLIENT_ID}:${process.env.QBO_CLIENT_SECRET}`).toString('base64');
+    const resp = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Basic ${basic}`, 
+        'Content-Type': 'application/x-www-form-urlencoded' 
+      },
+      body: new URLSearchParams({ 
+        grant_type: 'refresh_token', 
+        refresh_token: integration.refresh_token 
+      }).toString()
+    });
+
+    if (!resp.ok) {
+      const errorText = await resp.text();
+      throw new Error(`QBO refresh failed: ${resp.status} - ${errorText}`);
+    }
+
+    const tok = await resp.json();
+    const expiresAt = new Date(Date.now() + (tok.expires_in || 3600) * 1000).toISOString();
+    
+    // Update integration with new tokens
+    const { error: updateError } = await supabase
+      .from('integrations_quickbooks')
+      .update({ 
+        access_token: tok.access_token, 
+        refresh_token: tok.refresh_token || integration.refresh_token, 
+        token_expires_at: expiresAt, 
+        connection_status: 'connected', 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', integration.id);
+
+    if (updateError) {
+      throw new Error(`Failed to update tokens: ${updateError.message}`);
+    }
+
+    console.log(`[QBO] Token refreshed successfully for realm ${integration.realm_id}`);
+    
+    return {
+      access_token: tok.access_token,
+      refresh_token: tok.refresh_token || integration.refresh_token,
+      token_expires_at: expiresAt,
+      connection_status: 'connected'
+    };
+  } catch (error) {
+    console.error('[QBO] Token refresh failed:', error.message);
+    throw error;
+  }
+}
+
+// Check if QBO token needs refresh (within 7 days of expiry)
+function needsTokenRefresh(integration) {
+  if (!integration.token_expires_at) return true;
+  
+  const now = new Date();
+  const expiresAt = new Date(integration.token_expires_at);
+  const daysUntilExpiry = (expiresAt - now) / (1000 * 60 * 60 * 24);
+  
+  return daysUntilExpiry <= 7; // Refresh if 7 days or less remaining
+}
+
 // Helper function to get fresh customer data from QuickBooks
 async function getQuickBooksCustomerData(integrationData, customerId) {
   try {
@@ -17657,35 +17726,17 @@ app.post('/api/qbo/webhook', async (req, res) => {
         return res.status(404).json({ error: 'Integration not found' });
       }
 
-      // If token is expired, attempt refresh
-      try {
-        const now = new Date();
-        const isExpired = integration.token_expires_at && new Date(integration.token_expires_at) <= now;
-        if (isExpired && integration.refresh_token && process.env.QBO_CLIENT_ID && process.env.QBO_CLIENT_SECRET) {
-          const basic = Buffer.from(`${process.env.QBO_CLIENT_ID}:${process.env.QBO_CLIENT_SECRET}`).toString('base64');
-          const resp = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
-            method: 'POST',
-            headers: { 'Authorization': `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: integration.refresh_token }).toString()
-          });
-          if (resp.ok) {
-            const tok = await resp.json();
-            const expiresAt = new Date(Date.now() + (tok.expires_in || 3600) * 1000).toISOString();
-            await supabase
-              .from('integrations_quickbooks')
-              .update({ access_token: tok.access_token, refresh_token: tok.refresh_token || integration.refresh_token, token_expires_at: expiresAt, connection_status: 'connected', updated_at: new Date().toISOString() })
-              .eq('id', integration.id);
-            integration.access_token = tok.access_token;
-            integration.refresh_token = tok.refresh_token || integration.refresh_token;
-            integration.token_expires_at = expiresAt;
-            integration.connection_status = 'connected';
-            console.log('[QBO] Refreshed expired token for realm', realmId);
-          } else {
-            console.log('[QBO] Token refresh failed with status', resp.status);
-          }
+      // Check if token needs refresh and refresh if needed
+      if (needsTokenRefresh(integration)) {
+        try {
+          const refreshedData = await refreshQBOtoken(integration);
+          // Update integration object with new data
+          Object.assign(integration, refreshedData);
+          console.log('[QBO] Proactively refreshed token for realm', realmId);
+        } catch (refreshError) {
+          console.error('[QBO] Proactive token refresh failed:', refreshError.message);
+          // Continue with existing token - it might still work
         }
-      } catch (e) {
-        console.log('[QBO] Token refresh error:', e.message);
       }
       
       // Get invoice details
@@ -19529,6 +19580,70 @@ app.post('/api/google/sheets/sync-settings', async (req, res) => {
   } catch (error) {
     console.error('Google Sheets sync settings error:', error);
     res.status(500).json({ error: 'Failed to save sync settings' });
+  }
+});
+
+// Daily token refresh cron job
+app.get('/api/cron/refresh-qbo-tokens', async (req, res) => {
+  try {
+    console.log('[CRON] Starting QBO token refresh job...');
+    
+    // Get all active QBO integrations that need token refresh
+    const { data: integrations, error } = await supabase
+      .from('integrations_quickbooks')
+      .select('*')
+      .eq('status', 'active')
+      .eq('connection_status', 'connected');
+    
+    if (error) {
+      console.error('[CRON] Error fetching integrations:', error);
+      return res.status(500).json({ error: 'Failed to fetch integrations' });
+    }
+    
+    if (!integrations || integrations.length === 0) {
+      console.log('[CRON] No active QBO integrations found');
+      return res.json({ message: 'No integrations to refresh', refreshed: 0 });
+    }
+    
+    let refreshedCount = 0;
+    let failedCount = 0;
+    
+    for (const integration of integrations) {
+      try {
+        if (needsTokenRefresh(integration)) {
+          await refreshQBOtoken(integration);
+          refreshedCount++;
+          console.log(`[CRON] Refreshed token for business ${integration.business_id}`);
+        } else {
+          console.log(`[CRON] Token for business ${integration.business_id} is still valid`);
+        }
+      } catch (error) {
+        failedCount++;
+        console.error(`[CRON] Failed to refresh token for business ${integration.business_id}:`, error.message);
+        
+        // Mark integration as needing reconnection
+        await supabase
+          .from('integrations_quickbooks')
+          .update({ 
+            connection_status: 'token_expired',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', integration.id);
+      }
+    }
+    
+    console.log(`[CRON] Token refresh job completed: ${refreshedCount} refreshed, ${failedCount} failed`);
+    
+    res.json({ 
+      message: 'Token refresh job completed',
+      refreshed: refreshedCount,
+      failed: failedCount,
+      total: integrations.length
+    });
+    
+  } catch (error) {
+    console.error('[CRON] Token refresh job failed:', error);
+    res.status(500).json({ error: 'Token refresh job failed' });
   }
 });
 

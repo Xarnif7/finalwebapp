@@ -291,6 +291,10 @@
     {
       "path": "/api/automation-executor",
       "schedule": "*/1 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh-qbo-tokens",
+      "schedule": "0 2 * * *"
     }
   ]
 }
