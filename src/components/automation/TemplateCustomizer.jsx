@@ -663,11 +663,19 @@ export default function TemplateCustomizer({
       if (businessId && businessId !== 'null' && businessId !== 'undefined') {
         console.log('🔧 Attempting API save with businessId:', businessId, 'templateId:', template.id);
         try {
+          // Get fresh access token from Supabase
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          
+          if (!token) {
+            throw new Error('No valid session found');
+          }
+
           const response = await fetch(`/api/templates/${businessId}/${template.id}`, {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+              'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
               ...formData,
