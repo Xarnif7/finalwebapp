@@ -813,7 +813,7 @@ export default function ClientsPage() {
                           </Button>
                           
                           {activeDropdown === customer.id && (
-                            <div className="absolute right-0 top-8 z-50 w-48 bg-white rounded-md shadow-lg border border-slate-200 py-1">
+                            <div className="absolute right-0 top-8 z-[9999] w-48 bg-white rounded-md shadow-lg border border-slate-200 py-1">
                               <button
                                 onClick={() => {
                                   setEditingCustomer(customer);
