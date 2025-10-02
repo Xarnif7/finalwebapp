@@ -17534,6 +17534,30 @@ app.post('/api/qbo/webhook', async (req, res) => {
       }
       
       console.log('📝 Selected template:', selectedTemplate.name);
+
+      // Strong idempotency guard: only one job per invoice per business
+      const idemKey = `qbo:${integration.business_id}:${invoiceId}:emailed`;
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: existingJobs, error: idemErr } = await supabase
+        .from('scheduled_jobs')
+        .select('id,status,created_at')
+        .eq('job_type', 'automation_email')
+        .contains('payload', { idempotency_key: idemKey })
+        .gte('created_at', twentyFourHoursAgo)
+        .limit(1);
+
+      if (idemErr) {
+        console.log('Idempotency check error (continuing safely):', idemErr);
+      }
+      if (existingJobs && existingJobs.length > 0) {
+        console.log(`🛑 Idempotency guard hit for invoice ${invoiceId} (job ${existingJobs[0].id}), skipping duplicate end-to-end`);
+        // Update last webhook time and exit early
+        await supabase
+          .from('integrations_quickbooks')
+          .update({ last_webhook_at: new Date().toISOString() })
+          .eq('id', integration.id);
+        return res.status(200).json({ success: true, message: 'Already queued for this invoice' });
+      }
       
       // Create review request and enqueue scheduled job for email
       // Calculate delay - check both delay_hours and delay_minutes
@@ -17596,7 +17620,7 @@ app.post('/api/qbo/webhook', async (req, res) => {
           job_type: 'automation_email',
           status: 'queued',
           run_at: scheduledFor,
-          payload: { review_request_id: createdReq.id }
+          payload: { review_request_id: createdReq.id, invoice_id: invoiceId, idempotency_key: idemKey }
         });
 
       if (jobError) {
