@@ -249,12 +249,15 @@ const AutomationsPageFixed = () => {
         return;
       }
       
+      // Generate unique key for custom template
+      const customKey = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
       // Create template in database
       const { data: newTemplate, error: createError } = await supabase
         .from('automation_templates')
         .insert({
           business_id: profile.business_id,
-          key: 'job_completed', // Use valid enum key for now
+          key: customKey, // Use unique custom key
           name: templateData.name,
           status: 'ready',
           channels: templateData.channels || ['email'],
