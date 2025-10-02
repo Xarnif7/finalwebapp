@@ -16648,6 +16648,8 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData, trig
       invoiceDetails?.serviceCategory,
       ...(invoiceDetails?.lineItems || []).map(item => item.Description || item.SalesItemLineDetail?.ItemRef?.name)
     ].filter(Boolean).join(' ').toLowerCase();
+    
+    console.log('🔍 Invoice text for template matching:', invoiceText);
 
     // Score candidates by keyword/name first
     const scored = candidateTemplates.map(t => {
@@ -16658,11 +16660,30 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData, trig
         .map(k => String(k).toLowerCase());
       const nameParts = String(t.name || '').toLowerCase().split(/[^a-z0-9]+/);
       let hits = 0;
-      keywords.forEach(k => { if (k && invoiceText.includes(k)) hits += 2; });
-      nameParts.forEach(n => { if (n && n.length > 2 && invoiceText.includes(n)) hits += 1; });
+      let matchedKeywords = [];
+      
+      keywords.forEach(k => { 
+        if (k && invoiceText.includes(k)) {
+          hits += 2; 
+          matchedKeywords.push(k);
+        }
+      });
+      nameParts.forEach(n => { 
+        if (n && n.length > 2 && invoiceText.includes(n)) {
+          hits += 1; 
+          matchedKeywords.push(n);
+        }
+      });
+      
       const priority = (cfg.priority ?? 0) || 0;
-      return { t, score: hits * 10 + priority };
+      const score = hits * 10 + priority;
+      
+      console.log(`🎯 Template "${t.name}": score=${score}, hits=${hits}, matched=${matchedKeywords.join(', ')}`);
+      
+      return { t, score, hits, matchedKeywords };
     }).sort((a,b)=> b.score - a.score);
+
+    console.log('🏆 Best template match:', scored[0]?.t?.name, 'with score:', scored[0]?.score);
 
     if (scored.length && scored[0].score > 0) {
       return scored[0].t;
