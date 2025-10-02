@@ -136,17 +136,37 @@ const AutomationsPageFixed = () => {
     setUpdating(prev => ({ ...prev, [templateId]: true }));
     
     try {
+      // Get business ID
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (!profile?.business_id) {
+        console.error('❌ No business ID found');
+        return;
+      }
+      
+      // Update in database
+      const { error: updateError } = await supabase
+        .from('automation_templates')
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', templateId)
+        .eq('business_id', profile.business_id);
+      
+      if (updateError) {
+        console.error('❌ Error updating template status in database:', updateError);
+        return;
+      }
+      
       // Update local state
       setTemplates(prev => prev.map(t => 
         t.id === templateId ? { ...t, status: newStatus } : t
       ));
-      
-      // Save to localStorage
-      const updatedTemplate = templates.find(t => t.id === templateId);
-      if (updatedTemplate) {
-        const templateToSave = { ...updatedTemplate, status: newStatus };
-        saveTemplateToStorage(templateToSave);
-      }
       
       // Load active sequences
       await loadActiveSequences();
@@ -275,7 +295,7 @@ const AutomationsPageFixed = () => {
             delay_hours: (templateData.delay_hours ?? 24),
             keywords: templateData.keywords || []
           },
-          description: templateData.description || ''
+          description: templateData.description || `Sends email ${templateData.delay_hours ?? 24} hours after ${titleCaseName}.`
         })
         .select()
         .single();
