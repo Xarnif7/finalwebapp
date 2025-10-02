@@ -902,6 +902,8 @@ export default function TemplateCustomizer({
                   variant="outline"
                   size="sm"
                   onClick={() => {
+                    console.log('🧪 Test Send button clicked in TemplateCustomizer');
+                    console.log('🧪 onTestSend function:', onTestSend);
                     // Create a temporary template object for testing
                     const testTemplate = {
                       id: template?.id || 'test',
@@ -911,6 +913,7 @@ export default function TemplateCustomizer({
                         message: customMessage
                       }
                     };
+                    console.log('🧪 Calling onTestSend with:', testTemplate);
                     onTestSend?.(testTemplate);
                   }}
                   className="text-xs px-2 py-1 h-7"

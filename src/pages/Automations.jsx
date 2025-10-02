@@ -640,8 +640,10 @@ const AutomationsPage = () => {
   };
 
   const handleTestSend = (template) => {
+    console.log('🧪 Test Send clicked with template:', template);
     setSelectedTemplate(template);
     setTestSendModalOpen(true);
+    console.log('🧪 Modal should be opening now...');
   };
 
 

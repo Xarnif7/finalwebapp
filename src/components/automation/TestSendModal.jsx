@@ -16,6 +16,11 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
+  // Debug logging
+  React.useEffect(() => {
+    console.log('🧪 TestSendModal props:', { isOpen, template, business });
+  }, [isOpen, template, business]);
+
   // Initialize custom message with template message when modal opens
   React.useEffect(() => {
     if (isOpen && template) {
