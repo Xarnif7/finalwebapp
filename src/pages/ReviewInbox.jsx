@@ -299,12 +299,43 @@ const ReviewInbox = () => {
 
       if (!profile?.business_id) return;
 
+      const replyMessage = replyText || aiReply;
+
+      // Send SMS if channel is SMS
+      if (channel === 'sms') {
+        // Get customer phone from review
+        const customerPhone = selectedReview.customer_phone || selectedReview.phone;
+        if (!customerPhone) {
+          toast.error('No phone number available for this customer');
+          return;
+        }
+
+        // Send SMS via our API
+        const response = await fetch('/api/surge/sms/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          },
+          body: JSON.stringify({
+            businessId: profile.business_id,
+            to: customerPhone,
+            body: replyMessage
+          })
+        });
+
+        const smsResult = await response.json();
+        if (!response.ok) {
+          throw new Error(smsResult.error || 'Failed to send SMS');
+        }
+      }
+
       // Insert reply record
       const { error: replyError } = await supabase
         .from('review_replies')
         .insert({
           review_id: selectedReview.id,
-          reply_text: replyText || aiReply,
+          reply_text: replyMessage,
           channel,
           responder_id: user.id,
           business_id: profile.business_id
@@ -332,7 +363,7 @@ const ReviewInbox = () => {
       await fetchMetrics();
     } catch (error) {
       console.error('Error sending reply:', error);
-      toast.error('Failed to send reply');
+      toast.error(`Failed to send reply: ${error.message}`);
     } finally {
       setSendingReply(false);
     }

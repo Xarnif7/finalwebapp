@@ -5090,11 +5090,64 @@ async function processJob(job) {
   }
 }
 
-// Helper functions for sending messages (placeholder implementations)
+// Helper functions for sending messages
 async function sendSMS(phone, message, businessId) {
-  // TODO: Implement actual SMS sending (Twilio, etc.)
-  console.log(`[SMS] Would send to ${phone}: ${message}`);
-  return { success: true, messageId: `sms_${Date.now()}` };
+  try {
+    // Get business SMS configuration
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('surge_account_id, from_number, verification_status')
+      .eq('id', businessId)
+      .single();
+
+    if (businessError || !business) {
+      console.error('[SMS] Business not found:', businessError);
+      return { success: false, error: 'Business not found' };
+    }
+
+    // Check if SMS is enabled and verified
+    if (!business.from_number) {
+      console.log('[SMS] No SMS number configured for business:', businessId);
+      return { success: false, error: 'SMS not enabled for this business' };
+    }
+
+    if (business.verification_status !== 'active') {
+      console.log('[SMS] SMS not verified for business:', businessId, 'Status:', business.verification_status);
+      return { success: false, error: 'SMS not verified for this business' };
+    }
+
+    // Normalize phone number
+    const normalizedPhone = phone.replace(/\D/g, '');
+    const e164Phone = normalizedPhone.startsWith('1') ? `+${normalizedPhone}` : `+1${normalizedPhone}`;
+
+    // Send via Surge API
+    const response = await fetch(`${process.env.APP_BASE_URL}/api/surge/sms/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` // Use service role for automation
+      },
+      body: JSON.stringify({
+        businessId: businessId,
+        to: e164Phone,
+        body: message
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error('[SMS] Surge API error:', result);
+      return { success: false, error: result.error || 'Failed to send SMS' };
+    }
+
+    console.log(`[SMS] Sent successfully to ${e164Phone}: ${result.message_id}`);
+    return { success: true, messageId: result.message_id };
+
+  } catch (error) {
+    console.error('[SMS] Error sending SMS:', error);
+    return { success: false, error: error.message };
+  }
 }
 
 async function sendEmail(email, message, businessId) {

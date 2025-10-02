@@ -26,8 +26,15 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Auth: ensure caller owns businessId
-    await requireOwner(req, businessId);
+    // Auth: ensure caller owns businessId OR is service role (for automation)
+    const authHeader = req.headers.authorization;
+    if (authHeader === `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`) {
+      // Service role authentication for automation
+      console.log('[SMS_SEND] Service role authentication for automation');
+    } else {
+      // Regular user authentication
+      await requireOwner(req, businessId);
+    }
 
     // Get the business
     const business = await getBusiness(businessId);

@@ -187,9 +187,10 @@ BEGIN
         -- Process each channel
         FOREACH channel IN ARRAY template_record.channels
         LOOP
-            -- Skip SMS for now (as requested)
+            -- Process SMS channel
             IF channel = 'sms' THEN
-                CONTINUE;
+                -- SMS will be handled by the automation executor
+                -- This migration just creates the review request record
             END IF;
             
             -- Prepare message
