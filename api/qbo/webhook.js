@@ -563,7 +563,7 @@ async function triggerAutomation(businessId, customerId, templateId, metadata) {
         customer_id: customerId,
         channel: template.channels?.[0] || 'email',
         review_link: 'pending', // Will be updated after creation
-        message: template.custom_message || template.config_json?.message || 'Thank you for your business! Please consider leaving us a review.',
+        message: template.config_json?.message || template.custom_message || 'Thank you for your business! Please consider leaving us a review.',
         status: 'pending',
         trigger_type: metadata.trigger_type,
         external_source: 'qbo_webhook',
