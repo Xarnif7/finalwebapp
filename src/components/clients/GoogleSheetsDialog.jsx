@@ -36,11 +36,15 @@ const GoogleSheetsDialog = ({ open, onOpenChange, onImport, loading }) => {
 
   useEffect(() => {
     if (open) {
-      getSession();
-      checkConnectionStatus();
-      fetchSyncSettings();
+      initializeSession();
     }
   }, [open]);
+
+  const initializeSession = async () => {
+    await getSession();
+    await checkConnectionStatus();
+    await fetchSyncSettings();
+  };
 
   const getSession = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -48,10 +52,15 @@ const GoogleSheetsDialog = ({ open, onOpenChange, onImport, loading }) => {
   };
 
   const checkConnectionStatus = async () => {
+    if (!session?.access_token) {
+      console.log('No session available for API call');
+      return;
+    }
+    
     try {
       const response = await fetch('/api/google/sheets/status', {
         headers: {
-          'Authorization': `Bearer ${session?.access_token}`
+          'Authorization': `Bearer ${session.access_token}`
         }
       });
       const data = await response.json();
@@ -72,10 +81,15 @@ const GoogleSheetsDialog = ({ open, onOpenChange, onImport, loading }) => {
   };
 
   const fetchSyncSettings = async () => {
+    if (!session?.access_token) {
+      console.log('No session available for API call');
+      return;
+    }
+    
     try {
       const response = await fetch('/api/google/sheets/sync-settings', {
         headers: {
-          'Authorization': `Bearer ${session?.access_token}`
+          'Authorization': `Bearer ${session.access_token}`
         }
       });
       const data = await response.json();
