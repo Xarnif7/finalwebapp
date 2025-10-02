@@ -637,6 +637,50 @@ const AutomationsPage = () => {
     }
   };
 
+  const handleSendNow = async (template) => {
+    try {
+      // Get a random customer for testing
+      const { data: customers, error: customerError } = await supabase
+        .from('customers')
+        .select('id, full_name, email, phone')
+        .eq('business_id', business.id)
+        .limit(1);
+
+      if (customerError || !customers || customers.length === 0) {
+        throw new Error('No customers found. Please add a customer first.');
+      }
+
+      const customer = customers[0];
+      
+      // Send immediate message
+      const response = await fetch('/api/automation/send-immediate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({
+          businessId: business.id,
+          customerId: customer.id,
+          templateId: template.id,
+          channel: template.channels?.[0] || 'email'
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send message');
+      }
+
+      console.log('Immediate send successful:', result);
+      
+    } catch (error) {
+      console.error('Error sending immediate message:', error);
+      throw error;
+    }
+  };
+
 
   const handleDelete = async (template) => {
     if (confirm(`Are you sure you want to delete "${template.name}"?`)) {
@@ -816,6 +860,7 @@ const AutomationsPage = () => {
                   onToggle={(status) => handleTemplateToggle(template.id, status)}
                   onCustomize={() => handleCustomize(template)}
                   onTest={() => handleTest(template)}
+                  onSendNow={handleSendNow}
                   onDelete={() => handleDelete(template)}
                   updating={updating[template.id]}
                 />

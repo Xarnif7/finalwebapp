@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { CheckCircle, Clock, Mail, MessageSquare, ArrowRight, Settings, Trash2 } from "lucide-react";
+import { CheckCircle, Clock, Mail, MessageSquare, ArrowRight, Settings, Trash2, Send, Loader2 } from "lucide-react";
+import { toast } from 'sonner';
 
 export default function FlowCard({ 
   template, 
@@ -13,10 +14,12 @@ export default function FlowCard({
   onTest, 
   onEdit,
   onDelete,
+  onSendNow, // New prop for immediate sending
   updating = false 
 }) {
   // Use template if provided, otherwise use sequence
   const data = template || sequence;
+  const [sendingNow, setSendingNow] = useState(false);
   const getChannelIcon = (channel) => {
     return channel === 'sms' ? <MessageSquare className="w-3 h-3 text-gray-600" /> : <Mail className="w-3 h-3 text-gray-600" />;
   };
@@ -199,11 +202,38 @@ export default function FlowCard({
             size="sm" 
             variant="outline"
             onClick={() => onCustomize(data)}
-            className="w-full"
+            className="flex-1"
           >
             <Settings className="w-3 h-3 mr-1" />
             Customize
           </Button>
+          {onSendNow && data.status === 'active' && (
+            <Button 
+              size="sm" 
+              variant="default"
+              onClick={async () => {
+                if (sendingNow) return;
+                setSendingNow(true);
+                try {
+                  await onSendNow(data);
+                  toast.success('Message sent immediately!');
+                } catch (error) {
+                  toast.error('Failed to send message: ' + error.message);
+                } finally {
+                  setSendingNow(false);
+                }
+              }}
+              disabled={sendingNow}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {sendingNow ? (
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              ) : (
+                <Send className="w-3 h-3 mr-1" />
+              )}
+              Send Now
+            </Button>
+          )}
           {onEdit && (
             <Button 
               size="sm" 
