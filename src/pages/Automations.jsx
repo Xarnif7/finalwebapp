@@ -646,6 +646,9 @@ const AutomationsPage = () => {
     console.log('🧪 Modal should be opening now...');
   };
 
+  // Debug: Log the function to make sure it exists
+  console.log('🧪 handleTestSend function defined:', typeof handleTestSend);
+
 
   const handleDelete = async (template) => {
     if (confirm(`Are you sure you want to delete "${template.name}"?`)) {
@@ -983,6 +986,7 @@ const AutomationsPage = () => {
       )}
 
       {/* Customize Modal */}
+      {console.log('🧪 Rendering TemplateCustomizer with onTestSend:', typeof handleTestSend)}
       <TemplateCustomizer
         isOpen={customizeModalOpen}
         onClose={() => setCustomizeModalOpen(false)}
