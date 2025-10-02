@@ -46,6 +46,8 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
     setSending(true);
 
     try {
+      console.log('🚀 Creating test customer...', { businessId: business.id, testEmail, testPhone });
+      
       // Create a temporary customer record for testing
       const { data: testCustomer, error: customerError } = await supabase
         .from('customers')
@@ -67,15 +69,31 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
         .single();
 
       if (customerError) {
+        console.error('🚀 Customer creation error:', customerError);
         throw new Error('Failed to create test customer: ' + customerError.message);
       }
 
+      console.log('🚀 Test customer created:', testCustomer);
+
+      // Get auth token
+      const session = await supabase.auth.getSession();
+      const token = session?.data?.session?.access_token;
+      console.log('🚀 Auth token:', token ? 'Present' : 'Missing');
+
       // Send the test message
+      console.log('🚀 Calling send-immediate API...', {
+        businessId: business.id,
+        customerId: testCustomer.id,
+        templateId: template.id,
+        message: customMessage,
+        channel: testEmail ? 'email' : 'sms'
+      });
+
       const response = await fetch('/api/automation/send-immediate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           businessId: business.id,
@@ -86,7 +104,9 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
         })
       });
 
+      console.log('🚀 API response status:', response.status);
       const result = await response.json();
+      console.log('🚀 API response:', result);
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to send test message');
@@ -101,7 +121,13 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
       }, 2000);
 
     } catch (error) {
-      console.error('Error sending test message:', error);
+      console.error('🚀 Error sending test message:', error);
+      console.error('🚀 Error details:', {
+        message: error.message,
+        stack: error.stack,
+        business: business,
+        template: template
+      });
       toast.error('Failed to send test message: ' + error.message);
     } finally {
       setSending(false);
@@ -144,9 +170,6 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
           <div className="bg-gray-50 p-3 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="outline">{template?.name}</Badge>
-              <Badge variant="secondary">
-                {template?.channels?.join(', ') || 'email'}
-              </Badge>
             </div>
             <p className="text-sm text-gray-600">
               Send yourself a test email to see how it looks!
