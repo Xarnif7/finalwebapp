@@ -106,7 +106,7 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
         to: testEmail || testPhone // Use original email/phone for sending
       });
 
-      const response = await fetch('/api/automation/send-immediate', {
+      const response = await fetch('/api/test-send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
