@@ -259,6 +259,9 @@ async function processInvoiceData(businessId, realmId, invoice, operation) {
     if (invoice.EmailStatus === 'EmailSent') {
       triggerType = 'invoice_sent';
     }
+  } else if (operation === 'Emailed') {
+    // Invoice was emailed (this is the main trigger we're seeing)
+    triggerType = 'invoice_sent';
   }
 
   if (!triggerType) {

@@ -17627,9 +17627,10 @@ app.post('/api/qbo/webhook', async (req, res) => {
         .insert({
           business_id: integration.business_id,
           customer_id: customer.id,
+          template_id: selectedTemplate.id,
           channel: 'email',
           review_link: null,
-          message: (selectedTemplate.config_json?.message || selectedTemplate.name || 'Please review us'),
+          message: (selectedTemplate.custom_message || selectedTemplate.config_json?.message || selectedTemplate.name || 'Please review us'),
           status: 'pending',
           created_at: new Date().toISOString()
         })
