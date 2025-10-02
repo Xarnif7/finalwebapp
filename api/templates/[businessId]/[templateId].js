@@ -128,6 +128,7 @@ async function handlePatch(req, res, businessId, templateId) {
     
     // Handle other message-related fields that exist in the schema
     if (updateData.message_subject !== undefined) updatePayload.message_subject = updateData.message_subject;
+    if (updateData.qbo_triggers !== undefined) updatePayload.qbo_triggers = updateData.qbo_triggers;
     
     console.log('🔧 Final updatePayload.custom_message:', updatePayload.custom_message);
     console.log('🔧 Final updatePayload:', JSON.stringify(updatePayload, null, 2));

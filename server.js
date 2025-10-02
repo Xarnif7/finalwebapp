@@ -16317,7 +16317,7 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData, trig
     // Get automations templates from Automations tab with ALL fields including custom_message
     const { data: templates, error: templatesError } = await supabase
       .from('automation_templates')
-      .select('id, name, key, status, channels, trigger_type, config_json, custom_message, updated_at')
+      .select('id, name, key, status, channels, trigger_type, config_json, custom_message, qbo_triggers, updated_at')
       .eq('business_id', businessId)
       .in('status', ['active', 'ready']);
     
@@ -16337,10 +16337,21 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData, trig
     if (triggerType) {
       const tKey = String(triggerType).replace(/^qbo_/, '');
       candidateTemplates = templates.filter(t => {
+        // Check new qbo_triggers field first
+        if (t.qbo_triggers && typeof t.qbo_triggers === 'object') {
+          if (t.qbo_triggers[triggerType] === true || t.qbo_triggers[tKey] === true) {
+            return true;
+          }
+        }
+        
+        // Fallback to old config_json triggers
         const cfg = t.config_json || {};
         const triggers = (cfg.triggers && cfg.triggers.qbo) || null;
         if (triggers && (triggers[triggerType] === true || triggers[tKey] === true)) return true;
+        
+        // Fallback to name/key matching
         if (t.trigger_type === 'event' && (t.key?.includes(tKey) || t.name?.toLowerCase().includes(tKey))) return true;
+        
         return false;
       });
       if (candidateTemplates.length === 0) candidateTemplates = templates; // fallback to all
@@ -17548,7 +17559,7 @@ app.post('/api/qbo/webhook', async (req, res) => {
       try {
         const { data: freshTemplate, error: freshError } = await supabase
           .from('automation_templates')
-          .select('id, name, custom_message, config_json, updated_at')
+          .select('id, name, custom_message, config_json, qbo_triggers, updated_at')
           .eq('id', selectedTemplate.id)
           .single();
         
@@ -17556,6 +17567,7 @@ app.post('/api/qbo/webhook', async (req, res) => {
           // Update the selectedTemplate with fresh data
           selectedTemplate.custom_message = freshTemplate.custom_message;
           selectedTemplate.config_json = freshTemplate.config_json;
+          selectedTemplate.qbo_triggers = freshTemplate.qbo_triggers;
           selectedTemplate.updated_at = freshTemplate.updated_at;
           
           console.log('🔄 Fetched fresh template data:', {

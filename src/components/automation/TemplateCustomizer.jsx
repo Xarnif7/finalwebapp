@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSmsStatus } from "@/hooks/useSmsStatus";
 import { supabase } from "@/lib/supabaseClient";
 import TestSendModal from "./TestSendModal";
+import QBOTriggerSelector from "./QBOTriggerSelector";
 
 export default function TemplateCustomizer({ 
   isOpen, 
@@ -45,7 +46,8 @@ export default function TemplateCustomizer({
       jobber_job_completed: false,
       housecall_pro_job_completed: false,
       servicetitan_job_completed: false
-    }
+    },
+    qbo_triggers: {}
   });
   const [saving, setSaving] = useState(false);
   const [messageDropdownOpen, setMessageDropdownOpen] = useState(false);
@@ -1205,55 +1207,17 @@ export default function TemplateCustomizer({
                     </div>
 
                     {/* QuickBooks triggers */}
-                    <div className="mt-3">
-                      <div className="text-xs font-medium text-gray-600 mb-1">QuickBooks</div>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="qboInvoiceSent"
-                          checked={formData.trigger_events && Array.isArray(formData.trigger_events) && formData.trigger_events.includes('qbo_invoice_sent') || false}
-                          onChange={(e) => {
-                            const triggers = formData.trigger_events || [];
-                            if (e.target.checked) {
-                              setFormData(prev => ({ 
-                                ...prev, 
-                                trigger_events: [...triggers, 'qbo_invoice_sent'].filter((v, i, a) => a.indexOf(v) === i)
-                              }));
-                            } else {
-                              setFormData(prev => ({ 
-                                ...prev, 
-                                trigger_events: triggers.filter(t => t !== 'qbo_invoice_sent')
-                              }));
-                            }
-                          }}
-                          className="rounded border-gray-300"
-                        />
-                        <Label htmlFor="qboInvoiceSent" className="text-sm">QuickBooks: Invoice sent</Label>
-                      </div>
-
-                      <div className="flex items-center space-x-2 mt-1">
-                        <input
-                          type="checkbox"
-                          id="qboInvoicePaid"
-                          checked={formData.trigger_events && Array.isArray(formData.trigger_events) && formData.trigger_events.includes('qbo_invoice_paid') || false}
-                          onChange={(e) => {
-                            const triggers = formData.trigger_events || [];
-                            if (e.target.checked) {
-                              setFormData(prev => ({ 
-                                ...prev, 
-                                trigger_events: [...triggers, 'qbo_invoice_paid'].filter((v, i, a) => a.indexOf(v) === i)
-                              }));
-                            } else {
-                              setFormData(prev => ({ 
-                                ...prev, 
-                                trigger_events: triggers.filter(t => t !== 'qbo_invoice_paid')
-                              }));
-                            }
-                          }}
-                          className="rounded border-gray-300"
-                        />
-                        <Label htmlFor="qboInvoicePaid" className="text-sm">QuickBooks: Invoice paid</Label>
-                      </div>
+                    <div className="mt-4">
+                      <QBOTriggerSelector
+                        selectedTriggers={formData.qbo_triggers || {}}
+                        onTriggersChange={(triggers) => {
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            qbo_triggers: triggers
+                          }));
+                        }}
+                        disabled={saving}
+                      />
                     </div>
 
                     <div className="flex items-center space-x-2">
