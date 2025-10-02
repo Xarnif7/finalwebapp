@@ -190,49 +190,76 @@ export default function TemplateCustomizer({
 
   // Load business data when test send modal opens
   useEffect(() => {
-    if (testSendModalOpen && businessId) {
-      console.log('🚀 Loading business data for businessId:', businessId);
+    if (testSendModalOpen) {
+      console.log('🚀 Modal opened, businessId:', businessId);
+      
+      // If no businessId, get it from user profile
+      const getBusinessId = async () => {
+        if (!businessId && user?.id) {
+          console.log('🚀 Getting business ID from user profile...');
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('business_id')
+            .eq('id', user.id)
+            .single();
+          
+          if (profile?.business_id) {
+            console.log('🚀 Found business ID from profile:', profile.business_id);
+            return profile.business_id;
+          }
+        }
+        return businessId;
+      };
+
       const loadBusinessData = async () => {
         try {
+          const actualBusinessId = await getBusinessId();
+          console.log('🚀 Using business ID:', actualBusinessId);
+          
+          if (!actualBusinessId) {
+            console.log('🚀 No business ID available, using fallback');
+            const fallbackData = {
+              id: 'fallback-business',
+              name: 'Your Business',
+              email: user?.email || 'noreply@myblipp.com'
+            };
+            setBusinessData(fallbackData);
+            return;
+          }
+
           const { data, error } = await supabase
             .from('businesses')
             .select('id, name, email')
-            .eq('id', businessId)
+            .eq('id', actualBusinessId)
             .single();
           
           console.log('🚀 Business data query result:', { data, error });
           
           if (error) {
             console.error('Error loading business data:', error);
-            // Fallback to basic data
             const fallbackData = {
-              id: businessId,
+              id: actualBusinessId,
               name: 'Your Business',
               email: user?.email || 'noreply@myblipp.com'
             };
-            console.log('🚀 Using fallback business data:', fallbackData);
             setBusinessData(fallbackData);
           } else {
-            console.log('🚀 Using database business data:', data);
             setBusinessData(data);
           }
         } catch (error) {
           console.error('Error loading business data:', error);
           const fallbackData = {
-            id: businessId,
+            id: 'fallback-business',
             name: 'Your Business',
             email: user?.email || 'noreply@myblipp.com'
           };
-          console.log('🚀 Using catch fallback business data:', fallbackData);
           setBusinessData(fallbackData);
         }
       };
       
       loadBusinessData();
-    } else {
-      console.log('🚀 Not loading business data:', { testSendModalOpen, businessId });
     }
-  }, [testSendModalOpen, businessId, user?.email]);
+  }, [testSendModalOpen, businessId, user?.id, user?.email]);
 
   // Variable insertion function
   const insertVariable = (variable) => {
@@ -1385,11 +1412,7 @@ export default function TemplateCustomizer({
             message: customMessage
           }
         }}
-        business={businessData || {
-          id: businessId,
-          name: 'Your Business',
-          email: user?.email || 'noreply@myblipp.com'
-        }}
+        business={businessData}
         isLoadingBusiness={!businessData && testSendModalOpen}
       />
     </Dialog>
