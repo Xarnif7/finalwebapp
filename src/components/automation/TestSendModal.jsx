@@ -9,7 +9,7 @@ import { Send, Mail, MessageSquare, Loader2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabaseClient';
 
-const TestSendModal = ({ isOpen, onClose, template, business }) => {
+const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness = false }) => {
   const [testEmail, setTestEmail] = useState('');
   const [testPhone, setTestPhone] = useState('');
   const [customMessage, setCustomMessage] = useState('');
@@ -40,9 +40,11 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
 
     if (!business?.id) {
       console.log('🚀 No business ID found:', business);
-      toast.error('Business information not available');
+      toast.error('Business information not available. Please try again.');
       return;
     }
+
+    console.log('🚀 Business data looks good:', business);
 
     console.log('🚀 Starting send process...');
     setSending(true);
@@ -247,7 +249,7 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
               console.log('🚀 Send button clicked!', { testEmail, testPhone, sending, sent });
               handleSend();
             }} 
-            disabled={sending || (!testEmail && !testPhone) || sent}
+            disabled={sending || (!testEmail && !testPhone) || sent || isLoadingBusiness}
             className="bg-blue-600 hover:bg-blue-700"
           >
             {sending ? (
@@ -259,6 +261,11 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
               <>
                 <CheckCircle className="w-4 h-4 mr-2" />
                 Sent!
+              </>
+            ) : isLoadingBusiness ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Loading...
               </>
             ) : (
               <>

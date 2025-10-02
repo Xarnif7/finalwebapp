@@ -191,6 +191,7 @@ export default function TemplateCustomizer({
   // Load business data when test send modal opens
   useEffect(() => {
     if (testSendModalOpen && businessId) {
+      console.log('🚀 Loading business data for businessId:', businessId);
       const loadBusinessData = async () => {
         try {
           const { data, error } = await supabase
@@ -199,28 +200,37 @@ export default function TemplateCustomizer({
             .eq('id', businessId)
             .single();
           
+          console.log('🚀 Business data query result:', { data, error });
+          
           if (error) {
             console.error('Error loading business data:', error);
             // Fallback to basic data
-            setBusinessData({
+            const fallbackData = {
               id: businessId,
               name: 'Your Business',
               email: user?.email || 'noreply@myblipp.com'
-            });
+            };
+            console.log('🚀 Using fallback business data:', fallbackData);
+            setBusinessData(fallbackData);
           } else {
+            console.log('🚀 Using database business data:', data);
             setBusinessData(data);
           }
         } catch (error) {
           console.error('Error loading business data:', error);
-          setBusinessData({
+          const fallbackData = {
             id: businessId,
             name: 'Your Business',
             email: user?.email || 'noreply@myblipp.com'
-          });
+          };
+          console.log('🚀 Using catch fallback business data:', fallbackData);
+          setBusinessData(fallbackData);
         }
       };
       
       loadBusinessData();
+    } else {
+      console.log('🚀 Not loading business data:', { testSendModalOpen, businessId });
     }
   }, [testSendModalOpen, businessId, user?.email]);
 
@@ -1380,6 +1390,7 @@ export default function TemplateCustomizer({
           name: 'Your Business',
           email: user?.email || 'noreply@myblipp.com'
         }}
+        isLoadingBusiness={!businessData && testSendModalOpen}
       />
     </Dialog>
   );
