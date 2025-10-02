@@ -17384,7 +17384,7 @@ app.post('/api/qbo/webhook', async (req, res) => {
       }
     }
     
-    // Handle invoice payment events
+    // Handle invoice events
     if (eventType === 'Invoice' && payload) {
       const { invoiceId, realmId } = payload;
       
@@ -17393,6 +17393,13 @@ app.post('/api/qbo/webhook', async (req, res) => {
         return res.status(400).json({ error: 'Missing required fields' });
       }
       
+      // Only process Emailed to avoid stale Create -> Emailed races
+      const rawOp = req.body?.eventNotifications?.[0]?.dataChangeEvent?.entities?.[0]?.operation;
+      if (rawOp && rawOp !== 'Emailed') {
+        console.log(`ℹ️ Skipping Invoice ${invoiceId} due to operation ${rawOp}; only processing Emailed`);
+        return res.status(200).json({ success: true, skipped: true });
+      }
+
       console.log(`🔔 Processing QBO invoice webhook: ${invoiceId} for realm: ${realmId}`);
       
       // Get the business integration (do not require 'connected' so we can refresh if expired)
