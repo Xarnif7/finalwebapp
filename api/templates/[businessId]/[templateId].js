@@ -102,10 +102,21 @@ async function handlePatch(req, res, businessId, templateId) {
       has_custom_message: updateData.custom_message !== undefined
     });
     
+    // Only update safe fields to avoid constraint violations
     const updatePayload = {
-      ...updateData,
       updated_at: new Date().toISOString()
     };
+    
+    // Only include fields that exist in the schema and are safe to update
+    if (updateData.name !== undefined) updatePayload.name = updateData.name;
+    if (updateData.description !== undefined) updatePayload.description = updateData.description;
+    if (updateData.status !== undefined) updatePayload.status = updateData.status;
+    if (updateData.channels !== undefined) updatePayload.channels = updateData.channels;
+    if (updateData.trigger_type !== undefined) updatePayload.trigger_type = updateData.trigger_type;
+    if (updateData.config_json !== undefined) updatePayload.config_json = updateData.config_json;
+    if (updateData.service_types !== undefined) updatePayload.service_types = updateData.service_types;
+    if (updateData.is_default !== undefined) updatePayload.is_default = updateData.is_default;
+    if (updateData.trigger_events !== undefined) updatePayload.trigger_events = updateData.trigger_events;
 
     // Handle custom message updates - prioritize custom_message over config_json.message
     if (updateData.custom_message !== undefined) {
