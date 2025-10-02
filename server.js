@@ -17660,14 +17660,19 @@ app.post('/api/qbo/webhook', async (req, res) => {
       // Find customer in Blipp
       console.log('🔍 Looking for customer with external_id:', invoiceDetails.CustomerRef.value);
       console.log('🔍 CustomerRef object:', JSON.stringify(invoiceDetails.CustomerRef, null, 2));
+      console.log('🔍 Business ID:', integration.business_id);
       
       let customer;
+      const customerRefValue = String(invoiceDetails.CustomerRef.value);
+      
+      // Try multiple lookup strategies
+      console.log('🔍 Trying lookup with value:', customerRefValue);
       const { data: customerData, error: customerError } = await supabase
         .from('customers')
         .select('*')
         .eq('business_id', integration.business_id)
         .eq('external_source', 'qbo')
-        .eq('external_id', invoiceDetails.CustomerRef.value)
+        .or(`external_id.eq.${customerRefValue},external_id.eq.${Number(customerRefValue)}`)
         .single();
       
       customer = customerData;
@@ -17701,6 +17706,20 @@ app.post('/api/qbo/webhook', async (req, res) => {
           console.log('✅ Found customer with string conversion:', altCustomer2.full_name);
           customer = altCustomer2;
         } else {
+          // List all available customers for debugging
+          console.log('🔍 Listing all available customers for this business:');
+          const { data: allCustomers } = await supabase
+            .from('customers')
+            .select('id, full_name, external_id, external_source')
+            .eq('business_id', integration.business_id)
+            .eq('external_source', 'qbo');
+          
+          if (allCustomers) {
+            allCustomers.forEach(c => {
+              console.log(`  - ${c.full_name} (external_id: "${c.external_id}")`);
+            });
+          }
+          
           return res.status(404).json({ error: 'Customer not found' });
         }
       }
