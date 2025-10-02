@@ -52,95 +52,52 @@ const AutomationsPageFixed = () => {
     });
   };
 
-  // Load templates with proper error handling
+  // Load templates from database
   const loadTemplates = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Loading templates...');
+      console.log('🔄 Loading templates from database...');
       
-      const userEmail = user?.email || 'unknown';
-      const sanitizedEmail = userEmail.replace(/[^a-zA-Z0-9]/g, '_');
-      const localStorageKey = `blipp_templates_${sanitizedEmail}`;
+      // Get business ID
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
+        .single();
       
-      // Try localStorage first
-      const savedData = localStorage.getItem(localStorageKey);
-      if (savedData) {
-        try {
-          const savedTemplates = JSON.parse(savedData);
-          const templateArray = Object.values(savedTemplates).filter(t => t.user_email === userEmail);
-          
-          if (templateArray.length > 0) {
-            console.log('✅ Loaded templates from localStorage:', templateArray.length);
-            // Fix any templates that don't have IDs
-            const fixedTemplates = fixTemplateIds(templateArray);
-            setTemplates(fixedTemplates);
-            setLoading(false);
-            return;
-          }
-        } catch (error) {
-          console.error('❌ Error parsing localStorage data:', error);
-        }
+      if (!profile?.business_id) {
+        console.error('❌ No business ID found');
+        setTemplates([]);
+        setLoading(false);
+        return;
       }
       
-      // Fallback to default templates
-      const defaultTemplates = [
-        {
-          id: generateTemplateId('Job Completed', userEmail),
-          name: 'Job Completed',
-          description: 'Send thank you email after job completion',
-          status: 'paused',
-          channels: ['email'],
-          trigger_type: 'event',
-          config_json: {
-            message: 'Thank you for choosing our services! We hope you\'re satisfied with our work.',
-            delay_hours: 24
-          },
-          user_email: userEmail,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: generateTemplateId('Invoice Paid', userEmail),
-          name: 'Invoice Paid', 
-          description: 'Follow up after invoice payment',
-          status: 'paused',
-          channels: ['email'],
-          trigger_type: 'event',
-          config_json: {
-            message: 'Thank you for your payment! We appreciate your business.',
-            delay_hours: 2
-          },
-          user_email: userEmail,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: generateTemplateId('Service Reminder', userEmail),
-          name: 'Service Reminder',
-          description: 'Remind customers about upcoming services',
-          status: 'paused', 
-          channels: ['email'],
-          trigger_type: 'scheduled',
-          config_json: {
-            message: 'This is a friendly reminder about your upcoming service appointment.',
-            delay_hours: 72
-          },
-          user_email: userEmail,
-          created_at: new Date().toISOString()
-        }
-      ];
+      // Fetch templates from database
+      const { data: dbTemplates, error: fetchError } = await supabase
+        .from('automation_templates')
+        .select('*')
+        .eq('business_id', profile.business_id)
+        .order('created_at', { ascending: false });
       
-      console.log('📝 Using default templates');
-      setTemplates(defaultTemplates);
+      if (fetchError) {
+        console.error('❌ Error fetching templates from database:', fetchError);
+        setTemplates([]);
+        setLoading(false);
+        return;
+      }
       
-      // Save defaults to localStorage
-      const templateMap = {};
-      defaultTemplates.forEach(template => {
-        templateMap[template.id] = template;
-      });
-      localStorage.setItem(localStorageKey, JSON.stringify(templateMap));
+      if (dbTemplates && dbTemplates.length > 0) {
+        console.log('✅ Loaded templates from database:', dbTemplates.length);
+        setTemplates(dbTemplates);
+      } else {
+        console.log('ℹ️ No templates found in database - new business starts with empty templates');
+        setTemplates([]);
+      }
       
+      setLoading(false);
     } catch (error) {
       console.error('❌ Error loading templates:', error);
-    } finally {
+      setTemplates([]);
       setLoading(false);
     }
   };
@@ -229,18 +186,47 @@ const AutomationsPageFixed = () => {
     try {
       console.log('💾 Saving template:', updatedTemplate.name);
       
+      // Get business ID
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (!profile?.business_id) {
+        console.error('❌ No business ID found');
+        return;
+      }
+      
+      // Update template in database
+      const { error: updateError } = await supabase
+        .from('automation_templates')
+        .update({
+          name: updatedTemplate.name,
+          status: updatedTemplate.status,
+          channels: updatedTemplate.channels,
+          trigger_type: updatedTemplate.trigger_type,
+          config_json: updatedTemplate.config_json,
+          description: updatedTemplate.description,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', updatedTemplate.id)
+        .eq('business_id', profile.business_id);
+      
+      if (updateError) {
+        console.error('❌ Error updating template in database:', updateError);
+        return;
+      }
+      
       // Update local state
       setTemplates(prev => prev.map(t => 
         t.id === updatedTemplate.id ? updatedTemplate : t
       ));
       
-      // Save to localStorage
-      saveTemplateToStorage(updatedTemplate);
-      
       // Close modal
       setCustomizeModalOpen(false);
       
-      console.log('✅ Template saved successfully');
+      console.log('✅ Template saved successfully to database');
     } catch (error) {
       console.error('❌ Error saving template:', error);
     }
@@ -251,32 +237,50 @@ const AutomationsPageFixed = () => {
     try {
       console.log('➕ Creating new template:', templateData.name);
       
-      const userEmail = user?.email || 'unknown';
-      const newTemplate = {
-        id: generateTemplateId(templateData.name, userEmail),
-        name: templateData.name,
-        description: templateData.description,
-        status: 'paused',
-        channels: templateData.channels || ['email'],
-        trigger_type: templateData.trigger_type || 'event',
-        config_json: {
-          message: templateData.message || 'Thank you for your business!',
-          delay_hours: templateData.delay_hours ?? 24
-        },
-        user_email: userEmail,
-        created_at: new Date().toISOString()
-      };
+      // Get business ID
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (!profile?.business_id) {
+        console.error('❌ No business ID found');
+        return;
+      }
+      
+      // Create template in database
+      const { data: newTemplate, error: createError } = await supabase
+        .from('automation_templates')
+        .insert({
+          business_id: profile.business_id,
+          key: 'job_completed', // Use valid enum key for now
+          name: templateData.name,
+          status: 'ready',
+          channels: templateData.channels || ['email'],
+          trigger_type: templateData.trigger_type || 'event',
+          config_json: {
+            message: templateData.message || 'Thank you for your business!',
+            delay_hours: templateData.delay_hours ?? 24,
+            keywords: templateData.keywords || []
+          },
+          description: templateData.description || ''
+        })
+        .select()
+        .single();
+      
+      if (createError) {
+        console.error('❌ Error creating template in database:', createError);
+        return;
+      }
       
       // Add to local state
       setTemplates(prev => [...prev, newTemplate]);
       
-      // Save to localStorage
-      saveTemplateToStorage(newTemplate);
-      
       // Close modal
       setCreateModalOpen(false);
       
-      console.log('✅ Template created successfully');
+      console.log('✅ Template created successfully in database');
     } catch (error) {
       console.error('❌ Error creating template:', error);
     }

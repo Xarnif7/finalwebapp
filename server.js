@@ -16611,8 +16611,14 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData, trig
       .eq('business_id', businessId)
       .in('status', ['active', 'ready']);
     
-    if (templatesError || !templates || templates.length === 0) {
-      console.error('❌ No templates found for business:', businessId);
+    if (templatesError) {
+      console.error('❌ Error fetching templates for business:', businessId, templatesError);
+      return null;
+    }
+    
+    if (!templates || templates.length === 0) {
+      console.log('ℹ️ No templates found for business:', businessId, '- this is normal for new businesses');
+      console.log('💡 Business needs to create templates in the dashboard first');
       return null;
     }
     
