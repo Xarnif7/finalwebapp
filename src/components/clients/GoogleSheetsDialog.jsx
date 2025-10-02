@@ -9,7 +9,7 @@ import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { Loader2, FileSpreadsheet, RefreshCw, CheckCircle, AlertCircle, ExternalLink, Settings } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { useCurrentBusinessId } from '../../hooks/useCurrentBusinessId';
+import { useCurrentBusinessId } from '@/lib/tenancy';
 import { supabase } from '../../lib/supabase/browser';
 import toast from 'react-hot-toast';
 
