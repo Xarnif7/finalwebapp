@@ -542,10 +542,11 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Google Sheets Connection Card */}
+      {/* Google Sheets Connection Card - temporarily disabled until Google approval
       <div className="mb-6">
         <GoogleSheetsConnectionCard onResync={handleImportGoogleSheets} />
       </div>
+      */}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 mb-8">
@@ -642,6 +643,7 @@ export default function ClientsPage() {
             <Upload className="h-4 w-4 mr-2" />
             Import CSV
           </Button>
+          {/* Google Sheets button - temporarily disabled until Google approval
           <Button
             onClick={() => setShowGoogleSheets(true)}
             variant="outline"
@@ -650,6 +652,7 @@ export default function ClientsPage() {
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Google Sheets
           </Button>
+          */}
           <Button
             onClick={() => setShowAddForm(true)}
             disabled={loading}
@@ -983,12 +986,14 @@ export default function ClientsPage() {
         loading={loading}
       />
 
+      {/* GoogleSheetsDialog - temporarily disabled until Google approval
       <GoogleSheetsDialog
         open={showGoogleSheets}
         onOpenChange={setShowGoogleSheets}
         onImport={handleImportGoogleSheets}
         loading={loading}
       />
+      */}
 
       <CrmConnectionModal
         isOpen={showCrmConnection}
