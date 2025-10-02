@@ -17548,17 +17548,24 @@ app.post('/api/qbo/webhook', async (req, res) => {
       try {
         const { data: freshTemplate, error: freshError } = await supabase
           .from('automation_templates')
-          .select('*')
+          .select('id, name, custom_message, config_json, updated_at')
           .eq('id', selectedTemplate.id)
           .single();
         
         if (!freshError && freshTemplate) {
-          selectedTemplate = freshTemplate;
+          // Update the selectedTemplate with fresh data
+          selectedTemplate.custom_message = freshTemplate.custom_message;
+          selectedTemplate.config_json = freshTemplate.config_json;
+          selectedTemplate.updated_at = freshTemplate.updated_at;
+          
           console.log('🔄 Fetched fresh template data:', {
             id: freshTemplate.id,
             custom_message: freshTemplate.custom_message,
+            config_json_message: freshTemplate.config_json?.message,
             updated_at: freshTemplate.updated_at
           });
+        } else {
+          console.error('⚠️ Failed to fetch fresh template data:', freshError);
         }
       } catch (error) {
         console.error('⚠️ Failed to fetch fresh template data, using cached:', error.message);
@@ -19393,6 +19400,7 @@ app.post('/api/google/sheets/sync-settings', async (req, res) => {
 app.get('/api/cron/refresh-qbo-tokens', async (req, res) => {
   try {
     console.log('[CRON] Starting QBO token refresh job...');
+    console.log('[CRON] Current time:', new Date().toISOString());
     
     // Get all active QBO integrations that need token refresh
     const { data: integrations, error } = await supabase
@@ -19535,6 +19543,52 @@ app.get('/api/cron/check-qbo-connections', async (req, res) => {
   } catch (error) {
     console.error('[CRON] QBO connection health check error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Manual token refresh endpoint for testing
+app.post('/api/refresh-qbo-tokens', async (req, res) => {
+  try {
+    console.log('[MANUAL] Starting QBO token refresh...');
+    
+    const { data: integrations, error } = await supabase
+      .from('integrations_quickbooks')
+      .select('*')
+      .eq('status', 'active')
+      .eq('connection_status', 'connected');
+    
+    if (error) {
+      console.error('[MANUAL] Error fetching integrations:', error);
+      return res.status(500).json({ error: 'Failed to fetch integrations' });
+    }
+    
+    if (!integrations || integrations.length === 0) {
+      return res.json({ message: 'No active integrations found' });
+    }
+    
+    let refreshedCount = 0;
+    let failedCount = 0;
+    
+    for (const integration of integrations) {
+      try {
+        await refreshQBOtoken(integration);
+        refreshedCount++;
+        console.log(`[MANUAL] Refreshed token for business ${integration.business_id}`);
+      } catch (error) {
+        failedCount++;
+        console.error(`[MANUAL] Failed to refresh token for business ${integration.business_id}:`, error.message);
+      }
+    }
+    
+    res.json({ 
+      message: 'Manual QBO token refresh completed', 
+      refreshed: refreshedCount, 
+      failed: failedCount,
+      total: integrations.length 
+    });
+  } catch (error) {
+    console.error('[MANUAL] Token refresh failed:', error);
+    res.status(500).json({ error: 'Token refresh failed' });
   }
 });
 
