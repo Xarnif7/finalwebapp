@@ -16736,20 +16736,37 @@ async function selectTemplateByAI(businessId, invoiceDetails, customerData, trig
       return scored[0].t;
     }
 
+    // Build safe fields for prompt to avoid TypeErrors
+    const safeTemplates = Array.isArray(candidateTemplates) ? candidateTemplates : [];
+    const safeJobType = (invoiceDetails && invoiceDetails.jobType) ? String(invoiceDetails.jobType) : '';
+    const safeServiceCategory = (invoiceDetails && invoiceDetails.serviceCategory) ? String(invoiceDetails.serviceCategory) : '';
+    const safeCustomerName = (customerData && (customerData.full_name || customerData.name)) ? String(customerData.full_name || customerData.name) : '';
+    const safeTotalAmount = (invoiceDetails && (invoiceDetails.totalAmount || invoiceDetails.TotalAmt || invoiceDetails.amount)) ? String(invoiceDetails.totalAmount || invoiceDetails.TotalAmt || invoiceDetails.amount) : '';
+    let rawLines = [];
+    try {
+      if (invoiceDetails && Array.isArray(invoiceDetails.lineItems)) rawLines = invoiceDetails.lineItems;
+      else if (invoiceDetails && Array.isArray(invoiceDetails.Line)) rawLines = invoiceDetails.Line;
+    } catch (_) { rawLines = []; }
+    const safeLineItems = rawLines.map(li => {
+      try {
+        return li?.Description || li?.SalesItemLineDetail?.ItemRef?.name || li?.name || '';
+      } catch (_) { return ''; }
+    }).filter(Boolean);
+
     const prompt = `
 You are a customer service AI that selects the most appropriate review request template based on the service provided.
 
 Available templates:
-${candidateTemplates.map((t, i) => `${i + 1}. "${t.name}" - ${(t.config_json?.message || '').substring(0, 100)}...`).join('\n')}
+${safeTemplates.map((t, i) => `${i + 1}. "${t.name}" - ${(t.config_json?.message || '').substring(0, 100)}...`).join('\n')}
 
 Invoice details:
-- Job Type: ${invoiceDetails.jobType}
-- Service Category: ${invoiceDetails.serviceCategory}
-- Customer: ${customerData.name}
-- Amount: $${invoiceDetails.totalAmount}
-- Line Items: ${invoiceDetails.lineItems.map(item => item.Description || item.SalesItemLineDetail?.ItemRef?.name).join(', ')}
+- Job Type: ${safeJobType}
+- Service Category: ${safeServiceCategory}
+- Customer: ${safeCustomerName}
+- Amount: $${safeTotalAmount}
+- Line Items: ${safeLineItems.join(', ')}
 
-Select the most appropriate template number (1-${candidateTemplates.length}) based on the service type. Consider:
+Select the most appropriate template number (1-${safeTemplates.length}) based on the service type. Consider:
 - Mowing/lawn care should use mowing-specific templates
 - Roof repair should use home repair templates
 - Plumbing should use plumbing templates
