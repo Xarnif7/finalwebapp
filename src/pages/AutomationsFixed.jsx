@@ -482,6 +482,7 @@ const AutomationsPageFixed = () => {
         template={selectedTemplate}
         onSave={handleTemplateSaved}
         onDelete={selectedTemplate?.id ? () => handleDeleteTemplate(selectedTemplate.id) : null}
+        businessId={business?.id}
         user={user}
       />
 
@@ -501,6 +502,7 @@ const AutomationsPageFixed = () => {
           }
         }}
         onSave={handleCreateTemplate}
+        businessId={business?.id}
         user={user}
         isCreating={true}
       />
