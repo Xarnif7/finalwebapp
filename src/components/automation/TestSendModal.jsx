@@ -33,11 +33,13 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
     console.log('🚀 TestSendModal handleSend clicked!', { testEmail, testPhone, business, template });
     
     if (!testEmail && !testPhone) {
+      console.log('🚀 No email or phone provided');
       toast.error('Please enter an email address or phone number');
       return;
     }
 
     if (!business?.id) {
+      console.log('🚀 No business ID found:', business);
       toast.error('Business information not available');
       return;
     }
@@ -113,12 +115,12 @@ const TestSendModal = ({ isOpen, onClose, template, business }) => {
       }
 
       setSent(true);
-      toast.success(`Test ${testEmail ? 'email' : 'SMS'} sent successfully!`);
+      toast.success(`Test ${testEmail ? 'email' : 'SMS'} sent successfully to ${testEmail || testPhone}!`);
       
-      // Auto-close after 2 seconds
+      // Auto-close after 3 seconds
       setTimeout(() => {
         handleClose();
-      }, 2000);
+      }, 3000);
 
     } catch (error) {
       console.error('🚀 Error sending test message:', error);

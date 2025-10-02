@@ -58,6 +58,7 @@ export default function TemplateCustomizer({
   const [aiTesting, setAiTesting] = useState(false);
   const [aiTestResult, setAiTestResult] = useState(null);
   const [testSendModalOpen, setTestSendModalOpen] = useState(false);
+  const [businessData, setBusinessData] = useState(null);
   const textareaRef = useRef(null);
   const previewTimeoutRef = useRef(null);
 
@@ -186,6 +187,42 @@ export default function TemplateCustomizer({
       generatePreview(currentMessage);
     }
   }, [template, user?.email]);
+
+  // Load business data when test send modal opens
+  useEffect(() => {
+    if (testSendModalOpen && businessId) {
+      const loadBusinessData = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('businesses')
+            .select('id, name, email')
+            .eq('id', businessId)
+            .single();
+          
+          if (error) {
+            console.error('Error loading business data:', error);
+            // Fallback to basic data
+            setBusinessData({
+              id: businessId,
+              name: 'Your Business',
+              email: user?.email || 'noreply@myblipp.com'
+            });
+          } else {
+            setBusinessData(data);
+          }
+        } catch (error) {
+          console.error('Error loading business data:', error);
+          setBusinessData({
+            id: businessId,
+            name: 'Your Business',
+            email: user?.email || 'noreply@myblipp.com'
+          });
+        }
+      };
+      
+      loadBusinessData();
+    }
+  }, [testSendModalOpen, businessId, user?.email]);
 
   // Variable insertion function
   const insertVariable = (variable) => {
@@ -1338,7 +1375,7 @@ export default function TemplateCustomizer({
             message: customMessage
           }
         }}
-        business={{
+        business={businessData || {
           id: businessId,
           name: 'Your Business',
           email: user?.email || 'noreply@myblipp.com'
