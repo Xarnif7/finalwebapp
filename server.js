@@ -5201,6 +5201,107 @@ async function processJob(job) {
   }
 }
 
+// Helper functions for processing review requests
+async function processEmailRequest(request) {
+  try {
+    console.log(`📧 Processing email request ${request.id} for ${request.customers.email}`);
+    
+    const emailResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Blipp <noreply@myblipp.com>',
+        to: [request.customers.email],
+        subject: `Review Request from ${request.businesses.name}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #333;">Hi ${request.customers.full_name || 'Customer'}!</h2>
+            <p>${request.message}</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${request.review_link}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">Leave a Review</a>
+            </div>
+            <p>Best regards,<br>${request.businesses.name}</p>
+          </div>
+        `,
+        text: `Hi ${request.customers.full_name || 'Customer'},\n\n${request.message}\n\n${request.review_link}\n\nBest regards,\n${request.businesses.name}`
+      })
+    });
+
+    const emailData = await emailResponse.json();
+
+    if (emailResponse.ok) {
+      console.log(`✅ Email sent to ${request.customers.email}: ${emailData.id}`);
+      
+      // Mark review request as sent
+      await supabase
+        .from('review_requests')
+        .update({ 
+          status: 'sent',
+          sent_at: new Date().toISOString()
+        })
+        .eq('id', request.id);
+      
+      return { success: true, messageId: emailData.id };
+    } else {
+      console.error(`❌ Failed to send email to ${request.customers.email}:`, emailData);
+      return { success: false, error: emailData.error || 'Email send failed' };
+    }
+  } catch (error) {
+    console.error(`❌ Error processing email request ${request.id}:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function processSMSRequest(request) {
+  try {
+    console.log(`📱 Processing SMS request ${request.id} for ${request.customers.phone}`);
+    
+    // Normalize phone number
+    const normalizedPhone = request.customers.phone.replace(/\D/g, '');
+    const e164Phone = normalizedPhone.startsWith('1') ? `+${normalizedPhone}` : `+1${normalizedPhone}`;
+    
+    // Send via Surge API
+    const response = await fetch(`${process.env.APP_BASE_URL || 'http://localhost:3001'}/api/surge/sms/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+      },
+      body: JSON.stringify({
+        businessId: request.business_id,
+        to: e164Phone,
+        body: `${request.message}\n\n${request.review_link}`
+      })
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      console.log(`✅ SMS sent to ${e164Phone}: ${result.message_id}`);
+      
+      // Mark review request as sent
+      await supabase
+        .from('review_requests')
+        .update({ 
+          status: 'sent',
+          sent_at: new Date().toISOString()
+        })
+        .eq('id', request.id);
+      
+      return { success: true, messageId: result.message_id };
+    } else {
+      console.error(`❌ Failed to send SMS to ${e164Phone}:`, result);
+      return { success: false, error: result.error || 'SMS send failed' };
+    }
+  } catch (error) {
+    console.error(`❌ Error processing SMS request ${request.id}:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
 // Helper functions for sending messages
 async function sendSMS(phone, message, businessId) {
   try {
@@ -10242,112 +10343,27 @@ app.get('/api/automation-executor', async (req, res) => {
     
     for (const request of allPendingRequests || []) {
       try {
-        // Skip SMS for now
-        if (request.channel === 'sms') {
+        // Process both email and SMS channels
+        if (request.channel === 'email' && request.customers.email) {
+          // Send email
+          const result = await processEmailRequest(request);
+          if (result.success) {
+            sentCount++;
+          }
+        } else if (request.channel === 'sms' && request.customers.phone) {
+          // Send SMS
+          const result = await processSMSRequest(request);
+          if (result.success) {
+            sentCount++;
+          }
+        } else {
+          console.log(`Skipping request ${request.id} - no valid contact method for channel ${request.channel}`);
           continue;
         }
         
-          // Determine final message (pending list has no job context)
-          const finalMessage = request.message;
-
-          // Add delay between emails to respect rate limits (2 requests per second)
+        // Add delay between messages to respect rate limits
         if (sentCount > 0) {
           await new Promise(resolve => setTimeout(resolve, 600)); // 600ms delay = ~1.67 requests per second
-        }
-
-          // Send email
-        if (request.channel === 'email' && request.customers.email) {
-          console.log(`📧 Sending email to ${request.customers.email} using Resend API`);
-          console.log(`📧 Resend API key configured: ${process.env.RESEND_API_KEY ? 'Yes' : 'No'}`);
-          
-          const emailResponse = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              from: `${request.businesses.name} <noreply@myblipp.com>`, // Show business name in sender
-              to: [request.customers.email],
-              subject: `Thank you from ${request.businesses.name}`,
-              html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-                  <!-- Purple Gradient Header Banner -->
-                  <div style="background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%); padding: 40px 20px; text-align: center; margin: 0;">
-                    <h1 style="color: white; font-size: 32px; font-weight: bold; margin: 0 0 8px 0;">Thank You</h1>
-                    <p style="color: white; font-size: 16px; margin: 0; opacity: 0.9;">We appreciate your business at ${request.businesses.name}</p>
-                  </div>
-                  
-                  <!-- Main Content -->
-                  <div style="padding: 30px 20px;">
-                    <h2 style="color: #1F2937; font-size: 24px; font-weight: bold; margin: 0 0 20px 0;">Hi ${request.customers.full_name || 'Valued Customer'},</h2>
-                    
-                    <!-- Custom Message Box with Blue Border -->
-                    <div style="background-color: #F9FAFB; border-left: 4px solid #3B82F6; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-                      <p style="color: #374151; font-size: 16px; margin: 0; line-height: 1.5;">${finalMessage}</p>
-                    </div>
-                    
-          <p style="color: #6B7280; font-size: 16px; margin: 20px 0;">Your feedback helps us improve our services and assists other customers in making informed decisions.</p>
-                    
-                    <!-- Call to Action Button -->
-                    <div style="text-align: center; margin: 30px 0;">
-                      <a href="${request.review_link}" 
-                         style="background-color: #3B82F6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                        Leave a Review
-                      </a>
-                    </div>
-                    
-                    <!-- Footer -->
-                    <p style="color: #6B7280; font-size: 16px; margin: 20px 0;">
-                      Thank you for choosing <strong>${request.businesses.name}</strong> • <a href="#" style="color: #3B82F6; text-decoration: none;">Website</a>
-                    </p>
-                  </div>
-                  
-                  <!-- Platform Footer -->
-                  <div style="background-color: #F9FAFB; padding: 20px; text-align: center; border-top: 1px solid #E5E7EB;">
-                    <p style="color: #9CA3AF; font-size: 14px; margin: 0 0 8px 0;">This email was sent by Blipp - Review Automation Platform</p>
-                    <p style="color: #9CA3AF; font-size: 14px; margin: 0;">If you have any questions, please contact ${request.businesses.name} directly.</p>
-                  </div>
-                </div>
-              `,
-              text: `Thank You - We appreciate your business
-
-Hi ${request.customers.full_name || 'Valued Customer'},
-
-${finalMessage}
-
-Your feedback helps us improve our services and assists other customers in making informed decisions.
-
-Leave Feedback: ${request.review_link}
-
-Thank you for choosing ${request.businesses.name} • Website
-
----
-This email was sent by Blipp - Review Automation Platform
-If you have any questions, please contact ${request.businesses.name} directly.`
-            })
-          });
-
-          if (emailResponse.ok) {
-            sentCount++;
-            console.log(`✅ Sent email to ${request.customers.email}`);
-            
-            // Mark review request as sent
-            await supabase
-              .from('review_requests')
-              .update({ 
-                status: 'sent',
-                sent_at: new Date().toISOString()
-              })
-              .eq('id', request.id);
-          } else {
-            const errorData = await emailResponse.text();
-            console.error(`❌ Failed to send email to ${request.customers.email}:`, {
-              status: emailResponse.status,
-              statusText: emailResponse.statusText,
-              error: errorData
-            });
-          }
         }
       } catch (error) {
         console.error(`Error processing request ${request.id}:`, error);
