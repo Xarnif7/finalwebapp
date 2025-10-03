@@ -174,6 +174,8 @@ const SequenceDesigner = ({ sequenceId, onClose, onSave }) => {
         return <Mail className="w-4 h-4" />;
       case 'send_sms':
         return <MessageSquare className="w-4 h-4" />;
+      case 'send_both':
+        return <Send className="w-4 h-4" />;
       case 'wait':
         return <Clock className="w-4 h-4" />;
       default:
@@ -187,6 +189,8 @@ const SequenceDesigner = ({ sequenceId, onClose, onSave }) => {
         return 'Send Email';
       case 'send_sms':
         return 'Send SMS';
+      case 'send_both':
+        return 'Send Email & SMS';
       case 'wait':
         return 'Wait';
       default:
@@ -380,6 +384,24 @@ const SequenceDesigner = ({ sequenceId, onClose, onSave }) => {
                 <Button
                   size="sm"
                   variant="outline"
+                  onClick={() => handleAddStep('send_both')}
+                  disabled={!isSmsEnabled()}
+                  className={!isSmsEnabled() ? 'opacity-50 cursor-not-allowed' : ''}
+                  title={!isSmsEnabled() ? getSmsStatusMessage() : 'Add Email & SMS step'}
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  Add Both
+                  {!isSmsEnabled() && (
+                    <Badge variant="outline" className="ml-1 text-xs">
+                      {isSmsNotProvisioned() ? 'Not Set Up' : 
+                       isSmsPending() ? 'Pending' : 
+                       isSmsActionNeeded() ? 'Action Needed' : 'Disabled'}
+                    </Badge>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
                   onClick={() => handleAddStep('wait')}
                 >
                   <Clock className="w-4 h-4 mr-2" />
@@ -473,7 +495,7 @@ const SequenceDesigner = ({ sequenceId, onClose, onSave }) => {
                     </div>
                   )}
 
-                  {(selectedStep.kind === 'send_email' || selectedStep.kind === 'send_sms') && (
+                  {(selectedStep.kind === 'send_email' || selectedStep.kind === 'send_sms' || selectedStep.kind === 'send_both') && (
                     <div>
                       <Label htmlFor="template">Message Template</Label>
                       <Select
@@ -485,10 +507,15 @@ const SequenceDesigner = ({ sequenceId, onClose, onSave }) => {
                         </SelectTrigger>
                         <SelectContent>
                           {templates
-                            .filter(t => t.channel === selectedStep.kind.replace('send_', ''))
+                            .filter(t => {
+                              if (selectedStep.kind === 'send_both') {
+                                return t.channel === 'email' || t.channel === 'sms';
+                              }
+                              return t.channel === selectedStep.kind.replace('send_', '');
+                            })
                             .map(template => (
                               <SelectItem key={template.id} value={template.id}>
-                                {template.name}
+                                {template.name} ({template.channel})
                               </SelectItem>
                             ))}
                         </SelectContent>
@@ -496,7 +523,7 @@ const SequenceDesigner = ({ sequenceId, onClose, onSave }) => {
                     </div>
                   )}
 
-                  {(selectedStep.kind === 'send_email' || selectedStep.kind === 'send_sms') && selectedStep.template_id && (
+                  {(selectedStep.kind === 'send_email' || selectedStep.kind === 'send_sms' || selectedStep.kind === 'send_both') && selectedStep.template_id && (
                     <div>
                       <Label>Template Preview</Label>
                       <div className="mt-1 p-3 bg-white border rounded-lg">
@@ -506,11 +533,16 @@ const SequenceDesigner = ({ sequenceId, onClose, onSave }) => {
                         <div className="text-sm">
                           {templates.find(t => t.id === selectedStep.template_id)?.content}
                         </div>
+                        {selectedStep.kind === 'send_both' && (
+                          <div className="mt-2 text-xs text-blue-600">
+                            This template will be sent via both email and SMS
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {(selectedStep.kind === 'send_email' || selectedStep.kind === 'send_sms') && selectedStep.template_id && (
+                  {(selectedStep.kind === 'send_email' || selectedStep.kind === 'send_sms' || selectedStep.kind === 'send_both') && selectedStep.template_id && (
                     <div>
                       <Button
                         size="sm"

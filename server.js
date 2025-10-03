@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import fetch from 'node-fetch';
 
 // Load environment variables from .env files
 dotenv.config({ path: '.env.local' });
@@ -7260,6 +7261,199 @@ async function processMessageStep(enrollment, sequence, business, currentStep, c
   }
 }
 
+// Process a message step with multiple channels (send_both)
+async function processMessageStepMultiChannel(enrollment, sequence, business, currentStep, channels, now) {
+  try {
+    // Check rate limits
+    const rateCheck = checkRateLimit(business.id, business.rate_per_hour, business.rate_per_day);
+    if (!rateCheck.allowed) {
+      console.log(`[PROCESS] Rate limit exceeded for business ${business.id}:`, rateCheck);
+      
+      // Reschedule for next hour/day
+      const nextRun = new Date(now);
+      if (rateCheck.reason === 'hourly_rate_limit') {
+        nextRun.setHours(nextRun.getHours() + 1, 0, 0, 0);
+      } else {
+        nextRun.setDate(nextRun.getDate() + 1);
+        nextRun.setHours(0, 0, 0, 0);
+      }
+      
+      await logAutomationEvent(
+        business.id,
+        'warning',
+        'runner',
+        `Rate limit exceeded for enrollment ${enrollment.id}`,
+        { 
+          enrollment_id: enrollment.id, 
+          reason: rateCheck.reason,
+          current: rateCheck.current,
+          limit: rateCheck.limit,
+          next_run_at: nextRun.toISOString()
+        }
+      );
+      
+      return { success: false, nextRunAt: nextRun.toISOString() };
+    }
+
+    // Get customer details
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .select('full_name, email, phone')
+      .eq('id', enrollment.customer_id)
+      .single();
+
+    if (customerError) {
+      console.error(`[PROCESS] Error getting customer ${enrollment.customer_id}:`, customerError);
+      await logAutomationEvent(
+        business.id,
+        'error',
+        'runner',
+        `Failed to get customer for enrollment ${enrollment.id}`,
+        { enrollment_id: enrollment.id, customer_id: enrollment.customer_id, error: customerError.message }
+      );
+      return { success: false };
+    }
+
+    // Get template
+    const { data: template, error: templateError } = await supabase
+      .from('message_templates')
+      .select('*')
+      .eq('id', currentStep.template_id)
+      .single();
+
+    if (templateError) {
+      console.error(`[PROCESS] Error getting template ${currentStep.template_id}:`, templateError);
+      await logAutomationEvent(
+        business.id,
+        'error',
+        'runner',
+        `Failed to get template for enrollment ${enrollment.id}`,
+        { enrollment_id: enrollment.id, template_id: currentStep.template_id, error: templateError.message }
+      );
+      return { success: false };
+    }
+
+    let allSuccess = true;
+    const results = [];
+
+    // Process each channel
+    for (const channel of channels) {
+      try {
+        // Create message record for this channel
+        const messageData = {
+          business_id: business.id,
+          customer_id: enrollment.customer_id,
+          sequence_id: sequence.id,
+          enrollment_id: enrollment.id,
+          channel: channel,
+          to: channel === 'email' ? customer.email : customer.phone,
+          subject: template.subject,
+          body: template.body,
+          status: 'queued',
+          created_at: now.toISOString()
+        };
+
+        const { data: message, error: messageError } = await supabase
+          .from('messages')
+          .insert(messageData)
+          .select('id')
+          .single();
+
+        if (messageError) {
+          console.error(`[PROCESS] Error creating message for ${channel}:`, messageError);
+          results.push({ channel, success: false, error: messageError.message });
+          allSuccess = false;
+          continue;
+        }
+
+        // Send the message
+        const sendResult = await sendMessageToCustomer(
+          business.id,
+          customer,
+          template,
+          channel,
+          message.id
+        );
+
+        if (sendResult.success) {
+          // Mark message as sent
+          await supabase
+            .from('messages')
+            .update({ 
+              status: 'sent',
+              sent_at: now.toISOString(),
+              message_id: sendResult.messageId
+            })
+            .eq('id', message.id);
+
+          // Track success
+          incrementMetric(business.id, 'sent');
+          results.push({ channel, success: true, messageId: sendResult.messageId });
+          
+          console.log(`[PROCESS] Message sent successfully via ${channel} for enrollment ${enrollment.id}`);
+        } else if (sendResult.blocked) {
+          // Mark message as blocked
+          await supabase
+            .from('messages')
+            .update({ 
+              status: 'blocked',
+              error_message: sendResult.reason
+            })
+            .eq('id', message.id);
+
+          results.push({ channel, success: false, blocked: true, reason: sendResult.reason });
+          allSuccess = false;
+        } else {
+          // Mark message as failed
+          await supabase
+            .from('messages')
+            .update({ 
+              status: 'failed',
+              error_message: sendResult.error
+            })
+            .eq('id', message.id);
+
+          results.push({ channel, success: false, error: sendResult.error });
+          allSuccess = false;
+        }
+      } catch (channelError) {
+        console.error(`[PROCESS] Error processing ${channel} for enrollment ${enrollment.id}:`, channelError);
+        results.push({ channel, success: false, error: channelError.message });
+        allSuccess = false;
+      }
+    }
+
+    // Log the multi-channel execution
+    await logAutomationEvent(
+      business.id,
+      'info',
+      'runner',
+      `Multi-channel message processed for enrollment ${enrollment.id}`,
+      { 
+        enrollment_id: enrollment.id, 
+        template_id: currentStep.template_id,
+        channels: channels,
+        results: results,
+        all_success: allSuccess,
+        executed_at: now.toISOString()
+      }
+    );
+
+    return { success: allSuccess, results };
+
+  } catch (error) {
+    console.error(`[PROCESS] Error processing multi-channel message step for enrollment ${enrollment.id}:`, error);
+    await logAutomationEvent(
+      business.id,
+      'error',
+      'runner',
+      `Error processing multi-channel message step for enrollment ${enrollment.id}`,
+      { enrollment_id: enrollment.id, error: error.message }
+    );
+    return { success: false };
+  }
+}
+
 // Process a single enrollment
 async function processEnrollment(enrollment, sequence, business) {
   try {
@@ -7344,9 +7538,9 @@ async function processEnrollment(enrollment, sequence, business) {
         }
       );
       
-    } else if (currentStep.kind === 'send_email' || currentStep.kind === 'send_sms') {
+    } else if (currentStep.kind === 'send_email' || currentStep.kind === 'send_sms' || currentStep.kind === 'send_both') {
       // Send message step
-      const channel = currentStep.kind === 'send_email' ? 'email' : 'sms';
+      const channels = currentStep.kind === 'send_both' ? ['email', 'sms'] : [currentStep.kind === 'send_email' ? 'email' : 'sms'];
       
       // Check if we're in quiet hours before sending
       if (sequence.quiet_hours_start && sequence.quiet_hours_end) {
@@ -7370,7 +7564,7 @@ async function processEnrollment(enrollment, sequence, business) {
           );
         } else {
           // Not in quiet hours, proceed with sending
-          const messageResult = await processMessageStep(enrollment, sequence, business, currentStep, channel, now);
+          const messageResult = await processMessageStepMultiChannel(enrollment, sequence, business, currentStep, channels, now);
           if (messageResult.success) {
             nextStepIndex += 1;
             nextRunAt = calculateNextRunTime(sequence, null, now);
@@ -7380,7 +7574,7 @@ async function processEnrollment(enrollment, sequence, business) {
         }
       } else {
         // No quiet hours configured, proceed with sending
-        const messageResult = await processMessageStep(enrollment, sequence, business, currentStep, channel, now);
+        const messageResult = await processMessageStepMultiChannel(enrollment, sequence, business, currentStep, channels, now);
         if (messageResult.success) {
           nextStepIndex += 1;
           nextRunAt = calculateNextRunTime(sequence, null, now);
@@ -11964,27 +12158,22 @@ ${business.name}`;
         throw new Error('Email sending failed');
       }
     } else {
-      // SMS via Twilio
-      const accountSid = process.env.TWILIO_ACCOUNT_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
-      const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-
-      const smsResponse = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+      // SMS via Surge unified endpoint
+      const surgeResp = await fetch(`${process.env.APP_BASE_URL || 'http://localhost:3001'}/api/surge/sms/send`, {
         method: 'POST',
         headers: {
-          'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
         },
-        body: new URLSearchParams({
-          From: fromNumber,
-          To: customer.phone,
-          Body: message,
-        }),
+        body: JSON.stringify({
+          businessId: reviewRequest.business_id,
+          to: customer.phone,
+          body: message
+        })
       });
-
-      if (smsResponse.ok) {
-        const smsData = await smsResponse.json();
-        sendResult = { messageId: smsData.sid };
+      if (surgeResp.ok) {
+        const surgeData = await surgeResp.json().catch(() => ({}));
+        sendResult = { messageId: surgeData.message_id };
       } else {
         throw new Error('SMS sending failed');
       }
@@ -12204,25 +12393,20 @@ ${business.name}`;
         return false;
       }
     } else {
-      // SMS via Twilio
-      const accountSid = process.env.TWILIO_ACCOUNT_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
-      const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-
-      const smsResponse = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+      // SMS via Surge unified endpoint
+      const surgeResp = await fetch(`${process.env.APP_BASE_URL || 'http://localhost:3001'}/api/surge/sms/send`, {
         method: 'POST',
         headers: {
-          'Authorization': 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64'),
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
         },
-        body: new URLSearchParams({
-          From: fromNumber,
-          To: customer.phone,
-          Body: message,
-        }),
+        body: JSON.stringify({
+          businessId: reviewRequest.business_id,
+          to: customer.phone,
+          body: message
+        })
       });
-
-      if (!smsResponse.ok) {
+      if (!surgeResp.ok) {
         console.error('SMS sending failed');
         return false;
       }
@@ -19617,6 +19801,179 @@ app.post('/api/refresh-qbo-tokens', async (req, res) => {
   } catch (error) {
     console.error('[MANUAL] Token refresh failed:', error);
     res.status(500).json({ error: 'Token refresh failed' });
+  }
+});
+
+// Test endpoint
+app.get('/api/test-sms-endpoint', (req, res) => {
+  res.json({ message: 'SMS endpoint test successful' });
+});
+
+// SMS Send endpoint
+app.post('/api/surge/sms/send', async (req, res) => {
+  try {
+    const { businessId, to, body } = req.body;
+
+    // Validate required fields
+    if (!businessId || !to || !body) {
+      return res.status(400).json({
+        error: 'Missing required fields: businessId, to, body'
+      });
+    }
+
+    // Auth: ensure caller owns businessId OR is service role (for automation)
+    const authHeader = req.headers.authorization;
+    if (authHeader === `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`) {
+      // Service role authentication for automation
+      console.log('[SMS_SEND] Service role authentication for automation');
+    } else {
+      // Regular user authentication - check if user owns business
+      const token = authHeader?.replace('Bearer ', '');
+      if (!token) {
+        return res.status(401).json({ error: 'Authorization required' });
+      }
+      
+      const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+      if (userError || !user) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+
+      // Check if user owns this business
+      const { data: business, error: businessError } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('id', businessId)
+        .eq('owner_id', user.id)
+        .single();
+
+      if (businessError || !business) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    }
+
+    // Get the business
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('id, name, from_number, verification_status, surge_account_id')
+      .eq('id', businessId)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // Check if business has SMS enabled
+    if (!business.from_number) {
+      return res.status(400).json({
+        error: 'SMS not enabled for this business',
+        message: 'Please provision an SMS number first'
+      });
+    }
+
+    // Check verification status
+    if (business.verification_status !== 'active') {
+      let message = 'SMS sending not available';
+      
+      if (business.verification_status === 'pending') {
+        message = 'Your toll-free number is pending verification';
+      } else if (business.verification_status === 'action_needed') {
+        message = 'Verification requires action: ' + (business.last_verification_error || 'Please contact support');
+      } else if (business.verification_status === 'disabled') {
+        message = 'SMS sending is disabled for this business';
+      }
+      
+      return res.status(403).json({
+        error: 'SMS sending not allowed',
+        message: message,
+        status: business.verification_status
+      });
+    }
+
+    // Normalize and validate phone number
+    const normalizedTo = to.replace(/\D/g, '');
+    const e164Phone = normalizedTo.startsWith('1') ? `+${normalizedTo}` : `+1${normalizedTo}`;
+    
+    if (!e164Phone || e164Phone.length < 12) {
+      return res.status(400).json({
+        error: 'Invalid phone number',
+        message: 'Phone number must be in E.164 format (e.g., +14155551234)'
+      });
+    }
+
+    // Check if recipient has opted out
+    const { data: contact } = await supabase
+      .from('contacts')
+      .select('opted_out')
+      .eq('business_id', businessId)
+      .eq('phone', e164Phone)
+      .single();
+
+    if (contact && contact.opted_out) {
+      return res.status(403).json({
+        error: 'Recipient has opted out',
+        message: 'This recipient has opted out of SMS communications'
+      });
+    }
+
+    // Ensure compliance footer
+    const compliantBody = body + '\n\nReply STOP to opt out. Reply HELP for help.';
+
+    console.log(`[SMS_SEND] Sending SMS from ${business.from_number} to ${e164Phone.substring(0, 8)}****`);
+
+    // Send via Surge API
+    const surgeResponse = await fetch(`${process.env.SURGE_API_BASE}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.SURGE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        account_id: business.surge_account_id,
+        from: business.from_number,
+        to: e164Phone,
+        body: compliantBody
+      })
+    });
+
+    const surgeResult = await surgeResponse.json();
+
+    if (!surgeResponse.ok) {
+      console.error('[SMS_SEND] Surge API error:', surgeResult);
+      return res.status(500).json({
+        error: 'Failed to send SMS',
+        details: surgeResult.error || 'Surge API error'
+      });
+    }
+
+    // Store outbound message
+    await supabase
+      .from('messages')
+      .insert({
+        business_id: businessId,
+        customer_id: null,
+        direction: 'outbound',
+        channel: 'sms',
+        body: compliantBody,
+        status: surgeResult.status || 'sent',
+        surge_message_id: surgeResult.message_id || surgeResult.id,
+        error: null
+      });
+
+    console.log('[SMS_SEND] Message sent successfully:', surgeResult.message_id || surgeResult.id);
+
+    return res.status(200).json({
+      success: true,
+      message_id: surgeResult.message_id || surgeResult.id,
+      status: surgeResult.status || 'sent',
+      to: e164Phone
+    });
+
+  } catch (error) {
+    console.error('[SMS_SEND] Error:', error);
+    return res.status(500).json({
+      error: 'Failed to send SMS',
+      details: error.message
+    });
   }
 });
 

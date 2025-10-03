@@ -47,6 +47,10 @@
       "destination": "/api/sms/send.js"
     },
     {
+      "source": "/api/surge/sms/send",
+      "destination": "/server.js"
+    },
+    {
       "source": "/api/subscription/(.*)",
       "destination": "/server.js"
     },

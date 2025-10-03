@@ -28,6 +28,7 @@ import {
 import { toast } from 'sonner';
 import { useMessageTemplates } from '../../hooks/useMessageTemplates';
 import { useSmsStatus } from '../../hooks/useSmsStatus';
+import { supabase } from '../../lib/supabase';
 
 const TemplatesTab = () => {
   const { templates, loading, error, createTemplate, updateTemplate, deleteTemplate, duplicateTemplate } = useMessageTemplates();
@@ -120,9 +121,76 @@ const TemplatesTab = () => {
         return;
       }
 
-      // This would call the test send API
-      toast.success(`Test ${template.channel} sent successfully!`);
+      // Get current user's business ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Please log in to send test messages');
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.business_id) {
+        toast.error('Business not found');
+        return;
+      }
+
+      if (template.channel === 'sms') {
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        const response = await fetch('/api/surge/sms/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            businessId: profile.business_id,
+            to: testPhone,
+            body: template.content
+          })
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (response.ok && (result.success || result.message_id)) {
+          toast.success('Test SMS sent successfully!');
+          setTestPhone('');
+        } else {
+          toast.error(result?.message || result?.error || 'Failed to send test SMS');
+        }
+        return;
+      }
+
+      // For email tests, keep using the general test endpoint (handled server-side)
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const emailResponse = await fetch('/api/test-send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          business_id: profile.business_id,
+          message: template.content,
+          template_name: template.name,
+          service_type: 'Test',
+          channels: ['email'],
+          email: testEmail
+        })
+      });
+      const emailResult = await emailResponse.json().catch(() => ({}));
+      if (emailResponse.ok && emailResult.success) {
+        toast.success('Test email sent successfully!');
+        setTestEmail('');
+      } else {
+        toast.error(emailResult?.error || 'Failed to send test email');
+      }
     } catch (error) {
+      console.error('Test send error:', error);
       toast.error('Failed to send test message');
     }
   };

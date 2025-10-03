@@ -198,7 +198,7 @@ const SendRequests = () => {
         },
         body: JSON.stringify({
           customer_id: selectedCustomer.id,
-          channel: selectedChannel === 'both' ? 'email' : selectedChannel, // For now, default to email for 'both'
+          channel: selectedChannel === 'both' ? 'email' : selectedChannel,
           strategy: selectedStrategy,
           job_end_at: jobEndAt || null,
           job_type: 'service', // Default job type
@@ -214,22 +214,62 @@ const SendRequests = () => {
 
       // If immediate strategy, also send now
       if (selectedStrategy === 'immediate') {
-        const sendResponse = await fetch('/api/review-requests/send-now', {
+        // Send the primary channel immediately
+        const sendNow = async (reviewRequestId) => {
+          const resp = await fetch('/api/review-requests/send-now', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ review_request_id: reviewRequestId })
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.error || 'Failed to send review request');
+        };
+
+        await sendNow(result.review_request.id);
+
+        // If 'both', also schedule and send SMS immediately as a second request
+        if (selectedChannel === 'both') {
+          const smsScheduleResp = await fetch('/api/review-requests/schedule', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({
+              customer_id: selectedCustomer.id,
+              channel: 'sms',
+              strategy: 'immediate',
+              job_end_at: jobEndAt || null,
+              job_type: 'service',
+              tech_id: null
+            })
+          });
+          const smsSchedule = await smsScheduleResp.json();
+          if (!smsScheduleResp.ok) throw new Error(smsSchedule.error || 'Failed to schedule SMS');
+          await sendNow(smsSchedule.review_request.id);
+        }
+      } else if (selectedChannel === 'both') {
+        // If scheduled and 'both', schedule an additional SMS request
+        const smsScheduleResp = await fetch('/api/review-requests/schedule', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`
           },
           body: JSON.stringify({
-            review_request_id: result.review_request.id
+            customer_id: selectedCustomer.id,
+            channel: 'sms',
+            strategy: selectedStrategy,
+            job_end_at: jobEndAt || null,
+            job_type: 'service',
+            tech_id: null
           })
         });
-
-        const sendResult = await sendResponse.json();
-
-        if (!sendResponse.ok) {
-          throw new Error(sendResult.error || 'Failed to send review request');
-        }
+        const smsSchedule = await smsScheduleResp.json();
+        if (!smsScheduleResp.ok) throw new Error(smsSchedule.error || 'Failed to schedule SMS');
       }
 
       // Success

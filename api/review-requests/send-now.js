@@ -37,36 +37,26 @@ async function sendEmail({ to, subject, body, from }) {
   };
 }
 
-// SMS sending via Twilio
-async function sendSMS({ to, body, from }) {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-
-  const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+// SMS sending via Surge endpoint (unified compliance and logging)
+async function sendSMS({ businessId, to, body }) {
+  const response = await fetch(`${process.env.APP_BASE_URL || 'http://localhost:3001'}/api/surge/sms/send`, {
     method: 'POST',
     headers: {
-      'Authorization': `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
     },
-    body: new URLSearchParams({
-      From: fromNumber,
-      To: to,
-      Body: body,
-    }),
+    body: JSON.stringify({ businessId, to, body })
   });
 
-  const data = await response.json();
-
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
+    throw new Error(data?.error || data?.message || `HTTP ${response.status}: ${response.statusText}`);
   }
-
   return {
     ok: true,
-    messageId: data.sid,
-    message: 'SMS sent successfully via Twilio',
-    data: data
+    messageId: data.message_id,
+    message: 'SMS sent successfully via Surge',
+    data
   };
 }
 
