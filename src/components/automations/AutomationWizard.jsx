@@ -368,18 +368,58 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
   const renderStep2 = () => (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Sequence Steps</h3>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={addStep}
-          className="flex items-center space-x-2"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add Step</span>
-        </Button>
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium">Sequence Steps</h3>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addStep}
+            className="flex items-center space-x-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Step</span>
+          </Button>
+        </div>
+        
+        {/* Flow Visualization */}
+        {formData.steps.length > 0 && (
+          <div className="bg-gray-50 p-4 rounded-lg mb-4">
+            <h4 className="text-sm font-medium mb-2">Flow Preview:</h4>
+            <div className="flex items-center space-x-2 flex-wrap">
+              {formData.steps.map((step, index) => {
+                const stepType = stepTypes.find(type => type.id === step.type);
+                const Icon = stepType?.icon;
+                return (
+                  <React.Fragment key={step.id}>
+                    {index > 0 && <ArrowRight className="w-4 h-4 text-gray-400" />}
+                    <div className="flex items-center space-x-1 bg-white px-2 py-1 rounded border">
+                      <Icon className="w-3 h-3" />
+                      <span className="text-xs">
+                        {step.type === 'wait' 
+                          ? `${step.config.delay}${step.config.delayUnit || 'h'}`
+                          : stepType?.label
+                        }
+                      </span>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Common Patterns */}
+        <div className="bg-blue-50 p-4 rounded-lg mb-4">
+          <h4 className="text-sm font-medium mb-2">💡 Common Patterns:</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+            <div>📧 <strong>Email → Wait 5h → SMS</strong> - Gentle follow-up</div>
+            <div>📱 <strong>SMS → Wait 24h → Email</strong> - Immediate then detailed</div>
+            <div>⏰ <strong>Wait 1h → Email</strong> - Delayed initial contact</div>
+            <div>🔄 <strong>Email → Wait 3d → SMS</strong> - Multi-touch campaign</div>
+          </div>
+        </div>
       </div>
 
       {errors.steps && (
@@ -462,25 +502,49 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                   </div>
 
                   {step.type === 'wait' ? (
-                    <div>
-                      <Label>Wait Duration (hours)</Label>
-                      <Input
-                        type="number"
-                        min="0.5"
-                        step="0.5"
-                        value={step.config.delay}
-                        onChange={(e) => updateStepConfig(step.id, 'delay', parseFloat(e.target.value) || 0)}
-                        placeholder="e.g., 5"
-                      />
+                    <div className="space-y-2">
+                      <Label>Wait Duration</Label>
+                      <div className="flex items-center space-x-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={step.config.delay}
+                          onChange={(e) => updateStepConfig(step.id, 'delay', parseFloat(e.target.value) || 0)}
+                          placeholder="5"
+                          className="w-20"
+                        />
+                        <Select
+                          value={step.config.delayUnit || 'hours'}
+                          onValueChange={(value) => updateStepConfig(step.id, 'delayUnit', value)}
+                        >
+                          <SelectTrigger className="w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="minutes">Minutes</SelectItem>
+                            <SelectItem value="hours">Hours</SelectItem>
+                            <SelectItem value="days">Days</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Common: 1 hour, 5 hours, 24 hours, 3 days
+                      </p>
                     </div>
                   ) : (
-                    <div>
+                    <div className="space-y-2">
                       <Label>Template/Message</Label>
                       <Input
                         value={step.config.template}
                         onChange={(e) => updateStepConfig(step.id, 'template', e.target.value)}
                         placeholder="Template name or message content"
                       />
+                      {step.type === 'send_sms' && (
+                        <p className="text-xs text-blue-600">
+                          💡 SMS messages should be under 160 characters
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -654,7 +718,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-[95vw] h-[95vh] max-w-none overflow-y-auto">
+      <DialogContent className="w-[80vw] h-[85vh] max-w-none overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Custom Automation</DialogTitle>
         </DialogHeader>

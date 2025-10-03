@@ -410,7 +410,7 @@ export default function GuidedTemplateCustomizer({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] h-[95vh] max-w-none overflow-y-auto">
+      <DialogContent className="w-[80vw] h-[85vh] max-w-none overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />

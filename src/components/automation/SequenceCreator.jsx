@@ -195,7 +195,7 @@ export default function SequenceCreator({ isOpen, onClose, onSequenceCreated, bu
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] h-[95vh] max-w-none overflow-y-auto">
+      <DialogContent className="w-[80vw] h-[85vh] max-w-none overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Automation Sequence</DialogTitle>
         </DialogHeader>
