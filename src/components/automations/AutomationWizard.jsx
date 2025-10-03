@@ -31,6 +31,7 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { useSequencesData } from '@/hooks/useSequencesData';
 import { useZapierStatus } from '@/hooks/useZapierStatus';
+import FlowBuilder from './FlowBuilder';
 
 const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -58,6 +59,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   });
 
   const [errors, setErrors] = useState({});
+  const [flowSteps, setFlowSteps] = useState([]);
+  const [selectedChannels, setSelectedChannels] = useState(['email']);
 
   const stepTypes = [
     { id: 'send_email', label: 'Send Email', icon: Mail, description: 'Send an email message' },
@@ -197,6 +200,14 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       newErrors.triggerEvent = 'Please select a Zapier event';
     }
 
+    if (selectedChannels.length === 0) {
+      newErrors.channels = 'Please select at least one communication channel';
+    }
+
+    if (flowSteps.length === 0) {
+      newErrors.flow = 'Please create at least one step in your flow';
+    }
+
     if (formData.steps.length === 0) {
       newErrors.steps = 'At least one step is required';
     }
@@ -211,7 +222,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   };
 
   const handleNext = () => {
-    if (currentStep < 4) {
+    if (currentStep < 6) {
       setCurrentStep(prev => prev + 1);
     }
   };
@@ -367,6 +378,75 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   );
 
   const renderStep2 = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-medium mb-2">Select Communication Channels</h3>
+        <p className="text-gray-600 mb-4">
+          Choose which communication methods you want to use in your automation.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card 
+          className={`cursor-pointer transition-all ${
+            selectedChannels.includes('email') 
+              ? 'border-blue-500 bg-blue-50' 
+              : 'border-gray-200 hover:border-gray-300'
+          }`}
+          onClick={() => {
+            const newChannels = selectedChannels.includes('email')
+              ? selectedChannels.filter(c => c !== 'email')
+              : [...selectedChannels, 'email'];
+            setSelectedChannels(newChannels);
+          }}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <Mail className="h-8 w-8 text-blue-600" />
+              <div>
+                <h4 className="font-medium">Email</h4>
+                <p className="text-sm text-gray-600">Send professional emails with rich content</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className={`cursor-pointer transition-all ${
+            selectedChannels.includes('sms') 
+              ? 'border-green-500 bg-green-50' 
+              : 'border-gray-200 hover:border-gray-300'
+          }`}
+          onClick={() => {
+            const newChannels = selectedChannels.includes('sms')
+              ? selectedChannels.filter(c => c !== 'sms')
+              : [...selectedChannels, 'sms'];
+            setSelectedChannels(newChannels);
+          }}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <MessageSquare className="h-8 w-8 text-green-600" />
+              <div>
+                <h4 className="font-medium">SMS</h4>
+                <p className="text-sm text-gray-600">Send instant text messages (160 char limit)</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {selectedChannels.length === 0 && (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            Please select at least one communication channel to continue.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderStep3 = () => (
     <div className="space-y-6">
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -657,6 +737,137 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   const renderStep4 = () => (
     <div className="space-y-6">
       <div>
+        <h3 className="text-lg font-medium mb-2">Visual Flow Builder</h3>
+        <p className="text-gray-600 mb-4">
+          Drag and drop to create your automation flow. Click on steps to set timing between them.
+        </p>
+      </div>
+
+      <FlowBuilder
+        selectedChannels={selectedChannels}
+        onFlowChange={setFlowSteps}
+        initialFlow={flowSteps}
+      />
+
+      {flowSteps.length === 0 && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            💡 Start by dragging a trigger, then add your communication steps. You can set timing between each step by clicking on them.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderStep5 = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-medium mb-4">Settings</h3>
+        <p className="text-gray-600 mb-4">
+          Configure when and how your automation should run.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Quiet Hours</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Start</Label>
+                <Input
+                  type="time"
+                  value={formData.settings.quietHoursStart}
+                  onChange={(e) => updateFormData('settings', {
+                    ...formData.settings,
+                    quietHoursStart: e.target.value
+                  })}
+                />
+              </div>
+              <div>
+                <Label>End</Label>
+                <Input
+                  type="time"
+                  value={formData.settings.quietHoursEnd}
+                  onChange={(e) => updateFormData('settings', {
+                    ...formData.settings,
+                    quietHoursEnd: e.target.value
+                  })}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">
+              Messages won't be sent during these hours
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Rate Limiting</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Daily Limit</Label>
+              <Input
+                type="number"
+                min="1"
+                value={formData.settings.rateLimit}
+                onChange={(e) => updateFormData('settings', {
+                  ...formData.settings,
+                  rateLimit: parseInt(e.target.value) || 100
+                })}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Maximum messages per day
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Behavior</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Stop if review received</Label>
+              <p className="text-sm text-gray-500">Pause automation if customer leaves a review</p>
+            </div>
+            <Switch
+              checked={formData.settings.stopIfReview}
+              onCheckedChange={(checked) => updateFormData('settings', {
+                ...formData.settings,
+                stopIfReview: checked
+              })}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Allow manual enrollment</Label>
+              <p className="text-sm text-gray-500">Let you manually add customers to this automation</p>
+            </div>
+            <Switch
+              checked={formData.settings.allowManualEnroll}
+              onCheckedChange={(checked) => updateFormData('settings', {
+                ...formData.settings,
+                allowManualEnroll: checked
+              })}
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  const renderStep6 = () => (
+    <div className="space-y-6">
+      <div>
         <h3 className="text-lg font-medium mb-4">Review & Activate</h3>
         
         <Card>
@@ -711,9 +922,11 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
   const steps = [
     { number: 1, title: 'Basic Info', description: 'Name and trigger' },
-    { number: 2, title: 'Steps', description: 'Build your sequence' },
-    { number: 3, title: 'Settings', description: 'Configure behavior' },
-    { number: 4, title: 'Review', description: 'Activate sequence' }
+    { number: 2, title: 'Channels', description: 'Select communication methods' },
+    { number: 3, title: 'Steps', description: 'Build your sequence' },
+    { number: 4, title: 'Flow Builder', description: 'Visual flow design' },
+    { number: 5, title: 'Settings', description: 'Configure behavior' },
+    { number: 6, title: 'Review', description: 'Activate sequence' }
   ];
 
   return (
@@ -753,6 +966,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           {currentStep === 2 && renderStep2()}
           {currentStep === 3 && renderStep3()}
           {currentStep === 4 && renderStep4()}
+          {currentStep === 5 && renderStep5()}
+          {currentStep === 6 && renderStep6()}
         </div>
 
         {/* Footer */}
@@ -768,7 +983,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             <Button variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            {currentStep < 4 ? (
+            {currentStep < 6 ? (
               <Button onClick={handleNext}>
                 Next
               </Button>
