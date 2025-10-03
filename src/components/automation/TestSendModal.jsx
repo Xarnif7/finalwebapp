@@ -119,7 +119,7 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
         to: testEmail || testPhone,
         message: customMessage,
         messageLength: customMessage?.length,
-        isPhoneNumber
+        isPhone: !!testPhone
       });
 
       const requestBody = {
