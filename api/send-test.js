@@ -43,6 +43,7 @@ export default async function handler(req, res) {
     if (isEmail) {
       // Send test email via Resend
       console.log('🚀 Sending email via Resend...');
+      console.log('🚀 RESEND_API_KEY present:', !!process.env.RESEND_API_KEY);
       const emailResponse = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -88,12 +89,18 @@ export default async function handler(req, res) {
     } else {
       // Send test SMS via Surge API
       console.log('🚀 Sending SMS via Surge...');
+      console.log('🚀 SUPABASE_SERVICE_ROLE_KEY present:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+      console.log('🚀 APP_BASE_URL:', process.env.APP_BASE_URL);
+      
       const normalizedPhone = to.replace(/\D/g, '');
       const e164Phone = normalizedPhone.startsWith('1') ? `+${normalizedPhone}` : `+1${normalizedPhone}`;
 
       console.log('🚀 Normalized phone:', { original: to, normalized: normalizedPhone, e164: e164Phone });
 
-      const smsResponse = await fetch(`${process.env.APP_BASE_URL || 'http://localhost:3001'}/api/surge/sms/send`, {
+      const baseUrl = process.env.APP_BASE_URL || 'https://myblipp.com';
+      console.log('🚀 Using base URL for SMS:', baseUrl);
+      
+      const smsResponse = await fetch(`${baseUrl}/api/surge/sms/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
