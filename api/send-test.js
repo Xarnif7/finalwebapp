@@ -39,8 +39,10 @@ export default async function handler(req, res) {
     const channel = isEmail ? 'email' : 'sms';
 
     console.log(`🚀 Sending test ${channel} to:`, to);
+    console.log(`🚀 Channel detection:`, { to, isEmail, channel, containsAt: to.includes('@') });
 
     if (isEmail) {
+      console.log('🚀 Going to EMAIL path');
       // Send test email via Resend
       console.log('🚀 Sending email via Resend...');
       console.log('🚀 RESEND_API_KEY present:', !!process.env.RESEND_API_KEY);
@@ -87,6 +89,7 @@ export default async function handler(req, res) {
       });
 
     } else {
+      console.log('🚀 Going to SMS path');
       // Send test SMS via Surge API
       console.log('🚀 Sending SMS via Surge...');
       console.log('🚀 SUPABASE_SERVICE_ROLE_KEY present:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
