@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SMS Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        input, textarea, button { width: 100%; padding: 10px; margin: 10px 0; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin: 20px 0; padding: 10px; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 SMS Test - Send to Lisa</h1>
+        
+        <div>
+            <label>Phone Number:</label>
+            <input type="text" id="phone" value="(417) 973-2866" readonly>
+        </div>
+        
+        <div>
+            <label>Message:</label>
+            <textarea id="message" rows="4" placeholder="Enter your message here...">Hi Lisa, thanks for your feedback! We're glad you had a good experience. Let us know if we can help with anything else.</textarea>
+        </div>
+        
+        <button onclick="sendSMS()">📤 Send SMS</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function sendSMS() {
+            const phone = document.getElementById('phone').value;
+            const message = document.getElementById('message').value;
+            const resultDiv = document.getElementById('result');
+            
+            if (!phone || !message) {
+                showResult('Please fill in both phone and message', 'error');
+                return;
+            }
+            
+            showResult('Sending SMS...', 'info');
+            
+            try {
+                // Try the simple API endpoint
+                const response = await fetch('/api/sms-send', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        to: phone,
+                        body: message
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showResult(`✅ SMS sent successfully!<br>Message ID: ${result.message_id}<br>To: ${result.to}`, 'success');
+                } else {
+                    showResult(`❌ SMS failed: ${result.error}`, 'error');
+                }
+                
+            } catch (error) {
+                showResult(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = message;
+            resultDiv.className = `result ${type}`;
+        }
+    </script>
+</body>
+</html>

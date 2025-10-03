@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
 
     // Use hardcoded business configuration
     const fromNumber = '+18775402797';
-    const surgeAccountId = 'surge_account_674fedc5-7937-4054-bffd-e4ecc22abc1d';
+    const surgeAccountId = process.env.SURGE_MASTER_ACCOUNT_ID;
 
     // Normalize phone number
     const normalizedTo = to.replace(/\D/g, '');
@@ -36,10 +36,11 @@ export default async function handler(req, res) {
     console.log(`[SMS_SEND] Sending SMS from ${fromNumber} to ${e164Phone}`);
 
     // Send via Surge API
-    const surgeResponse = await fetch(`${process.env.SURGE_API_BASE}/v1/messages`, {
+    const surgeResponse = await fetch(`${process.env.SURGE_API_BASE}/messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.SURGE_API_KEY}`,
+        'Surge-Account': surgeAccountId,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
