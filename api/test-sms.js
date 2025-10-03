@@ -6,6 +6,8 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export default async function handler(req, res) {
+  console.log('🚀 TEST-SMS: Handler called with method:', req.method);
+  
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,13 +15,17 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
 
   if (req.method === 'OPTIONS') {
+    console.log('🚀 TEST-SMS: Handling OPTIONS request');
     res.status(200).end();
     return;
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    console.log('🚀 TEST-SMS: Method not allowed:', req.method);
+    return res.status(405).json({ error: 'Method not allowed', received: req.method });
   }
+
+  console.log('🚀 TEST-SMS: Processing POST request');
 
   try {
     console.log('🚀 TEST-SMS API called with:', req.body);

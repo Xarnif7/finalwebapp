@@ -113,7 +113,7 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
 
       // Determine if it's email or SMS and use appropriate endpoint
       const isPhoneNumber = testPhone && !testEmail;
-      const endpoint = isPhoneNumber ? '/api/test-sms' : '/api/send-test';
+      const endpoint = isPhoneNumber ? '/api/test-sms-simple' : '/api/send-test';
       
       console.log('🚀 Calling API endpoint:', endpoint, {
         businessId: business.id,
