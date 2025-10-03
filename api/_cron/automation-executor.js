@@ -243,8 +243,29 @@ export default async function handler(req, res) {
     
     for (const request of allPendingRequests || []) {
       try {
-        // Skip SMS for now (as requested)
-        if (request.channel === 'sms') {
+        // Send SMS if channel is SMS
+        if (request.channel === 'sms' && request.customers.phone) {
+          try {
+            const smsResponse = await fetch(`${process.env.APP_BASE_URL || 'https://myblipp.com'}/api/sms-send`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                to: request.customers.phone,
+                body: request.message + '\n\nReply STOP to opt out. Reply HELP for help.'
+              })
+            });
+
+            if (smsResponse.ok) {
+              sentCount++;
+              console.log(`✅ SMS sent to ${request.customers.phone}`);
+            } else {
+              console.error(`❌ SMS failed for ${request.customers.phone}:`, await smsResponse.text());
+            }
+          } catch (smsError) {
+            console.error(`❌ SMS error for ${request.customers.phone}:`, smsError);
+          }
           continue;
         }
 

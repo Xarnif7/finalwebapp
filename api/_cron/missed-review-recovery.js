@@ -18,13 +18,12 @@ async function sendEmail({ to, subject, body, from }) {
 }
 
 async function sendSMS({ businessId, to, body }) {
-  const response = await fetch(`${process.env.APP_BASE_URL || 'http://localhost:3001'}/api/surge/sms/send`, {
+  const response = await fetch(`${process.env.APP_BASE_URL || 'https://myblipp.com'}/api/sms-send`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+      'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ businessId, to, body })
+    body: JSON.stringify({ to, body })
   });
   if (!response.ok) throw new Error('SMS failed');
 }

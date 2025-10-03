@@ -140,15 +140,12 @@ const TemplatesTab = () => {
       }
 
       if (template.channel === 'sms') {
-        const token = (await supabase.auth.getSession()).data.session?.access_token;
-        const response = await fetch('/api/surge/sms/send', {
+        const response = await fetch('/api/sms-send', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            businessId: profile.business_id,
             to: testPhone,
             body: template.content
           })
@@ -216,7 +213,7 @@ const TemplatesTab = () => {
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="bg-white rounded-lg p-6 w-full max-w-7xl max-h-[95vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-semibold">
               {editingTemplate ? 'Edit Template' : 'Create Template'}
