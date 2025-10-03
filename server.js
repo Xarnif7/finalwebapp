@@ -19809,6 +19809,49 @@ app.get('/api/test-sms-endpoint', (req, res) => {
   res.json({ message: 'SMS endpoint test successful' });
 });
 
+// Check SMS setup for business
+app.get('/api/surge/sms/status', async (req, res) => {
+  try {
+    const { businessId } = req.query;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Authorization required' });
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    // Get business info
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('id, name, from_number, verification_status, surge_account_id')
+      .eq('id', businessId)
+      .single();
+
+    if (businessError || !business) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    res.json({
+      business_id: business.id,
+      business_name: business.name,
+      has_from_number: !!business.from_number,
+      from_number: business.from_number,
+      verification_status: business.verification_status,
+      has_surge_account: !!business.surge_account_id,
+      surge_account_id: business.surge_account_id,
+      sms_ready: !!(business.from_number && business.surge_account_id && business.verification_status === 'active')
+    });
+
+  } catch (error) {
+    console.error('[SMS_STATUS] Error:', error);
+    return res.status(500).json({ error: 'Failed to check SMS status' });
+  }
+});
+
 // SMS Send endpoint
 app.post('/api/surge/sms/send', async (req, res) => {
   try {
@@ -19856,13 +19899,17 @@ app.post('/api/surge/sms/send', async (req, res) => {
     }
 
     // Get the business
+    console.log('[SMS_SEND] Looking for business with ID:', businessId);
     const { data: business, error: businessError } = await supabase
       .from('businesses')
       .select('id, name, from_number, verification_status, surge_account_id')
       .eq('id', businessId)
       .single();
 
+    console.log('[SMS_SEND] Business query result:', { business, businessError });
+
     if (businessError || !business) {
+      console.error('[SMS_SEND] Business not found:', businessError);
       return res.status(404).json({ error: 'Business not found' });
     }
 

@@ -799,10 +799,15 @@ function SMSComposerModal({ data, onClose }) {
         .eq('id', session.user.id)
         .single();
 
+      console.log('SMS Debug - Profile data:', profile);
+      console.log('SMS Debug - User ID:', session.user.id);
+
       if (!profile?.business_id) {
         alert('Business not found');
         return;
       }
+
+      console.log('SMS Debug - Business ID:', profile.business_id);
 
       // Add compliance footer (this will be added by the SMS endpoint automatically)
       const response = await fetch('/api/surge/sms/send', {
