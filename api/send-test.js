@@ -69,6 +69,35 @@ export default async function handler(req, res) {
 
       console.log('🚀 Normalized phone:', { original: to, normalized: normalizedPhone, e164: e164Phone });
 
+      // Get business data for SMS validation
+      const { data: business, error: businessError } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', businessId)
+        .single();
+
+      if (businessError || !business) {
+        throw new Error('Business not found');
+      }
+
+      console.log('🚀 Business SMS config:', {
+        sms_enabled: business.sms_enabled,
+        from_number: business.from_number,
+        verification_status: business.verification_status
+      });
+
+      if (!business.sms_enabled) {
+        throw new Error('SMS not enabled for this business');
+      }
+
+      if (!business.from_number) {
+        throw new Error('No SMS number configured for this business');
+      }
+
+      if (business.verification_status !== 'active') {
+        throw new Error(`SMS not verified: ${business.verification_status}`);
+      }
+
       const baseUrl = process.env.APP_BASE_URL || 'https://myblipp.com';
       console.log('🚀 Using base URL for SMS:', baseUrl);
       
@@ -102,75 +131,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // FINAL FALLBACK: If it doesn't contain @, treat as SMS
-    if (!to.includes('@')) {
-      console.log('🚀 FALLBACK: No @ symbol detected, treating as SMS');
-      const normalizedPhone = to.replace(/\D/g, '');
-      const e164Phone = normalizedPhone.startsWith('1') ? `+${normalizedPhone}` : `+1${normalizedPhone}`;
-
-      console.log('🚀 Fallback normalized phone:', { original: to, normalized: normalizedPhone, e164: e164Phone });
-
-      // Get business data for SMS
-      const { data: business, error: businessError } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('id', businessId)
-        .single();
-
-      if (businessError || !business) {
-        throw new Error('Business not found');
-      }
-
-      console.log('🚀 Business SMS config:', {
-        sms_enabled: business.sms_enabled,
-        from_number: business.from_number,
-        verification_status: business.verification_status
-      });
-
-      if (!business.sms_enabled) {
-        throw new Error('SMS not enabled for this business');
-      }
-
-      if (!business.from_number) {
-        throw new Error('No SMS number configured for this business');
-      }
-
-      if (business.verification_status !== 'active') {
-        throw new Error(`SMS not verified: ${business.verification_status}`);
-      }
-
-      const baseUrl = process.env.APP_BASE_URL || 'https://myblipp.com';
-      console.log('🚀 Using base URL for SMS (fallback):', baseUrl);
-      
-      const smsResponse = await fetch(`${baseUrl}/api/surge/sms/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-        },
-        body: JSON.stringify({
-          businessId: businessId,
-          to: e164Phone,
-          body: `🧪 TEST: ${message}`
-        })
-      });
-
-      const smsData = await smsResponse.json();
-
-      if (!smsResponse.ok) {
-        throw new Error(`SMS send failed: ${smsData.error || 'Unknown error'}`);
-      }
-
-      console.log(`✅ Test SMS sent successfully (fallback): ${smsData.message_id}`);
-
-      return res.status(200).json({
-        success: true,
-        message: 'Test SMS sent successfully!',
-        channel: 'sms',
-        recipient: e164Phone,
-        messageId: smsData.message_id
-      });
-    }
 
     if (isEmail) {
       console.log('🚀 Going to EMAIL path');
@@ -212,10 +172,10 @@ export default async function handler(req, res) {
       console.log(`✅ Test email sent successfully: ${emailData.id}`);
 
       return res.status(200).json({
-        success: true,
-        message: 'Test email sent successfully!',
+      success: true,
+      message: 'Test email sent successfully!',
         channel: 'email',
-        recipient: to,
+      recipient: to,
         messageId: emailData.id
       });
 
