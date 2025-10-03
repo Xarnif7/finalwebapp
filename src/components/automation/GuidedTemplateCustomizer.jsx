@@ -68,8 +68,6 @@ export default function GuidedTemplateCustomizer({
   const [aiTestResult, setAiTestResult] = useState(null);
   const [testSendModalOpen, setTestSendModalOpen] = useState(false);
   const [businessData, setBusinessData] = useState(null);
-  const [testEmail, setTestEmail] = useState('');
-  const [testPhone, setTestPhone] = useState('');
   const textareaRef = useRef(null);
   const previewTimeoutRef = useRef(null);
 
@@ -121,6 +119,29 @@ export default function GuidedTemplateCustomizer({
       setSmsMessage(template.sms_message || template.custom_message || template.config_json?.message || '');
     }
   }, [isOpen, template]);
+
+  // Load business data for test send modal
+  useEffect(() => {
+    if (isOpen && businessId && !businessData) {
+      const loadBusinessData = async () => {
+        try {
+          const { data: business, error } = await supabase
+            .from('businesses')
+            .select('id, name, email')
+            .eq('id', businessId)
+            .single();
+          
+          if (!error && business) {
+            setBusinessData(business);
+          }
+        } catch (error) {
+          console.error('Error loading business data:', error);
+        }
+      };
+      
+      loadBusinessData();
+    }
+  }, [isOpen, businessId, businessData]);
 
   // AI Generation function
   const generateWithAI = async () => {
@@ -386,59 +407,6 @@ export default function GuidedTemplateCustomizer({
     }
   };
 
-  // Test send function
-  const handleTestSend = async () => {
-    const hasEmail = testEmail.trim() && formData.channels.includes('email');
-    const hasSms = testPhone.trim() && formData.channels.includes('sms');
-    
-    if (!hasEmail && !hasSms) {
-      setNotification({ type: 'error', message: 'Please enter an email address and/or phone number for testing' });
-      return;
-    }
-
-    if (!customMessage.trim()) {
-      setNotification({ type: 'error', message: 'Please enter a message first' });
-      return;
-    }
-
-    setAiTesting(true);
-    try {
-      const channels = [];
-      if (hasEmail) channels.push('email');
-      if (hasSms) channels.push('sms');
-
-      const response = await fetch('/api/test-send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: testEmail,
-          phone: testPhone,
-          message: customMessage,
-          template_name: formData.name,
-          service_type: testServiceType,
-          business_id: businessId,
-          channels: channels
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setNotification({ type: 'success', message: result.message });
-        setTestEmail('');
-        setTestPhone('');
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Test send failed');
-      }
-    } catch (error) {
-      console.error('Error sending test:', error);
-      setNotification({ type: 'error', message: error.message || 'Failed to send test message' });
-    } finally {
-      setAiTesting(false);
-    }
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -854,71 +822,18 @@ export default function GuidedTemplateCustomizer({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Email Test */}
-                  {formData.channels.includes('email') && (
-                    <div>
-                      <Label htmlFor="testEmail" className="text-sm font-medium">
-                        Email Address
-                      </Label>
-                      <Input
-                        id="testEmail"
-                        type="email"
-                        value={testEmail}
-                        onChange={(e) => setTestEmail(e.target.value)}
-                        placeholder="your-email@example.com"
-                        className="mt-2"
-                      />
-                    </div>
-                  )}
-                  
-                  {/* SMS Test */}
-                  {formData.channels.includes('sms') && (
-                    <div>
-                      <Label htmlFor="testPhone" className="text-sm font-medium">
-                        Phone Number
-                      </Label>
-                      <Input
-                        id="testPhone"
-                        type="tel"
-                        value={testPhone}
-                        onChange={(e) => setTestPhone(e.target.value)}
-                        placeholder="(555) 123-4567"
-                        className="mt-2"
-                      />
-                    </div>
-                  )}
-                </div>
-                
-                <div>
-                  <Label htmlFor="testServiceType" className="text-sm font-medium">
-                    Service Type (for testing)
-                  </Label>
-                  <Input
-                    id="testServiceType"
-                    value={testServiceType}
-                    onChange={(e) => setTestServiceType(e.target.value)}
-                    placeholder="e.g., Plumbing, Electrical, HVAC"
-                    className="mt-2"
-                  />
-                </div>
-                
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <p className="text-sm text-blue-800">
-                    <strong>Test Instructions:</strong> Enter your email and/or phone number to receive test messages using your custom template. 
-                    {formData.channels.includes('email') && ' Email will be sent via Resend.'}
-                    {formData.channels.includes('sms') && ' SMS will be sent via your approved number (+18775402797).'}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-700 mb-4">
+                    Send yourself a test message to see how your automation will look to customers.
                   </p>
+                  <Button
+                    onClick={() => setTestSendModalOpen(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <Play className="h-4 w-4" />
+                    Send Test Message
+                  </Button>
                 </div>
-                
-                <Button
-                  onClick={handleTestSend}
-                  disabled={aiTesting || !customMessage.trim() || (!testEmail.trim() && !testPhone.trim())}
-                  className="flex items-center gap-2"
-                >
-                  <Play className="h-4 w-4" />
-                  {aiTesting ? 'Sending Test...' : 'Send Test Message'}
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -944,6 +859,22 @@ export default function GuidedTemplateCustomizer({
           </div>
         </div>
       </DialogContent>
+
+      {/* Test Send Modal */}
+      <TestSendModal
+        isOpen={testSendModalOpen}
+        onClose={() => setTestSendModalOpen(false)}
+        template={{
+          id: template?.id || 'test',
+          name: formData.name || 'Test Template',
+          channels: formData.channels || ['email'],
+          config_json: {
+            message: customMessage || emailMessage || smsMessage
+          }
+        }}
+        business={businessData}
+        isLoadingBusiness={!businessData && testSendModalOpen}
+      />
     </Dialog>
   );
 }
