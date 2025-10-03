@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     // Determine if it's email or SMS - be more explicit
     const containsAt = to.includes('@');
     const containsDot = to.includes('.');
-    const isPhoneNumber = /^[\+]?[\d\s\-\(\)]+$/.test(to);
+    const isPhoneNumber = /^[\+]?[\d\s\-\(\)]+$/.test(to) || /^\d+$/.test(to.replace(/\D/g, ''));
     const isEmail = containsAt && containsDot && !isPhoneNumber;
     const channel = isEmail ? 'email' : 'sms';
 
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
       isNumeric: /^\d+$/.test(to.replace(/\D/g, ''))
     });
 
-    if (isPhoneNumber || /^\d+$/.test(to.replace(/\D/g, '')) || to.length >= 10) {
+    if (isPhoneNumber || /^\d+$/.test(to.replace(/\D/g, '')) || to.length >= 10 || !to.includes('@')) {
       console.log('🚀 FORCING SMS path for phone number');
       const normalizedPhone = to.replace(/\D/g, '');
       const e164Phone = normalizedPhone.startsWith('1') ? `+${normalizedPhone}` : `+1${normalizedPhone}`;
