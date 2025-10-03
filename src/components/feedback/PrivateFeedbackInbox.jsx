@@ -187,6 +187,13 @@ export default function PrivateFeedbackInbox() {
     // Get customer phone from the review_requests relationship
     const customerPhone = feedback.review_requests?.customers?.phone || feedback.customer_phone;
     
+    console.log('SMS Debug - Feedback data:', feedback);
+    console.log('SMS Debug - Customer phone lookup:', {
+      'feedback.review_requests?.customers?.phone': feedback.review_requests?.customers?.phone,
+      'feedback.customer_phone': feedback.customer_phone,
+      'final phone': customerPhone
+    });
+    
     if (!customerPhone) {
       alert('No phone number available for this customer');
       return;

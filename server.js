@@ -15416,7 +15416,7 @@ app.get('/api/private-feedback', async (req, res) => {
           id,
           customer_id,
           business_id,
-          customers(id, full_name, email)
+          customers(id, full_name, email, phone)
         )
       `)
       .eq('review_requests.business_id', targetBusinessId)
