@@ -19866,34 +19866,44 @@ app.post('/api/surge/sms/send', async (req, res) => {
 
     // Auth: ensure caller owns businessId OR is service role (for automation)
     const authHeader = req.headers.authorization;
+    let user = null;
+    
     if (authHeader === `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`) {
       // Service role authentication for automation
       console.log('[SMS_SEND] Service role authentication for automation');
     } else {
-      // Regular user authentication - check if user owns business
+      // Regular user authentication
       const token = authHeader?.replace('Bearer ', '');
       if (!token) {
         return res.status(401).json({ error: 'Authorization required' });
       }
       
-      const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-      if (userError || !user) {
+      const { data: { user: authUser }, error: userError } = await supabase.auth.getUser(token);
+      if (userError || !authUser) {
         return res.status(401).json({ error: 'Invalid token' });
       }
+      user = authUser;
+    }
 
-      // Check if user owns this business (check both owner_id and created_by)
-      const { data: business, error: businessError } = await supabase
-        .from('businesses')
-        .select('id, owner_id, created_by')
-        .eq('id', businessId)
-        .single();
+    // Get the business and check ownership in one query
+    console.log('[SMS_SEND] Looking for business with ID:', businessId);
+    console.log('[SMS_SEND] User info:', { userId: user?.id, userEmail: user?.email });
+    
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('id, name, from_number, verification_status, surge_account_id, owner_id, created_by')
+      .eq('id', businessId)
+      .single();
 
-      if (businessError || !business) {
-        return res.status(404).json({ error: 'Business not found' });
-      }
+    console.log('[SMS_SEND] Business query result:', { business, businessError });
 
-      // Check if user owns this business (either owner_id or created_by)
-      // Note: created_by might be email, so check both user.id and user.email
+    if (businessError || !business) {
+      console.error('[SMS_SEND] Business not found:', businessError);
+      return res.status(404).json({ error: 'Business not found' });
+    }
+
+    // Check ownership (only for regular users, not service role)
+    if (user) {
       const userOwnsBusiness = business.owner_id === user.id || 
                               business.created_by === user.id || 
                               business.created_by === user.email;
@@ -19907,32 +19917,6 @@ app.post('/api/surge/sms/send', async (req, res) => {
         });
         return res.status(403).json({ error: 'Access denied' });
       }
-    }
-
-    // Get the business
-    console.log('[SMS_SEND] Looking for business with ID:', businessId);
-    const { data: business, error: businessError } = await supabase
-      .from('businesses')
-      .select('id, name, from_number, verification_status, surge_account_id, owner_id, created_by')
-      .eq('id', businessId)
-      .single();
-
-    console.log('[SMS_SEND] Business query result:', { business, businessError });
-    
-    // If business not found, let's check what businesses exist for this user
-    if (businessError || !business) {
-      console.log('[SMS_SEND] Business not found, checking user businesses...');
-      const { data: userBusinesses, error: userBusinessError } = await supabase
-        .from('businesses')
-        .select('id, name, owner_id, created_by')
-        .or(`owner_id.eq.${user.id},created_by.eq.${user.id}`);
-      
-      console.log('[SMS_SEND] User businesses:', { userBusinesses, userBusinessError });
-    }
-
-    if (businessError || !business) {
-      console.error('[SMS_SEND] Business not found:', businessError);
-      return res.status(404).json({ error: 'Business not found' });
     }
 
     // Check if business has SMS enabled
