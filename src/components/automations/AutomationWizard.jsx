@@ -654,7 +654,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] h-[95vh] max-w-none overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Custom Automation</DialogTitle>
         </DialogHeader>

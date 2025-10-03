@@ -213,7 +213,7 @@ const TemplatesTab = () => {
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-7xl max-h-[95vh] overflow-y-auto">
+        <div className="bg-white rounded-lg p-6 w-[95vw] h-[95vh] max-w-none overflow-y-auto">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-semibold">
               {editingTemplate ? 'Edit Template' : 'Create Template'}
