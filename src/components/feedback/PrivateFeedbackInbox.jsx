@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
-import { Star, MessageSquare, Clock, User, Filter, Search, QrCode, Mail, CheckCircle, X, Trash2 } from 'lucide-react';
+import { Star, MessageSquare, Clock, User, Filter, Search, QrCode, Mail, CheckCircle, X, Trash2, Smartphone } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 
@@ -21,6 +21,8 @@ export default function PrivateFeedbackInbox() {
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [showEmailComposer, setShowEmailComposer] = useState(false);
   const [emailComposerData, setEmailComposerData] = useState(null);
+  const [showSMSComposer, setShowSMSComposer] = useState(false);
+  const [smsComposerData, setSmsComposerData] = useState(null);
 
   useEffect(() => {
     fetchPrivateFeedback(true);
@@ -179,6 +181,25 @@ export default function PrivateFeedbackInbox() {
       sentiment: feedback.sentiment
     });
     setShowEmailComposer(true);
+  };
+
+  const handleSendSMS = (feedback) => {
+    // Get customer phone from the review_requests relationship
+    const customerPhone = feedback.review_requests?.customers?.phone || feedback.customer_phone;
+    
+    if (!customerPhone) {
+      alert('No phone number available for this customer');
+      return;
+    }
+
+    setSmsComposerData({
+      customerName: feedback.customer_name,
+      customerPhone: customerPhone,
+      originalMessage: feedback.message,
+      rating: feedback.rating,
+      sentiment: feedback.sentiment
+    });
+    setShowSMSComposer(true);
   };
 
   const handleMarkResolved = async (feedbackId, resolved) => {
@@ -486,7 +507,12 @@ export default function PrivateFeedbackInbox() {
                 <h4 className="font-medium text-gray-900 mb-2">Response Actions:</h4>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => handleSendFollowup(selectedFeedback)}>
+                    <Mail className="w-4 h-4 mr-1" />
                     Send Follow-up Email
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => handleSendSMS(selectedFeedback)}>
+                    <Smartphone className="w-4 h-4 mr-1" />
+                    Send Follow-up Text
                   </Button>
                   {selectedFeedback.resolved ? (
                     <Button 
@@ -546,6 +572,17 @@ export default function PrivateFeedbackInbox() {
           onClose={() => {
             setShowEmailComposer(false);
             setEmailComposerData(null);
+          }}
+        />
+      )}
+
+      {/* SMS Composer Modal */}
+      {showSMSComposer && smsComposerData && (
+        <SMSComposerModal
+          data={smsComposerData}
+          onClose={() => {
+            setShowSMSComposer(false);
+            setSmsComposerData(null);
           }}
         />
       )}
@@ -708,6 +745,136 @@ Best regards,
           <div className="flex gap-2 pt-4">
             <Button onClick={handleSend} disabled={sending}>
               {sending ? 'Sending...' : 'Send Email'}
+            </Button>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// SMS Composer Modal Component
+function SMSComposerModal({ data, onClose }) {
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    // Pre-fill message based on sentiment
+    if (data.sentiment === 'negative') {
+      setMessage(`Hi ${data.customerName},
+
+Thank you for your feedback. We sincerely apologize that we didn't meet your expectations and would like to make this right.
+
+Could you please give us a call at [YOUR_PHONE] or reply to this text so we can discuss how we can improve your experience?
+
+We value your business and want to ensure you're completely satisfied.
+
+Best regards,
+[YOUR_NAME]
+[YOUR_BUSINESS_NAME]`);
+    } else {
+      setMessage(`Hi ${data.customerName},
+
+Thank you for taking the time to share your feedback with us. We're glad to hear about your experience and appreciate your input.
+
+If there's anything else we can do for you, please don't hesitate to reach out.
+
+Best regards,
+[YOUR_NAME]
+[YOUR_BUSINESS_NAME]`);
+    }
+  }, [data]);
+
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      // Get user's session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('Authentication required');
+        return;
+      }
+
+      // Get user's business_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_id')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!profile?.business_id) {
+        alert('Business not found');
+        return;
+      }
+
+      const response = await fetch('/api/surge/sms/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          businessId: profile.business_id,
+          to: data.customerPhone,
+          body: message
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to send SMS');
+
+      alert('Follow-up text sent successfully!');
+      onClose();
+    } catch (err) {
+      console.error('Error sending follow-up SMS:', err);
+      alert('Failed to send text: ' + err.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Send Follow-up Text</CardTitle>
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <h4 className="font-medium text-gray-900 mb-2">Customer Details:</h4>
+            <p className="text-sm text-gray-600">
+              <strong>Name:</strong> {data.customerName}<br/>
+              <strong>Phone:</strong> {data.customerPhone}<br/>
+              <strong>Rating:</strong> {data.rating}/5 stars<br/>
+              <strong>Original Message:</strong> {data.originalMessage}
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="message">Message</Label>
+            <Textarea
+              id="message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Your message to the customer"
+              rows={8}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Character count: {message.length}/160 (SMS limit)
+            </p>
+          </div>
+
+          <div className="flex gap-2 pt-4">
+            <Button onClick={handleSend} disabled={sending || !message.trim()}>
+              {sending ? 'Sending...' : 'Send Text'}
             </Button>
             <Button variant="outline" onClick={onClose}>
               Cancel
