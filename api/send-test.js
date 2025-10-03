@@ -34,12 +34,22 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields: businessId, to, message' });
     }
 
-    // Determine if it's email or SMS
-    const isEmail = to.includes('@');
+    // Determine if it's email or SMS - be more explicit
+    const containsAt = to.includes('@');
+    const containsDot = to.includes('.');
+    const isEmail = containsAt && containsDot;
     const channel = isEmail ? 'email' : 'sms';
 
     console.log(`🚀 Sending test ${channel} to:`, to);
-    console.log(`🚀 Channel detection:`, { to, isEmail, channel, containsAt: to.includes('@') });
+    console.log(`🚀 Channel detection:`, { 
+      to, 
+      containsAt, 
+      containsDot, 
+      isEmail, 
+      channel,
+      type: typeof to,
+      length: to.length
+    });
 
     if (isEmail) {
       console.log('🚀 Going to EMAIL path');
