@@ -809,8 +809,8 @@ function SMSComposerModal({ data, onClose }) {
 
       console.log('SMS Debug - Business ID:', profile.business_id);
 
-      // Add compliance footer (this will be added by the SMS endpoint automatically)
-      const response = await fetch('/api/surge/sms/send', {
+      // Try main SMS endpoint first
+      let response = await fetch('/api/surge/sms/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -823,7 +823,25 @@ function SMSComposerModal({ data, onClose }) {
         })
       });
 
-      const result = await response.json();
+      let result = await response.json();
+      
+      // If main endpoint fails, try direct SMS endpoint as fallback
+      if (!response.ok) {
+        console.log('Main SMS endpoint failed, trying direct endpoint...');
+        response = await fetch('/api/test-sms-direct', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            to: data.customerPhone,
+            body: message
+          })
+        });
+        
+        result = await response.json();
+      }
+      
       if (!response.ok) throw new Error(result.error || 'Failed to send SMS');
 
       alert('Follow-up text sent successfully!');
