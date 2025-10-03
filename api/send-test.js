@@ -110,6 +110,35 @@ export default async function handler(req, res) {
 
       console.log('🚀 Fallback normalized phone:', { original: to, normalized: normalizedPhone, e164: e164Phone });
 
+      // Get business data for SMS
+      const { data: business, error: businessError } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', businessId)
+        .single();
+
+      if (businessError || !business) {
+        throw new Error('Business not found');
+      }
+
+      console.log('🚀 Business SMS config:', {
+        sms_enabled: business.sms_enabled,
+        from_number: business.from_number,
+        verification_status: business.verification_status
+      });
+
+      if (!business.sms_enabled) {
+        throw new Error('SMS not enabled for this business');
+      }
+
+      if (!business.from_number) {
+        throw new Error('No SMS number configured for this business');
+      }
+
+      if (business.verification_status !== 'active') {
+        throw new Error(`SMS not verified: ${business.verification_status}`);
+      }
+
       const baseUrl = process.env.APP_BASE_URL || 'https://myblipp.com';
       console.log('🚀 Using base URL for SMS (fallback):', baseUrl);
       

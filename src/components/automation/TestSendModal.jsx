@@ -111,9 +111,8 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
       const token = session?.data?.session?.access_token;
       console.log('🚀 Auth token:', token ? 'Present' : 'Missing');
 
-      // Determine if it's email or SMS and use appropriate endpoint
-      const isPhoneNumber = testPhone && !testEmail;
-      const endpoint = isPhoneNumber ? '/api/test-sms-simple' : '/api/send-test';
+      // Use the main send-test endpoint for both email and SMS
+      const endpoint = '/api/send-test';
       
       console.log('🚀 Calling API endpoint:', endpoint, {
         businessId: business.id,
