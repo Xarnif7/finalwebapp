@@ -19893,7 +19893,18 @@ app.post('/api/surge/sms/send', async (req, res) => {
       }
 
       // Check if user owns this business (either owner_id or created_by)
-      if (business.owner_id !== user.id && business.created_by !== user.id) {
+      // Note: created_by might be email, so check both user.id and user.email
+      const userOwnsBusiness = business.owner_id === user.id || 
+                              business.created_by === user.id || 
+                              business.created_by === user.email;
+      
+      if (!userOwnsBusiness) {
+        console.log('[SMS_SEND] Access denied - user ownership check failed:', {
+          businessOwnerId: business.owner_id,
+          businessCreatedBy: business.created_by,
+          userId: user.id,
+          userEmail: user.email
+        });
         return res.status(403).json({ error: 'Access denied' });
       }
     }
@@ -19902,11 +19913,22 @@ app.post('/api/surge/sms/send', async (req, res) => {
     console.log('[SMS_SEND] Looking for business with ID:', businessId);
     const { data: business, error: businessError } = await supabase
       .from('businesses')
-      .select('id, name, from_number, verification_status, surge_account_id')
+      .select('id, name, from_number, verification_status, surge_account_id, owner_id, created_by')
       .eq('id', businessId)
       .single();
 
     console.log('[SMS_SEND] Business query result:', { business, businessError });
+    
+    // If business not found, let's check what businesses exist for this user
+    if (businessError || !business) {
+      console.log('[SMS_SEND] Business not found, checking user businesses...');
+      const { data: userBusinesses, error: userBusinessError } = await supabase
+        .from('businesses')
+        .select('id, name, owner_id, created_by')
+        .or(`owner_id.eq.${user.id},created_by.eq.${user.id}`);
+      
+      console.log('[SMS_SEND] User businesses:', { userBusinesses, userBusinessError });
+    }
 
     if (businessError || !business) {
       console.error('[SMS_SEND] Business not found:', businessError);
