@@ -59,6 +59,10 @@
       "destination": "/server.js"
     },
     {
+      "source": "/api/sms-send",
+      "destination": "/server.js"
+    },
+    {
       "source": "/api/subscription/(.*)",
       "destination": "/server.js"
     },

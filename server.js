@@ -19809,6 +19809,69 @@ app.get('/api/test-sms-endpoint', (req, res) => {
   res.json({ message: 'SMS endpoint test successful' });
 });
 
+// Simple SMS send endpoint (working version)
+app.post('/api/sms-send', async (req, res) => {
+  try {
+    const { to, body } = req.body;
+    
+    if (!to || !body) {
+      return res.status(400).json({ error: 'Missing to or body' });
+    }
+
+    // Use hardcoded business configuration
+    const fromNumber = '+18775402797';
+    const surgeAccountId = process.env.SURGE_MASTER_ACCOUNT_ID;
+
+    // Normalize phone number
+    const normalizedTo = to.replace(/\D/g, '');
+    const e164Phone = normalizedTo.startsWith('1') ? `+${normalizedTo}` : `+1${normalizedTo}`;
+    
+    console.log(`[SMS_SEND] Sending SMS from ${fromNumber} to ${e164Phone}`);
+
+    // Send via Surge API
+    const surgeResponse = await fetch(`${process.env.SURGE_API_BASE}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.SURGE_API_KEY}`,
+        'Surge-Account': surgeAccountId,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        account_id: surgeAccountId,
+        from: fromNumber,
+        to: e164Phone,
+        body: body + '\n\nReply STOP to opt out. Reply HELP for help.'
+      })
+    });
+
+    const surgeResult = await surgeResponse.json();
+
+    if (!surgeResponse.ok) {
+      console.error('[SMS_SEND] Surge API error:', surgeResult);
+      return res.status(500).json({
+        error: 'Failed to send SMS',
+        details: surgeResult.error || 'Surge API error'
+      });
+    }
+
+    console.log('[SMS_SEND] Message sent successfully:', surgeResult.message_id || surgeResult.id);
+
+    return res.status(200).json({
+      success: true,
+      message_id: surgeResult.message_id || surgeResult.id,
+      status: surgeResult.status || 'sent',
+      to: e164Phone
+    });
+
+  } catch (error) {
+    console.error('[SMS_SEND] Error:', error);
+    return res.status(500).json({
+      error: 'Failed to send SMS',
+      details: error.message
+    });
+  }
+});
+
 // Direct SMS test endpoint (bypasses business lookup for testing)
 app.post('/api/test-sms-direct', async (req, res) => {
   try {
