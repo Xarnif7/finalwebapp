@@ -111,12 +111,16 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
       const token = session?.data?.session?.access_token;
       console.log('🚀 Auth token:', token ? 'Present' : 'Missing');
 
-      // Send the test message
-      console.log('🚀 Calling send-test API...', {
+      // Determine if it's email or SMS and use appropriate endpoint
+      const isPhoneNumber = testPhone && !testEmail;
+      const endpoint = isPhoneNumber ? '/api/test-sms' : '/api/send-test';
+      
+      console.log('🚀 Calling API endpoint:', endpoint, {
         businessId: business.id,
         to: testEmail || testPhone,
         message: customMessage,
-        messageLength: customMessage?.length
+        messageLength: customMessage?.length,
+        isPhoneNumber
       });
 
       const requestBody = {
@@ -127,7 +131,7 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
 
       console.log('🚀 Request body:', requestBody);
 
-      const response = await fetch('/api/send-test', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
