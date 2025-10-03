@@ -23,10 +23,14 @@ export default async function handler(req, res) {
 
   try {
     console.log('🚀 Test send API called with:', req.body);
+    console.log('🚀 Request headers:', req.headers);
     
     const { businessId, to, message } = req.body;
 
+    console.log('🚀 Parsed fields:', { businessId, to, message, messageLength: message?.length });
+
     if (!businessId || !to || !message) {
+      console.log('🚀 Missing required fields:', { businessId: !!businessId, to: !!to, message: !!message });
       return res.status(400).json({ error: 'Missing required fields: businessId, to, message' });
     }
 
@@ -38,6 +42,7 @@ export default async function handler(req, res) {
 
     if (isEmail) {
       // Send test email via Resend
+      console.log('🚀 Sending email via Resend...');
       const emailResponse = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -82,8 +87,11 @@ export default async function handler(req, res) {
 
     } else {
       // Send test SMS via Surge API
+      console.log('🚀 Sending SMS via Surge...');
       const normalizedPhone = to.replace(/\D/g, '');
       const e164Phone = normalizedPhone.startsWith('1') ? `+${normalizedPhone}` : `+1${normalizedPhone}`;
+
+      console.log('🚀 Normalized phone:', { original: to, normalized: normalizedPhone, e164: e164Phone });
 
       const smsResponse = await fetch(`${process.env.APP_BASE_URL || 'http://localhost:3001'}/api/surge/sms/send`, {
         method: 'POST',

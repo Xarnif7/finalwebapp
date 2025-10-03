@@ -25,12 +25,20 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
   React.useEffect(() => {
     if (isOpen && template) {
       const templateMessage = template.config_json?.message || template.message || 'Thank you for your business!';
+      console.log('🧪 TestSendModal initializing message:', { template, templateMessage });
       setCustomMessage(templateMessage);
     }
   }, [isOpen, template]);
 
   const handleSend = async () => {
-    console.log('🚀 TestSendModal handleSend clicked!', { testEmail, testPhone, business, template });
+    console.log('🚀 TestSendModal handleSend clicked!', { 
+      testEmail, 
+      testPhone, 
+      business, 
+      template, 
+      customMessage,
+      hasCustomMessage: !!customMessage?.trim()
+    });
     
     if (!testEmail && !testPhone) {
       console.log('🚀 No email or phone provided');
@@ -44,7 +52,14 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
       return;
     }
 
+    if (!customMessage?.trim()) {
+      console.log('🚀 No custom message provided:', customMessage);
+      toast.error('Please enter a message to send');
+      return;
+    }
+
     console.log('🚀 Business data looks good:', business);
+    console.log('🚀 Custom message looks good:', customMessage);
 
     console.log('🚀 Starting send process...');
     setSending(true);
@@ -100,8 +115,17 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
       console.log('🚀 Calling send-test API...', {
         businessId: business.id,
         to: testEmail || testPhone,
-        message: customMessage
+        message: customMessage,
+        messageLength: customMessage?.length
       });
+
+      const requestBody = {
+        businessId: business.id,
+        to: testEmail || testPhone,
+        message: customMessage
+      };
+
+      console.log('🚀 Request body:', requestBody);
 
       const response = await fetch('/api/send-test', {
         method: 'POST',
@@ -109,11 +133,7 @@ const TestSendModal = ({ isOpen, onClose, template, business, isLoadingBusiness 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          businessId: business.id,
-          to: testEmail || testPhone,
-          message: customMessage
-        })
+        body: JSON.stringify(requestBody)
       });
 
       console.log('🚀 API response status:', response.status);
