@@ -19838,15 +19838,19 @@ app.post('/api/surge/sms/send', async (req, res) => {
         return res.status(401).json({ error: 'Invalid token' });
       }
 
-      // Check if user owns this business
+      // Check if user owns this business (check both owner_id and created_by)
       const { data: business, error: businessError } = await supabase
         .from('businesses')
-        .select('id')
+        .select('id, owner_id, created_by')
         .eq('id', businessId)
-        .eq('owner_id', user.id)
         .single();
 
       if (businessError || !business) {
+        return res.status(404).json({ error: 'Business not found' });
+      }
+
+      // Check if user owns this business (either owner_id or created_by)
+      if (business.owner_id !== user.id && business.created_by !== user.id) {
         return res.status(403).json({ error: 'Access denied' });
       }
     }

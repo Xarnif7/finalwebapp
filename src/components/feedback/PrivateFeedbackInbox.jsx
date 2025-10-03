@@ -769,33 +769,20 @@ function SMSComposerModal({ data, onClose }) {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    // Pre-fill message based on sentiment
+    // Pre-fill message based on sentiment (keeping under 140 chars for compliance footer)
     if (data.sentiment === 'negative') {
-      setMessage(`Hi ${data.customerName},
-
-Thank you for your feedback. We sincerely apologize that we didn't meet your expectations and would like to make this right.
-
-Could you please give us a call at [YOUR_PHONE] or reply to this text so we can discuss how we can improve your experience?
-
-We value your business and want to ensure you're completely satisfied.
-
-Best regards,
-[YOUR_NAME]
-[YOUR_BUSINESS_NAME]`);
+      setMessage(`Hi ${data.customerName}, thanks for your feedback. We apologize and want to make it right. Please call us or reply to discuss.`);
     } else {
-      setMessage(`Hi ${data.customerName},
-
-Thank you for taking the time to share your feedback with us. We're glad to hear about your experience and appreciate your input.
-
-If there's anything else we can do for you, please don't hesitate to reach out.
-
-Best regards,
-[YOUR_NAME]
-[YOUR_BUSINESS_NAME]`);
+      setMessage(`Hi ${data.customerName}, thanks for your feedback! We're glad you had a good experience. Let us know if we can help with anything else.`);
     }
   }, [data]);
 
   const handleSend = async () => {
+    if (message.length > 160) {
+      alert('Message is too long. Please keep it under 160 characters.');
+      return;
+    }
+
     setSending(true);
     try {
       // Get user's session for authentication
@@ -817,6 +804,7 @@ Best regards,
         return;
       }
 
+      // Add compliance footer (this will be added by the SMS endpoint automatically)
       const response = await fetch('/api/surge/sms/send', {
         method: 'POST',
         headers: {
@@ -870,12 +858,23 @@ Best regards,
             <Textarea
               id="message"
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={(e) => {
+                const newMessage = e.target.value;
+                if (newMessage.length <= 160) {
+                  setMessage(newMessage);
+                }
+              }}
               placeholder="Your message to the customer"
               rows={8}
+              maxLength={160}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className={`text-xs mt-1 ${message.length > 140 ? 'text-red-500' : 'text-gray-500'}`}>
               Character count: {message.length}/160 (SMS limit)
+              {message.length > 140 && (
+                <span className="block text-red-600 font-medium">
+                  Warning: Message is getting close to the limit!
+                </span>
+              )}
             </p>
           </div>
 
