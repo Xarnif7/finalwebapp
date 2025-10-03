@@ -53,8 +53,16 @@ export default async function handler(req, res) {
       length: to.length
     });
 
-    // Force SMS for phone numbers
-    if (isPhoneNumber) {
+    // Force SMS for phone numbers - MORE AGGRESSIVE CHECK
+    console.log('🚀 Checking if phone number...', { 
+      to, 
+      isPhoneNumber, 
+      regexTest: /^[\+]?[\d\s\-\(\)]+$/.test(to),
+      length: to.length,
+      isNumeric: /^\d+$/.test(to.replace(/\D/g, ''))
+    });
+
+    if (isPhoneNumber || /^\d+$/.test(to.replace(/\D/g, '')) || to.length >= 10) {
       console.log('🚀 FORCING SMS path for phone number');
       const normalizedPhone = to.replace(/\D/g, '');
       const e164Phone = normalizedPhone.startsWith('1') ? `+${normalizedPhone}` : `+1${normalizedPhone}`;
@@ -84,6 +92,47 @@ export default async function handler(req, res) {
       }
 
       console.log(`✅ Test SMS sent successfully: ${smsData.message_id}`);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Test SMS sent successfully!',
+        channel: 'sms',
+        recipient: e164Phone,
+        messageId: smsData.message_id
+      });
+    }
+
+    // FINAL FALLBACK: If it doesn't contain @, treat as SMS
+    if (!to.includes('@')) {
+      console.log('🚀 FALLBACK: No @ symbol detected, treating as SMS');
+      const normalizedPhone = to.replace(/\D/g, '');
+      const e164Phone = normalizedPhone.startsWith('1') ? `+${normalizedPhone}` : `+1${normalizedPhone}`;
+
+      console.log('🚀 Fallback normalized phone:', { original: to, normalized: normalizedPhone, e164: e164Phone });
+
+      const baseUrl = process.env.APP_BASE_URL || 'https://myblipp.com';
+      console.log('🚀 Using base URL for SMS (fallback):', baseUrl);
+      
+      const smsResponse = await fetch(`${baseUrl}/api/surge/sms/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+        },
+        body: JSON.stringify({
+          businessId: businessId,
+          to: e164Phone,
+          body: `🧪 TEST: ${message}`
+        })
+      });
+
+      const smsData = await smsResponse.json();
+
+      if (!smsResponse.ok) {
+        throw new Error(`SMS send failed: ${smsData.error || 'Unknown error'}`);
+      }
+
+      console.log(`✅ Test SMS sent successfully (fallback): ${smsData.message_id}`);
 
       return res.status(200).json({
         success: true,
