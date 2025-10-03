@@ -14,6 +14,8 @@ import { useSmsStatus } from "@/hooks/useSmsStatus";
 import { supabase } from "@/lib/supabaseClient";
 import TestSendModal from "./TestSendModal";
 import QBOTriggerSelector from "./QBOTriggerSelector";
+import CRMSelector from "./CRMSelector";
+import FlowPreview from "./FlowPreview";
 
 export default function TemplateCustomizer({ 
   isOpen, 
@@ -53,6 +55,9 @@ export default function TemplateCustomizer({
   const [messageDropdownOpen, setMessageDropdownOpen] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
   const [messagePreview, setMessagePreview] = useState('');
+  const [currentStep, setCurrentStep] = useState(1);
+  const [selectedCrm, setSelectedCrm] = useState('qbo');
+  const [showFlowPreview, setShowFlowPreview] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiEnhancing, setAiEnhancing] = useState(false);
   const [notification, setNotification] = useState(null);

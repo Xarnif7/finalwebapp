@@ -5,6 +5,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import FlowCard from '@/components/automation/FlowCard';
 import ActiveSequences from '@/components/automation/ActiveSequences';
 import TemplateCustomizer from '@/components/automation/TemplateCustomizer';
+import GuidedTemplateCustomizer from '@/components/automation/GuidedTemplateCustomizer';
 import { supabase } from '@/lib/supabaseClient';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -476,7 +477,7 @@ const AutomationsPageFixed = () => {
       </Tabs>
 
       {/* Modals */}
-      <TemplateCustomizer
+      <GuidedTemplateCustomizer
         isOpen={customizeModalOpen}
         onClose={() => setCustomizeModalOpen(false)}
         template={selectedTemplate}
@@ -486,7 +487,7 @@ const AutomationsPageFixed = () => {
         user={user}
       />
 
-      <TemplateCustomizer
+      <GuidedTemplateCustomizer
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         template={{
