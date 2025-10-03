@@ -55,6 +55,10 @@
       "destination": "/server.js"
     },
     {
+      "source": "/api/test-sms-direct",
+      "destination": "/server.js"
+    },
+    {
       "source": "/api/subscription/(.*)",
       "destination": "/server.js"
     },
