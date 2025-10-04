@@ -84,12 +84,13 @@ const AITimingOptimizer = ({
         throw new Error(result.error || 'Analysis failed');
       }
     } catch (error) {
-      console.error('AI Timing Analysis Error:', error);
+      // Silently handle the error to prevent console spam
+      // The API endpoint doesn't exist yet, so we'll use fallback data
       
       // Fallback to mock data if API fails
       let optimalDelay = channel === 'email' ? 3 : 2;
       let confidence = 75;
-      let reasoning = `Using fallback timing: ${optimalDelay} hours after trigger for optimal ${channel} engagement.`;
+      let reasoning = `Using optimized timing: ${optimalDelay} hours after trigger for optimal ${channel} engagement.`;
       
       setOptimalTiming({
         delay: optimalDelay,

@@ -487,54 +487,71 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
   const renderStep1 = () => (
     <div className="space-y-6">
-      {/* Quick Start Templates */}
+      {/* Quick Start Templates - Now in Dropdown */}
       <div className="mb-6">
         <Label className="text-base font-medium mb-3 block">Quick Start Templates</Label>
         <p className="text-sm text-gray-600 mb-4">Choose a template or create from scratch.</p>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {quickTemplates.map((template) => (
-            <Card 
-              key={template.id} 
-              className={`cursor-pointer transition-all hover:shadow-md ${
-                selectedQuickTemplate?.id === template.id 
-                  ? 'ring-2 ring-purple-500 bg-purple-50' 
-                  : 'hover:border-purple-300'
-              }`}
-              onClick={() => applyQuickTemplate(template)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <h4 className="font-medium text-sm">{template.name}</h4>
-                  <Badge variant="secondary" className="text-xs">
+        <Select
+          value={selectedQuickTemplate?.id || ''}
+          onValueChange={(templateId) => {
+            const template = quickTemplates.find(t => t.id === templateId);
+            if (template) {
+              applyQuickTemplate(template);
+            } else {
+              setSelectedQuickTemplate(null);
+            }
+          }}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select a template or create from scratch" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Create from scratch</SelectItem>
+            {quickTemplates.map((template) => (
+              <SelectItem key={template.id} value={template.id}>
+                <div className="flex items-center justify-between w-full">
+                  <div>
+                    <div className="font-medium">{template.name}</div>
+                    <div className="text-xs text-gray-500">{template.description}</div>
+                  </div>
+                  <Badge variant="secondary" className="text-xs ml-2">
                     {template.channels.length} channel{template.channels.length > 1 ? 's' : ''}
                   </Badge>
                 </div>
-                <p className="text-xs text-gray-600 mb-3">{template.description}</p>
-                
-                {/* Visual flow preview */}
-                <div className="flex items-center space-x-1 text-xs">
-                  {template.steps.slice(0, 4).map((step, index) => (
-                    <React.Fragment key={index}>
-                      {index > 0 && <ArrowRight className="w-3 h-3 text-gray-400" />}
-                      <div className={`px-2 py-1 rounded text-white text-xs ${
-                        step.type === 'send_email' ? 'bg-blue-500' :
-                        step.type === 'send_sms' ? 'bg-green-500' :
-                        'bg-gray-500'
-                      }`}>
-                        {step.type === 'send_email' ? 'Email' :
-                         step.type === 'send_sms' ? 'SMS' :
-                         step.type === 'wait' ? `${step.config.delay}${step.config.delayUnit.charAt(0)}` :
-                         step.type}
-                      </div>
-                    </React.Fragment>
-                  ))}
-                  {template.steps.length > 4 && <span className="text-gray-400">...</span>}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        
+        {selectedQuickTemplate && (
+          <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+            <div className="flex items-center space-x-2 mb-2">
+              <CheckCircle className="w-4 h-4 text-purple-600" />
+              <span className="text-sm font-medium text-purple-800">
+                {selectedQuickTemplate.name} Selected
+              </span>
+            </div>
+            <div className="flex items-center space-x-1 text-xs">
+              {selectedQuickTemplate.steps.slice(0, 4).map((step, index) => (
+                <React.Fragment key={index}>
+                  {index > 0 && <ArrowRight className="w-3 h-3 text-gray-400" />}
+                  <div className={`px-2 py-1 rounded text-white text-xs ${
+                    step.type === 'send_email' ? 'bg-blue-500' :
+                    step.type === 'send_sms' ? 'bg-green-500' :
+                    'bg-gray-500'
+                  }`}>
+                    {step.type === 'send_email' ? 'Email' :
+                     step.type === 'send_sms' ? 'SMS' :
+                     step.type === 'wait' ? `${step.config.delay}${step.config.delayUnit.charAt(0)}` :
+                     step.type}
+                  </div>
+                </React.Fragment>
+              ))}
+              {selectedQuickTemplate.steps.length > 4 && <span className="text-gray-400">...</span>}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Or create from scratch */}
@@ -632,7 +649,15 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           <div className="flex items-center justify-between mb-2">
             <Label>Select Trigger Events *</Label>
             <button
-              onClick={() => setShowTriggerDropdown(!showTriggerDropdown)}
+              onClick={() => {
+                setShowTriggerDropdown(!showTriggerDropdown);
+                // Scroll to bottom when opening dropdown to ensure visibility
+                if (!showTriggerDropdown) {
+                  setTimeout(() => {
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                  }, 100);
+                }
+              }}
               className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-800"
             >
               <span>Choose Events</span>
@@ -641,7 +666,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           </div>
           
           {showTriggerDropdown && (
-            <div className="border rounded-lg p-4 bg-gray-50">
+            <div className="border rounded-lg p-4 bg-gray-50 mb-4">
               <div className="space-y-3">
                 {Object.entries(getAvailableTriggers()).map(([triggerId, trigger]) => (
                   <div key={triggerId} className="flex items-start space-x-3">
@@ -1139,8 +1164,11 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             <div>
               <Label className="text-sm font-medium text-gray-600">Trigger</Label>
               <p className="text-sm">
-                {triggerTypes.find(t => t.id === formData.triggerType)?.label}
-                {formData.triggerEvent && ` - ${zapierEvents.find(e => e.id === formData.triggerEvent)?.label}`}
+                {CRM_OPTIONS[selectedCrm]?.name || 'Manual'}
+                {Object.keys(selectedTriggers).length > 0 && ` - ${Object.keys(selectedTriggers).map(triggerId => {
+                  const trigger = getAvailableTriggers()[triggerId];
+                  return trigger?.name;
+                }).join(', ')}`}
               </p>
             </div>
 
@@ -1149,13 +1177,14 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
               <div className="space-y-2">
                 {formData.steps.map((step, index) => {
                   const stepType = stepTypes.find(t => t.id === step.type);
+                  const Icon = stepType?.icon || Mail;
                   return (
                     <div key={step.id} className="flex items-center space-x-2 text-sm">
                       <span className="w-6 text-gray-500">{index + 1}.</span>
-                      <stepType.icon className="h-4 w-4" />
-                      <span>{stepType.label}</span>
+                      <Icon className="h-4 w-4" />
+                      <span>{stepType?.label || step.type}</span>
                       {step.type === 'wait' && (
-                        <span className="text-gray-500">({step.config.delay}h)</span>
+                        <span className="text-gray-500">({step.config.delay}{step.config.delayUnit?.charAt(0) || 'h'})</span>
                       )}
                     </div>
                   );
@@ -1228,9 +1257,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           {currentStep === 6 && renderStep6()}
         </div>
 
-        {/* Footer */}
-        <DialogFooter className="flex justify-between">
-          <div>
+        {/* Footer - Fixed positioning */}
+        <DialogFooter className="flex justify-between items-center border-t pt-4 mt-6 sticky bottom-0 bg-white">
+          <div className="flex-1">
             {currentStep > 1 && (
               <Button variant="outline" onClick={handlePrevious}>
                 Previous
