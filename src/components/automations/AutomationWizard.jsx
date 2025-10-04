@@ -26,7 +26,8 @@ import {
   Loader2,
   Zap,
   Webhook,
-  User
+  User,
+  ArrowRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useSequencesData } from '@/hooks/useSequencesData';
