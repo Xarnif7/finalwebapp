@@ -6,6 +6,7 @@ import FlowCard from '@/components/automation/FlowCard';
 import ActiveSequences from '@/components/automation/ActiveSequences';
 import TemplateCustomizer from '@/components/automation/TemplateCustomizer';
 import GuidedTemplateCustomizer from '@/components/automation/GuidedTemplateCustomizer';
+import AutomationWizard from '@/components/automations/AutomationWizard';
 import { supabase } from '@/lib/supabaseClient';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -21,6 +22,7 @@ const AutomationsPageFixed = () => {
   const [customizeModalOpen, setCustomizeModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [automationWizardOpen, setAutomationWizardOpen] = useState(false);
   
   // Get current tab from URL or default to 'templates'
   const currentTab = searchParams.get('tab') || 'templates';
@@ -424,18 +426,29 @@ const AutomationsPageFixed = () => {
         <TabsContent value="templates" className="mt-8">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl font-semibold">Automation Templates</h2>
-            <button
-              onClick={() => {
-                if (templates.length >= 9) {
-                  alert('Maximum of 9 templates allowed. Please edit or delete existing templates to create new ones.');
-                  return;
-                }
-                setCreateModalOpen(true);
-              }}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-            >
-              Create Custom Template ({templates.length}/9)
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  if (templates.length >= 9) {
+                    alert('Maximum of 9 templates allowed. Please edit or delete existing templates to create new ones.');
+                    return;
+                  }
+                  setCreateModalOpen(true);
+                }}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                Create Custom Template ({templates.length}/9)
+              </button>
+              <button
+                onClick={() => {
+                  console.log('🎯 Create Custom Automation button clicked!');
+                  setAutomationWizardOpen(true);
+                }}
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                ⚡ Create Custom Automation
+              </button>
+            </div>
           </div>
           
           {templates.length === 0 ? (
@@ -506,6 +519,17 @@ const AutomationsPageFixed = () => {
         businessId={business?.id}
         user={user}
         isCreating={true}
+      />
+
+      {/* Automation Wizard Modal */}
+      <AutomationWizard
+        isOpen={automationWizardOpen}
+        onClose={() => setAutomationWizardOpen(false)}
+        onSequenceCreated={() => {
+          setAutomationWizardOpen(false);
+          // Refresh the sequences
+          loadActiveSequences();
+        }}
       />
     </div>
   );
