@@ -815,9 +815,10 @@ const AutomationsPage = () => {
                   setAutomationWizardOpen(true);
                 }} 
                 className="bg-purple-600 hover:bg-purple-700"
+                style={{border: '3px solid red', marginLeft: '10px'}}
               >
                 <Zap className="h-4 w-4 mr-2" />
-                Create Custom Automation
+                ⚡ Create Custom Automation
               </Button>
             </div>
           </div>
