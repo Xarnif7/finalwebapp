@@ -424,6 +424,10 @@ const AutomationsPageFixed = () => {
 
         {/* Templates Tab */}
         <TabsContent value="templates" className="mt-8">
+          {/* DEBUG: This should be visible */}
+          <div style={{backgroundColor: 'red', color: 'white', padding: '10px', margin: '10px 0'}}>
+            🚨 DEBUG: This is AutomationsFixed.jsx - Button should be below
+          </div>
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl font-semibold">Automation Templates</h2>
             {console.log('🎯 Rendering buttons section - automationWizardOpen:', automationWizardOpen)}
