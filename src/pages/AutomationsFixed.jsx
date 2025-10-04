@@ -426,6 +426,7 @@ const AutomationsPageFixed = () => {
         <TabsContent value="templates" className="mt-8">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl font-semibold">Automation Templates</h2>
+            {console.log('🎯 Rendering buttons section - automationWizardOpen:', automationWizardOpen)}
             <div className="flex gap-3">
               <button
                 onClick={() => {
@@ -445,8 +446,9 @@ const AutomationsPageFixed = () => {
                   setAutomationWizardOpen(true);
                 }}
                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                style={{border: '3px solid red', backgroundColor: 'purple'}}
               >
-                ⚡ Create Custom Automation
+                ⚡ Create Custom Automation (DEBUG)
               </button>
             </div>
           </div>
