@@ -31,6 +31,7 @@ import SequenceCreator from "@/components/automation/SequenceCreator";
 import ActiveSequences from "@/components/automation/ActiveSequences";
 import TemplateCustomizer from "@/components/automation/TemplateCustomizer";
 import TestSendModal from "@/components/automation/TestSendModal";
+import AutomationWizard from "@/components/automations/AutomationWizard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -48,6 +49,7 @@ const AutomationsPage = () => {
   const [customizeModalOpen, setCustomizeModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [testSendModalOpen, setTestSendModalOpen] = useState(false);
+  const [automationWizardOpen, setAutomationWizardOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [customizationData, setCustomizationData] = useState({
     name: '',
@@ -801,10 +803,16 @@ const AutomationsPage = () => {
               <h2 className="text-xl font-semibold text-gray-900">Automation Templates</h2>
               <p className="text-sm text-gray-600">Create and manage your automation sequences</p>
             </div>
-            <Button onClick={handleCreateSequence} className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Custom Template
-            </Button>
+            <div className="flex gap-3">
+              <Button onClick={handleCreateSequence} className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Custom Template
+              </Button>
+              <Button onClick={() => setAutomationWizardOpen(true)} className="bg-purple-600 hover:bg-purple-700">
+                <Zap className="h-4 w-4 mr-2" />
+                Create Custom Automation
+              </Button>
+            </div>
           </div>
 
           {/* Templates Grid - Visual Flow Cards */}
@@ -1023,6 +1031,17 @@ const AutomationsPage = () => {
         onClose={() => setTestSendModalOpen(false)}
         template={selectedTemplate}
         business={business}
+      />
+
+      {/* Automation Wizard Modal */}
+      <AutomationWizard
+        isOpen={automationWizardOpen}
+        onClose={() => setAutomationWizardOpen(false)}
+        onSequenceCreated={() => {
+          setAutomationWizardOpen(false);
+          // Refresh the sequences
+          loadActiveSequences();
+        }}
       />
     </div>
   );
