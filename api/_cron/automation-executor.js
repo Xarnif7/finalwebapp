@@ -5,6 +5,44 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// AI Timing Optimization Function
+async function calculateAITiming(businessId, channel, customerId = null) {
+  try {
+    const response = await fetch(`${process.env.VITE_SUPABASE_URL.replace('supabase.co', 'myblipp.com')}/api/ai-timing/analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        businessId,
+        channel,
+        customerId,
+        triggerType: 'review_request'
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (result.success) {
+        return {
+          delay: result.optimalTiming.delay,
+          unit: result.optimalTiming.unit,
+          confidence: result.optimalTiming.confidence
+        };
+      }
+    }
+  } catch (error) {
+    console.error('[AI_TIMING] Error in automation executor:', error);
+  }
+  
+  // Fallback timing
+  return {
+    delay: channel === 'email' ? 3 : 2,
+    unit: 'hours',
+    confidence: 75
+  };
+}
+
 export default async function handler(req, res) {
   try {
     // Preemptively refresh QBO tokens that expire in <15 minutes

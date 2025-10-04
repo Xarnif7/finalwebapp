@@ -32,6 +32,7 @@ import { useToast } from '@/hooks/useToast';
 import { useSequencesData } from '@/hooks/useSequencesData';
 import { useZapierStatus } from '@/hooks/useZapierStatus';
 import FlowBuilder from './FlowBuilder';
+import AITimingOptimizer from './AITimingOptimizer';
 
 const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -61,6 +62,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   const [errors, setErrors] = useState({});
   const [flowSteps, setFlowSteps] = useState([]);
   const [selectedChannels, setSelectedChannels] = useState(['email']);
+  const [aiTimingEnabled, setAiTimingEnabled] = useState(false);
+  const [aiTimingData, setAiTimingData] = useState({});
 
   const stepTypes = [
     { id: 'send_email', label: 'Send Email', icon: Mail, description: 'Send an email message' },
@@ -611,6 +614,32 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                       <p className="text-xs text-gray-500">
                         Common: 1 hour, 5 hours, 24 hours, 3 days
                       </p>
+                      
+                      {/* AI Timing Optimization */}
+                      <div className="mt-4">
+                        <AITimingOptimizer
+                          isEnabled={aiTimingEnabled}
+                          onToggle={(enabled) => {
+                            setAiTimingEnabled(enabled);
+                            if (!enabled) {
+                              // Reset to manual timing if AI is disabled
+                              updateStepConfig(step.id, 'delay', 1);
+                              updateStepConfig(step.id, 'delayUnit', 'hours');
+                            }
+                          }}
+                          channel={selectedChannels.includes('sms') ? 'sms' : 'email'}
+                          onTimingChange={(timing) => {
+                            if (timing.isAIOptimized) {
+                              updateStepConfig(step.id, 'delay', timing.delay);
+                              updateStepConfig(step.id, 'delayUnit', timing.unit);
+                              setAiTimingData(prev => ({
+                                ...prev,
+                                [step.id]: timing
+                              }));
+                            }
+                          }}
+                        />
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-2">

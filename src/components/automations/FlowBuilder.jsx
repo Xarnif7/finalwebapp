@@ -17,7 +17,7 @@ import {
   GripVertical
 } from 'lucide-react';
 
-const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [] }) => {
+const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], aiTimingEnabled = false }) => {
   const [flowSteps, setFlowSteps] = useState(initialFlow);
   const [draggedItem, setDraggedItem] = useState(null);
   const [showTimingModal, setShowTimingModal] = useState(false);
