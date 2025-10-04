@@ -25,12 +25,16 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [] }) 
   const [tempTiming, setTempTiming] = useState({ value: 1, unit: 'hours' });
   const flowAreaRef = useRef(null);
 
+  console.log('FlowBuilder rendered with:', { selectedChannels, initialFlow });
+
   // Available draggable items based on selected channels
   const draggableItems = [
     { id: 'trigger', icon: Zap, label: 'Trigger', color: 'bg-purple-500', type: 'trigger' },
     ...(selectedChannels.includes('email') ? [{ id: 'email', icon: Mail, label: 'Email', color: 'bg-blue-500', type: 'email' }] : []),
     ...(selectedChannels.includes('sms') ? [{ id: 'sms', icon: MessageSquare, label: 'SMS', color: 'bg-green-500', type: 'sms' }] : []),
   ];
+
+  console.log('Draggable items:', draggableItems);
 
   useEffect(() => {
     onFlowChange(flowSteps);

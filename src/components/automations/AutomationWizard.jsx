@@ -734,30 +734,36 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     </div>
   );
 
-  const renderStep4 = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium mb-2">Visual Flow Builder</h3>
-        <p className="text-gray-600 mb-4">
-          Drag and drop to create your automation flow. Click on steps to set timing between them.
-        </p>
-      </div>
-
-      <FlowBuilder
-        selectedChannels={selectedChannels}
-        onFlowChange={setFlowSteps}
-        initialFlow={flowSteps}
-      />
-
-      {flowSteps.length === 0 && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            💡 Start by dragging a trigger, then add your communication steps. You can set timing between each step by clicking on them.
+  const renderStep4 = () => {
+    console.log('renderStep4 called with:', { selectedChannels, flowSteps });
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-medium mb-2">Visual Flow Builder</h3>
+          <p className="text-gray-600 mb-4">
+            Drag and drop to create your automation flow. Click on steps to set timing between them.
+          </p>
+          <p className="text-sm text-gray-500">
+            Selected channels: {selectedChannels.join(', ') || 'None'}
           </p>
         </div>
-      )}
-    </div>
-  );
+
+        <FlowBuilder
+          selectedChannels={selectedChannels}
+          onFlowChange={setFlowSteps}
+          initialFlow={flowSteps}
+        />
+
+        {flowSteps.length === 0 && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              💡 Start by dragging a trigger, then add your communication steps. You can set timing between each step by clicking on them.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderStep5 = () => (
     <div className="space-y-6">
