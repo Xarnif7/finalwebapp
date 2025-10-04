@@ -68,15 +68,15 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   const [selectedQuickTemplate, setSelectedQuickTemplate] = useState(null);
 
   const stepTypes = [
-    { id: 'send_email', label: 'Send Email', icon: Mail, description: 'Send an email message' },
-    { id: 'wait', label: 'Wait', icon: Clock, description: 'Wait for a specified time' },
-    { id: 'send_sms', label: 'Send SMS', icon: MessageSquare, description: 'Send an SMS message' }
+    { id: 'send_email', label: 'Send Email', icon: Mail, description: 'Send email' },
+    { id: 'wait', label: 'Wait', icon: Clock, description: 'Wait' },
+    { id: 'send_sms', label: 'Send SMS', icon: MessageSquare, description: 'Send SMS' }
   ];
 
   const triggerTypes = [
     { id: 'manual', label: 'Manual Enrollment', icon: User, description: 'Add customers manually' },
-    { id: 'zapier', label: 'Zapier Event', icon: Zap, description: 'Triggered by Zapier webhook' },
-    { id: 'webhook', label: 'Webhook', icon: Webhook, description: 'Custom webhook trigger' }
+    { id: 'zapier', label: 'Zapier Event', icon: Zap, description: 'Triggered by Zapier' },
+    { id: 'webhook', label: 'Webhook', icon: Webhook, description: 'Custom webhook' }
   ];
 
   const zapierEvents = [
@@ -356,6 +356,18 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     
     setFlowSteps(convertedSteps);
     
+    // Also update formData.steps to ensure the template is fully applied
+    const formSteps = template.steps.map((step, index) => ({
+      id: Date.now() + index + 1000, // Different ID range to avoid conflicts
+      type: step.type,
+      config: step.config
+    }));
+    
+    setFormData(prev => ({
+      ...prev,
+      steps: formSteps
+    }));
+    
     toast({
       title: "Template Applied",
       description: `${template.name} has been loaded. You can customize it in the next steps.`
@@ -367,7 +379,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       {/* Quick Start Templates */}
       <div className="mb-6">
         <Label className="text-base font-medium mb-3 block">Quick Start Templates</Label>
-        <p className="text-sm text-gray-600 mb-4">Choose a template to get started quickly, or create from scratch below.</p>
+        <p className="text-sm text-gray-600 mb-4">Choose a template or create from scratch.</p>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {quickTemplates.map((template) => (
@@ -513,7 +525,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       <div>
         <h3 className="text-lg font-medium mb-2">Select Communication Channels</h3>
         <p className="text-gray-600 mb-4">
-          Choose which communication methods you want to use in your automation.
+          Choose your communication methods.
         </p>
       </div>
 
@@ -521,8 +533,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         <Card 
           className={`cursor-pointer transition-all ${
             selectedChannels.includes('email') 
-              ? 'border-blue-500 bg-blue-50' 
-              : 'border-gray-200 hover:border-gray-300'
+              ? 'border-2 border-blue-500 bg-blue-50 ring-2 ring-blue-200' 
+              : 'border-2 border-gray-200 hover:border-gray-300'
           }`}
           onClick={() => {
             const newChannels = selectedChannels.includes('email')
@@ -545,8 +557,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         <Card 
           className={`cursor-pointer transition-all ${
             selectedChannels.includes('sms') 
-              ? 'border-green-500 bg-green-50' 
-              : 'border-gray-200 hover:border-gray-300'
+              ? 'border-2 border-green-500 bg-green-50 ring-2 ring-green-200' 
+              : 'border-2 border-gray-200 hover:border-gray-300'
           }`}
           onClick={() => {
             const newChannels = selectedChannels.includes('sms')
@@ -622,13 +634,13 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         )}
 
         {/* Common Patterns */}
-        <div className="bg-blue-50 p-4 rounded-lg mb-4">
+        <div className="bg-blue-50 p-3 rounded-lg mb-4">
           <h4 className="text-sm font-medium mb-2">💡 Common Patterns:</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-            <div>📧 <strong>Email → Wait 5h → SMS</strong> - Gentle follow-up</div>
-            <div>📱 <strong>SMS → Wait 24h → Email</strong> - Immediate then detailed</div>
-            <div>⏰ <strong>Wait 1h → Email</strong> - Delayed initial contact</div>
-            <div>🔄 <strong>Email → Wait 3d → SMS</strong> - Multi-touch campaign</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-xs">
+            <div>📧 <strong>Email → Wait 5h → SMS</strong></div>
+            <div>📱 <strong>SMS → Wait 24h → Email</strong></div>
+            <div>⏰ <strong>Wait 1h → Email</strong></div>
+            <div>🔄 <strong>Email → Wait 3d → SMS</strong></div>
           </div>
         </div>
       </div>
