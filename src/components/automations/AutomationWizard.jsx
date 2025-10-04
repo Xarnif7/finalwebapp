@@ -27,7 +27,11 @@ import {
   Zap,
   Webhook,
   User,
-  ArrowRight
+  ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  Building,
+  Check
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useSequencesData } from '@/hooks/useSequencesData';
@@ -66,6 +70,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   const [aiTimingEnabled, setAiTimingEnabled] = useState(false);
   const [aiTimingData, setAiTimingData] = useState({});
   const [selectedQuickTemplate, setSelectedQuickTemplate] = useState(null);
+  const [selectedCrm, setSelectedCrm] = useState('manual');
+  const [selectedTriggers, setSelectedTriggers] = useState({});
+  const [showTriggerDropdown, setShowTriggerDropdown] = useState(false);
 
   const stepTypes = [
     { id: 'send_email', label: 'Send Email', icon: Mail, description: 'Send email' },
@@ -73,18 +80,82 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     { id: 'send_sms', label: 'Send SMS', icon: MessageSquare, description: 'Send SMS' }
   ];
 
-  const triggerTypes = [
-    { id: 'manual', label: 'Manual Enrollment', icon: User, description: 'Add customers manually' },
-    { id: 'zapier', label: 'Zapier Event', icon: Zap, description: 'Triggered by Zapier' },
-    { id: 'webhook', label: 'Webhook', icon: Webhook, description: 'Custom webhook' }
-  ];
+  // CRM Options (matching the old style)
+  const CRM_OPTIONS = {
+    qbo: {
+      name: 'QuickBooks Online',
+      description: 'Connect to QuickBooks for invoice, payment, and customer events',
+      icon: '📊',
+      color: 'blue',
+      available: true
+    },
+    jobber: {
+      name: 'Jobber',
+      description: 'Connect to Jobber for job completion and scheduling events',
+      icon: '🔧',
+      color: 'green',
+      available: false // Coming soon
+    },
+    housecall_pro: {
+      name: 'Housecall Pro',
+      description: 'Connect to Housecall Pro for service completion events',
+      icon: '🏠',
+      color: 'purple',
+      available: false // Coming soon
+    },
+    servicetitan: {
+      name: 'ServiceTitan',
+      description: 'Connect to ServiceTitan for job and customer events',
+      icon: '⚡',
+      color: 'orange',
+      available: false // Coming soon
+    },
+    manual: {
+      name: 'Manual Trigger',
+      description: 'Trigger manually from the customer tab',
+      icon: '👆',
+      color: 'gray',
+      available: true
+    }
+  };
 
-  const zapierEvents = [
-    { id: 'job_completed', label: 'Job Completed' },
-    { id: 'invoice_paid', label: 'Invoice Paid' },
-    { id: 'service_scheduled', label: 'Service Scheduled' },
-    { id: 'customer_created', label: 'Customer Created' }
-  ];
+  // QBO Triggers (simplified version)
+  const QBO_TRIGGERS = {
+    'invoice_created': {
+      name: 'Invoice Created',
+      description: 'When a new invoice is created in QuickBooks',
+      category: 'Invoicing',
+      icon: '📄'
+    },
+    'invoice_paid': {
+      name: 'Invoice Paid',
+      description: 'When a customer pays an invoice',
+      category: 'Invoicing',
+      icon: '💰'
+    },
+    'customer_created': {
+      name: 'Customer Created',
+      description: 'When a new customer is added to QuickBooks',
+      category: 'Customers',
+      icon: '👤'
+    },
+    'job_completed': {
+      name: 'Job Completed',
+      description: 'When a job is marked as completed',
+      category: 'Jobs',
+      icon: '✅'
+    }
+  };
+
+  // Manual triggers
+  const MANUAL_TRIGGERS = {
+    'manual_enrollment': {
+      name: 'Manual Enrollment',
+      description: 'Add customers manually to this sequence',
+      category: 'Manual',
+      icon: '👆'
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -105,6 +176,46 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     });
     setCurrentStep(1);
     setErrors({});
+    setSelectedCrm('manual');
+    setSelectedTriggers({});
+    setShowTriggerDropdown(false);
+  };
+
+  // Helper function to get available triggers for selected CRM
+  const getAvailableTriggers = () => {
+    switch (selectedCrm) {
+      case 'qbo':
+        return QBO_TRIGGERS;
+      case 'manual':
+        return MANUAL_TRIGGERS;
+      default:
+        return {};
+    }
+  };
+
+  // Helper function to handle CRM selection
+  const handleCrmChange = (crmId) => {
+    setSelectedCrm(crmId);
+    setSelectedTriggers({});
+    setShowTriggerDropdown(false);
+    
+    // Update form data
+    updateFormData('triggerType', crmId);
+  };
+
+  // Helper function to handle trigger selection
+  const handleTriggerChange = (triggerId, checked) => {
+    const newTriggers = { ...selectedTriggers };
+    if (checked) {
+      newTriggers[triggerId] = true;
+    } else {
+      delete newTriggers[triggerId];
+    }
+    setSelectedTriggers(newTriggers);
+    
+    // Update form data with the first selected trigger (for backward compatibility)
+    const triggerIds = Object.keys(newTriggers);
+    updateFormData('triggerEvent', triggerIds.length > 0 ? triggerIds[0] : '');
   };
 
   const handleClose = () => {
@@ -201,8 +312,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       newErrors.name = 'Sequence name is required';
     }
 
-    if (formData.triggerType === 'zapier' && !formData.triggerEvent) {
-      newErrors.triggerEvent = 'Please select a Zapier event';
+    if (selectedCrm && selectedCrm !== 'manual' && Object.keys(selectedTriggers).length === 0) {
+      newErrors.triggers = 'Please select at least one trigger event';
     }
 
     if (selectedChannels.length === 0) {
@@ -253,8 +364,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       const sequenceData = {
         name: formData.name,
         description: formData.description,
-        trigger_type: formData.triggerType,
-        trigger_event_type: formData.triggerEvent || null,
+        trigger_type: selectedCrm,
+        trigger_event_type: Object.keys(selectedTriggers).length > 0 ? Object.keys(selectedTriggers)[0] : null,
         allow_manual_enroll: formData.settings.allowManualEnroll,
         quiet_hours_start: formData.settings.quietHoursStart,
         quiet_hours_end: formData.settings.quietHoursEnd,
@@ -457,63 +568,120 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </div>
       </div>
 
+      {/* CRM Selection */}
       <div>
-        <Label>Trigger Type *</Label>
-        <div className="grid grid-cols-1 gap-3 mt-2">
-          {triggerTypes.map((trigger) => {
-            const Icon = trigger.icon;
-            const isSelected = formData.triggerType === trigger.id;
-            const isDisabled = trigger.id === 'zapier' && !isZapierConnected;
-            
-            return (
-              <button
-                key={trigger.id}
-                onClick={() => !isDisabled && updateFormData('triggerType', trigger.id)}
-                disabled={isDisabled}
-                className={`p-4 border rounded-lg text-left transition-all ${
-                  isSelected 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : isDisabled
-                    ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <Icon className="h-5 w-5" />
-                  <div>
-                    <div className="font-medium">{trigger.label}</div>
-                    <div className="text-sm text-gray-500">{trigger.description}</div>
-                    {isDisabled && (
-                      <div className="text-xs text-amber-600 mt-1">Connect Zapier first</div>
+        <Label>Choose Your CRM System *</Label>
+        <p className="text-sm text-gray-600 mb-4">Select which system will trigger this automation</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {Object.entries(CRM_OPTIONS).map(([key, crm]) => (
+            <button
+              key={key}
+              onClick={() => !crm.available ? null : handleCrmChange(key)}
+              disabled={!crm.available}
+              className={`relative p-4 rounded-lg border-2 transition-all ${
+                selectedCrm === key
+                  ? `border-${crm.color}-500 bg-${crm.color}-50`
+                  : crm.available
+                  ? 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+              }`}
+            >
+              {selectedCrm === key && (
+                <div className={`absolute top-2 right-2 w-5 h-5 bg-${crm.color}-500 rounded-full flex items-center justify-center`}>
+                  <Check className="w-3 h-3 text-white" />
+                </div>
+              )}
+              
+              <div className="flex items-start space-x-3">
+                <div className="text-2xl">{crm.icon}</div>
+                <div className="flex-1 text-left">
+                  <div className="flex items-center space-x-2">
+                    <h4 className="font-medium text-gray-900">{crm.name}</h4>
+                    {!crm.available && (
+                      <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                        Coming Soon
+                      </span>
                     )}
                   </div>
+                  <p className="text-sm text-gray-600 mt-1">{crm.description}</p>
                 </div>
-              </button>
-            );
-          })}
+              </div>
+            </button>
+          ))}
         </div>
+
+        {selectedCrm && CRM_OPTIONS[selectedCrm] && (
+          <div className={`mt-4 p-3 rounded-md bg-${CRM_OPTIONS[selectedCrm].color}-50 border border-${CRM_OPTIONS[selectedCrm].color}-200`}>
+            <div className="flex items-center space-x-2">
+              <Building className={`w-4 h-4 text-${CRM_OPTIONS[selectedCrm].color}-600`} />
+              <span className={`text-sm font-medium text-${CRM_OPTIONS[selectedCrm].color}-800`}>
+                {CRM_OPTIONS[selectedCrm].name} Selected
+              </span>
+            </div>
+            <p className={`text-xs text-${CRM_OPTIONS[selectedCrm].color}-700 mt-1`}>
+              Next: Choose specific events that will trigger this automation
+            </p>
+          </div>
+        )}
       </div>
 
-      {formData.triggerType === 'zapier' && (
+      {/* Trigger Selection Dropdown */}
+      {selectedCrm && selectedCrm !== 'manual' && (
         <div>
-          <Label htmlFor="triggerEvent">Zapier Event *</Label>
-          <Select
-            value={formData.triggerEvent}
-            onValueChange={(value) => updateFormData('triggerEvent', value)}
-          >
-            <SelectTrigger className={errors.triggerEvent ? 'border-red-500' : ''}>
-              <SelectValue placeholder="Select an event" />
-            </SelectTrigger>
-            <SelectContent>
-              {zapierEvents.map((event) => (
-                <SelectItem key={event.id} value={event.id}>
-                  {event.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.triggerEvent && (
-            <p className="text-sm text-red-500 mt-1">{errors.triggerEvent}</p>
+          <div className="flex items-center justify-between mb-2">
+            <Label>Select Trigger Events *</Label>
+            <button
+              onClick={() => setShowTriggerDropdown(!showTriggerDropdown)}
+              className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-800"
+            >
+              <span>Choose Events</span>
+              {showTriggerDropdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
+          
+          {showTriggerDropdown && (
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <div className="space-y-3">
+                {Object.entries(getAvailableTriggers()).map(([triggerId, trigger]) => (
+                  <div key={triggerId} className="flex items-start space-x-3">
+                    <input
+                      type="checkbox"
+                      id={triggerId}
+                      checked={selectedTriggers[triggerId] || false}
+                      onChange={(e) => handleTriggerChange(triggerId, e.target.checked)}
+                      className="mt-1 rounded border-gray-300"
+                    />
+                    <div className="flex-1">
+                      <label htmlFor={triggerId} className="flex items-center space-x-2 cursor-pointer">
+                        <span className="text-lg">{trigger.icon}</span>
+                        <div>
+                          <div className="font-medium text-sm">{trigger.name}</div>
+                          <div className="text-xs text-gray-600">{trigger.description}</div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {Object.keys(selectedTriggers).length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {Object.keys(selectedTriggers).map(triggerId => {
+                const trigger = getAvailableTriggers()[triggerId];
+                return (
+                  <Badge key={triggerId} variant="secondary" className="text-xs">
+                    {trigger.icon} {trigger.name}
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+
+          {errors.triggers && (
+            <p className="text-sm text-red-500 mt-1">{errors.triggers}</p>
           )}
         </div>
       )}
