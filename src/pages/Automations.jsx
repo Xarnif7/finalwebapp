@@ -28,10 +28,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useBusiness } from "@/hooks/useBusiness";
 import FlowCard from "@/components/automation/FlowCard";
 import SequenceCreator from "@/components/automation/SequenceCreator";
+import AutomationWizard from "@/components/automations/AutomationWizard";
 import ActiveSequences from "@/components/automation/ActiveSequences";
 import TemplateCustomizer from "@/components/automation/TemplateCustomizer";
 import TestSendModal from "@/components/automation/TestSendModal";
-import AutomationWizard from "@/components/automations/AutomationWizard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 
