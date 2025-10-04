@@ -766,7 +766,7 @@ const AutomationsPage = () => {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8" role="tablist" aria-label="Main navigation">
           {[
-            { id: 'templates', label: 'Templates', icon: FileText },
+            { id: 'templates', label: 'Automations', icon: FileText },
             { id: 'active', label: 'Active Sequences', icon: Play },
             { id: 'overview', label: 'Overview', icon: BarChart3 },
             { id: 'activity', label: 'Activity', icon: Activity }
@@ -800,25 +800,21 @@ const AutomationsPage = () => {
           {/* Header with Create Button */}
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Automation Templates</h2>
-              <p className="text-sm text-gray-600">Create and manage your automation sequences</p>
+              <h2 className="text-xl font-semibold text-gray-900">Automations</h2>
+              <p className="text-sm text-gray-600">Create and manage your automation sequences - from simple to complex</p>
             </div>
             {console.log('🎯 Rendering buttons section with automationWizardOpen:', automationWizardOpen)}
             <div className="flex gap-3">
-              <Button onClick={handleCreateSequence} className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Custom Template
-              </Button>
               <Button 
                 onClick={() => {
-                  console.log('🎯 Create Custom Automation button clicked!');
+                  console.log('🎯 Create Automation button clicked!');
                   setAutomationWizardOpen(true);
                 }} 
-                className="bg-purple-600 hover:bg-purple-700"
-                style={{border: '3px solid red', marginLeft: '10px'}}
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                style={{border: '2px solid #8b5cf6', marginLeft: '0px'}}
               >
                 <Zap className="h-4 w-4 mr-2" />
-                ⚡ Create Custom Automation
+                ⚡ Create Automation
               </Button>
             </div>
           </div>

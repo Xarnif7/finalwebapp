@@ -64,6 +64,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   const [selectedChannels, setSelectedChannels] = useState(['email']);
   const [aiTimingEnabled, setAiTimingEnabled] = useState(false);
   const [aiTimingData, setAiTimingData] = useState({});
+  const [selectedQuickTemplate, setSelectedQuickTemplate] = useState(null);
 
   const stepTypes = [
     { id: 'send_email', label: 'Send Email', icon: Mail, description: 'Send an email message' },
@@ -290,31 +291,157 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     }
   };
 
+  // Quick-start templates for common automation patterns
+  const quickTemplates = [
+    {
+      id: 'simple_email',
+      name: 'Simple Email Follow-up',
+      description: 'Send a thank you email 24 hours after review request',
+      steps: [
+        { type: 'send_email', config: { template: 'Thank you email' } },
+        { type: 'wait', config: { delay: 24, delayUnit: 'hours' } }
+      ],
+      channels: ['email']
+    },
+    {
+      id: 'email_sms_sequence',
+      name: 'Email + SMS Sequence',
+      description: 'Send email immediately, then SMS follow-up after 5 hours',
+      steps: [
+        { type: 'send_email', config: { template: 'Thank you email' } },
+        { type: 'wait', config: { delay: 5, delayUnit: 'hours' } },
+        { type: 'send_sms', config: { template: 'SMS follow-up' } }
+      ],
+      channels: ['email', 'sms']
+    },
+    {
+      id: 'sms_only',
+      name: 'SMS Only Follow-up',
+      description: 'Send SMS message 2 hours after review request',
+      steps: [
+        { type: 'send_sms', config: { template: 'Thank you SMS' } },
+        { type: 'wait', config: { delay: 2, delayUnit: 'hours' } }
+      ],
+      channels: ['sms']
+    },
+    {
+      id: 'multi_step',
+      name: 'Multi-Step Campaign',
+      description: 'Email → Wait 3h → SMS → Wait 1 day → Final email',
+      steps: [
+        { type: 'send_email', config: { template: 'Initial email' } },
+        { type: 'wait', config: { delay: 3, delayUnit: 'hours' } },
+        { type: 'send_sms', config: { template: 'SMS reminder' } },
+        { type: 'wait', config: { delay: 1, delayUnit: 'days' } },
+        { type: 'send_email', config: { template: 'Final follow-up' } }
+      ],
+      channels: ['email', 'sms']
+    }
+  ];
+
+  const applyQuickTemplate = (template) => {
+    setSelectedQuickTemplate(template);
+    updateFormData('name', template.name);
+    updateFormData('description', template.description);
+    setSelectedChannels(template.channels);
+    
+    // Convert template steps to flowSteps format
+    const convertedSteps = template.steps.map((step, index) => ({
+      id: Date.now() + index,
+      type: step.type,
+      label: stepTypes.find(s => s.id === step.type)?.label || step.type,
+      config: step.config
+    }));
+    
+    setFlowSteps(convertedSteps);
+    
+    toast({
+      title: "Template Applied",
+      description: `${template.name} has been loaded. You can customize it in the next steps.`
+    });
+  };
+
   const renderStep1 = () => (
     <div className="space-y-6">
-      <div>
-        <Label htmlFor="name">Sequence Name *</Label>
-        <Input
-          id="name"
-          value={formData.name}
-          onChange={(e) => updateFormData('name', e.target.value)}
-          placeholder="e.g., Job Completed Follow-up"
-          className={errors.name ? 'border-red-500' : ''}
-        />
-        {errors.name && (
-          <p className="text-sm text-red-500 mt-1">{errors.name}</p>
-        )}
+      {/* Quick Start Templates */}
+      <div className="mb-6">
+        <Label className="text-base font-medium mb-3 block">Quick Start Templates</Label>
+        <p className="text-sm text-gray-600 mb-4">Choose a template to get started quickly, or create from scratch below.</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {quickTemplates.map((template) => (
+            <Card 
+              key={template.id} 
+              className={`cursor-pointer transition-all hover:shadow-md ${
+                selectedQuickTemplate?.id === template.id 
+                  ? 'ring-2 ring-purple-500 bg-purple-50' 
+                  : 'hover:border-purple-300'
+              }`}
+              onClick={() => applyQuickTemplate(template)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <h4 className="font-medium text-sm">{template.name}</h4>
+                  <Badge variant="secondary" className="text-xs">
+                    {template.channels.length} channel{template.channels.length > 1 ? 's' : ''}
+                  </Badge>
+                </div>
+                <p className="text-xs text-gray-600 mb-3">{template.description}</p>
+                
+                {/* Visual flow preview */}
+                <div className="flex items-center space-x-1 text-xs">
+                  {template.steps.slice(0, 4).map((step, index) => (
+                    <React.Fragment key={index}>
+                      {index > 0 && <ArrowRight className="w-3 h-3 text-gray-400" />}
+                      <div className={`px-2 py-1 rounded text-white text-xs ${
+                        step.type === 'send_email' ? 'bg-blue-500' :
+                        step.type === 'send_sms' ? 'bg-green-500' :
+                        'bg-gray-500'
+                      }`}>
+                        {step.type === 'send_email' ? 'Email' :
+                         step.type === 'send_sms' ? 'SMS' :
+                         step.type === 'wait' ? `${step.config.delay}${step.config.delayUnit.charAt(0)}` :
+                         step.type}
+                      </div>
+                    </React.Fragment>
+                  ))}
+                  {template.steps.length > 4 && <span className="text-gray-400">...</span>}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
-      <div>
-        <Label htmlFor="description">Description (Optional)</Label>
-        <Textarea
-          id="description"
-          value={formData.description}
-          onChange={(e) => updateFormData('description', e.target.value)}
-          placeholder="Brief description of what this sequence does"
-          rows={3}
-        />
+      {/* Or create from scratch */}
+      <div className="border-t pt-6">
+        <Label className="text-base font-medium mb-3 block">Or Create From Scratch</Label>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="name">Sequence Name *</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => updateFormData('name', e.target.value)}
+              placeholder="e.g., Job Completed Follow-up"
+              className={errors.name ? 'border-red-500' : ''}
+            />
+            {errors.name && (
+              <p className="text-sm text-red-500 mt-1">{errors.name}</p>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="description">Description (Optional)</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => updateFormData('description', e.target.value)}
+              placeholder="Brief description of what this sequence does"
+              rows={3}
+            />
+          </div>
+        </div>
       </div>
 
       <div>
