@@ -803,12 +803,19 @@ const AutomationsPage = () => {
               <h2 className="text-xl font-semibold text-gray-900">Automation Templates</h2>
               <p className="text-sm text-gray-600">Create and manage your automation sequences</p>
             </div>
+            {console.log('🎯 Rendering buttons section with automationWizardOpen:', automationWizardOpen)}
             <div className="flex gap-3">
               <Button onClick={handleCreateSequence} className="bg-blue-600 hover:bg-blue-700">
                 <Plus className="h-4 w-4 mr-2" />
                 Create Custom Template
               </Button>
-              <Button onClick={() => setAutomationWizardOpen(true)} className="bg-purple-600 hover:bg-purple-700">
+              <Button 
+                onClick={() => {
+                  console.log('🎯 Create Custom Automation button clicked!');
+                  setAutomationWizardOpen(true);
+                }} 
+                className="bg-purple-600 hover:bg-purple-700"
+              >
                 <Zap className="h-4 w-4 mr-2" />
                 Create Custom Automation
               </Button>
