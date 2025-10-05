@@ -2039,43 +2039,43 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
         {/* Footer - Fixed positioning with proper spacing */}
         <div className={`mt-8 pt-4 border-t bg-white ${showTriggerDropdown ? 'relative' : 'sticky bottom-0'} z-10 shadow-lg`}>
-          <DialogFooter className="flex justify-between items-center bg-white">
-            <div className="flex-1">
-            {currentStep > 1 && (
-              <Button variant="outline" onClick={handlePrevious}>
-                Previous
+          <DialogFooter className="flex justify-between items-center bg-white space-x-4">
+            <div className="flex items-center">
+              {currentStep > 1 && (
+                <Button variant="outline" onClick={handlePrevious}>
+                  Previous
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center space-x-3">
+              <Button variant="outline" onClick={handleClose}>
+                Cancel
               </Button>
-            )}
-          </div>
-          <div className="flex space-x-2">
-            <Button variant="outline" onClick={handleClose}>
-              Cancel
-            </Button>
-            {currentStep < 6 ? (
-              <Button onClick={handleNext}>
-                Next
-              </Button>
-            ) : (
-              <Button 
-                onClick={handleCreate}
-                disabled={isCreating}
-                className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9]"
-              >
-                {isCreating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Create & Activate
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-        </DialogFooter>
+              {currentStep < 6 ? (
+                <Button onClick={handleNext}>
+                  Next
+                </Button>
+              ) : (
+                <Button 
+                  onClick={handleCreate}
+                  disabled={isCreating}
+                  className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9]"
+                >
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Create & Activate
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>
