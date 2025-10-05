@@ -417,7 +417,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
     // Step 3: Flow validation
     if (currentStep >= 3) {
-    if (flowSteps.length === 0) {
+      const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
+      if (safeFlowSteps.length === 0) {
       newErrors.flow = 'Please create at least one step in your flow';
       }
     }
@@ -613,6 +614,23 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     // Ensure errors is always an object
     const safeErrors = errors && typeof errors === 'object' ? errors : {};
     
+    // Always ensure we have a trigger as the first step
+    const ensureTriggerFirst = () => {
+      if (safeFlowSteps.length === 0 || safeFlowSteps[0].type !== 'trigger') {
+        const triggerStep = {
+          id: Date.now(),
+          type: 'trigger',
+          config: {}
+        };
+        setFlowSteps([triggerStep, ...safeFlowSteps.filter(step => step.type !== 'trigger')]);
+      }
+    };
+    
+    // Auto-add trigger if needed
+    React.useEffect(() => {
+      ensureTriggerFirst();
+    }, []);
+    
     return (
     <div className="space-y-6">
       <div>
@@ -625,51 +643,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       {/* Draggable Components */}
       <div className="mb-6">
         <h4 className="text-sm font-medium text-gray-700 mb-3">Available Components</h4>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {/* Trigger Component - Always Available */}
-          <div 
-            className="flex flex-col items-center p-4 bg-white border-2 border-purple-200 rounded-xl shadow-md hover:shadow-lg hover:border-purple-300 transition-all cursor-grab active:cursor-grabbing"
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData('application/json', JSON.stringify({
-                type: 'trigger',
-                config: {}
-              }));
-              // Create a clean drag image without the huge gray box
-              const dragImage = e.target.cloneNode(true);
-              dragImage.style.position = 'absolute';
-              dragImage.style.top = '-1000px';
-              dragImage.style.left = '-1000px';
-              dragImage.style.width = '120px';
-              dragImage.style.height = 'auto';
-              dragImage.style.opacity = '0.8';
-              dragImage.style.pointerEvents = 'none';
-              document.body.appendChild(dragImage);
-              e.dataTransfer.setDragImage(dragImage, 60, 30);
-              setTimeout(() => document.body.removeChild(dragImage), 0);
-            }}
-            onClick={() => {
-              const newStep = {
-                id: Date.now(),
-                type: 'trigger',
-                config: {}
-              };
-              setFlowSteps(prev => [...prev, newStep]);
-              
-              // Show success feedback
-              toast({
-                title: "Step Added",
-                description: "Trigger step added to your automation flow",
-                variant: "default"
-              });
-            }}
-          >
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3 shadow-sm">
-              <Zap className="w-6 h-6 text-purple-600" />
-            </div>
-            <span className="text-sm font-semibold text-gray-800">Trigger</span>
-            <span className="text-xs text-gray-500 text-center mt-1">Start automation</span>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {/* Trigger is now always first in the flow, not draggable */}
 
           {/* Email Component - Only if email channel selected */}
           {safeSelectedChannels.includes('email') && (
@@ -873,10 +848,17 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                 {/* Drop zone between steps */}
                 {index > 0 && (
                   <div 
-                    className="w-8 h-16 border-2 border-dashed border-transparent hover:border-blue-300 rounded-lg transition-colors"
-                    onDragOver={(e) => e.preventDefault()}
+                    className="w-8 h-16 border-2 border-dashed border-transparent hover:border-blue-300 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.add('border-blue-400', 'bg-blue-100', 'scale-110');
+                    }}
+                    onDragLeave={(e) => {
+                      e.currentTarget.classList.remove('border-blue-400', 'bg-blue-100', 'scale-110');
+                    }}
                     onDrop={(e) => {
                       e.preventDefault();
+                      e.currentTarget.classList.remove('border-blue-400', 'bg-blue-100', 'scale-110');
                       try {
                         const stepData = JSON.parse(e.dataTransfer.getData('application/json'));
                         if (stepData.type !== 'reorder') {
@@ -889,6 +871,11 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                             const newSteps = [...prev];
                             newSteps.splice(index, 0, newStep);
                             return newSteps;
+                          });
+                          toast({
+                            title: "Step Added",
+                            description: `${stepData.type} step inserted into your flow`,
+                            variant: "default"
                           });
                         }
                       } catch (error) {
@@ -953,15 +940,17 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                      step.type === 'wait' ? 'Wait' :
                      step.type}
                   </span>
-                  <button
-                    onClick={() => {
-                      setFlowSteps(prev => prev.filter(s => s.id !== step.id));
-                    }}
-                    className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded-full"
-                    title="Delete step"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </button>
+                  {step.type !== 'trigger' && (
+                    <button
+                      onClick={() => {
+                        setFlowSteps(prev => prev.filter(s => s.id !== step.id));
+                      }}
+                      className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded-full"
+                      title="Delete step"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </button>
+                  )}
                 </div>
               </React.Fragment>
             ))}
@@ -1000,12 +989,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             variant="outline"
             size="sm"
             onClick={() => {
-              // Add a simple email flow
-              const newSteps = [
-                { id: Date.now(), type: 'trigger', config: {} },
-                { id: Date.now() + 1, type: 'send_email', config: { template: 'Thank you email' } }
-              ];
-              setFlowSteps(newSteps);
+              // Add email step to existing flow (trigger already exists)
+              const emailStep = { id: Date.now(), type: 'send_email', config: { template: 'Thank you email' } };
+              setFlowSteps(prev => [...prev, emailStep]);
+              toast({ title: "Email Added", description: "Email step added to your flow", variant: "default" });
             }}
             className="flex items-center space-x-2 hover:bg-blue-50 hover:border-blue-300"
           >
@@ -1019,12 +1006,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             variant="outline"
             size="sm"
             onClick={() => {
-              // Add a simple SMS flow
-              const newSteps = [
-                { id: Date.now(), type: 'trigger', config: {} },
-                { id: Date.now() + 1, type: 'send_sms', config: { template: 'Thank you SMS' } }
-              ];
-              setFlowSteps(newSteps);
+              // Add SMS step to existing flow (trigger already exists)
+              const smsStep = { id: Date.now(), type: 'send_sms', config: { template: 'Thank you SMS' } };
+              setFlowSteps(prev => [...prev, smsStep]);
+              toast({ title: "SMS Added", description: "SMS step added to your flow", variant: "default" });
             }}
             className="flex items-center space-x-2 hover:bg-green-50 hover:border-green-300"
           >
@@ -1038,14 +1023,14 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             variant="outline"
             size="sm"
             onClick={() => {
-              // Add a mixed flow
+              // Add complete email + SMS flow to existing trigger
               const newSteps = [
-                { id: Date.now(), type: 'trigger', config: {} },
                 { id: Date.now() + 1, type: 'send_email', config: { template: 'Initial email' } },
                 { id: Date.now() + 2, type: 'wait', config: { delay: 5, delayUnit: 'hours' } },
                 { id: Date.now() + 3, type: 'send_sms', config: { template: 'Follow-up SMS' } }
               ];
-              setFlowSteps(newSteps);
+              setFlowSteps(prev => [...prev, ...newSteps]);
+              toast({ title: "Complete Flow Added", description: "Email + SMS flow added to your automation", variant: "default" });
             }}
             className="flex items-center space-x-2 hover:bg-purple-50 hover:border-purple-300"
           >
@@ -1977,8 +1962,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </div>
 
         {/* Footer - Fixed positioning with proper spacing */}
-        <div className="mt-8 pt-4 border-t bg-white sticky bottom-0 z-10">
-          <DialogFooter className="flex justify-between items-center">
+        <div className="mt-8 pt-4 border-t bg-white sticky bottom-0 z-10 shadow-lg">
+          <DialogFooter className="flex justify-between items-center bg-white">
             <div className="flex-1">
             {currentStep > 1 && (
               <Button variant="outline" onClick={handlePrevious}>
