@@ -718,7 +718,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     );
   };
 
-  const renderStep4 = () => {
+  const renderStep4Old_DISABLED = () => {
     console.log('renderStep4 called with:', { selectedChannels, flowSteps });
     return (
       <div className="space-y-6">
@@ -1506,7 +1506,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     </div>
   );
 
-  const renderStep4 = () => (
+  // DELETED DUPLICATE FUNCTION
+  const renderStep4Old_DELETE_DISABLED = () => (
     <div className="space-y-6">
       <div>
         <div className="flex items-center justify-between mb-4">
