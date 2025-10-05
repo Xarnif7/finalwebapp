@@ -121,13 +121,20 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     }
   };
 
-  // QBO Triggers (simplified version)
+  // QBO Triggers (comprehensive version)
   const QBO_TRIGGERS = {
+    // Invoicing Events
     'invoice_created': {
       name: 'Invoice Created',
       description: 'When a new invoice is created in QuickBooks',
       category: 'Invoicing',
       icon: '📄'
+    },
+    'invoice_sent': {
+      name: 'Invoice Sent',
+      description: 'When an invoice is sent to a customer',
+      category: 'Invoicing',
+      icon: '📤'
     },
     'invoice_paid': {
       name: 'Invoice Paid',
@@ -135,17 +142,99 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       category: 'Invoicing',
       icon: '💰'
     },
+    'invoice_overdue': {
+      name: 'Invoice Overdue',
+      description: 'When an invoice becomes overdue',
+      category: 'Invoicing',
+      icon: '⚠️'
+    },
+    'payment_received': {
+      name: 'Payment Received',
+      description: 'When any payment is received',
+      category: 'Invoicing',
+      icon: '💳'
+    },
+    
+    // Customer Events
     'customer_created': {
       name: 'Customer Created',
       description: 'When a new customer is added to QuickBooks',
       category: 'Customers',
       icon: '👤'
     },
+    'customer_updated': {
+      name: 'Customer Updated',
+      description: 'When customer information is modified',
+      category: 'Customers',
+      icon: '✏️'
+    },
+    
+    // Job/Project Events
+    'job_created': {
+      name: 'Job Created',
+      description: 'When a new job/project is created',
+      category: 'Jobs',
+      icon: '🔨'
+    },
+    'job_started': {
+      name: 'Job Started',
+      description: 'When a job is marked as started',
+      category: 'Jobs',
+      icon: '🚀'
+    },
     'job_completed': {
       name: 'Job Completed',
       description: 'When a job is marked as completed',
       category: 'Jobs',
       icon: '✅'
+    },
+    'job_cancelled': {
+      name: 'Job Cancelled',
+      description: 'When a job is cancelled',
+      category: 'Jobs',
+      icon: '❌'
+    },
+    
+    // Estimate Events
+    'estimate_created': {
+      name: 'Estimate Created',
+      description: 'When a new estimate is created',
+      category: 'Estimates',
+      icon: '📋'
+    },
+    'estimate_sent': {
+      name: 'Estimate Sent',
+      description: 'When an estimate is sent to a customer',
+      category: 'Estimates',
+      icon: '📨'
+    },
+    'estimate_accepted': {
+      name: 'Estimate Accepted',
+      description: 'When a customer accepts an estimate',
+      category: 'Estimates',
+      icon: '👍'
+    },
+    'estimate_declined': {
+      name: 'Estimate Declined',
+      description: 'When a customer declines an estimate',
+      category: 'Estimates',
+      icon: '👎'
+    },
+    
+    // Time Tracking Events
+    'time_entry_created': {
+      name: 'Time Entry Created',
+      description: 'When time is logged for a job',
+      category: 'Time Tracking',
+      icon: '⏱️'
+    },
+    
+    // Expense Events
+    'expense_created': {
+      name: 'Expense Created',
+      description: 'When an expense is recorded',
+      category: 'Expenses',
+      icon: '💸'
     }
   };
 
@@ -710,33 +799,51 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           )}
           
           {showTriggerDropdown && (
-            <div className="mt-4 border-2 border-blue-200 rounded-lg p-4 bg-white shadow-sm">
+            <div className="mt-4 border-2 border-blue-200 rounded-lg p-4 bg-white shadow-sm max-h-96 overflow-y-auto">
               <div className="mb-3">
                 <h4 className="font-medium text-gray-900">Available Triggers for {CRM_OPTIONS[selectedCrm]?.name}</h4>
                 <p className="text-sm text-gray-600">Select one or more events that will trigger this automation</p>
               </div>
-              <div className="space-y-3">
-                {Object.entries(getAvailableTriggers()).map(([triggerId, trigger]) => (
-                  <div key={triggerId} className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                    <input
-                      type="checkbox"
-                      id={triggerId}
-                      checked={selectedTriggers[triggerId] || false}
-                      onChange={(e) => handleTriggerChange(triggerId, e.target.checked)}
-                      className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <div className="flex-1">
-                      <label htmlFor={triggerId} className="flex items-center space-x-2 cursor-pointer">
-                        <span className="text-lg">{trigger.icon}</span>
-                        <div>
-                          <div className="font-medium text-sm text-gray-900">{trigger.name}</div>
-                          <div className="text-xs text-gray-600">{trigger.description}</div>
+              
+              {/* Group triggers by category */}
+              {(() => {
+                const triggers = getAvailableTriggers();
+                const categories = {};
+                Object.entries(triggers).forEach(([triggerId, trigger]) => {
+                  if (!categories[trigger.category]) {
+                    categories[trigger.category] = [];
+                  }
+                  categories[trigger.category].push([triggerId, trigger]);
+                });
+                
+                return Object.entries(categories).map(([category, categoryTriggers]) => (
+                  <div key={category} className="mb-4">
+                    <h5 className="font-medium text-gray-700 mb-2 text-sm uppercase tracking-wide">{category}</h5>
+                    <div className="space-y-2">
+                      {categoryTriggers.map(([triggerId, trigger]) => (
+                        <div key={triggerId} className="flex items-start space-x-3 p-2 border border-gray-200 rounded-lg hover:bg-gray-50">
+                          <input
+                            type="checkbox"
+                            id={triggerId}
+                            checked={selectedTriggers[triggerId] || false}
+                            onChange={(e) => handleTriggerChange(triggerId, e.target.checked)}
+                            className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div className="flex-1">
+                            <label htmlFor={triggerId} className="flex items-center space-x-2 cursor-pointer">
+                              <span className="text-lg">{trigger.icon}</span>
+                              <div>
+                                <div className="font-medium text-sm text-gray-900">{trigger.name}</div>
+                                <div className="text-xs text-gray-600">{trigger.description}</div>
+                              </div>
+                            </label>
+                          </div>
                         </div>
-                      </label>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
+                ));
+              })()}
             </div>
           )}
 
