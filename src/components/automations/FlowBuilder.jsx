@@ -23,6 +23,8 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
   const [showTimingModal, setShowTimingModal] = useState(false);
   const [timingStepIndex, setTimingStepIndex] = useState(null);
   const [tempTiming, setTempTiming] = useState({ value: 1, unit: 'hours' });
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   const flowAreaRef = useRef(null);
 
   console.log('FlowBuilder rendered with:', { selectedChannels, initialFlow });
@@ -42,7 +44,15 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
 
   const handleDragStart = (e, item) => {
     setDraggedItem(item);
+    setIsDragging(true);
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ''); // Required for some browsers
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setIsDragging(false);
+    setDragOverIndex(null);
   };
 
   const handleDragOver = (e) => {
@@ -63,8 +73,30 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
       timing: null
     };
 
-    setFlowSteps(prev => [...prev, newStep]);
+    // If we have a specific drop index, insert there, otherwise add to end
+    if (dragOverIndex !== null) {
+      setFlowSteps(prev => {
+        const newSteps = [...prev];
+        newSteps.splice(dragOverIndex, 0, newStep);
+        return newSteps;
+      });
+    } else {
+      setFlowSteps(prev => [...prev, newStep]);
+    }
+    
     setDraggedItem(null);
+    setIsDragging(false);
+    setDragOverIndex(null);
+  };
+
+  const handleDropZoneDragOver = (e, index) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverIndex(index);
+  };
+
+  const handleDropZoneDragLeave = () => {
+    setDragOverIndex(null);
   };
 
   const handleStepClick = (stepIndex) => {
@@ -113,7 +145,14 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
     <div className="space-y-6">
       {/* Draggable Items */}
       <div className="space-y-3">
-        <h4 className="text-sm font-medium">Drag items to build your flow:</h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium">Drag items to build your flow:</h4>
+          {isDragging && (
+            <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+              ✨ Drop between steps to insert, or at the end to append
+            </div>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           {draggableItems.map((item) => {
             const Icon = item.icon;
@@ -122,7 +161,8 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
                 key={item.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, item)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-move hover:opacity-80 transition-opacity ${item.color} text-white text-sm font-medium`}
+                onDragEnd={handleDragEnd}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-move hover:opacity-80 transition-all duration-200 ${item.color} text-white text-sm font-medium shadow-sm hover:shadow-md`}
               >
                 <Icon className="w-4 h-4" />
                 <span>{item.label}</span>
@@ -149,19 +189,36 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
               </div>
             </div>
           ) : (
-            <div className="flex items-center flex-wrap gap-4">
+            <div className="flex items-center flex-wrap gap-2">
               {flowSteps.map((step, index) => {
                 const Icon = step.icon;
-                const isLast = index === flowSteps.length - 1;
                 
                 return (
                   <React.Fragment key={step.id}>
+                    {/* Drop Zone Before Step */}
+                    <div
+                      onDragOver={(e) => handleDropZoneDragOver(e, index)}
+                      onDragLeave={handleDropZoneDragLeave}
+                      onDrop={(e) => handleDrop(e)}
+                      className={`h-16 w-8 rounded-lg border-2 border-dashed transition-all duration-200 ${
+                        dragOverIndex === index 
+                          ? 'border-blue-400 bg-blue-100' 
+                          : 'border-transparent hover:border-gray-300'
+                      } ${isDragging ? 'opacity-100' : 'opacity-0'}`}
+                    >
+                      {dragOverIndex === index && (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="w-1 h-8 bg-blue-400 rounded-full"></div>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Step */}
                     <div className="flex flex-col items-center">
                       <div className="relative group">
                         <div
                           onClick={() => handleStepClick(index)}
-                          className={`flex items-center gap-2 px-4 py-3 rounded-lg cursor-pointer hover:opacity-80 transition-opacity ${step.color} text-white text-sm font-medium min-w-[80px] justify-center`}
+                          className={`flex items-center gap-2 px-4 py-3 rounded-lg cursor-pointer hover:opacity-80 transition-all duration-200 ${step.color} text-white text-sm font-medium min-w-[80px] justify-center shadow-sm hover:shadow-md`}
                         >
                           <Icon className="w-4 h-4" />
                           <span>{step.label}</span>
@@ -204,26 +261,32 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
                       
                       {/* Timing Display */}
                       {step.timing && (
-                        <div className="mt-2 text-xs text-gray-600 bg-white px-2 py-1 rounded border">
+                        <div className="mt-2 text-xs text-gray-600 bg-white px-2 py-1 rounded border shadow-sm">
                           {formatTiming(step.timing)}
                         </div>
                       )}
                     </div>
-                    
-                    {/* Arrow (except after last step) */}
-                    {!isLast && (
-                      <div className="flex items-center">
-                        <ArrowRight className="w-5 h-5 text-gray-400" />
-                        {!step.timing && index > 0 && (
-                          <div className="ml-2 text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
-                            Click step to set timing
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </React.Fragment>
                 );
               })}
+
+              {/* Drop Zone After Last Step */}
+              <div
+                onDragOver={(e) => handleDropZoneDragOver(e, flowSteps.length)}
+                onDragLeave={handleDropZoneDragLeave}
+                onDrop={(e) => handleDrop(e)}
+                className={`h-16 w-8 rounded-lg border-2 border-dashed transition-all duration-200 ${
+                  dragOverIndex === flowSteps.length 
+                    ? 'border-blue-400 bg-blue-100' 
+                    : 'border-transparent hover:border-gray-300'
+                } ${isDragging ? 'opacity-100' : 'opacity-0'}`}
+              >
+                {dragOverIndex === flowSteps.length && (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="w-1 h-8 bg-blue-400 rounded-full"></div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

@@ -21,11 +21,15 @@ export default function FlowCard({
   const data = template || sequence;
   const [sendingNow, setSendingNow] = useState(false);
   const getChannelIcon = (channel) => {
-    return channel === 'sms' ? <MessageSquare className="w-3 h-3 text-gray-600" /> : <Mail className="w-3 h-3 text-gray-600" />;
+    return channel === 'sms' 
+      ? <MessageSquare className="w-4 h-4 text-blue-600" /> 
+      : <Mail className="w-4 h-4 text-green-600" />;
   };
 
   const getChannelColor = (channel) => {
-    return channel === 'sms' ? 'border-gray-200 bg-gray-50' : 'border-gray-200 bg-gray-50';
+    return channel === 'sms' 
+      ? 'border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700' 
+      : 'border-green-200 bg-gradient-to-r from-green-50 to-green-100 text-green-700';
   };
 
   const formatTimeAgo = (dateString) => {
@@ -43,11 +47,11 @@ export default function FlowCard({
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return 'bg-green-500 text-white border-green-500 hover:bg-green-500 hover:text-white';
-      case 'paused': return 'bg-yellow-500 text-white border-yellow-500 hover:bg-yellow-500 hover:text-white';
-      case 'draft': return 'bg-gray-500 text-white border-gray-500 hover:bg-gray-500 hover:text-white';
-      case 'ready': return 'bg-blue-500 text-white border-blue-500 hover:bg-blue-500 hover:text-white';
-      default: return 'bg-gray-500 text-white border-gray-500 hover:bg-gray-500 hover:text-white';
+      case 'active': return 'bg-gradient-to-r from-green-500 to-green-600 text-white border-green-500 hover:from-green-600 hover:to-green-700';
+      case 'paused': return 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white border-yellow-500 hover:from-yellow-600 hover:to-yellow-700';
+      case 'draft': return 'bg-gradient-to-r from-gray-500 to-gray-600 text-white border-gray-500 hover:from-gray-600 hover:to-gray-700';
+      case 'ready': return 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-500 hover:from-blue-600 hover:to-blue-700';
+      default: return 'bg-gradient-to-r from-gray-500 to-gray-600 text-white border-gray-500 hover:from-gray-600 hover:to-gray-700';
     }
   };
 
@@ -128,12 +132,12 @@ export default function FlowCard({
         <div className="mb-6">
           <div className="flex items-center gap-3 flex-wrap">
             {/* Trigger */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
-              <CheckCircle className="w-3 h-3 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">Trigger</span>
+            <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg shadow-sm">
+              <CheckCircle className="w-4 h-4 text-purple-600" />
+              <span className="text-sm font-medium text-purple-700">Trigger</span>
             </div>
             
-            <ArrowRight className="w-3 h-3 text-gray-400" />
+            <ArrowRight className="w-4 h-4 text-gray-400" />
             
             {/* Steps */}
             {data.channels?.map((channel, index) => {
@@ -166,20 +170,20 @@ export default function FlowCard({
                   {/* Delay indicator for non-first steps */}
                   {index > 0 && stepDelay > 0 && (
                     <>
-                      <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
-                        <Clock className="w-3 h-3 text-gray-600" />
-                        <span className="text-sm font-medium text-gray-700">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-lg shadow-sm">
+                        <Clock className="w-4 h-4 text-orange-600" />
+                        <span className="text-sm font-medium text-orange-700">
                           {delayUnit === 'hours' ? `${stepDelay}h` : 
                            delayUnit === 'days' ? `${stepDelay}d` : 
                            `${stepDelay}m`}
                         </span>
                       </div>
-                      <ArrowRight className="w-3 h-3 text-gray-400" />
+                      <ArrowRight className="w-4 h-4 text-gray-400" />
                     </>
                   )}
                   
                   {/* Channel */}
-                  <div className={`flex items-center gap-2 px-3 py-2 border rounded-md ${getChannelColor(channel)}`}>
+                  <div className={`flex items-center gap-2 px-3 py-2 border rounded-lg shadow-sm ${getChannelColor(channel)}`}>
                     {getChannelIcon(channel)}
                     <span className="text-sm font-medium">
                       {channel === 'sms' ? 'SMS' : 'Email'}
@@ -187,7 +191,7 @@ export default function FlowCard({
                   </div>
                   
                   {index < data.channels.length - 1 && (
-                    <ArrowRight className="w-3 h-3 text-gray-400" />
+                    <ArrowRight className="w-4 h-4 text-gray-400" />
                   )}
                 </React.Fragment>
               );
@@ -208,9 +212,9 @@ export default function FlowCard({
             size="sm" 
             variant="outline"
             onClick={() => onCustomize(data)}
-            className="flex-1"
+            className="flex-1 border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
           >
-            <Settings className="w-3 h-3 mr-1" />
+            <Settings className="w-4 h-4 mr-2" />
             Customize
           </Button>
           {onTestSend && (
@@ -218,9 +222,9 @@ export default function FlowCard({
               size="sm" 
               variant="outline"
               onClick={() => onTestSend(data)}
-              className="border-blue-200 text-blue-600 hover:bg-blue-50"
+              className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200"
             >
-              <Play className="w-3 h-3 mr-1" />
+              <Play className="w-4 h-4 mr-2" />
               Test Send
             </Button>
           )}
@@ -229,6 +233,7 @@ export default function FlowCard({
               size="sm" 
               variant="ghost"
               onClick={() => onEdit(data)}
+              className="hover:bg-gray-100 transition-all duration-200"
             >
               <Settings className="w-4 h-4" />
             </Button>
@@ -238,7 +243,7 @@ export default function FlowCard({
               size="sm" 
               variant="ghost"
               onClick={() => onDelete(data.id)}
-              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+              className="text-red-500 hover:text-red-700 hover:bg-red-50 transition-all duration-200"
             >
               <Trash2 className="w-4 h-4" />
             </Button>

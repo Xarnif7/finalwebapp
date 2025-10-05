@@ -140,6 +140,11 @@
                     if (data.processedRequests > 0) {
                         log(`📧 ${data.processedRequests} review requests processed!`);
                     }
+                    
+                    // Show additional details if available
+                    if (data.message) {
+                        log(`📝 ${data.message}`);
+                    }
                 } else {
                     throw new Error(`HTTP ${response.status}: ${data.error || 'Unknown error'}`);
                 }

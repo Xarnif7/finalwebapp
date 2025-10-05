@@ -45,45 +45,15 @@ async function calculateAITiming(businessId, channel, customerId = null) {
 
 export default async function handler(req, res) {
   try {
-    // Preemptively refresh QBO tokens that expire in <15 minutes
-    const now = new Date();
-    const soon = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
-    const { createClient } = require('@supabase/supabase-js');
-    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-    const { data: expiring } = await supabase
-      .from('integrations_quickbooks')
-      .select('*')
-      .lt('token_expires_at', soon);
-    if (expiring && expiring.length) {
-      for (const row of expiring) {
-        try {
-          if (!row.refresh_token) continue;
-          const basic = Buffer.from(`${process.env.QBO_CLIENT_ID}:${process.env.QBO_CLIENT_SECRET}`).toString('base64');
-          const resp = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
-            method: 'POST',
-            headers: { 'Authorization': `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: row.refresh_token }).toString()
-          });
-          if (resp.ok) {
-            const tok = await resp.json();
-            const expiresAt = new Date(Date.now() + (tok.expires_in || 3600) * 1000).toISOString();
-            await supabase
-              .from('integrations_quickbooks')
-              .update({ access_token: tok.access_token, refresh_token: tok.refresh_token || row.refresh_token, token_expires_at: expiresAt, connection_status: 'connected', updated_at: new Date().toISOString() })
-              .eq('id', row.id);
-          }
-        } catch {}
-      }
-    }
     console.log('🔄 Automation executor cron job triggered');
-    console.log('🔍 DEBUG: Method:', req.method);
-    console.log('🔍 DEBUG: URL:', req.url);
-    console.log('🔍 DEBUG: Headers:', req.headers);
+    
+    // Validate request method
+    if (req.method !== 'POST' && req.method !== 'GET') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
 
     // Get pending scheduled automation emails
-    console.log('🔍 DEBUG: Fetching automation_email jobs...');
     const currentTime = new Date().toISOString();
-    console.log('🔍 DEBUG: Current time:', currentTime);
     
     const { data: scheduledJobs, error: jobsError } = await supabase
       .from('scheduled_jobs')
@@ -91,22 +61,22 @@ export default async function handler(req, res) {
         id,
         job_type,
         payload,
-        run_at
+        run_at,
+        business_id
       `)
       .eq('job_type', 'automation_email')
       .eq('status', 'queued')
       .lte('run_at', currentTime)
       .limit(20);
 
-    console.log('🔍 DEBUG: Query result - error:', jobsError);
-    console.log('🔍 DEBUG: Query result - jobs found:', scheduledJobs ? scheduledJobs.length : 0);
-    if (scheduledJobs && scheduledJobs.length > 0) {
-      console.log('🔍 DEBUG: First job details:', scheduledJobs[0]);
-    }
-
     if (jobsError) {
       console.error('Error fetching scheduled automation emails:', jobsError);
-    } else if (scheduledJobs && scheduledJobs.length > 0) {
+      return res.status(500).json({ error: 'Failed to fetch scheduled jobs' });
+    }
+
+    let processedAutomations = 0;
+    
+    if (scheduledJobs && scheduledJobs.length > 0) {
       console.log(`Processing ${scheduledJobs.length} scheduled automation emails`);
       
       for (const job of scheduledJobs) {
@@ -159,15 +129,13 @@ export default async function handler(req, res) {
           // Send the automation email
           if (request.customers.email) {
             try {
-              // Send email directly via Resend API
               console.log('📧 Sending email to:', request.customers.email);
-              console.log('🔑 RESEND_API_KEY available:', !!process.env.RESEND_API_KEY);
               
               if (!process.env.RESEND_API_KEY) {
                 console.error('❌ RESEND_API_KEY is not available in environment');
                 await supabase
                   .from('scheduled_jobs')
-                  .update({ status: 'failed' })
+                  .update({ status: 'failed', error_message: 'RESEND_API_KEY not configured' })
                   .eq('id', job.id);
                 continue;
               }
@@ -183,11 +151,13 @@ export default async function handler(req, res) {
                   to: [request.customers.email],
                   subject: 'Thank you for your business!',
                   html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                      <h2>Thank you for your business!</h2>
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                      <h2 style="color: #333;">Thank you for your business!</h2>
                       <p>Hi ${request.customers.full_name || 'Customer'},</p>
                       <p>${request.message}</p>
-                      <p><a href="${request.review_link}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Leave a Review</a></p>
+                      <div style="text-align: center; margin: 30px 0;">
+                        <a href="${request.review_link}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Leave a Review</a>
+                      </div>
                       <p>Best regards,<br>${request.businesses.name}</p>
                     </div>
                   `,
@@ -196,13 +166,10 @@ export default async function handler(req, res) {
               });
 
               const emailData = await emailResponse.json();
-
-              console.log('📧 Email response status:', emailResponse.status);
-              console.log('📧 Email response data:', emailData);
               
               if (emailResponse.ok) {
-                console.log(`✅ Automation email sent to ${request.customers.email} via Resend`);
-                console.log(`📧 Email ID: ${emailData.id}`);
+                console.log(`✅ Automation email sent to ${request.customers.email}`);
+                processedAutomations++;
                 
                 // Mark job as success
                 await supabase
@@ -221,12 +188,14 @@ export default async function handler(req, res) {
                 
               } else {
                 console.error(`❌ Failed to send automation email to ${request.customers.email}:`, emailData);
-                console.error(`❌ Response status: ${emailResponse.status}`);
                 
                 // Mark job as failed
                 await supabase
                   .from('scheduled_jobs')
-                  .update({ status: 'failed' })
+                  .update({ 
+                    status: 'failed', 
+                    error_message: emailData.message || 'Email send failed'
+                  })
                   .eq('id', job.id);
               }
             } catch (emailError) {
@@ -235,14 +204,20 @@ export default async function handler(req, res) {
               // Mark job as failed
               await supabase
                 .from('scheduled_jobs')
-                .update({ status: 'failed' })
+                .update({ 
+                  status: 'failed', 
+                  error_message: emailError.message || 'Email send error'
+                })
                 .eq('id', job.id);
             }
           } else {
             console.error(`No customer email for review request ${reviewRequestId}`);
             await supabase
               .from('scheduled_jobs')
-              .update({ status: 'failed' })
+              .update({ 
+                status: 'failed', 
+                error_message: 'No customer email address'
+              })
               .eq('id', job.id);
           }
         } catch (error) {
@@ -361,12 +336,13 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log(`✅ Automation executor completed. Sent ${sentCount} emails`);
+    console.log(`✅ Automation executor completed. Processed ${processedAutomations} automations and sent ${sentCount} emails`);
 
     return res.status(200).json({ 
       success: true, 
-      sent_emails: sentCount,
-      message: `Sent ${sentCount} emails`
+      processedAutomations: processedAutomations,
+      processedRequests: sentCount,
+      message: `Processed ${processedAutomations} automations and sent ${sentCount} emails`
     });
 
   } catch (error) {

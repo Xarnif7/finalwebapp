@@ -442,7 +442,15 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     if (currentStep >= 3) {
       const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
       if (safeFlowSteps.length === 0) {
-      newErrors.flow = 'Please create at least one step in your flow';
+        newErrors.flow = 'Please create at least one step in your flow';
+      } else {
+        // Check if we have at least one communication step (not just trigger)
+        const communicationSteps = safeFlowSteps.filter(step => 
+          step.type === 'email' || step.type === 'sms' || step.type === 'send_email' || step.type === 'send_sms'
+        );
+        if (communicationSteps.length === 0) {
+          newErrors.flow = 'Please add at least one Email or SMS step to your flow';
+        }
       }
     }
 
@@ -475,12 +483,31 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       if (safeFlowSteps.length > 0) {
         const convertedSteps = safeFlowSteps.map((step, index) => ({
           id: step.id || Date.now() + index,
-          type: step.type || 'wait',
-          config: step.config || {}
+          type: step.type === 'email' ? 'send_email' : step.type === 'sms' ? 'send_sms' : step.type || 'wait',
+          config: {
+            template: step.template || 'Thank you for your business!',
+            delay: step.timing?.value || 0,
+            delayUnit: step.timing?.unit || 'hours',
+            ...step.config
+          }
         }));
         setFormData(prev => ({
           ...prev,
           steps: convertedSteps
+        }));
+      } else {
+        // Ensure we have at least one step
+        setFormData(prev => ({
+          ...prev,
+          steps: [{
+            id: Date.now(),
+            type: 'send_email',
+            config: {
+              template: 'Thank you for your business!',
+              delay: 0,
+              delayUnit: 'hours'
+            }
+          }]
         }));
       }
     }
@@ -642,20 +669,60 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     // Ensure flowSteps is always an array
     const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
     
-    // Ensure errors is always an object
-    const safeErrors = errors && typeof errors === 'object' ? errors : {};
-    
     return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium mb-2">Build Your Automation Flow</h3>
-        <p className="text-gray-600 mb-4">
-          Drag and drop components to create your automation sequence. Start with a trigger, then add communication steps and timing.
-        </p>
-      </div>
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-medium mb-2">Build Your Automation Flow</h3>
+          <p className="text-gray-600 mb-4">
+            Drag and drop items to create your automation sequence. You can insert steps between existing ones or add them at the end.
+          </p>
+          
+          {/* Helpful Instructions */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start space-x-3">
+              <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium text-blue-900 mb-2">💡 How to build your flow:</p>
+                <ul className="text-blue-800 space-y-1">
+                  <li>• <strong>Start with a Trigger</strong> - This begins your automation</li>
+                  <li>• <strong>Add communication steps</strong> - Email or SMS messages</li>
+                  <li>• <strong>Set timing</strong> - Click on steps to add delays between messages</li>
+                  <li>• <strong>Drag between steps</strong> - Drop items between existing steps to insert them</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <p className="text-sm text-green-800">
+                <strong>Selected channels:</strong> {selectedChannels.join(', ') || 'None'}
+              </p>
+            </div>
+          </div>
+        </div>
 
-      {/* Draggable Components */}
-      <div className="mb-6">
+        <FlowBuilder
+          selectedChannels={selectedChannels}
+          onFlowChange={setFlowSteps}
+          initialFlow={flowSteps}
+        />
+
+        {errors.flow && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600">{errors.flow}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderStep4 = () => {
+    console.log('renderStep4 called with:', { selectedChannels, flowSteps });
+    return (
+      <div className="space-y-6">
+        <div>
         <h4 className="text-sm font-medium text-gray-700 mb-3">Available Components</h4>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {/* Trigger is now always first in the flow, not draggable */}
@@ -1439,7 +1506,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     </div>
   );
 
-  const renderStep3 = () => (
+  const renderStep4 = () => (
     <div className="space-y-6">
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -1964,7 +2031,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           {currentStep === 1 && renderStep1()}
           {currentStep === 2 && renderStep2()}
           {currentStep === 3 && renderFlowBuilder()}
-          {currentStep === 4 && renderStep3()}
+          {currentStep === 4 && renderStep4()}
           {currentStep === 5 && renderStep5()}
           {currentStep === 6 && renderStep6()}
         </div>

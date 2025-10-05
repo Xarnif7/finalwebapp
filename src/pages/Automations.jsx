@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, CheckCircle, Clock, Play, Pause, Settings, Mail, MessageSquare, ArrowRight, Plus, Trash2, GripVertical, Zap, List, BarChart3, Activity, FileText, Eye, TrendingUp, Users, AlertTriangle, RefreshCw } from "lucide-react";
+import { Send, CheckCircle, Clock, Play, Pause, Settings, Mail, MessageSquare, ArrowRight, Plus, Trash2, GripVertical, Zap, List, BarChart3, Activity, FileText, Eye, TrendingUp, Users, AlertTriangle, RefreshCw, Star } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { useBusiness } from "@/hooks/useBusiness";
@@ -71,174 +71,36 @@ const AutomationsPage = () => {
   });
 
   // Load data on component mount
-  console.log('🚨🚨🚨 ABOUT TO RUN USEEFFECT 🚨🚨🚨');
   useEffect(() => {
-    console.log('🚨🚨🚨 AUTOMATIONS USEEFFECT RUNNING 🚨🚨🚨');
-    console.log('🔍 Automations useEffect triggered:', { userEmail: user?.email, businessId: business?.id });
-    if (user?.email) {
-      console.log('✅ User email found, proceeding with localStorage check');
-      // ALWAYS USE LOCALSTORAGE FIRST (regardless of business ID)
-      const userEmail = user?.email || 'unknown';
-      const sanitizedEmail = userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
-      const localStorageKey = `blipp_templates_${sanitizedEmail}`;
-      console.log('🔍 Checking localStorage with key:', localStorageKey);
-      
-      try {
-        const existingData = localStorage.getItem(localStorageKey);
-        const savedTemplates = existingData ? JSON.parse(existingData) : {};
-        
-        if (Object.keys(savedTemplates).length > 0) {
-          const savedTemplatesArray = Object.values(savedTemplates);
-          
-          // Filter out any templates that don't belong to this user
-          const userTemplates = savedTemplatesArray.filter(template => 
-            template.user_email === userEmail || template.business_id?.includes(sanitizedEmail)
-          );
-          
-          setTemplates(userTemplates);
-          setLoading(false); // CRITICAL: Set loading to false so templates display
-          console.log('🔒 BULLETPROOF LOADED templates from localStorage:', {
-            userEmail,
-            localStorageKey,
-            totalTemplates: savedTemplatesArray.length,
-            userTemplates: userTemplates.length,
-            templates: userTemplates.map(t => ({ id: t.id, name: t.name, user_email: t.user_email })),
-            timestamp: new Date().toISOString()
-          });
-          return; // Don't load from database if we have localStorage
-        }
-      } catch (error) {
-        console.error('❌ LOAD ERROR:', error);
-      }
-      
-      // If no localStorage data, fall back to database or mock templates
-      console.log('🔍 NO LOCALSTORAGE DATA - Loading from database/mock templates');
-      console.log('🔍 Business ID:', business?.id);
-      
-      // Load user's actual templates from database
-      console.log('🔍 Loading user templates from database');
-      if (business?.id) {
+    if (user?.email && business?.id) {
         loadTemplates();
-      } else {
-        // If no business yet, show empty state to encourage template creation
-        setTemplates([]);
-        setLoading(false);
-      }
-      
-      if (business?.id) {
         loadActiveSequences();
         loadKPIs();
-      }
+    } else if (user?.email) {
+      // User logged in but no business yet - show default templates
+      loadDefaultTemplates();
     } else {
-      // If no user email, show mock templates as fallback
-      console.log('🔍 NO USER EMAIL - Showing mock templates as fallback');
-      setTemplates([
-        {
-          id: 'mock-1',
-          name: 'Job Completed',
-          key: 'job_completed',
-          status: 'paused',
-          channels: ['email'],
-          trigger_type: 'event',
-          config_json: {
-            message: 'Thank you for choosing our services! We hope you had a great experience. Please consider leaving us a review.',
-            delay_hours: 24
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: 'mock-2',
-          name: 'Invoice Paid',
-          key: 'invoice_paid',
-          status: 'paused',
-          channels: ['email'],
-          trigger_type: 'event',
-          config_json: {
-            message: 'Thank you for your payment! We appreciate your business. Please consider leaving us a review.',
-            delay_hours: 48
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: 'mock-3',
-          name: 'Service Reminder',
-          key: 'service_reminder',
-          status: 'paused',
-          channels: ['email'],
-          trigger_type: 'date_based',
-          config_json: {
-            message: 'This is a friendly reminder about your upcoming service appointment. We look forward to serving you!',
-            delay_days: 1
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ]);
       setLoading(false);
     }
-  }, [user?.email]); // Only depend on user email to prevent multiple re-renders
+  }, [user?.email, business?.id]);
 
   // Update active sequences when templates change
   useEffect(() => {
     loadActiveSequences();
   }, [templates]);
 
-  const saveTemplateToLocalStorage = async (template) => {
-    try {
-      const userEmail = user?.email || 'unknown';
-      const sanitizedEmail = userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
-      const localStorageKey = `blipp_templates_${sanitizedEmail}`;
-      
-      // Get existing templates
-      const existingData = localStorage.getItem(localStorageKey);
-      const savedTemplates = existingData ? JSON.parse(existingData) : {};
-      
-      // Add new template
-      savedTemplates[template.id] = {
-        ...template,
-        user_email: userEmail,
-        last_saved: new Date().toISOString()
-      };
-      
-      // Save back to localStorage
-      localStorage.setItem(localStorageKey, JSON.stringify(savedTemplates));
-      console.log('✅ Template saved to localStorage:', template.name);
-    } catch (error) {
-      console.error('❌ Error saving template to localStorage:', error);
-    }
-  };
 
   const loadTemplates = async () => {
     try {
       setLoading(true);
-      console.log('🔍 loadTemplates called - this will overwrite localStorage data!');
       
-      // If no business ID yet, try to get it from user email
-      let businessId = business?.id;
-      if (!businessId && user?.email) {
-        console.log('No business ID, trying to find business by email:', user.email);
-        // Try to find business by email
-        const response = await fetch(`/api/business/by-email?email=${encodeURIComponent(user.email)}`, {
-          headers: {
-            'Authorization': `Bearer ${user?.access_token}`
-          }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          businessId = data.business?.id;
-          console.log('Found business ID by email:', businessId);
-        }
-      }
-      
-      if (!businessId) {
+      if (!business?.id) {
         console.log('No business ID available, cannot load templates');
         setLoading(false);
         return;
       }
       
-      const response = await fetch(`/api/templates/${businessId}`, {
+      const response = await fetch(`/api/templates/${business.id}`, {
         headers: {
           'Authorization': `Bearer ${user?.access_token}`
         }
@@ -251,36 +113,41 @@ const AutomationsPage = () => {
         // If no templates exist, auto-provision defaults
         if (templates.length === 0) {
           console.log('No templates found, provisioning defaults...');
-          await provisionDefaultTemplates(businessId);
+          await provisionDefaultTemplates();
         } else {
           setTemplates(templates);
         }
+      } else {
+        console.error('Failed to load templates:', response.statusText);
+        loadDefaultTemplates();
       }
     } catch (error) {
       console.error('Error loading templates:', error);
-      // Fallback: show user-specific mock templates so user can see the interface
-      console.log('Falling back to user-specific mock templates for:', user?.email);
-      const userEmail = user?.email || 'unknown';
-      const sanitizedEmail = userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
-      setTemplates([
-        {
-          id: `mock-1-${sanitizedEmail}`,
+      loadDefaultTemplates();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadDefaultTemplates = () => {
+    const defaultTemplates = [
+      {
+        id: 'default-job-completed',
           name: 'Job Completed',
           key: 'job_completed',
           status: 'paused',
           channels: ['email'],
           trigger_type: 'event',
           config_json: {
-            message: 'Thank you for choosing us! We hope you were satisfied with our service. Please take a moment to leave us a review.',
+          message: 'Thank you for choosing our services! We hope you had a great experience. Please consider leaving us a review.',
             delay_hours: 24
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          business_id: business?.id || sanitizedEmail, // Make it user-specific
-          user_email: userEmail // Store user email for isolation
+        business_id: business?.id
         },
         {
-          id: `mock-2-${sanitizedEmail}`,
+        id: 'default-invoice-paid',
           name: 'Invoice Paid',
           key: 'invoice_paid',
           status: 'paused',
@@ -292,11 +159,10 @@ const AutomationsPage = () => {
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          business_id: business?.id || sanitizedEmail, // Make it user-specific
-          user_email: userEmail // Store user email for isolation
+        business_id: business?.id
         },
         {
-          id: `mock-3-${sanitizedEmail}`,
+        id: 'default-service-reminder',
           name: 'Service Reminder',
           key: 'service_reminder',
           status: 'paused',
@@ -308,13 +174,12 @@ const AutomationsPage = () => {
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          business_id: business?.id || sanitizedEmail, // Make it user-specific
-          user_email: userEmail // Store user email for isolation
+        business_id: business?.id
         }
-      ]);
-    } finally {
+    ];
+    
+    setTemplates(defaultTemplates);
       setLoading(false);
-    }
   };
 
   const provisionDefaultTemplates = async (businessId = business?.id) => {
@@ -466,30 +331,20 @@ const AutomationsPage = () => {
     setUpdating(prev => ({ ...prev, [templateId]: true }));
     
     try {
-      // For mock templates, update local state immediately
-      if (templateId && templateId.startsWith('mock-')) {
+      // Update local state immediately for better UX
         setTemplates(prev => prev.map(t => 
           t.id === templateId ? { ...t, status: newStatus } : t
         ));
         
-        // Reload active sequences if template was activated
-        if (newStatus === 'active') {
-          await loadActiveSequences();
-        }
-        
-        // Trigger Zapier webhook for real automation functionality
-        if (newStatus === 'active') {
-          await triggerZapierWebhook(templateId, 'activate');
-        } else if (newStatus === 'paused') {
-          await triggerZapierWebhook(templateId, 'pause');
-        }
-        
-        console.log(`Mock template ${templateId} ${newStatus} successfully`);
+      // For default templates, just update local state
+      if (templateId.startsWith('default-')) {
+        console.log(`Default template ${templateId} ${newStatus} successfully`);
         return;
       }
 
       // For real templates, call the API
-      const response = await fetch(`/api/templates/${business?.id}/${templateId}`, {
+      if (business?.id) {
+        const response = await fetch(`/api/templates/${business.id}/${templateId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -500,54 +355,30 @@ const AutomationsPage = () => {
         })
       });
 
-      if (response.ok) {
-        await loadTemplates();
+        if (!response.ok) {
+          // Revert local state if API call failed
+          setTemplates(prev => prev.map(t => 
+            t.id === templateId ? { ...t, status: t.status === 'active' ? 'paused' : 'active' } : t
+          ));
+          console.error('Failed to update template status');
+        }
+      }
+      
+      // Reload active sequences and KPIs
         await loadActiveSequences();
         await loadKPIs();
         
-        // Trigger Zapier webhook for real automation functionality
-        if (newStatus === 'active') {
-          await triggerZapierWebhook(templateId, 'activate');
-        } else if (newStatus === 'paused') {
-          await triggerZapierWebhook(templateId, 'pause');
-        }
-      }
     } catch (error) {
       console.error('Error updating template:', error);
+      // Revert local state on error
+      setTemplates(prev => prev.map(t => 
+        t.id === templateId ? { ...t, status: t.status === 'active' ? 'paused' : 'active' } : t
+      ));
     } finally {
       setUpdating(prev => ({ ...prev, [templateId]: false }));
     }
   };
 
-  const triggerZapierWebhook = async (templateId, action) => {
-    try {
-      // Only trigger webhook if we have a business ID
-      if (!business?.id) {
-        console.log('No business ID available for Zapier webhook, skipping');
-        return;
-      }
-
-      const response = await fetch('/api/zapier/webhook', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.access_token}`
-        },
-        body: JSON.stringify({
-          business_id: business.id,
-          template_id: templateId,
-          action: action,
-          timestamp: new Date().toISOString()
-        })
-      });
-
-      if (response.ok) {
-        console.log(`Zapier webhook triggered for ${action} on template ${templateId}`);
-      }
-    } catch (error) {
-      console.error('Error triggering Zapier webhook:', error);
-    }
-  };
 
   const handleCustomize = (template) => {
     if (!template || !template.id) {
@@ -573,39 +404,19 @@ const AutomationsPage = () => {
       setTemplates(prev => {
         const updated = prev.map(t => {
           if (t.id === updatedTemplate.id) {
-            console.log('Updating template:', t.id, 'with new name:', updatedTemplate.name);
             return updatedTemplate;
           }
           return t;
         });
-        console.log('Updated templates:', updated.map(t => ({ id: t.id, name: t.name })));
         return updated;
       });
     }
     
-    // Don't reload from database - localStorage is the source of truth
-    console.log('🔒 LOCALSTORAGE SAVE COMPLETE - Not reloading from database');
-    // await loadTemplates(); // REMOVED - This was overwriting localStorage data!
+    // Reload active sequences and KPIs
     await loadActiveSequences();
     await loadKPIs();
   };
 
-  const handleSequenceCreated = async (newTemplate) => {
-    console.log('Sequence created:', newTemplate);
-    
-    // Add new template to local state
-    if (newTemplate) {
-      setTemplates(prev => [...prev, newTemplate]);
-    }
-    
-    // Close modal
-    setCreateModalOpen(false);
-    
-    // Reload everything
-    await loadTemplates();
-    await loadActiveSequences();
-    await loadKPIs();
-  };
 
   const handleTest = async (template) => {
     try {
@@ -671,28 +482,147 @@ const AutomationsPage = () => {
     }
   };
 
-  const handleCreateSequence = () => {
-    setCreateModalOpen(true);
+  // Handle popular template selection
+  const handleTemplateSelection = (templateKey) => {
+    console.log('🎯 Popular template selected:', templateKey);
+    
+    // Define popular templates with pre-configured settings
+    const popularTemplates = {
+      'invoice-paid': {
+        name: 'Invoice Paid Follow-up',
+        description: 'Automatically thank customers after they pay their invoice',
+        channels: ['email', 'sms'],
+        trigger_type: 'event',
+        config_json: {
+          message: 'Hi {{customer.name}}, thank you for your payment! We appreciate your business. Please consider leaving us a review: {{review_link}}',
+          delay_hours: 2,
+          subject: 'Thank you for your payment!'
+        },
+        custom_message: 'Hi {{customer.name}}, thank you for your payment! We appreciate your business. Please consider leaving us a review: {{review_link}}',
+        service_types: [],
+        is_default: false,
+        trigger_events: ['invoice_paid']
+      },
+      'job-completed': {
+        name: 'Job Completed Follow-up',
+        description: 'Follow up with customers after completing a service job',
+        channels: ['email', 'sms'],
+        trigger_type: 'event',
+        config_json: {
+          message: 'Hi {{customer.name}}, your {{service_type}} service is complete! We hope everything meets your expectations. Please leave us a review: {{review_link}}',
+          delay_hours: 24,
+          subject: 'How was your service?'
+        },
+        custom_message: 'Hi {{customer.name}}, your {{service_type}} service is complete! We hope everything meets your expectations. Please leave us a review: {{review_link}}',
+        service_types: ['plumbing', 'hvac', 'electrical', 'cleaning'],
+        is_default: false,
+        trigger_events: ['job_completed']
+      },
+      'service-reminder': {
+        name: 'Service Reminder',
+        description: 'Send appointment reminders to customers',
+        channels: ['sms', 'email'],
+        trigger_type: 'date_based',
+        config_json: {
+          message: 'Hi {{customer.name}}, this is a friendly reminder about your upcoming {{service_type}} appointment on {{service_date}}. We look forward to serving you!',
+          delay_hours: 0,
+          subject: 'Appointment Reminder'
+        },
+        custom_message: 'Hi {{customer.name}}, this is a friendly reminder about your upcoming {{service_type}} appointment on {{service_date}}. We look forward to serving you!',
+        service_types: [],
+        is_default: false,
+        trigger_events: []
+      },
+      'review-request': {
+        name: 'Review Request',
+        description: 'Ask satisfied customers for reviews',
+        channels: ['email'],
+        trigger_type: 'event',
+        config_json: {
+          message: 'Hi {{customer.name}}, we hope you\'re happy with our service! Your feedback helps us improve and helps other customers. Please leave us a review: {{review_link}}',
+          delay_hours: 72,
+          subject: 'How was your experience?'
+        },
+        custom_message: 'Hi {{customer.name}}, we hope you\'re happy with our service! Your feedback helps us improve and helps other customers. Please leave us a review: {{review_link}}',
+        service_types: [],
+        is_default: false,
+        trigger_events: ['positive_feedback']
+      },
+      'welcome-sequence': {
+        name: 'Welcome Sequence',
+        description: 'Multi-step welcome series for new customers',
+        channels: ['email', 'sms'],
+        trigger_type: 'event',
+        config_json: {
+          message: 'Welcome {{customer.name}}! We\'re excited to serve you. Here\'s what to expect and how to get the most from our services.',
+          delay_hours: 0,
+          subject: 'Welcome to our service!',
+          follow_ups: [
+            {
+              delay_days: 1,
+              message: 'Hi {{customer.name}}, here are some tips to help you get the most from our services.',
+              subject: 'Getting started guide'
+            },
+            {
+              delay_days: 7,
+              message: 'Hi {{customer.name}}, how has your experience been so far? We\'d love your feedback: {{review_link}}',
+              subject: 'How are we doing?'
+            }
+          ]
+        },
+        custom_message: 'Welcome {{customer.name}}! We\'re excited to serve you. Here\'s what to expect and how to get the most from our services.',
+        service_types: [],
+        is_default: false,
+        trigger_events: ['customer_created']
+      }
+    };
+
+    const selectedTemplate = popularTemplates[templateKey];
+    if (selectedTemplate) {
+      // Set the selected template data for the customizer
+      setSelectedTemplate({
+        id: null, // New template
+        ...selectedTemplate
+      });
+      
+      // Open the customizer with pre-filled data
+      setCustomizeModalOpen(true);
+    }
   };
+
 
   const handleCreateTemplate = async (templateData) => {
     try {
       console.log('🎯 Creating new template:', templateData);
       
-      // Get the current session token
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      // Create template locally first for immediate feedback
+      const newTemplate = {
+        id: `custom-${Date.now()}`,
+        name: templateData.name,
+        description: templateData.description,
+        channels: templateData.channels || ['email'],
+        trigger_type: templateData.trigger_type || 'event',
+        config_json: templateData.config_json || {
+          message: 'Thank you for your business! We would appreciate a review.',
+          delay_hours: 24
+        },
+        status: 'paused',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        business_id: business?.id
+      };
       
-      if (!token) {
-        throw new Error('No authentication token found. Please sign in again.');
-      }
-
-      // Create the template via API
-      const response = await fetch(`/api/templates/${business?.id}`, {
+      // Add to local templates immediately
+      setTemplates(prev => [...prev, newTemplate]);
+      
+      // Try to save to database if we have a business ID
+      if (business?.id && user?.access_token) {
+        try {
+          const response = await fetch(`/api/templates/${business.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${user.access_token}`
         },
         body: JSON.stringify({
           name: templateData.name,
@@ -704,50 +634,27 @@ const AutomationsPage = () => {
       });
 
       if (response.ok) {
-        const newTemplate = await response.json();
-        console.log('✅ Template created successfully:', newTemplate);
-        
-        // Add to local templates
-        setTemplates(prev => [...prev, newTemplate.template]);
-        
-        // Save to localStorage immediately to prevent data loss
-        await saveTemplateToLocalStorage(newTemplate.template);
-        
-        // Close modal
-        setCreateModalOpen(false);
-        
-        // Show success message
-        alert(`Template "${newTemplate.template.name}" created successfully!`);
+            const apiTemplate = await response.json();
+            console.log('✅ Template saved to database:', apiTemplate);
+            
+            // Update local template with database ID
+            setTemplates(prev => prev.map(t => 
+              t.id === newTemplate.id ? { ...t, id: apiTemplate.template.id } : t
+            ));
       } else {
-        console.error('❌ Failed to create template via API, creating mock template');
-        
-        // Create mock template for demo
-        const mockTemplate = {
-          id: `custom-${Date.now()}`,
-          name: templateData.name,
-          description: templateData.description,
-          channels: templateData.channels,
-          trigger_type: templateData.trigger_type,
-          config_json: templateData.config_json,
-          status: 'paused',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          business_id: business?.id || 'mock-business',
-          user_email: user?.email
-        };
-        
-        // Add to local templates
-        setTemplates(prev => [...prev, mockTemplate]);
-        
-        // Save to localStorage immediately to prevent data loss
-        await saveTemplateToLocalStorage(mockTemplate);
+            console.warn('Failed to save template to database, keeping local copy');
+          }
+        } catch (apiError) {
+          console.warn('API error saving template, keeping local copy:', apiError);
+        }
+      }
         
         // Close modal
         setCreateModalOpen(false);
         
         // Show success message
-        alert(`Template "${mockTemplate.name}" created successfully!`);
-      }
+      alert(`Template "${newTemplate.name}" created successfully!`);
+      
     } catch (error) {
       console.error('❌ Error creating template:', error);
       alert('Error creating template. Please try again.');
@@ -797,25 +704,112 @@ const AutomationsPage = () => {
       {/* Tab Content */}
       {activeTab === 'templates' && (
         <div className="space-y-6">
-          {/* Header with Create Button */}
+          {/* Header with Create Options */}
+          <div className="space-y-4">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Automations</h2>
               <p className="text-sm text-gray-600">Create and manage your automation sequences - from simple to complex</p>
             </div>
-            {console.log('🎯 Rendering buttons section with automationWizardOpen:', automationWizardOpen)}
-            <div className="flex gap-3">
-              <Button 
-                onClick={() => {
-                  console.log('🎯 Create Automation button clicked!');
-                  setAutomationWizardOpen(true);
-                }} 
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
-                style={{border: '2px solid #8b5cf6', marginLeft: '0px'}}
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                ⚡ Create Automation
-              </Button>
+            </div>
+
+            {/* Quick Start Section */}
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
+                    <span className="mr-2">🚀</span>
+                    Quick Start
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">Choose a popular template to get started instantly, or create your own custom automation.</p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {/* Popular Templates Dropdown */}
+                    <div className="flex-1">
+                      <Label htmlFor="template-select" className="text-sm font-medium text-gray-700 mb-2 block">
+                        Popular Templates
+                      </Label>
+                      <Select onValueChange={handleTemplateSelection}>
+                        <SelectTrigger className="w-full bg-white border-gray-300 hover:border-blue-400 focus:border-blue-500 transition-colors duration-200">
+                          <SelectValue placeholder="Choose a popular template..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="invoice-paid">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                              </div>
+                              <div>
+                                <div className="font-medium">Invoice Paid</div>
+                                <div className="text-xs text-gray-500">Thank customers after payment</div>
+                              </div>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="job-completed">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <FileText className="w-4 h-4 text-blue-600" />
+                              </div>
+                              <div>
+                                <div className="font-medium">Job Completed</div>
+                                <div className="text-xs text-gray-500">Follow up after service completion</div>
+                              </div>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="service-reminder">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <Clock className="w-4 h-4 text-purple-600" />
+                              </div>
+                              <div>
+                                <div className="font-medium">Service Reminder</div>
+                                <div className="text-xs text-gray-500">Remind customers about appointments</div>
+                              </div>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="review-request">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                                <Star className="w-4 h-4 text-yellow-600" />
+                              </div>
+                              <div>
+                                <div className="font-medium">Review Request</div>
+                                <div className="text-xs text-gray-500">Ask for reviews after positive interactions</div>
+                              </div>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="welcome-sequence">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                <Users className="w-4 h-4 text-indigo-600" />
+                              </div>
+                              <div>
+                                <div className="font-medium">Welcome Sequence</div>
+                                <div className="text-xs text-gray-500">Welcome new customers with multi-step series</div>
+                              </div>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Custom Create Button */}
+                    <div className="flex items-end">
+                      <Button 
+                        onClick={() => {
+                          console.log('🎯 Create Custom Automation button clicked!');
+                          setAutomationWizardOpen(true);
+                        }} 
+                        variant="outline"
+                        className="bg-white border-gray-300 hover:border-blue-400 hover:bg-blue-50 text-gray-700 hover:text-blue-700 transition-all duration-200 hover:shadow-sm"
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Custom Automation
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
