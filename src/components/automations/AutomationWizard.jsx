@@ -607,6 +607,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     // Ensure selectedChannels is always an array
     const safeSelectedChannels = Array.isArray(selectedChannels) ? selectedChannels : [];
     
+    // Ensure flowSteps is always an array
+    const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
+    
     return (
     <div className="space-y-6">
       <div>
@@ -644,6 +647,13 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                 config: {}
               };
               setFlowSteps(prev => [...prev, newStep]);
+              
+              // Show success feedback
+              toast({
+                title: "Step Added",
+                description: "Trigger step added to your automation flow",
+                variant: "default"
+              });
             }}
           >
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3 shadow-sm">
@@ -678,6 +688,13 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                   config: { template: 'Thank you email' }
                 };
                 setFlowSteps(prev => [...prev, newStep]);
+                
+                // Show success feedback
+                toast({
+                  title: "Step Added",
+                  description: "Email step added to your automation flow",
+                  variant: "default"
+                });
               }}
             >
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3 shadow-sm">
@@ -760,26 +777,28 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
       {/* Flow Canvas */}
       <div 
-        className="border-2 border-dashed border-gray-300 rounded-lg p-6 min-h-[200px] bg-gradient-to-br from-gray-50 to-gray-100"
+        className="border-2 border-dashed border-gray-300 rounded-lg p-6 min-h-[200px] bg-gradient-to-br from-gray-50 to-gray-100 transition-all duration-300 ease-in-out"
         onDragOver={(e) => {
           e.preventDefault();
-          e.currentTarget.classList.add('border-blue-400', 'bg-blue-50');
+          e.currentTarget.classList.add('border-blue-400', 'bg-blue-50', 'scale-[1.02]', 'shadow-lg');
         }}
         onDragLeave={(e) => {
-          e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+          e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50', 'scale-[1.02]', 'shadow-lg');
         }}
         onDrop={(e) => {
           e.preventDefault();
-          e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+          e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50', 'scale-[1.02]', 'shadow-lg');
           
           try {
             const stepData = JSON.parse(e.dataTransfer.getData('application/json'));
-            const newStep = {
-              id: Date.now(),
-              type: stepData.type,
-              config: stepData.config || {}
-            };
-            setFlowSteps(prev => [...prev, newStep]);
+            if (stepData.type !== 'reorder') {
+              const newStep = {
+                id: Date.now(),
+                type: stepData.type,
+                config: stepData.config || {}
+              };
+              setFlowSteps(prev => [...prev, newStep]);
+            }
           } catch (error) {
             console.error('Error parsing dropped data:', error);
           }
@@ -794,21 +813,60 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </div>
         
         {/* Flow Preview */}
-        {flowSteps.length > 0 && (
+        {safeFlowSteps.length > 0 && (
           <div className="flex items-center justify-center space-x-3 flex-wrap">
-            {flowSteps.map((step, index) => (
+            {safeFlowSteps.map((step, index) => (
               <React.Fragment key={step.id}>
                 {index > 0 && (
-                  <div className="flex items-center">
-                    <ArrowRight className="w-5 h-5 text-gray-400" />
+                  <div className="flex items-center animate-fade-in">
+                    <ArrowRight className="w-5 h-5 text-gray-400 animate-pulse" />
                   </div>
                 )}
-                <div className={`flex items-center space-x-2 px-4 py-3 rounded-lg border-2 shadow-sm transition-all hover:shadow-md group ${
-                  step.type === 'trigger' ? 'bg-purple-50 border-purple-200' :
-                  step.type === 'send_email' ? 'bg-blue-50 border-blue-200' :
-                  step.type === 'send_sms' ? 'bg-green-50 border-green-200' :
-                  'bg-orange-50 border-orange-200'
-                }`}>
+                <div 
+                  className={`flex items-center space-x-2 px-4 py-3 rounded-lg border-2 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-105 group cursor-move animate-slide-in ${
+                    step.type === 'trigger' ? 'bg-purple-50 border-purple-200' :
+                    step.type === 'send_email' ? 'bg-blue-50 border-blue-200' :
+                    step.type === 'send_sms' ? 'bg-green-50 border-green-200' :
+                    'bg-orange-50 border-orange-200'
+                  }`}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('application/json', JSON.stringify({
+                      type: 'reorder',
+                      stepId: step.id,
+                      currentIndex: index
+                    }));
+                    e.currentTarget.style.opacity = '0.5';
+                  }}
+                  onDragEnd={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    try {
+                      const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
+                      if (dragData.type === 'reorder' && dragData.stepId !== step.id) {
+                        const newSteps = [...safeFlowSteps];
+                        const draggedStep = newSteps.find(s => s.id === dragData.stepId);
+                        const draggedIndex = newSteps.findIndex(s => s.id === dragData.stepId);
+                        const dropIndex = index;
+                        
+                        // Remove dragged step
+                        newSteps.splice(draggedIndex, 1);
+                        // Insert at new position
+                        newSteps.splice(dropIndex, 0, draggedStep);
+                        
+                        setFlowSteps(newSteps);
+                      }
+                    } catch (error) {
+                      console.error('Error reordering steps:', error);
+                    }
+                  }}
+                >
+                  <GripVertical className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                   {step.type === 'trigger' && <Zap className="w-5 h-5 text-purple-600" />}
                   {step.type === 'send_email' && <Mail className="w-5 h-5 text-blue-600" />}
                   {step.type === 'send_sms' && <MessageSquare className="w-5 h-5 text-green-600" />}
@@ -906,7 +964,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </div>
       )}
 
-      {safeSelectedChannels.length > 0 && flowSteps.length === 0 && (
+      {safeSelectedChannels.length > 0 && safeFlowSteps.length === 0 && (
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
             💡 <strong>Tip:</strong> Start by clicking one of the quick flow buttons above, or drag components from the top to build your custom automation.
@@ -915,10 +973,13 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       )}
 
       {errors.flow && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-800">
-            ⚠️ {errors.flow}
-          </p>
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg animate-fade-in">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <p className="text-sm text-red-800 font-medium">
+              {errors.flow}
+            </p>
+          </div>
         </div>
       )}
     </div>
