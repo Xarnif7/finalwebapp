@@ -610,6 +610,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     // Ensure flowSteps is always an array
     const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
     
+    // Ensure errors is always an object
+    const safeErrors = errors && typeof errors === 'object' ? errors : {};
+    
     return (
     <div className="space-y-6">
       <div>
@@ -632,12 +635,17 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                 type: 'trigger',
                 config: {}
               }));
-              // Create a custom drag image
+              // Create a clean drag image without the huge gray box
               const dragImage = e.target.cloneNode(true);
-              dragImage.style.transform = 'rotate(5deg)';
+              dragImage.style.position = 'absolute';
+              dragImage.style.top = '-1000px';
+              dragImage.style.left = '-1000px';
+              dragImage.style.width = '120px';
+              dragImage.style.height = 'auto';
               dragImage.style.opacity = '0.8';
+              dragImage.style.pointerEvents = 'none';
               document.body.appendChild(dragImage);
-              e.dataTransfer.setDragImage(dragImage, 50, 50);
+              e.dataTransfer.setDragImage(dragImage, 60, 30);
               setTimeout(() => document.body.removeChild(dragImage), 0);
             }}
             onClick={() => {
@@ -673,12 +681,17 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                   type: 'send_email',
                   config: { template: 'Thank you email' }
                 }));
-                // Create a custom drag image
+                // Create a clean drag image without the huge gray box
                 const dragImage = e.target.cloneNode(true);
-                dragImage.style.transform = 'rotate(5deg)';
+                dragImage.style.position = 'absolute';
+                dragImage.style.top = '-1000px';
+                dragImage.style.left = '-1000px';
+                dragImage.style.width = '120px';
+                dragImage.style.height = 'auto';
                 dragImage.style.opacity = '0.8';
+                dragImage.style.pointerEvents = 'none';
                 document.body.appendChild(dragImage);
-                e.dataTransfer.setDragImage(dragImage, 50, 50);
+                e.dataTransfer.setDragImage(dragImage, 60, 30);
                 setTimeout(() => document.body.removeChild(dragImage), 0);
               }}
               onClick={() => {
@@ -715,12 +728,17 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                   type: 'send_sms',
                   config: { template: 'Thank you SMS' }
                 }));
-                // Create a custom drag image
+                // Create a clean drag image without the huge gray box
                 const dragImage = e.target.cloneNode(true);
-                dragImage.style.transform = 'rotate(5deg)';
+                dragImage.style.position = 'absolute';
+                dragImage.style.top = '-1000px';
+                dragImage.style.left = '-1000px';
+                dragImage.style.width = '120px';
+                dragImage.style.height = 'auto';
                 dragImage.style.opacity = '0.8';
+                dragImage.style.pointerEvents = 'none';
                 document.body.appendChild(dragImage);
-                e.dataTransfer.setDragImage(dragImage, 50, 50);
+                e.dataTransfer.setDragImage(dragImage, 60, 30);
                 setTimeout(() => document.body.removeChild(dragImage), 0);
               }}
               onClick={() => {
@@ -749,12 +767,17 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                 type: 'wait',
                 config: { delay: 1, delayUnit: 'hours' }
               }));
-              // Create a custom drag image
+              // Create a clean drag image without the huge gray box
               const dragImage = e.target.cloneNode(true);
-              dragImage.style.transform = 'rotate(5deg)';
+              dragImage.style.position = 'absolute';
+              dragImage.style.top = '-1000px';
+              dragImage.style.left = '-1000px';
+              dragImage.style.width = '120px';
+              dragImage.style.height = 'auto';
               dragImage.style.opacity = '0.8';
+              dragImage.style.pointerEvents = 'none';
               document.body.appendChild(dragImage);
-              e.dataTransfer.setDragImage(dragImage, 50, 50);
+              e.dataTransfer.setDragImage(dragImage, 60, 30);
               setTimeout(() => document.body.removeChild(dragImage), 0);
             }}
             onClick={() => {
@@ -817,10 +840,62 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           <div className="flex items-center justify-center space-x-3 flex-wrap">
             {safeFlowSteps.map((step, index) => (
               <React.Fragment key={step.id}>
+                {/* Drop zone before first step */}
+                {index === 0 && (
+                  <div 
+                    className="w-8 h-16 border-2 border-dashed border-transparent hover:border-blue-300 rounded-lg transition-colors"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      try {
+                        const stepData = JSON.parse(e.dataTransfer.getData('application/json'));
+                        if (stepData.type !== 'reorder') {
+                          const newStep = {
+                            id: Date.now(),
+                            type: stepData.type,
+                            config: stepData.config || {}
+                          };
+                          setFlowSteps(prev => [newStep, ...prev]);
+                        }
+                      } catch (error) {
+                        console.error('Error adding step at beginning:', error);
+                      }
+                    }}
+                  />
+                )}
+                
                 {index > 0 && (
                   <div className="flex items-center animate-fade-in">
                     <ArrowRight className="w-5 h-5 text-gray-400 animate-pulse" />
                   </div>
+                )}
+                
+                {/* Drop zone between steps */}
+                {index > 0 && (
+                  <div 
+                    className="w-8 h-16 border-2 border-dashed border-transparent hover:border-blue-300 rounded-lg transition-colors"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      try {
+                        const stepData = JSON.parse(e.dataTransfer.getData('application/json'));
+                        if (stepData.type !== 'reorder') {
+                          const newStep = {
+                            id: Date.now(),
+                            type: stepData.type,
+                            config: stepData.config || {}
+                          };
+                          setFlowSteps(prev => {
+                            const newSteps = [...prev];
+                            newSteps.splice(index, 0, newStep);
+                            return newSteps;
+                          });
+                        }
+                      } catch (error) {
+                        console.error('Error adding step between:', error);
+                      }
+                    }}
+                  />
                 )}
                 <div 
                   className={`flex items-center space-x-2 px-4 py-3 rounded-lg border-2 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-105 group cursor-move animate-slide-in ${
@@ -890,6 +965,30 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                 </div>
               </React.Fragment>
             ))}
+            
+            {/* Drop zone after last step */}
+            {safeFlowSteps.length > 0 && (
+              <div 
+                className="w-8 h-16 border-2 border-dashed border-transparent hover:border-blue-300 rounded-lg transition-colors"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  try {
+                    const stepData = JSON.parse(e.dataTransfer.getData('application/json'));
+                    if (stepData.type !== 'reorder') {
+                      const newStep = {
+                        id: Date.now(),
+                        type: stepData.type,
+                        config: stepData.config || {}
+                      };
+                      setFlowSteps(prev => [...prev, newStep]);
+                    }
+                  } catch (error) {
+                    console.error('Error adding step at end:', error);
+                  }
+                }}
+              />
+            )}
           </div>
         )}
       </div>
@@ -972,12 +1071,12 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </div>
       )}
 
-      {errors.flow && (
+      {safeErrors.flow && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg animate-fade-in">
           <div className="flex items-center space-x-2">
             <AlertCircle className="w-5 h-5 text-red-600" />
             <p className="text-sm text-red-800 font-medium">
-              {errors.flow}
+              {safeErrors.flow}
             </p>
           </div>
         </div>
@@ -1838,7 +1937,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-[80vw] h-[85vh] max-w-none overflow-y-auto">
+      <DialogContent className="w-[80vw] h-[90vh] max-w-none overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Custom Automation</DialogTitle>
         </DialogHeader>
@@ -1878,8 +1977,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </div>
 
         {/* Footer - Fixed positioning with proper spacing */}
-        <div className="mt-8 pt-4 border-t bg-white">
-          <DialogFooter className="flex justify-between items-center sticky bottom-0 z-10 bg-white pt-4">
+        <div className="mt-8 pt-4 border-t bg-white sticky bottom-0 z-10">
+          <DialogFooter className="flex justify-between items-center">
             <div className="flex-1">
             {currentStep > 1 && (
               <Button variant="outline" onClick={handlePrevious}>
