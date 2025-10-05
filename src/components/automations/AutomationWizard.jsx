@@ -399,29 +399,41 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = 'Sequence name is required';
+    // Step 4: Basic Info validation
+    if (currentStep >= 4) {
+      if (!formData.name.trim()) {
+        newErrors.name = 'Sequence name is required';
+      }
+
+      if (selectedCrm && selectedCrm !== 'manual' && Object.keys(selectedTriggers).length === 0) {
+        newErrors.triggers = 'Please select at least one trigger event';
+      }
     }
 
-    if (selectedCrm && selectedCrm !== 'manual' && Object.keys(selectedTriggers).length === 0) {
-      newErrors.triggers = 'Please select at least one trigger event';
+    // Step 2: Channels validation
+    if (currentStep >= 2) {
+      if (selectedChannels.length === 0) {
+        newErrors.channels = 'Please select at least one communication channel';
+      }
     }
 
-    if (selectedChannels.length === 0) {
-      newErrors.channels = 'Please select at least one communication channel';
+    // Step 1: Flow validation
+    if (currentStep >= 1) {
+      if (flowSteps.length === 0) {
+        newErrors.flow = 'Please create at least one step in your flow';
+      }
     }
 
-    if (flowSteps.length === 0) {
-      newErrors.flow = 'Please create at least one step in your flow';
-    }
+    // Step 3: Steps validation
+    if (currentStep >= 3) {
+      if (formData.steps.length === 0) {
+        newErrors.steps = 'At least one step is required';
+      }
 
-    if (formData.steps.length === 0) {
-      newErrors.steps = 'At least one step is required';
-    }
-
-    const invalidSteps = formData.steps.filter(step => !validateStep(step));
-    if (invalidSteps.length > 0) {
-      newErrors.steps = 'All steps must be properly configured';
+      const invalidSteps = formData.steps.filter(step => !validateStep(step));
+      if (invalidSteps.length > 0) {
+        newErrors.steps = 'All steps must be properly configured';
+      }
     }
 
     setErrors(newErrors);
@@ -429,6 +441,24 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   };
 
   const handleNext = () => {
+    // Validate current step before proceeding
+    if (!validateForm()) {
+      return;
+    }
+    
+    // Sync flowSteps to formData.steps when moving from Step 1 to Step 3
+    if (currentStep === 1 && flowSteps.length > 0) {
+      const convertedSteps = flowSteps.map((step, index) => ({
+        id: step.id,
+        type: step.type,
+        config: step.config || {}
+      }));
+      setFormData(prev => ({
+        ...prev,
+        steps: convertedSteps
+      }));
+    }
+    
     if (currentStep < 6) {
       setCurrentStep(prev => prev + 1);
     }
@@ -575,6 +605,159 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       description: `${template.name} has been loaded. You can customize it in the next steps.`
     });
   };
+
+  const renderFlowBuilder = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-medium mb-2">Build Your Automation Flow</h3>
+        <p className="text-gray-600 mb-4">
+          Drag and drop components to create your automation sequence. Start with a trigger, then add communication steps and timing.
+        </p>
+      </div>
+
+      {/* Draggable Components */}
+      <div className="mb-6">
+        <h4 className="text-sm font-medium text-gray-700 mb-3">Available Components</h4>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Trigger Component - Always Available */}
+          <div className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
+            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mb-2">
+              <Zap className="w-4 h-4 text-purple-600" />
+            </div>
+            <span className="text-xs font-medium text-gray-700">Trigger</span>
+            <span className="text-xs text-gray-500 text-center">Start automation</span>
+          </div>
+
+          {/* Email Component - Always Available */}
+          <div className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mb-2">
+              <Mail className="w-4 h-4 text-blue-600" />
+            </div>
+            <span className="text-xs font-medium text-gray-700">Email</span>
+            <span className="text-xs text-gray-500 text-center">Send email</span>
+          </div>
+
+          {/* SMS Component - Always Available */}
+          <div className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
+            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mb-2">
+              <MessageSquare className="w-4 h-4 text-green-600" />
+            </div>
+            <span className="text-xs font-medium text-gray-700">SMS</span>
+            <span className="text-xs text-gray-500 text-center">Send text</span>
+          </div>
+
+          {/* Wait Component - Always Available */}
+          <div className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
+            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mb-2">
+              <Clock className="w-4 h-4 text-orange-600" />
+            </div>
+            <span className="text-xs font-medium text-gray-700">Wait</span>
+            <span className="text-xs text-gray-500 text-center">Add delay</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Flow Canvas */}
+      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 min-h-[200px] bg-gray-50">
+        <div className="text-center text-gray-500 mb-4">
+          <GripVertical className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+          <p className="text-sm">Drag components here to build your flow</p>
+          <p className="text-xs">Start with a trigger, then add your communication steps</p>
+        </div>
+        
+        {/* Flow Preview */}
+        {flowSteps.length > 0 && (
+          <div className="flex items-center justify-center space-x-2 flex-wrap">
+            {flowSteps.map((step, index) => (
+              <React.Fragment key={step.id}>
+                {index > 0 && <ArrowRight className="w-4 h-4 text-gray-400" />}
+                <div className="flex items-center space-x-1 bg-white px-3 py-2 rounded-lg border shadow-sm">
+                  {step.type === 'trigger' && <Zap className="w-4 h-4 text-purple-600" />}
+                  {step.type === 'send_email' && <Mail className="w-4 h-4 text-blue-600" />}
+                  {step.type === 'send_sms' && <MessageSquare className="w-4 h-4 text-green-600" />}
+                  {step.type === 'wait' && <Clock className="w-4 h-4 text-orange-600" />}
+                  <span className="text-sm font-medium">
+                    {step.type === 'trigger' ? 'Trigger' :
+                     step.type === 'send_email' ? 'Email' :
+                     step.type === 'send_sms' ? 'SMS' :
+                     step.type === 'wait' ? `Wait ${step.config?.delay || 0}h` :
+                     step.type}
+                  </span>
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="flex justify-center space-x-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            // Add a simple email flow
+            const newSteps = [
+              { id: Date.now(), type: 'trigger', config: {} },
+              { id: Date.now() + 1, type: 'send_email', config: { template: 'Thank you email' } }
+            ];
+            setFlowSteps(newSteps);
+          }}
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Quick Email Flow
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            // Add a simple SMS flow
+            const newSteps = [
+              { id: Date.now(), type: 'trigger', config: {} },
+              { id: Date.now() + 1, type: 'send_sms', config: { template: 'Thank you SMS' } }
+            ];
+            setFlowSteps(newSteps);
+          }}
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Quick SMS Flow
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            // Add a mixed flow
+            const newSteps = [
+              { id: Date.now(), type: 'trigger', config: {} },
+              { id: Date.now() + 1, type: 'send_email', config: { template: 'Initial email' } },
+              { id: Date.now() + 2, type: 'wait', config: { delay: 5, delayUnit: 'hours' } },
+              { id: Date.now() + 3, type: 'send_sms', config: { template: 'Follow-up SMS' } }
+            ];
+            setFlowSteps(newSteps);
+          }}
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Email + SMS Flow
+        </Button>
+      </div>
+
+      {flowSteps.length === 0 && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            💡 <strong>Tip:</strong> Start by clicking one of the quick flow buttons above, or drag components from the top to build your custom automation.
+          </p>
+        </div>
+      )}
+
+      {errors.flow && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-800">
+            ⚠️ {errors.flow}
+          </p>
+        </div>
+      )}
+    </div>
+  );
 
   const renderStep1 = () => (
     <div className="space-y-6">
@@ -1113,13 +1296,13 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                           <Switch
                             checked={aiTimingEnabled}
                             onCheckedChange={(enabled) => {
-                              setAiTimingEnabled(enabled);
-                              if (!enabled) {
-                                // Reset to manual timing if AI is disabled
-                                updateStepConfig(step.id, 'delay', 1);
-                                updateStepConfig(step.id, 'delayUnit', 'hours');
-                              }
-                            }}
+                            setAiTimingEnabled(enabled);
+                            if (!enabled) {
+                              // Reset to manual timing if AI is disabled
+                              updateStepConfig(step.id, 'delay', 1);
+                              updateStepConfig(step.id, 'delayUnit', 'hours');
+                            }
+                          }}
                             className="data-[state=checked]:bg-purple-600"
                           />
                           <button
@@ -1372,10 +1555,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   );
 
   const steps = [
-    { number: 1, title: 'Basic Info', description: 'Name and trigger' },
+    { number: 1, title: 'Flow Builder', description: 'Drag & drop to build flow' },
     { number: 2, title: 'Channels', description: 'Select communication methods' },
-    { number: 3, title: 'Steps', description: 'Build your sequence' },
-    { number: 4, title: 'Flow Builder', description: 'Visual flow design' },
+    { number: 3, title: 'Customize', description: 'Configure steps & timing' },
+    { number: 4, title: 'Basic Info', description: 'Name and trigger' },
     { number: 5, title: 'Settings', description: 'Configure behavior' },
     { number: 6, title: 'Review', description: 'Activate sequence' }
   ];
@@ -1413,10 +1596,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
         {/* Step Content */}
         <div className="min-h-[400px]">
-          {currentStep === 1 && renderStep1()}
+          {currentStep === 1 && renderFlowBuilder()}
           {currentStep === 2 && renderStep2()}
           {currentStep === 3 && renderStep3()}
-          {currentStep === 4 && renderStep4()}
+          {currentStep === 4 && renderStep1()}
           {currentStep === 5 && renderStep5()}
           {currentStep === 6 && renderStep6()}
         </div>
