@@ -252,6 +252,12 @@ const AutomationsPage = () => {
 
   const loadKPIs = async () => {
     try {
+      // Don't load KPIs if no business ID
+      if (!business?.id) {
+        console.log('No business ID available for KPIs');
+        return;
+      }
+
       const response = await fetch(`/api/automation/kpis/${business.id}`, {
         headers: {
           'Authorization': `Bearer ${user?.access_token}`
@@ -604,7 +610,17 @@ const AutomationsPage = () => {
               <h2 className="text-xl font-semibold text-gray-900">Automations</h2>
               <p className="text-sm text-gray-600">Create and manage your automation sequences - from simple to complex</p>
             </div>
-            </div>
+            <Button
+              onClick={() => {
+                console.log('🎯 Create Automation button clicked!');
+                setAutomationWizardOpen(true);
+              }}
+              className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create Automation
+            </Button>
+          </div>
 
           </div>
 
@@ -668,7 +684,7 @@ const AutomationsPage = () => {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Active Sequences</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.activeSequences}</p>
+                  <p className="text-2xl font-bold text-gray-900">{kpis.activeSequences || 0}</p>
                 </div>
               </div>
             </div>
@@ -680,7 +696,7 @@ const AutomationsPage = () => {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Total Recipients</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.totalRecipients.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-gray-900">{(kpis.totalRecipients || 0).toLocaleString()}</p>
                 </div>
               </div>
             </div>
@@ -692,7 +708,7 @@ const AutomationsPage = () => {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Success Rate</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.sendSuccessRate}%</p>
+                  <p className="text-2xl font-bold text-gray-900">{kpis.sendSuccessRate || 0}%</p>
                 </div>
               </div>
             </div>
@@ -704,7 +720,7 @@ const AutomationsPage = () => {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">ROI</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.roi}%</p>
+                  <p className="text-2xl font-bold text-gray-900">{kpis.roi || 0}%</p>
                 </div>
               </div>
             </div>
@@ -716,7 +732,7 @@ const AutomationsPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-green-700">Revenue Generated</p>
-                  <p className="text-3xl font-bold text-green-800">${kpis.totalRevenue.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-green-800">${(kpis.totalRevenue || 0).toLocaleString()}</p>
                   <p className="text-xs text-green-600 mt-1">From automation sequences</p>
                 </div>
                 <div className="p-3 bg-green-200 rounded-full">
@@ -729,7 +745,7 @@ const AutomationsPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-blue-700">Avg Order Value</p>
-                  <p className="text-3xl font-bold text-blue-800">${kpis.avgOrderValue}</p>
+                  <p className="text-3xl font-bold text-blue-800">${kpis.avgOrderValue || 0}</p>
                   <p className="text-xs text-blue-600 mt-1">Per converted customer</p>
                 </div>
                 <div className="p-3 bg-blue-200 rounded-full">
@@ -742,7 +758,7 @@ const AutomationsPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-purple-700">Conversion Rate</p>
-                  <p className="text-3xl font-bold text-purple-800">{kpis.conversionRate}%</p>
+                  <p className="text-3xl font-bold text-purple-800">{kpis.conversionRate || 0}%</p>
                   <p className="text-xs text-purple-600 mt-1">Email to purchase</p>
                 </div>
                 <div className="p-3 bg-purple-200 rounded-full">
