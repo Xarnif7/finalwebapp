@@ -67,6 +67,21 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
   const [errors, setErrors] = useState({});
   const [flowSteps, setFlowSteps] = useState([]);
+
+  // Always ensure we have a trigger as the first step when on Step 3
+  useEffect(() => {
+    if (currentStep === 3) {
+      const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
+      if (safeFlowSteps.length === 0 || safeFlowSteps[0].type !== 'trigger') {
+        const triggerStep = {
+          id: Date.now(),
+          type: 'trigger',
+          config: {}
+        };
+        setFlowSteps([triggerStep, ...safeFlowSteps.filter(step => step.type !== 'trigger')]);
+      }
+    }
+  }, [currentStep, flowSteps]);
   const [selectedChannels, setSelectedChannels] = useState(['email']);
   const [aiTimingEnabled, setAiTimingEnabled] = useState(false);
   const [aiTimingData, setAiTimingData] = useState({});
@@ -491,9 +506,13 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         quiet_hours_end: formData.settings.quietHoursEnd,
         status: 'active',
         steps: formData.steps.map((step, index) => ({
-          step_order: index + 1,
-          step_type: step.type,
-          step_config: step.config
+          kind: step.type === 'send_email' ? 'send_email' : 
+                step.type === 'send_sms' ? 'send_sms' : 
+                step.type === 'wait' ? 'wait' : 'branch',
+          step_index: index + 1,
+          wait_ms: step.type === 'wait' ? (step.config.delay || 1) * (step.config.delayUnit === 'hours' ? 3600000 : 60000) : null,
+          template_id: (step.type === 'send_email' || step.type === 'send_sms') ? step.config.template_id : null,
+          config: step.config
         }))
       };
 
@@ -613,23 +632,6 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     
     // Ensure errors is always an object
     const safeErrors = errors && typeof errors === 'object' ? errors : {};
-    
-    // Always ensure we have a trigger as the first step
-    const ensureTriggerFirst = () => {
-      if (safeFlowSteps.length === 0 || safeFlowSteps[0].type !== 'trigger') {
-        const triggerStep = {
-          id: Date.now(),
-          type: 'trigger',
-          config: {}
-        };
-        setFlowSteps([triggerStep, ...safeFlowSteps.filter(step => step.type !== 'trigger')]);
-      }
-    };
-    
-    // Auto-add trigger if needed
-    React.useEffect(() => {
-      ensureTriggerFirst();
-    }, []);
     
     return (
     <div className="space-y-6">
@@ -1264,20 +1266,14 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         )}
       </div>
 
-      {/* Trigger Selection Dropdown */}
+      {/* Trigger Selection moved to bottom */}
       {selectedCrm && selectedCrm !== 'manual' && (
-        <div className="mt-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+        <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
           <div className="flex items-center justify-between mb-3">
             <Label className="text-base font-medium">Select Trigger Events *</Label>
             <button
               onClick={() => {
                 setShowTriggerDropdown(!showTriggerDropdown);
-                // Scroll to bottom when opening dropdown to ensure visibility
-                if (!showTriggerDropdown) {
-                  setTimeout(() => {
-                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                  }, 100);
-                }
               }}
               className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
             >
@@ -1288,7 +1284,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           
           {!showTriggerDropdown && (
             <div className="text-sm text-gray-600 mb-2 p-2 bg-white rounded border">
-              💡 Click the blue "Choose Events" button above to see available triggers for {CRM_OPTIONS[selectedCrm]?.name}
+              💡 Click "Choose Events" to see available triggers for {CRM_OPTIONS[selectedCrm]?.name}
             </div>
           )}
           
