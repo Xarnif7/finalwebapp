@@ -681,8 +681,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
       {/* Trigger Selection Dropdown */}
       {selectedCrm && selectedCrm !== 'manual' && (
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-2">
+        <div className="mt-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+          <div className="flex items-center justify-between mb-3">
             <Label className="text-base font-medium">Select Trigger Events *</Label>
             <button
               onClick={() => {
@@ -694,7 +694,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                   }, 100);
                 }
               }}
-              className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-800 font-medium"
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
             >
               <span>Choose Events</span>
               {showTriggerDropdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -702,28 +702,32 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           </div>
           
           {!showTriggerDropdown && (
-            <div className="text-sm text-gray-500 mb-2">
-              Click "Choose Events" to see available triggers for {CRM_OPTIONS[selectedCrm]?.name}
+            <div className="text-sm text-gray-600 mb-2 p-2 bg-white rounded border">
+              💡 Click the blue "Choose Events" button above to see available triggers for {CRM_OPTIONS[selectedCrm]?.name}
             </div>
           )}
           
           {showTriggerDropdown && (
-            <div className="border rounded-lg p-4 bg-gray-50 mb-4">
+            <div className="mt-4 border-2 border-blue-200 rounded-lg p-4 bg-white shadow-sm">
+              <div className="mb-3">
+                <h4 className="font-medium text-gray-900">Available Triggers for {CRM_OPTIONS[selectedCrm]?.name}</h4>
+                <p className="text-sm text-gray-600">Select one or more events that will trigger this automation</p>
+              </div>
               <div className="space-y-3">
                 {Object.entries(getAvailableTriggers()).map(([triggerId, trigger]) => (
-                  <div key={triggerId} className="flex items-start space-x-3">
+                  <div key={triggerId} className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
                     <input
                       type="checkbox"
                       id={triggerId}
                       checked={selectedTriggers[triggerId] || false}
                       onChange={(e) => handleTriggerChange(triggerId, e.target.checked)}
-                      className="mt-1 rounded border-gray-300"
+                      className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <div className="flex-1">
                       <label htmlFor={triggerId} className="flex items-center space-x-2 cursor-pointer">
                         <span className="text-lg">{trigger.icon}</span>
                         <div>
-                          <div className="font-medium text-sm">{trigger.name}</div>
+                          <div className="font-medium text-sm text-gray-900">{trigger.name}</div>
                           <div className="text-xs text-gray-600">{trigger.description}</div>
                         </div>
                       </label>
