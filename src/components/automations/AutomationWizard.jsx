@@ -31,7 +31,9 @@ import {
   ChevronDown,
   ChevronUp,
   Building,
-  Check
+  Check,
+  Brain,
+  Info
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useSequencesData } from '@/hooks/useSequencesData';
@@ -534,25 +536,25 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                 {selectedQuickTemplate.name} Selected
               </span>
             </div>
-            <div className="flex items-center space-x-1 text-xs">
+                <div className="flex items-center space-x-1 text-xs">
               {selectedQuickTemplate.steps.slice(0, 4).map((step, index) => (
-                <React.Fragment key={index}>
-                  {index > 0 && <ArrowRight className="w-3 h-3 text-gray-400" />}
-                  <div className={`px-2 py-1 rounded text-white text-xs ${
-                    step.type === 'send_email' ? 'bg-blue-500' :
-                    step.type === 'send_sms' ? 'bg-green-500' :
-                    'bg-gray-500'
-                  }`}>
-                    {step.type === 'send_email' ? 'Email' :
-                     step.type === 'send_sms' ? 'SMS' :
-                     step.type === 'wait' ? `${step.config.delay}${step.config.delayUnit.charAt(0)}` :
-                     step.type}
-                  </div>
-                </React.Fragment>
-              ))}
+                    <React.Fragment key={index}>
+                      {index > 0 && <ArrowRight className="w-3 h-3 text-gray-400" />}
+                      <div className={`px-2 py-1 rounded text-white text-xs ${
+                        step.type === 'send_email' ? 'bg-blue-500' :
+                        step.type === 'send_sms' ? 'bg-green-500' :
+                        'bg-gray-500'
+                      }`}>
+                        {step.type === 'send_email' ? 'Email' :
+                         step.type === 'send_sms' ? 'SMS' :
+                         step.type === 'wait' ? `${step.config.delay}${step.config.delayUnit.charAt(0)}` :
+                         step.type}
+                      </div>
+                    </React.Fragment>
+                  ))}
               {selectedQuickTemplate.steps.length > 4 && <span className="text-gray-400">...</span>}
-            </div>
-          </div>
+                </div>
+        </div>
         )}
       </div>
 
@@ -594,7 +596,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {Object.entries(CRM_OPTIONS).map(([key, crm]) => (
-            <button
+              <button
               key={key}
               onClick={() => !crm.available ? null : handleCrmChange(key)}
               disabled={!crm.available}
@@ -634,9 +636,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                     )}
                   </div>
                   <p className="text-sm text-gray-600 mt-1">{crm.description}</p>
+                  </div>
                 </div>
-              </div>
-            </button>
+              </button>
           ))}
         </div>
 
@@ -772,8 +774,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         <Card 
           className={`cursor-pointer transition-all ${
             selectedChannels.includes('email') 
-              ? 'border-2 border-blue-500 bg-blue-50 ring-2 ring-blue-200' 
-              : 'border-2 border-gray-200 hover:border-gray-300'
+              ? 'border-2 border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-md' 
+              : 'border-2 border-gray-400 hover:border-gray-500 hover:shadow-sm'
           }`}
           onClick={() => {
             const newChannels = selectedChannels.includes('email')
@@ -796,8 +798,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         <Card 
           className={`cursor-pointer transition-all ${
             selectedChannels.includes('sms') 
-              ? 'border-2 border-green-500 bg-green-50 ring-2 ring-green-200' 
-              : 'border-2 border-gray-200 hover:border-gray-300'
+              ? 'border-2 border-green-500 bg-green-50 ring-2 ring-green-200 shadow-md' 
+              : 'border-2 border-gray-400 hover:border-gray-500 hover:shadow-sm'
           }`}
           onClick={() => {
             const newChannels = selectedChannels.includes('sms')
@@ -994,30 +996,39 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                         Common: 1 hour, 5 hours, 24 hours, 3 days
                       </p>
                       
-                      {/* AI Timing Optimization */}
-                      <div className="mt-4">
-                        <AITimingOptimizer
-                          isEnabled={aiTimingEnabled}
-                          onToggle={(enabled) => {
-                            setAiTimingEnabled(enabled);
-                            if (!enabled) {
-                              // Reset to manual timing if AI is disabled
-                              updateStepConfig(step.id, 'delay', 1);
-                              updateStepConfig(step.id, 'delayUnit', 'hours');
-                            }
-                          }}
-                          channel={selectedChannels.includes('sms') ? 'sms' : 'email'}
-                          onTimingChange={(timing) => {
-                            if (timing.isAIOptimized) {
-                              updateStepConfig(step.id, 'delay', timing.delay);
-                              updateStepConfig(step.id, 'delayUnit', timing.unit);
-                              setAiTimingData(prev => ({
-                                ...prev,
-                                [step.id]: timing
-                              }));
-                            }
-                          }}
-                        />
+                      {/* AI Timing Optimization - Compact Inline */}
+                      <div className="mt-3 flex items-center justify-between p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <Brain className="w-4 h-4 text-purple-600" />
+                          <span className="text-sm font-medium text-purple-800">AI Timing Optimization</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            checked={aiTimingEnabled}
+                            onCheckedChange={(enabled) => {
+                              setAiTimingEnabled(enabled);
+                              if (!enabled) {
+                                // Reset to manual timing if AI is disabled
+                                updateStepConfig(step.id, 'delay', 1);
+                                updateStepConfig(step.id, 'delayUnit', 'hours');
+                              }
+                            }}
+                            className="data-[state=checked]:bg-purple-600"
+                          />
+                          <button
+                            onClick={() => {
+                              // Show detailed AI info in a modal or expand
+                              toast({
+                                title: "AI Timing Optimization",
+                                description: "AI analyzes customer behavior patterns to determine optimal send times for maximum engagement. Considers timezone, activity patterns, and historical response rates.",
+                                variant: "default"
+                              });
+                            }}
+                            className="text-purple-600 hover:text-purple-800"
+                          >
+                            <Info className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -1303,9 +1314,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           {currentStep === 6 && renderStep6()}
         </div>
 
-        {/* Footer - Fixed positioning */}
-        <DialogFooter className="flex justify-between items-center border-t pt-4 mt-6 sticky bottom-0 bg-white">
-          <div className="flex-1">
+        {/* Footer - Fixed positioning with proper spacing */}
+        <div className="mt-8 pt-4 border-t bg-white">
+          <DialogFooter className="flex justify-between items-center">
+            <div className="flex-1">
             {currentStep > 1 && (
               <Button variant="outline" onClick={handlePrevious}>
                 Previous
@@ -1341,6 +1353,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             )}
           </div>
         </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
