@@ -622,13 +622,20 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {/* Trigger Component - Always Available */}
           <div 
-            className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors cursor-grab active:cursor-grabbing"
+            className="flex flex-col items-center p-4 bg-white border-2 border-purple-200 rounded-xl shadow-md hover:shadow-lg hover:border-purple-300 transition-all cursor-grab active:cursor-grabbing"
             draggable
             onDragStart={(e) => {
               e.dataTransfer.setData('application/json', JSON.stringify({
                 type: 'trigger',
                 config: {}
               }));
+              // Create a custom drag image
+              const dragImage = e.target.cloneNode(true);
+              dragImage.style.transform = 'rotate(5deg)';
+              dragImage.style.opacity = '0.8';
+              document.body.appendChild(dragImage);
+              e.dataTransfer.setDragImage(dragImage, 50, 50);
+              setTimeout(() => document.body.removeChild(dragImage), 0);
             }}
             onClick={() => {
               const newStep = {
@@ -639,23 +646,30 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
               setFlowSteps(prev => [...prev, newStep]);
             }}
           >
-            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mb-2">
-              <Zap className="w-4 h-4 text-purple-600" />
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3 shadow-sm">
+              <Zap className="w-6 h-6 text-purple-600" />
             </div>
-            <span className="text-xs font-medium text-gray-700">Trigger</span>
-            <span className="text-xs text-gray-500 text-center">Start automation</span>
+            <span className="text-sm font-semibold text-gray-800">Trigger</span>
+            <span className="text-xs text-gray-500 text-center mt-1">Start automation</span>
           </div>
 
           {/* Email Component - Only if email channel selected */}
           {safeSelectedChannels.includes('email') && (
             <div 
-              className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors cursor-grab active:cursor-grabbing"
+              className="flex flex-col items-center p-4 bg-white border-2 border-blue-200 rounded-xl shadow-md hover:shadow-lg hover:border-blue-300 transition-all cursor-grab active:cursor-grabbing"
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.setData('application/json', JSON.stringify({
                   type: 'send_email',
                   config: { template: 'Thank you email' }
                 }));
+                // Create a custom drag image
+                const dragImage = e.target.cloneNode(true);
+                dragImage.style.transform = 'rotate(5deg)';
+                dragImage.style.opacity = '0.8';
+                document.body.appendChild(dragImage);
+                e.dataTransfer.setDragImage(dragImage, 50, 50);
+                setTimeout(() => document.body.removeChild(dragImage), 0);
               }}
               onClick={() => {
                 const newStep = {
@@ -666,24 +680,31 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                 setFlowSteps(prev => [...prev, newStep]);
               }}
             >
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mb-2">
-                <Mail className="w-4 h-4 text-blue-600" />
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3 shadow-sm">
+                <Mail className="w-6 h-6 text-blue-600" />
               </div>
-              <span className="text-xs font-medium text-gray-700">Email</span>
-              <span className="text-xs text-gray-500 text-center">Send email</span>
+              <span className="text-sm font-semibold text-gray-800">Email</span>
+              <span className="text-xs text-gray-500 text-center mt-1">Send email</span>
             </div>
           )}
 
           {/* SMS Component - Only if SMS channel selected */}
           {safeSelectedChannels.includes('sms') && (
             <div 
-              className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors cursor-grab active:cursor-grabbing"
+              className="flex flex-col items-center p-4 bg-white border-2 border-green-200 rounded-xl shadow-md hover:shadow-lg hover:border-green-300 transition-all cursor-grab active:cursor-grabbing"
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.setData('application/json', JSON.stringify({
                   type: 'send_sms',
                   config: { template: 'Thank you SMS' }
                 }));
+                // Create a custom drag image
+                const dragImage = e.target.cloneNode(true);
+                dragImage.style.transform = 'rotate(5deg)';
+                dragImage.style.opacity = '0.8';
+                document.body.appendChild(dragImage);
+                e.dataTransfer.setDragImage(dragImage, 50, 50);
+                setTimeout(() => document.body.removeChild(dragImage), 0);
               }}
               onClick={() => {
                 const newStep = {
@@ -694,23 +715,30 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                 setFlowSteps(prev => [...prev, newStep]);
               }}
             >
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mb-2">
-                <MessageSquare className="w-4 h-4 text-green-600" />
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3 shadow-sm">
+                <MessageSquare className="w-6 h-6 text-green-600" />
               </div>
-              <span className="text-xs font-medium text-gray-700">SMS</span>
-              <span className="text-xs text-gray-500 text-center">Send text</span>
+              <span className="text-sm font-semibold text-gray-800">SMS</span>
+              <span className="text-xs text-gray-500 text-center mt-1">Send text</span>
             </div>
           )}
 
           {/* Wait Component - Always Available */}
           <div 
-            className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors cursor-grab active:cursor-grabbing"
+            className="flex flex-col items-center p-4 bg-white border-2 border-orange-200 rounded-xl shadow-md hover:shadow-lg hover:border-orange-300 transition-all cursor-grab active:cursor-grabbing"
             draggable
             onDragStart={(e) => {
               e.dataTransfer.setData('application/json', JSON.stringify({
                 type: 'wait',
                 config: { delay: 1, delayUnit: 'hours' }
               }));
+              // Create a custom drag image
+              const dragImage = e.target.cloneNode(true);
+              dragImage.style.transform = 'rotate(5deg)';
+              dragImage.style.opacity = '0.8';
+              document.body.appendChild(dragImage);
+              e.dataTransfer.setDragImage(dragImage, 50, 50);
+              setTimeout(() => document.body.removeChild(dragImage), 0);
             }}
             onClick={() => {
               const newStep = {
@@ -721,11 +749,11 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
               setFlowSteps(prev => [...prev, newStep]);
             }}
           >
-            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mb-2">
-              <Clock className="w-4 h-4 text-orange-600" />
+            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-3 shadow-sm">
+              <Clock className="w-6 h-6 text-orange-600" />
             </div>
-            <span className="text-xs font-medium text-gray-700">Wait</span>
-            <span className="text-xs text-gray-500 text-center">Add delay</span>
+            <span className="text-sm font-semibold text-gray-800">Wait</span>
+            <span className="text-xs text-gray-500 text-center mt-1">Add delay</span>
           </div>
         </div>
       </div>
@@ -775,7 +803,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                     <ArrowRight className="w-5 h-5 text-gray-400" />
                   </div>
                 )}
-                <div className={`flex items-center space-x-2 px-4 py-3 rounded-lg border-2 shadow-sm transition-all hover:shadow-md ${
+                <div className={`flex items-center space-x-2 px-4 py-3 rounded-lg border-2 shadow-sm transition-all hover:shadow-md group ${
                   step.type === 'trigger' ? 'bg-purple-50 border-purple-200' :
                   step.type === 'send_email' ? 'bg-blue-50 border-blue-200' :
                   step.type === 'send_sms' ? 'bg-green-50 border-green-200' :
@@ -789,9 +817,18 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                     {step.type === 'trigger' ? 'Trigger' :
                      step.type === 'send_email' ? 'Email' :
                      step.type === 'send_sms' ? 'SMS' :
-                     step.type === 'wait' ? `Wait ${step.config?.delay || 0}h` :
+                     step.type === 'wait' ? 'Wait' :
                      step.type}
                   </span>
+                  <button
+                    onClick={() => {
+                      setFlowSteps(prev => prev.filter(s => s.id !== step.id));
+                    }}
+                    className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded-full"
+                    title="Delete step"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </button>
                 </div>
               </React.Fragment>
             ))}
@@ -1780,8 +1817,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </div>
 
         {/* Footer - Fixed positioning with proper spacing */}
-        <div className="mt-8 pt-4 border-t bg-white sticky bottom-0 z-10">
-          <DialogFooter className="flex justify-between items-center">
+        <div className="mt-8 pt-4 border-t bg-white">
+          <DialogFooter className="flex justify-between items-center sticky bottom-0 z-10 bg-white pt-4">
             <div className="flex-1">
             {currentStep > 1 && (
               <Button variant="outline" onClick={handlePrevious}>
