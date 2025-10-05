@@ -397,11 +397,11 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   const validateForm = () => {
     const newErrors = {};
 
-    // Step 4: Basic Info validation
-    if (currentStep >= 4) {
-    if (!formData.name.trim()) {
-      newErrors.name = 'Sequence name is required';
-    }
+    // Step 1: Basic Info validation
+    if (currentStep >= 1) {
+      if (!formData.name.trim()) {
+        newErrors.name = 'Sequence name is required';
+      }
 
       if (selectedCrm && selectedCrm !== 'manual' && Object.keys(selectedTriggers).length === 0) {
         newErrors.triggers = 'Please select at least one trigger event';
@@ -410,27 +410,27 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
     // Step 2: Channels validation
     if (currentStep >= 2) {
-    if (selectedChannels.length === 0) {
-      newErrors.channels = 'Please select at least one communication channel';
+      if (selectedChannels.length === 0) {
+        newErrors.channels = 'Please select at least one communication channel';
       }
     }
 
-    // Step 1: Flow validation
-    if (currentStep >= 1) {
-    if (flowSteps.length === 0) {
-      newErrors.flow = 'Please create at least one step in your flow';
-      }
-    }
-
-    // Step 3: Steps validation
+    // Step 3: Flow validation
     if (currentStep >= 3) {
-    if (formData.steps.length === 0) {
-      newErrors.steps = 'At least one step is required';
+      if (flowSteps.length === 0) {
+        newErrors.flow = 'Please create at least one step in your flow';
+      }
     }
 
-    const invalidSteps = formData.steps.filter(step => !validateStep(step));
-    if (invalidSteps.length > 0) {
-      newErrors.steps = 'All steps must be properly configured';
+    // Step 4: Steps validation
+    if (currentStep >= 4) {
+      if (formData.steps.length === 0) {
+        newErrors.steps = 'At least one step is required';
+      }
+
+      const invalidSteps = formData.steps.filter(step => !validateStep(step));
+      if (invalidSteps.length > 0) {
+        newErrors.steps = 'All steps must be properly configured';
       }
     }
 
@@ -444,8 +444,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       return;
     }
     
-    // Sync flowSteps to formData.steps when moving from Step 1 to Step 3
-    if (currentStep === 1 && flowSteps.length > 0) {
+    // Sync flowSteps to formData.steps when moving from Step 3 to Step 4
+    if (currentStep === 3 && flowSteps.length > 0) {
       const convertedSteps = flowSteps.map((step, index) => ({
         id: step.id,
         type: step.type,
@@ -625,23 +625,27 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             <span className="text-xs text-gray-500 text-center">Start automation</span>
           </div>
 
-          {/* Email Component - Always Available */}
-          <div className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
-            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mb-2">
-              <Mail className="w-4 h-4 text-blue-600" />
+          {/* Email Component - Only if email channel selected */}
+          {selectedChannels.includes('email') && (
+            <div className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mb-2">
+                <Mail className="w-4 h-4 text-blue-600" />
+              </div>
+              <span className="text-xs font-medium text-gray-700">Email</span>
+              <span className="text-xs text-gray-500 text-center">Send email</span>
             </div>
-            <span className="text-xs font-medium text-gray-700">Email</span>
-            <span className="text-xs text-gray-500 text-center">Send email</span>
-          </div>
+          )}
 
-          {/* SMS Component - Always Available */}
-          <div className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
-            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mb-2">
-              <MessageSquare className="w-4 h-4 text-green-600" />
+          {/* SMS Component - Only if SMS channel selected */}
+          {selectedChannels.includes('sms') && (
+            <div className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mb-2">
+                <MessageSquare className="w-4 h-4 text-green-600" />
+              </div>
+              <span className="text-xs font-medium text-gray-700">SMS</span>
+              <span className="text-xs text-gray-500 text-center">Send text</span>
             </div>
-            <span className="text-xs font-medium text-gray-700">SMS</span>
-            <span className="text-xs text-gray-500 text-center">Send text</span>
-          </div>
+          )}
 
           {/* Wait Component - Always Available */}
           <div className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
@@ -699,60 +703,76 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       </div>
 
       {/* Quick Actions */}
-      <div className="flex justify-center space-x-3">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            // Add a simple email flow
-            const newSteps = [
-              { id: Date.now(), type: 'trigger', config: {} },
-              { id: Date.now() + 1, type: 'send_email', config: { template: 'Thank you email' } }
-            ];
-            setFlowSteps(newSteps);
-          }}
-          className="flex items-center space-x-2 hover:bg-blue-50 hover:border-blue-300"
-        >
-          <Mail className="w-4 h-4 text-blue-600" />
-          <span>Quick Email Flow</span>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            // Add a simple SMS flow
-            const newSteps = [
-              { id: Date.now(), type: 'trigger', config: {} },
-              { id: Date.now() + 1, type: 'send_sms', config: { template: 'Thank you SMS' } }
-            ];
-            setFlowSteps(newSteps);
-          }}
-          className="flex items-center space-x-2 hover:bg-green-50 hover:border-green-300"
-        >
-          <MessageSquare className="w-4 h-4 text-green-600" />
-          <span>Quick SMS Flow</span>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            // Add a mixed flow
-            const newSteps = [
-              { id: Date.now(), type: 'trigger', config: {} },
-              { id: Date.now() + 1, type: 'send_email', config: { template: 'Initial email' } },
-              { id: Date.now() + 2, type: 'wait', config: { delay: 5, delayUnit: 'hours' } },
-              { id: Date.now() + 3, type: 'send_sms', config: { template: 'Follow-up SMS' } }
-            ];
-            setFlowSteps(newSteps);
-          }}
-          className="flex items-center space-x-2 hover:bg-purple-50 hover:border-purple-300"
-        >
-          <Zap className="w-4 h-4 text-purple-600" />
-          <span>Email + SMS Flow</span>
-        </Button>
+      <div className="flex justify-center space-x-3 flex-wrap">
+        {selectedChannels.includes('email') && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              // Add a simple email flow
+              const newSteps = [
+                { id: Date.now(), type: 'trigger', config: {} },
+                { id: Date.now() + 1, type: 'send_email', config: { template: 'Thank you email' } }
+              ];
+              setFlowSteps(newSteps);
+            }}
+            className="flex items-center space-x-2 hover:bg-blue-50 hover:border-blue-300"
+          >
+            <Mail className="w-4 h-4 text-blue-600" />
+            <span>Quick Email Flow</span>
+          </Button>
+        )}
+        
+        {selectedChannels.includes('sms') && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              // Add a simple SMS flow
+              const newSteps = [
+                { id: Date.now(), type: 'trigger', config: {} },
+                { id: Date.now() + 1, type: 'send_sms', config: { template: 'Thank you SMS' } }
+              ];
+              setFlowSteps(newSteps);
+            }}
+            className="flex items-center space-x-2 hover:bg-green-50 hover:border-green-300"
+          >
+            <MessageSquare className="w-4 h-4 text-green-600" />
+            <span>Quick SMS Flow</span>
+          </Button>
+        )}
+        
+        {selectedChannels.includes('email') && selectedChannels.includes('sms') && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              // Add a mixed flow
+              const newSteps = [
+                { id: Date.now(), type: 'trigger', config: {} },
+                { id: Date.now() + 1, type: 'send_email', config: { template: 'Initial email' } },
+                { id: Date.now() + 2, type: 'wait', config: { delay: 5, delayUnit: 'hours' } },
+                { id: Date.now() + 3, type: 'send_sms', config: { template: 'Follow-up SMS' } }
+              ];
+              setFlowSteps(newSteps);
+            }}
+            className="flex items-center space-x-2 hover:bg-purple-50 hover:border-purple-300"
+          >
+            <Zap className="w-4 h-4 text-purple-600" />
+            <span>Email + SMS Flow</span>
+          </Button>
+        )}
       </div>
 
-      {flowSteps.length === 0 && (
+      {selectedChannels.length === 0 && (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            ⚠️ <strong>No channels selected:</strong> Please go back to Step 2 and select at least one communication channel (Email or SMS) to build your automation flow.
+          </p>
+        </div>
+      )}
+
+      {selectedChannels.length > 0 && flowSteps.length === 0 && (
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
             💡 <strong>Tip:</strong> Start by clicking one of the quick flow buttons above, or drag components from the top to build your custom automation.
@@ -1612,10 +1632,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   );
 
   const steps = [
-    { number: 1, title: 'Flow Builder', description: 'Drag & drop to build flow' },
+    { number: 1, title: 'Basic Info', description: 'Name and trigger' },
     { number: 2, title: 'Channels', description: 'Select communication methods' },
-    { number: 3, title: 'Customize', description: 'Configure steps & timing' },
-    { number: 4, title: 'Basic Info', description: 'Name and trigger' },
+    { number: 3, title: 'Flow Builder', description: 'Drag & drop to build flow' },
+    { number: 4, title: 'Customize', description: 'Configure steps & timing' },
     { number: 5, title: 'Settings', description: 'Configure behavior' },
     { number: 6, title: 'Review', description: 'Activate sequence' }
   ];
@@ -1653,10 +1673,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
         {/* Step Content */}
         <div className="min-h-[400px]">
-          {currentStep === 1 && renderFlowBuilder()}
+          {currentStep === 1 && renderStep1()}
           {currentStep === 2 && renderStep2()}
-          {currentStep === 3 && renderStep3()}
-          {currentStep === 4 && renderStep1()}
+          {currentStep === 3 && renderFlowBuilder()}
+          {currentStep === 4 && renderStep3()}
           {currentStep === 5 && renderStep5()}
           {currentStep === 6 && renderStep6()}
         </div>
