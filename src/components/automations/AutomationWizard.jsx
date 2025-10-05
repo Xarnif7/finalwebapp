@@ -401,9 +401,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
     // Step 4: Basic Info validation
     if (currentStep >= 4) {
-      if (!formData.name.trim()) {
-        newErrors.name = 'Sequence name is required';
-      }
+    if (!formData.name.trim()) {
+      newErrors.name = 'Sequence name is required';
+    }
 
       if (selectedCrm && selectedCrm !== 'manual' && Object.keys(selectedTriggers).length === 0) {
         newErrors.triggers = 'Please select at least one trigger event';
@@ -412,27 +412,27 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
     // Step 2: Channels validation
     if (currentStep >= 2) {
-      if (selectedChannels.length === 0) {
-        newErrors.channels = 'Please select at least one communication channel';
+    if (selectedChannels.length === 0) {
+      newErrors.channels = 'Please select at least one communication channel';
       }
     }
 
     // Step 1: Flow validation
     if (currentStep >= 1) {
-      if (flowSteps.length === 0) {
-        newErrors.flow = 'Please create at least one step in your flow';
+    if (flowSteps.length === 0) {
+      newErrors.flow = 'Please create at least one step in your flow';
       }
     }
 
     // Step 3: Steps validation
     if (currentStep >= 3) {
-      if (formData.steps.length === 0) {
-        newErrors.steps = 'At least one step is required';
-      }
+    if (formData.steps.length === 0) {
+      newErrors.steps = 'At least one step is required';
+    }
 
-      const invalidSteps = formData.steps.filter(step => !validateStep(step));
-      if (invalidSteps.length > 0) {
-        newErrors.steps = 'All steps must be properly configured';
+    const invalidSteps = formData.steps.filter(step => !validateStep(step));
+    if (invalidSteps.length > 0) {
+      newErrors.steps = 'All steps must be properly configured';
       }
     }
 
@@ -1323,12 +1323,84 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                     </div>
                   ) : (
                     <div className="space-y-2">
+                      <div className="flex items-center justify-between">
                       <Label>Template/Message</Label>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => {
+                              // AI Generate message
+                              toast({
+                                title: "AI Message Generation",
+                                description: "AI will generate a personalized message based on your business and customer data.",
+                                variant: "default"
+                              });
+                            }}
+                            className="flex items-center space-x-1 px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors"
+                          >
+                            <Brain className="w-3 h-3" />
+                            <span>AI Generate</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              // AI Enhance message
+                              toast({
+                                title: "AI Message Enhancement",
+                                description: "AI will improve your message for better engagement and clarity.",
+                                variant: "default"
+                              });
+                            }}
+                            className="flex items-center space-x-1 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                          >
+                            <Zap className="w-3 h-3" />
+                            <span>AI Enhance</span>
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="relative">
                       <Input
                         value={step.config.template}
                         onChange={(e) => updateStepConfig(step.id, 'template', e.target.value)}
                         placeholder="Template name or message content"
-                      />
+                          className="pr-20"
+                        />
+                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                          <Select>
+                            <SelectTrigger className="w-16 h-8 text-xs border-none bg-transparent hover:bg-gray-100">
+                              <SelectValue placeholder="+" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="business_name">Business Name</SelectItem>
+                              <SelectItem value="customer_first_name">Customer First Name</SelectItem>
+                              <SelectItem value="customer_last_name">Customer Last Name</SelectItem>
+                              <SelectItem value="customer_email">Customer Email</SelectItem>
+                              <SelectItem value="customer_phone">Customer Phone</SelectItem>
+                              <SelectItem value="service_date">Service Date</SelectItem>
+                              <SelectItem value="invoice_amount">Invoice Amount</SelectItem>
+                              <SelectItem value="job_description">Job Description</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-1 text-xs">
+                        <span className="text-gray-500">Quick insert:</span>
+                        {['Business Name', 'First Name', 'Last Name', 'Service Date'].map((field) => (
+                          <button
+                            key={field}
+                            onClick={() => {
+                              const fieldKey = field.toLowerCase().replace(' ', '_');
+                              const currentTemplate = step.config.template || '';
+                              const newTemplate = currentTemplate + `{${fieldKey}}`;
+                              updateStepConfig(step.id, 'template', newTemplate);
+                            }}
+                            className="px-2 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
+                          >
+                            {field}
+                          </button>
+                        ))}
+                      </div>
+                      
                       {step.type === 'send_sms' && (
                         <p className="text-xs text-blue-600">
                           💡 SMS messages should be under 160 characters
