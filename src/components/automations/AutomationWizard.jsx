@@ -600,14 +600,24 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
               disabled={!crm.available}
               className={`relative p-4 rounded-lg border-2 transition-all ${
                 selectedCrm === key
-                  ? `border-${crm.color}-500 bg-${crm.color}-50`
+                  ? crm.color === 'blue' ? 'border-blue-500 bg-blue-50' :
+                    crm.color === 'green' ? 'border-green-500 bg-green-50' :
+                    crm.color === 'purple' ? 'border-purple-500 bg-purple-50' :
+                    crm.color === 'orange' ? 'border-orange-500 bg-orange-50' :
+                    'border-gray-500 bg-gray-50'
                   : crm.available
                   ? 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
               }`}
             >
               {selectedCrm === key && (
-                <div className={`absolute top-2 right-2 w-5 h-5 bg-${crm.color}-500 rounded-full flex items-center justify-center`}>
+                <div className={`absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center ${
+                  crm.color === 'blue' ? 'bg-blue-500' :
+                  crm.color === 'green' ? 'bg-green-500' :
+                  crm.color === 'purple' ? 'bg-purple-500' :
+                  crm.color === 'orange' ? 'bg-orange-500' :
+                  'bg-gray-500'
+                }`}>
                   <Check className="w-3 h-3 text-white" />
                 </div>
               )}
@@ -631,14 +641,38 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </div>
 
         {selectedCrm && CRM_OPTIONS[selectedCrm] && (
-          <div className={`mt-4 p-3 rounded-md bg-${CRM_OPTIONS[selectedCrm].color}-50 border border-${CRM_OPTIONS[selectedCrm].color}-200`}>
+          <div className={`mt-4 p-3 rounded-md border ${
+            CRM_OPTIONS[selectedCrm].color === 'blue' ? 'bg-blue-50 border-blue-200' :
+            CRM_OPTIONS[selectedCrm].color === 'green' ? 'bg-green-50 border-green-200' :
+            CRM_OPTIONS[selectedCrm].color === 'purple' ? 'bg-purple-50 border-purple-200' :
+            CRM_OPTIONS[selectedCrm].color === 'orange' ? 'bg-orange-50 border-orange-200' :
+            'bg-gray-50 border-gray-200'
+          }`}>
             <div className="flex items-center space-x-2">
-              <Building className={`w-4 h-4 text-${CRM_OPTIONS[selectedCrm].color}-600`} />
-              <span className={`text-sm font-medium text-${CRM_OPTIONS[selectedCrm].color}-800`}>
+              <Building className={`w-4 h-4 ${
+                CRM_OPTIONS[selectedCrm].color === 'blue' ? 'text-blue-600' :
+                CRM_OPTIONS[selectedCrm].color === 'green' ? 'text-green-600' :
+                CRM_OPTIONS[selectedCrm].color === 'purple' ? 'text-purple-600' :
+                CRM_OPTIONS[selectedCrm].color === 'orange' ? 'text-orange-600' :
+                'text-gray-600'
+              }`} />
+              <span className={`text-sm font-medium ${
+                CRM_OPTIONS[selectedCrm].color === 'blue' ? 'text-blue-800' :
+                CRM_OPTIONS[selectedCrm].color === 'green' ? 'text-green-800' :
+                CRM_OPTIONS[selectedCrm].color === 'purple' ? 'text-purple-800' :
+                CRM_OPTIONS[selectedCrm].color === 'orange' ? 'text-orange-800' :
+                'text-gray-800'
+              }`}>
                 {CRM_OPTIONS[selectedCrm].name} Selected
               </span>
             </div>
-            <p className={`text-xs text-${CRM_OPTIONS[selectedCrm].color}-700 mt-1`}>
+            <p className={`text-xs mt-1 ${
+              CRM_OPTIONS[selectedCrm].color === 'blue' ? 'text-blue-700' :
+              CRM_OPTIONS[selectedCrm].color === 'green' ? 'text-green-700' :
+              CRM_OPTIONS[selectedCrm].color === 'purple' ? 'text-purple-700' :
+              CRM_OPTIONS[selectedCrm].color === 'orange' ? 'text-orange-700' :
+              'text-gray-700'
+            }`}>
               Next: Choose specific events that will trigger this automation
             </p>
           </div>
@@ -647,9 +681,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
       {/* Trigger Selection Dropdown */}
       {selectedCrm && selectedCrm !== 'manual' && (
-        <div>
+        <div className="mt-6">
           <div className="flex items-center justify-between mb-2">
-            <Label>Select Trigger Events *</Label>
+            <Label className="text-base font-medium">Select Trigger Events *</Label>
             <button
               onClick={() => {
                 setShowTriggerDropdown(!showTriggerDropdown);
@@ -660,12 +694,18 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                   }, 100);
                 }
               }}
-              className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-800"
+              className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-800 font-medium"
             >
               <span>Choose Events</span>
               {showTriggerDropdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
           </div>
+          
+          {!showTriggerDropdown && (
+            <div className="text-sm text-gray-500 mb-2">
+              Click "Choose Events" to see available triggers for {CRM_OPTIONS[selectedCrm]?.name}
+            </div>
+          )}
           
           {showTriggerDropdown && (
             <div className="border rounded-lg p-4 bg-gray-50 mb-4">
