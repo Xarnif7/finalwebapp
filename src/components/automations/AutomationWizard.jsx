@@ -403,10 +403,18 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   };
 
   const validateStep = (step) => {
+    if (!step || !step.type) return false;
+    
     if (step.type === 'wait') {
-      return step.config.delay > 0;
+      return step.config && step.config.delay > 0;
     }
-    return step.config.template && step.config.template.trim() !== '';
+    if (step.type === 'send_email' || step.type === 'send_sms') {
+      return step.config && step.config.template && step.config.template.trim() !== '';
+    }
+    if (step.type === 'trigger') {
+      return true; // Trigger steps are always valid
+    }
+    return true; // Default to valid for other step types
   };
 
   const validateForm = () => {
@@ -440,11 +448,12 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
     // Step 4: Steps validation
     if (currentStep >= 4) {
-    if (formData.steps.length === 0) {
+      const safeSteps = Array.isArray(formData.steps) ? formData.steps : [];
+      if (safeSteps.length === 0) {
       newErrors.steps = 'At least one step is required';
     }
 
-    const invalidSteps = formData.steps.filter(step => !validateStep(step));
+      const invalidSteps = safeSteps.filter(step => !validateStep(step));
     if (invalidSteps.length > 0) {
       newErrors.steps = 'All steps must be properly configured';
       }
@@ -461,16 +470,19 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     }
     
     // Sync flowSteps to formData.steps when moving from Step 3 to Step 4
-    if (currentStep === 3 && flowSteps.length > 0) {
-      const convertedSteps = flowSteps.map((step, index) => ({
-        id: step.id,
-        type: step.type,
-        config: step.config || {}
-      }));
-      setFormData(prev => ({
-        ...prev,
-        steps: convertedSteps
-      }));
+    if (currentStep === 3) {
+      const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
+      if (safeFlowSteps.length > 0) {
+        const convertedSteps = safeFlowSteps.map((step, index) => ({
+          id: step.id || Date.now() + index,
+          type: step.type || 'wait',
+          config: step.config || {}
+        }));
+        setFormData(prev => ({
+          ...prev,
+          steps: convertedSteps
+        }));
+      }
     }
     
     if (currentStep < 6) {
@@ -863,7 +875,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                       e.currentTarget.classList.remove('border-blue-400', 'bg-blue-100', 'scale-110');
                       try {
                         const stepData = JSON.parse(e.dataTransfer.getData('application/json'));
-                        if (stepData.type !== 'reorder') {
+                        if (stepData.type !== 'reorder' && stepData.type !== 'trigger') {
                           const newStep = {
                             id: Date.now(),
                             type: stepData.type,
@@ -935,7 +947,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                   {step.type === 'send_email' && <Mail className="w-5 h-5 text-blue-600" />}
                   {step.type === 'send_sms' && <MessageSquare className="w-5 h-5 text-green-600" />}
                   {step.type === 'wait' && <Clock className="w-5 h-5 text-orange-600" />}
-                  <span className="text-sm font-medium text-gray-800">
+                  <span className="text-sm font-medium text-gray-800 text-center">
                     {step.type === 'trigger' ? 'Trigger' :
                      step.type === 'send_email' ? 'Email' :
                      step.type === 'send_sms' ? 'SMS' :
@@ -1958,7 +1970,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </div>
 
         {/* Footer - Fixed positioning with proper spacing */}
-        <div className="mt-8 pt-4 border-t bg-white sticky bottom-0 z-10 shadow-lg">
+        <div className={`mt-8 pt-4 border-t bg-white ${showTriggerDropdown ? 'relative' : 'sticky bottom-0'} z-10 shadow-lg`}>
           <DialogFooter className="flex justify-between items-center bg-white">
             <div className="flex-1">
             {currentStep > 1 && (
