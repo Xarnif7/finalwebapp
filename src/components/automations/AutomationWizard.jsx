@@ -399,9 +399,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
     // Step 1: Basic Info validation
     if (currentStep >= 1) {
-      if (!formData.name.trim()) {
-        newErrors.name = 'Sequence name is required';
-      }
+    if (!formData.name.trim()) {
+      newErrors.name = 'Sequence name is required';
+    }
 
       if (selectedCrm && selectedCrm !== 'manual' && Object.keys(selectedTriggers).length === 0) {
         newErrors.triggers = 'Please select at least one trigger event';
@@ -410,27 +410,27 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
     // Step 2: Channels validation
     if (currentStep >= 2) {
-      if (selectedChannels.length === 0) {
-        newErrors.channels = 'Please select at least one communication channel';
+    if (selectedChannels.length === 0) {
+      newErrors.channels = 'Please select at least one communication channel';
       }
     }
 
     // Step 3: Flow validation
     if (currentStep >= 3) {
-      if (flowSteps.length === 0) {
-        newErrors.flow = 'Please create at least one step in your flow';
+    if (flowSteps.length === 0) {
+      newErrors.flow = 'Please create at least one step in your flow';
       }
     }
 
     // Step 4: Steps validation
     if (currentStep >= 4) {
-      if (formData.steps.length === 0) {
-        newErrors.steps = 'At least one step is required';
-      }
+    if (formData.steps.length === 0) {
+      newErrors.steps = 'At least one step is required';
+    }
 
-      const invalidSteps = formData.steps.filter(step => !validateStep(step));
-      if (invalidSteps.length > 0) {
-        newErrors.steps = 'All steps must be properly configured';
+    const invalidSteps = formData.steps.filter(step => !validateStep(step));
+    if (invalidSteps.length > 0) {
+      newErrors.steps = 'All steps must be properly configured';
       }
     }
 
@@ -603,7 +603,11 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     });
   };
 
-  const renderFlowBuilder = () => (
+  const renderFlowBuilder = () => {
+    // Ensure selectedChannels is always an array
+    const safeSelectedChannels = Array.isArray(selectedChannels) ? selectedChannels : [];
+    
+    return (
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium mb-2">Build Your Automation Flow</h3>
@@ -617,7 +621,24 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         <h4 className="text-sm font-medium text-gray-700 mb-3">Available Components</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {/* Trigger Component - Always Available */}
-          <div className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
+          <div 
+            className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors cursor-grab active:cursor-grabbing"
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData('application/json', JSON.stringify({
+                type: 'trigger',
+                config: {}
+              }));
+            }}
+            onClick={() => {
+              const newStep = {
+                id: Date.now(),
+                type: 'trigger',
+                config: {}
+              };
+              setFlowSteps(prev => [...prev, newStep]);
+            }}
+          >
             <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mb-2">
               <Zap className="w-4 h-4 text-purple-600" />
             </div>
@@ -626,8 +647,25 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           </div>
 
           {/* Email Component - Only if email channel selected */}
-          {selectedChannels.includes('email') && (
-            <div className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
+          {safeSelectedChannels.includes('email') && (
+            <div 
+              className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors cursor-grab active:cursor-grabbing"
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/json', JSON.stringify({
+                  type: 'send_email',
+                  config: { template: 'Thank you email' }
+                }));
+              }}
+              onClick={() => {
+                const newStep = {
+                  id: Date.now(),
+                  type: 'send_email',
+                  config: { template: 'Thank you email' }
+                };
+                setFlowSteps(prev => [...prev, newStep]);
+              }}
+            >
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mb-2">
                 <Mail className="w-4 h-4 text-blue-600" />
               </div>
@@ -637,8 +675,25 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           )}
 
           {/* SMS Component - Only if SMS channel selected */}
-          {selectedChannels.includes('sms') && (
-            <div className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
+          {safeSelectedChannels.includes('sms') && (
+            <div 
+              className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors cursor-grab active:cursor-grabbing"
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/json', JSON.stringify({
+                  type: 'send_sms',
+                  config: { template: 'Thank you SMS' }
+                }));
+              }}
+              onClick={() => {
+                const newStep = {
+                  id: Date.now(),
+                  type: 'send_sms',
+                  config: { template: 'Thank you SMS' }
+                };
+                setFlowSteps(prev => [...prev, newStep]);
+              }}
+            >
               <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mb-2">
                 <MessageSquare className="w-4 h-4 text-green-600" />
               </div>
@@ -648,7 +703,24 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           )}
 
           {/* Wait Component - Always Available */}
-          <div className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
+          <div 
+            className="flex flex-col items-center p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors cursor-grab active:cursor-grabbing"
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData('application/json', JSON.stringify({
+                type: 'wait',
+                config: { delay: 1, delayUnit: 'hours' }
+              }));
+            }}
+            onClick={() => {
+              const newStep = {
+                id: Date.now(),
+                type: 'wait',
+                config: { delay: 1, delayUnit: 'hours' }
+              };
+              setFlowSteps(prev => [...prev, newStep]);
+            }}
+          >
             <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mb-2">
               <Clock className="w-4 h-4 text-orange-600" />
             </div>
@@ -659,7 +731,32 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       </div>
 
       {/* Flow Canvas */}
-      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 min-h-[200px] bg-gradient-to-br from-gray-50 to-gray-100">
+      <div 
+        className="border-2 border-dashed border-gray-300 rounded-lg p-6 min-h-[200px] bg-gradient-to-br from-gray-50 to-gray-100"
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.currentTarget.classList.add('border-blue-400', 'bg-blue-50');
+        }}
+        onDragLeave={(e) => {
+          e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+          
+          try {
+            const stepData = JSON.parse(e.dataTransfer.getData('application/json'));
+            const newStep = {
+              id: Date.now(),
+              type: stepData.type,
+              config: stepData.config || {}
+            };
+            setFlowSteps(prev => [...prev, newStep]);
+          } catch (error) {
+            console.error('Error parsing dropped data:', error);
+          }
+        }}
+      >
         <div className="text-center text-gray-500 mb-4">
           <div className="w-12 h-12 mx-auto mb-3 bg-white rounded-full flex items-center justify-center shadow-sm">
             <GripVertical className="w-6 h-6 text-gray-400" />
@@ -704,7 +801,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
       {/* Quick Actions */}
       <div className="flex justify-center space-x-3 flex-wrap">
-        {selectedChannels.includes('email') && (
+        {safeSelectedChannels.includes('email') && (
           <Button
             variant="outline"
             size="sm"
@@ -723,7 +820,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           </Button>
         )}
         
-        {selectedChannels.includes('sms') && (
+        {safeSelectedChannels.includes('sms') && (
           <Button
             variant="outline"
             size="sm"
@@ -742,7 +839,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           </Button>
         )}
         
-        {selectedChannels.includes('email') && selectedChannels.includes('sms') && (
+        {safeSelectedChannels.includes('email') && safeSelectedChannels.includes('sms') && (
           <Button
             variant="outline"
             size="sm"
@@ -764,7 +861,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         )}
       </div>
 
-      {selectedChannels.length === 0 && (
+      {safeSelectedChannels.length === 0 && (
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-sm text-yellow-800">
             ⚠️ <strong>No channels selected:</strong> Please go back to Step 2 and select at least one communication channel (Email or SMS) to build your automation flow.
@@ -772,7 +869,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </div>
       )}
 
-      {selectedChannels.length > 0 && flowSteps.length === 0 && (
+      {safeSelectedChannels.length > 0 && flowSteps.length === 0 && (
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
             💡 <strong>Tip:</strong> Start by clicking one of the quick flow buttons above, or drag components from the top to build your custom automation.
@@ -788,7 +885,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   const renderStep1 = () => (
     <div className="space-y-6">
@@ -1095,8 +1193,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         <Card 
           className={`cursor-pointer transition-all ${
             selectedChannels.includes('email') 
-              ? 'border-2 border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-md' 
-              : 'border-2 border-gray-400 hover:border-gray-500 hover:shadow-sm'
+              ? 'border-4 border-blue-600 bg-blue-50 ring-4 ring-blue-300 shadow-lg' 
+              : 'border-4 border-gray-500 hover:border-gray-600 hover:shadow-md'
           }`}
           onClick={() => {
             const newChannels = selectedChannels.includes('email')
@@ -1119,8 +1217,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         <Card 
           className={`cursor-pointer transition-all ${
             selectedChannels.includes('sms') 
-              ? 'border-2 border-green-500 bg-green-50 ring-2 ring-green-200 shadow-md' 
-              : 'border-2 border-gray-400 hover:border-gray-500 hover:shadow-sm'
+              ? 'border-4 border-green-600 bg-green-50 ring-4 ring-green-300 shadow-lg' 
+              : 'border-4 border-gray-500 hover:border-gray-600 hover:shadow-md'
           }`}
           onClick={() => {
             const newChannels = selectedChannels.includes('sms')
@@ -1682,7 +1780,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </div>
 
         {/* Footer - Fixed positioning with proper spacing */}
-        <div className="mt-8 pt-4 border-t bg-white">
+        <div className="mt-8 pt-4 border-t bg-white sticky bottom-0 z-10">
           <DialogFooter className="flex justify-between items-center">
             <div className="flex-1">
             {currentStep > 1 && (
