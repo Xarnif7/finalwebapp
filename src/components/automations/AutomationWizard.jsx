@@ -61,7 +61,6 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       quietHoursStart: '22:00',
       quietHoursEnd: '08:00',
       stopIfReview: true,
-      rateLimit: 100,
       allowManualEnroll: true
     }
   });
@@ -261,7 +260,6 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         quietHoursStart: '22:00',
         quietHoursEnd: '08:00',
         stopIfReview: true,
-        rateLimit: 100,
         allowManualEnroll: true
       }
     });
@@ -490,7 +488,6 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         allow_manual_enroll: formData.settings.allowManualEnroll,
         quiet_hours_start: formData.settings.quietHoursStart,
         quiet_hours_end: formData.settings.quietHoursEnd,
-        rate_limit: formData.settings.rateLimit,
         status: 'active',
         steps: formData.steps.map((step, index) => ({
           step_order: index + 1,
@@ -658,25 +655,36 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       </div>
 
       {/* Flow Canvas */}
-      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 min-h-[200px] bg-gray-50">
+      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 min-h-[200px] bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center text-gray-500 mb-4">
-          <GripVertical className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-          <p className="text-sm">Drag components here to build your flow</p>
-          <p className="text-xs">Start with a trigger, then add your communication steps</p>
+          <div className="w-12 h-12 mx-auto mb-3 bg-white rounded-full flex items-center justify-center shadow-sm">
+            <GripVertical className="w-6 h-6 text-gray-400" />
+          </div>
+          <p className="text-sm font-medium">Drag components here to build your flow</p>
+          <p className="text-xs text-gray-400">Start with a trigger, then add your communication steps</p>
         </div>
         
         {/* Flow Preview */}
         {flowSteps.length > 0 && (
-          <div className="flex items-center justify-center space-x-2 flex-wrap">
+          <div className="flex items-center justify-center space-x-3 flex-wrap">
             {flowSteps.map((step, index) => (
               <React.Fragment key={step.id}>
-                {index > 0 && <ArrowRight className="w-4 h-4 text-gray-400" />}
-                <div className="flex items-center space-x-1 bg-white px-3 py-2 rounded-lg border shadow-sm">
-                  {step.type === 'trigger' && <Zap className="w-4 h-4 text-purple-600" />}
-                  {step.type === 'send_email' && <Mail className="w-4 h-4 text-blue-600" />}
-                  {step.type === 'send_sms' && <MessageSquare className="w-4 h-4 text-green-600" />}
-                  {step.type === 'wait' && <Clock className="w-4 h-4 text-orange-600" />}
-                  <span className="text-sm font-medium">
+                {index > 0 && (
+                  <div className="flex items-center">
+                    <ArrowRight className="w-5 h-5 text-gray-400" />
+                  </div>
+                )}
+                <div className={`flex items-center space-x-2 px-4 py-3 rounded-lg border-2 shadow-sm transition-all hover:shadow-md ${
+                  step.type === 'trigger' ? 'bg-purple-50 border-purple-200' :
+                  step.type === 'send_email' ? 'bg-blue-50 border-blue-200' :
+                  step.type === 'send_sms' ? 'bg-green-50 border-green-200' :
+                  'bg-orange-50 border-orange-200'
+                }`}>
+                  {step.type === 'trigger' && <Zap className="w-5 h-5 text-purple-600" />}
+                  {step.type === 'send_email' && <Mail className="w-5 h-5 text-blue-600" />}
+                  {step.type === 'send_sms' && <MessageSquare className="w-5 h-5 text-green-600" />}
+                  {step.type === 'wait' && <Clock className="w-5 h-5 text-orange-600" />}
+                  <span className="text-sm font-medium text-gray-800">
                     {step.type === 'trigger' ? 'Trigger' :
                      step.type === 'send_email' ? 'Email' :
                      step.type === 'send_sms' ? 'SMS' :
@@ -703,9 +711,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             ];
             setFlowSteps(newSteps);
           }}
+          className="flex items-center space-x-2 hover:bg-blue-50 hover:border-blue-300"
         >
-          <Plus className="w-4 h-4 mr-2" />
-          Quick Email Flow
+          <Mail className="w-4 h-4 text-blue-600" />
+          <span>Quick Email Flow</span>
         </Button>
         <Button
           variant="outline"
@@ -718,9 +727,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             ];
             setFlowSteps(newSteps);
           }}
+          className="flex items-center space-x-2 hover:bg-green-50 hover:border-green-300"
         >
-          <Plus className="w-4 h-4 mr-2" />
-          Quick SMS Flow
+          <MessageSquare className="w-4 h-4 text-green-600" />
+          <span>Quick SMS Flow</span>
         </Button>
         <Button
           variant="outline"
@@ -735,9 +745,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             ];
             setFlowSteps(newSteps);
           }}
+          className="flex items-center space-x-2 hover:bg-purple-50 hover:border-purple-300"
         >
-          <Plus className="w-4 h-4 mr-2" />
-          Email + SMS Flow
+          <Zap className="w-4 h-4 text-purple-600" />
+          <span>Email + SMS Flow</span>
         </Button>
       </div>
 
@@ -1470,7 +1481,6 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Quiet Hours</CardTitle>
@@ -1501,34 +1511,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
               </div>
             </div>
             <p className="text-xs text-gray-500">
-              Messages won't be sent during these hours
+            Messages won't be sent during these hours to respect customer preferences
             </p>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Rate Limiting</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Daily Limit</Label>
-              <Input
-                type="number"
-                min="1"
-                value={formData.settings.rateLimit}
-                onChange={(e) => updateFormData('settings', {
-                  ...formData.settings,
-                  rateLimit: parseInt(e.target.value) || 100
-                })}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Maximum messages per day
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       <Card>
         <CardHeader>
@@ -1538,7 +1524,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           <div className="flex items-center justify-between">
             <div>
               <Label className="text-base">Stop if review received</Label>
-              <p className="text-sm text-gray-500">Pause automation if customer leaves a review</p>
+              <p className="text-sm text-gray-500">Automatically pause automation when customer leaves a review in your private inbox</p>
             </div>
             <Switch
               checked={formData.settings.stopIfReview}
@@ -1615,7 +1601,6 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
               <Label className="text-sm font-medium text-gray-600">Settings</Label>
               <div className="text-sm space-y-1">
                 <p>Quiet hours: {formData.settings.quietHoursStart} - {formData.settings.quietHoursEnd}</p>
-                <p>Rate limit: {formData.settings.rateLimit} messages/day</p>
                 <p>Stop if review: {formData.settings.stopIfReview ? 'Yes' : 'No'}</p>
                 <p>Manual enrollment: {formData.settings.allowManualEnroll ? 'Yes' : 'No'}</p>
               </div>
