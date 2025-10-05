@@ -493,13 +493,15 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         <p className="text-sm text-gray-600 mb-4">Choose a template or create from scratch.</p>
         
         <Select
-          value={selectedQuickTemplate?.id || ''}
+          value={selectedQuickTemplate?.id || 'none'}
           onValueChange={(templateId) => {
-            const template = quickTemplates.find(t => t.id === templateId);
-            if (template) {
-              applyQuickTemplate(template);
-            } else {
+            if (templateId === 'none') {
               setSelectedQuickTemplate(null);
+            } else {
+              const template = quickTemplates.find(t => t.id === templateId);
+              if (template) {
+                applyQuickTemplate(template);
+              }
             }
           }}
         >
@@ -507,7 +509,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             <SelectValue placeholder="Select a template or create from scratch" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Create from scratch</SelectItem>
+            <SelectItem value="none">Create from scratch</SelectItem>
             {quickTemplates.map((template) => (
               <SelectItem key={template.id} value={template.id}>
                 <div className="flex items-center justify-between w-full">
