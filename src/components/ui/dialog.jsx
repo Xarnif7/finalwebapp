@@ -6,7 +6,7 @@ const Dialog = ({ open, onOpenChange, children }) => {
   if (!open) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => onOpenChange && onOpenChange(false)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => onOpenChange && onOpenChange(false)}>
       {React.Children.map(children, child =>
         React.isValidElement(child) ? React.cloneElement(child, { onOpenChange }) : child
       )}

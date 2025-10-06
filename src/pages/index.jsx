@@ -357,13 +357,7 @@ const MarketingRoutes = () => (
     <Route path="/private-feedback/:requestId" element={<TrackedComponent component={PrivateFeedback} name="PrivateFeedback" />} />
     <Route path="/feedback-form/:businessId" element={<TrackedComponent component={FeedbackForm} name="FeedbackForm" />} />
     
-    {/* Dev routes */}
-    {process.env.NODE_ENV === 'development' && (
-      <>
-        <Route path="/dev-oauth-test" element={<DevOAuthTest />} />
-        <Route path="/env-test" element={<EnvTest />} />
-      </>
-    )}
+    {/* Dev routes removed for production */}
     
     {/* LEGACY REDIRECTS - Maintain query parameters */}
     {Object.entries(legacyUrlMappings).map(([oldPath, newPath]) => (

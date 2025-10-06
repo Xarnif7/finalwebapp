@@ -29,9 +29,8 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
 
   console.log('FlowBuilder rendered with:', { selectedChannels, initialFlow });
 
-  // Available draggable items based on selected channels
+  // Available draggable items based on selected channels (no trigger - it's always pre-filled)
   const draggableItems = [
-    { id: 'trigger', icon: Zap, label: 'Trigger', color: 'bg-purple-500', type: 'trigger' },
     ...(selectedChannels.includes('email') ? [{ id: 'email', icon: Mail, label: 'Email', color: 'bg-blue-500', type: 'email' }] : []),
     ...(selectedChannels.includes('sms') ? [{ id: 'sms', icon: MessageSquare, label: 'SMS', color: 'bg-green-500', type: 'sms' }] : []),
   ];
@@ -41,6 +40,21 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
   useEffect(() => {
     onFlowChange(flowSteps);
   }, [flowSteps, onFlowChange]);
+
+  // Ensure trigger is always the first step
+  useEffect(() => {
+    if (flowSteps.length === 0 || flowSteps[0]?.type !== 'trigger') {
+      const triggerStep = {
+        id: 'trigger-required',
+        type: 'trigger',
+        label: 'Trigger',
+        icon: Zap,
+        color: 'bg-purple-500',
+        timing: null
+      };
+      setFlowSteps(prev => [triggerStep, ...prev.filter(step => step.type !== 'trigger')]);
+    }
+  }, []);
 
   const handleDragStart = (e, item) => {
     setDraggedItem(item);
@@ -62,6 +76,7 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
 
   const handleDrop = (e) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!draggedItem) return;
 
     const newStep = {
@@ -84,6 +99,7 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
       setFlowSteps(prev => [...prev, newStep]);
     }
     
+    // Reset drag state
     setDraggedItem(null);
     setIsDragging(false);
     setDragOverIndex(null);
@@ -95,15 +111,41 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
     setDragOverIndex(index);
   };
 
-  const handleDropZoneDragLeave = () => {
+  const handleDropZoneDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverIndex(null);
+  };
+
+  const handleDropZoneDrop = (e, index) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedItem) return;
+
+    const newStep = {
+      id: Date.now(),
+      type: draggedItem.type,
+      label: draggedItem.label,
+      icon: draggedItem.icon,
+      color: draggedItem.color,
+      timing: null
+    };
+
+    setFlowSteps(prev => {
+      const newSteps = [...prev];
+      newSteps.splice(index, 0, newStep);
+      return newSteps;
+    });
+    
+    // Reset drag state
+    setDraggedItem(null);
+    setIsDragging(false);
     setDragOverIndex(null);
   };
 
   const handleStepClick = (stepIndex) => {
-    if (stepIndex > 0) {
-      setTimingStepIndex(stepIndex);
-      setShowTimingModal(true);
-    }
+    // Timing is now handled in Step 4, so this is just for visual feedback
+    console.log('Step clicked:', stepIndex);
   };
 
   const handleTimingSave = () => {
@@ -120,7 +162,7 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
   };
 
   const removeStep = (stepId) => {
-    setFlowSteps(prev => prev.filter(step => step.id !== stepId));
+    setFlowSteps(prev => prev.filter(step => step.id !== stepId && step.type !== 'trigger'));
   };
 
   const moveStep = (stepId, direction) => {
@@ -189,7 +231,7 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
               </div>
             </div>
           ) : (
-            <div className="flex items-center flex-wrap gap-2">
+            <div className="flex items-center justify-center flex-wrap gap-4">
               {flowSteps.map((step, index) => {
                 const Icon = step.icon;
                 
@@ -199,7 +241,7 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
                     <div
                       onDragOver={(e) => handleDropZoneDragOver(e, index)}
                       onDragLeave={handleDropZoneDragLeave}
-                      onDrop={(e) => handleDrop(e)}
+                      onDrop={(e) => handleDropZoneDrop(e, index)}
                       className={`h-16 w-8 rounded-lg border-2 border-dashed transition-all duration-200 ${
                         dragOverIndex === index 
                           ? 'border-blue-400 bg-blue-100' 
@@ -215,48 +257,48 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
 
                     {/* Step */}
                     <div className="flex flex-col items-center">
+                      <div className="text-[10px] text-gray-500 mb-1">Step {index + 1}</div>
                       <div className="relative group">
                         <div
                           onClick={() => handleStepClick(index)}
-                          className={`flex items-center gap-2 px-4 py-3 rounded-lg cursor-pointer hover:opacity-80 transition-all duration-200 ${step.color} text-white text-sm font-medium min-w-[80px] justify-center shadow-sm hover:shadow-md`}
+                          className={`flex items-center gap-2 px-4 py-3 rounded-lg cursor-pointer hover:opacity-80 transition-all duration-200 ${step.color} text-white text-sm font-medium min-w-[100px] justify-center shadow-sm hover:shadow-md`}
                         >
                           <Icon className="w-4 h-4" />
                           <span>{step.label}</span>
                         </div>
                         
-                        {/* Step Controls */}
-                        <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="flex gap-1">
-                            {index > 0 && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="h-6 w-6 p-0"
-                                onClick={() => moveStep(step.id, 'up')}
+                        {/* Step Controls - Only show for non-trigger steps */}
+                        {step.type !== 'trigger' && (
+                          <div className="absolute -top-12 right-0 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                            <div className="flex gap-1 bg-white rounded-lg shadow-lg border border-gray-200 p-1">
+                              {index > 1 && (
+                                <button
+                                  className="h-7 w-7 flex items-center justify-center rounded-md bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors"
+                                  onClick={() => moveStep(step.id, 'up')}
+                                  title="Move up"
+                                >
+                                  <span className="text-xs font-bold text-gray-600">↑</span>
+                                </button>
+                              )}
+                              {index < flowSteps.length - 1 && (
+                                <button
+                                  className="h-7 w-7 flex items-center justify-center rounded-md bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors"
+                                  onClick={() => moveStep(step.id, 'down')}
+                                  title="Move down"
+                                >
+                                  <span className="text-xs font-bold text-gray-600">↓</span>
+                                </button>
+                              )}
+                              <button
+                                className="h-7 w-7 flex items-center justify-center rounded-md bg-red-50 hover:bg-red-100 border border-red-200 transition-colors"
+                                onClick={() => removeStep(step.id)}
+                                title="Delete step"
                               >
-                                ↑
-                              </Button>
-                            )}
-                            {index < flowSteps.length - 1 && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="h-6 w-6 p-0"
-                                onClick={() => moveStep(step.id, 'down')}
-                              >
-                                ↓
-                              </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              className="h-6 w-6 p-0"
-                              onClick={() => removeStep(step.id)}
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
+                                <Trash2 className="w-3 h-3 text-red-600" />
+                              </button>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                       
                       {/* Timing Display */}
@@ -266,6 +308,13 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
                         </div>
                       )}
                     </div>
+
+                    {/* Connecting Arrow - Show between steps */}
+                    {index < flowSteps.length - 1 && (
+                      <div className="flex items-center">
+                        <ArrowRight className="w-5 h-5 text-gray-400" />
+                      </div>
+                    )}
                   </React.Fragment>
                 );
               })}
@@ -274,7 +323,7 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
               <div
                 onDragOver={(e) => handleDropZoneDragOver(e, flowSteps.length)}
                 onDragLeave={handleDropZoneDragLeave}
-                onDrop={(e) => handleDrop(e)}
+                onDrop={(e) => handleDropZoneDrop(e, flowSteps.length)}
                 className={`h-16 w-8 rounded-lg border-2 border-dashed transition-all duration-200 ${
                   dragOverIndex === flowSteps.length 
                     ? 'border-blue-400 bg-blue-100' 
@@ -292,51 +341,6 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
         </div>
       </div>
 
-      {/* Timing Modal */}
-      <Dialog open={showTimingModal} onOpenChange={setShowTimingModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Set Timing</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="text-sm text-gray-600">
-              How long should the system wait before this step?
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min="1"
-                value={tempTiming.value}
-                onChange={(e) => setTempTiming(prev => ({ ...prev, value: parseInt(e.target.value) || 1 }))}
-                className="w-20"
-              />
-              <Select
-                value={tempTiming.unit}
-                onValueChange={(value) => setTempTiming(prev => ({ ...prev, unit: value }))}
-              >
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="minutes">Minutes</SelectItem>
-                  <SelectItem value="hours">Hours</SelectItem>
-                  <SelectItem value="days">Days</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="flex gap-2 pt-4">
-              <Button onClick={handleTimingSave} className="flex-1">
-                Set Timing
-              </Button>
-              <Button variant="outline" onClick={() => setShowTimingModal(false)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

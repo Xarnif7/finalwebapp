@@ -29,6 +29,7 @@ import {
   User,
   ArrowRight,
   ChevronDown,
+  X,
   ChevronUp,
   Building,
   Check,
@@ -85,10 +86,19 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   const [selectedChannels, setSelectedChannels] = useState(['email']);
   const [aiTimingEnabled, setAiTimingEnabled] = useState(false);
   const [aiTimingData, setAiTimingData] = useState({});
-  const [selectedQuickTemplate, setSelectedQuickTemplate] = useState(null);
-  const [selectedCrm, setSelectedCrm] = useState('manual');
+  // Removed premade templates for now
+  const [selectedCrm, setSelectedCrm] = useState(null);
+  const [selectedManualTrigger, setSelectedManualTrigger] = useState(false);
   const [selectedTriggers, setSelectedTriggers] = useState({});
   const [showTriggerDropdown, setShowTriggerDropdown] = useState(false);
+  const [stepTimings, setStepTimings] = useState({});
+  const [aiTimingPerStep, setAiTimingPerStep] = useState({});
+  const [emailTemplate, setEmailTemplate] = useState({ subject: '', message: '' });
+  const [smsTemplate, setSmsTemplate] = useState({ message: '' });
+  const [aiTone, setAiTone] = useState('friendly'); // friendly | professional | persuasive
+  const [aiLength, setAiLength] = useState('medium'); // short | medium | long
+  const [learnMoreModalOpen, setLearnMoreModalOpen] = useState(false);
+  const [expandedSteps, setExpandedSteps] = useState({});
 
   const stepTypes = [
     { id: 'send_email', label: 'Send Email', icon: Mail, description: 'Send email' },
@@ -280,7 +290,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     });
     setCurrentStep(1);
     setErrors({});
-    setSelectedCrm('manual');
+    setSelectedCrm(null);
+    setSelectedManualTrigger(false);
     setSelectedTriggers({});
     setShowTriggerDropdown(false);
   };
@@ -299,12 +310,25 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
   // Helper function to handle CRM selection
   const handleCrmChange = (crmId) => {
+    if (crmId === 'manual') {
+      // Toggle manual trigger selection - this is independent of CRM selection
+      setSelectedManualTrigger(!selectedManualTrigger);
+    } else {
+      // Toggle CRM system selection - click again to deselect
+      if (selectedCrm === crmId) {
+        // Deselecting the current CRM
+        setSelectedCrm(null);
+        setSelectedTriggers({});
+        setShowTriggerDropdown(false);
+        updateFormData('triggerType', '');
+      } else {
+        // Selecting a new CRM system
     setSelectedCrm(crmId);
     setSelectedTriggers({});
     setShowTriggerDropdown(false);
-    
-    // Update form data
     updateFormData('triggerType', crmId);
+      }
+    }
   };
 
   // Helper function to handle trigger selection
@@ -417,29 +441,55 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     return true; // Default to valid for other step types
   };
 
+  const scrollToFirstError = (errors) => {
+    // Scroll to the first error field
+    if (errors.name) {
+      const nameField = document.getElementById('name');
+      if (nameField) {
+        nameField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        nameField.focus();
+      }
+    } else if (errors.triggers) {
+      // Scroll to the CRM selection area
+      const crmSection = document.querySelector('[data-crm-section]');
+      if (crmSection) {
+        crmSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
     // Step 1: Basic Info validation
-    if (currentStep >= 1) {
+    if (currentStep === 1) {
     if (!formData.name.trim()) {
       newErrors.name = 'Sequence name is required';
     }
 
-      if (selectedCrm && selectedCrm !== 'manual' && Object.keys(selectedTriggers).length === 0) {
-        newErrors.triggers = 'Please select at least one trigger event';
+      // Validate that we have either a CRM selected OR manual trigger selected (or both)
+      const hasCrmSelected = selectedCrm && selectedCrm !== 'manual';
+      const hasManualTrigger = selectedManualTrigger;
+      
+      if (!hasCrmSelected && !hasManualTrigger) {
+        newErrors.triggers = 'Please select at least one CRM system or enable manual trigger';
+      }
+      
+      // If a CRM is selected, validate that trigger events are also selected
+      if (hasCrmSelected && Object.keys(selectedTriggers).length === 0) {
+        newErrors.triggers = 'Please select at least one trigger event for the selected CRM system';
       }
     }
 
     // Step 2: Channels validation
-    if (currentStep >= 2) {
+    if (currentStep === 2) {
     if (selectedChannels.length === 0) {
       newErrors.channels = 'Please select at least one communication channel';
       }
     }
 
     // Step 3: Flow validation
-    if (currentStep >= 3) {
+    if (currentStep === 3) {
       const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
       if (safeFlowSteps.length === 0) {
         newErrors.flow = 'Please create at least one step in your flow';
@@ -455,7 +505,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     }
 
     // Step 4: Steps validation
-    if (currentStep >= 4) {
+    if (currentStep === 4) {
       const safeSteps = Array.isArray(formData.steps) ? formData.steps : [];
       if (safeSteps.length === 0) {
       newErrors.steps = 'At least one step is required';
@@ -468,11 +518,17 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     }
 
     setErrors(newErrors);
+    
+    // If there are errors and we're on Step 1, scroll to the first error
+    if (Object.keys(newErrors).length > 0 && currentStep === 1) {
+      scrollToFirstError(newErrors);
+    }
+    
     return Object.keys(newErrors).length === 0;
   };
 
   const handleNext = () => {
-    // Validate current step before proceeding
+    // Validate current step before proceeding to next step
     if (!validateForm()) {
       return;
     }
@@ -538,9 +594,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       const sequenceData = {
         name: formData.name,
         description: formData.description,
-        trigger_type: selectedCrm,
+        trigger_type: selectedCrm || (selectedManualTrigger ? 'manual' : null),
         trigger_event_type: Object.keys(selectedTriggers).length > 0 ? Object.keys(selectedTriggers)[0] : null,
-        allow_manual_enroll: formData.settings.allowManualEnroll,
+        allow_manual_enroll: selectedManualTrigger || formData.settings.allowManualEnroll,
         quiet_hours_start: formData.settings.quietHoursStart,
         quiet_hours_end: formData.settings.quietHoursEnd,
         status: 'active',
@@ -677,21 +733,6 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             Drag and drop items to create your automation sequence. You can insert steps between existing ones or add them at the end.
           </p>
           
-          {/* Helpful Instructions */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div className="flex items-start space-x-3">
-              <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div className="text-sm">
-                <p className="font-medium text-blue-900 mb-2">💡 How to build your flow:</p>
-                <ul className="text-blue-800 space-y-1">
-                  <li>• <strong>Start with a Trigger</strong> - This begins your automation</li>
-                  <li>• <strong>Add communication steps</strong> - Email or SMS messages</li>
-                  <li>• <strong>Set timing</strong> - Click on steps to add delays between messages</li>
-                  <li>• <strong>Drag between steps</strong> - Drop items between existing steps to insert them</li>
-                </ul>
-              </div>
-            </div>
-          </div>
           
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
             <div className="flex items-center space-x-2">
@@ -708,6 +749,90 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           onFlowChange={setFlowSteps}
           initialFlow={flowSteps}
         />
+
+        {/* Inline timing controls under the flow */}
+        {Array.isArray(flowSteps) && flowSteps.length > 1 && (
+          <div className="space-y-4">
+            {flowSteps.map((step, index) => {
+              if (index === flowSteps.length - 1) return null; // no timing after last
+              const nextStep = flowSteps[index + 1];
+              const timingKey = nextStep?.id ?? `idx-${index + 1}`;
+              const isAiEnabled = aiTimingPerStep[timingKey] || false;
+              const currentTiming = stepTimings[timingKey] || nextStep.timing || { value: 0, unit: 'hours' };
+              return (
+                <div key={`timing-${step.id}-${nextStep.id}`} className="flex items-center justify-center">
+                  <div className="flex items-center gap-3 text-slate-500">
+                    <span className="text-[10px] text-gray-500 mr-1">Timing before Step {index + 2}</span>
+                    <ChevronDown className="w-4 h-4" />
+                    <div className={`${isAiEnabled ? 'p-[2px] rounded-lg bg-gradient-to-r from-[#1A73E8] to-[#7C3AED]' : ''}`}>
+                      <div className={`flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm min-h-[42px] min-w-[520px]`}>
+                        {isAiEnabled ? (
+                          <span className="text-xs font-medium flex items-center gap-1">
+                            <Brain className="w-3 h-3 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-transparent bg-clip-text" />
+                            AI Optimized
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                          <label className="text-xs">Delay</label>
+                           <Input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={Number.isFinite(currentTiming.value) ? currentTiming.value : 0}
+                            onChange={(e) => {
+                              const n = Number.isNaN(e.target.valueAsNumber) ? 0 : e.target.valueAsNumber;
+                              updateStepTiming(timingKey, { ...currentTiming, value: Math.max(0, n) });
+                            }}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            className="w-28"
+                           />
+                          <Select
+                            value={currentTiming.unit}
+                            onValueChange={(unit) => updateStepTiming(timingKey, {
+                              ...currentTiming,
+                              unit
+                            })}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="minutes">Minutes</SelectItem>
+                              <SelectItem value="hours">Hours</SelectItem>
+                              <SelectItem value="days">Days</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <span className="text-xs">after previous</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                      <div className="flex items-center gap-2 pl-3 ml-3 border-l border-slate-200">
+                        <span className="text-xs flex items-center gap-1 text-slate-600">
+                          <Brain className="w-3 h-3 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-transparent bg-clip-text" /> AI Optimization
+                        </span>
+                        <button
+                          onClick={() => setAiTimingPerStep(prev => ({ ...prev, [timingKey]: !prev[timingKey] }))}
+                          className={`relative inline-flex h-6 w-12 items-center rounded-full transition-all duration-200 ${
+                            isAiEnabled ? 'bg-gradient-to-r from-[#1A73E8] to-[#7C3AED]' : 'bg-gray-200'
+                          }`}
+                        >
+                          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-all duration-200 ${isAiEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                        <button
+                          onClick={() => setLearnMoreModalOpen(true)}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          What’s this?
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+              );
+            })}
+          </div>
+        )}
 
         {errors.flow && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -1153,78 +1278,14 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
   const renderStep1 = () => (
     <div className="space-y-6">
-      {/* Quick Start Templates - Now in Dropdown */}
+      {/* Create Templates CTA (premades removed) */}
       <div className="mb-6">
-        <Label className="text-base font-medium mb-3 block">Quick Start Templates</Label>
-        <p className="text-sm text-gray-600 mb-4">Choose a template or create from scratch.</p>
-        
-        <Select
-          value={selectedQuickTemplate?.id || 'none'}
-          onValueChange={(templateId) => {
-            if (templateId === 'none') {
-              setSelectedQuickTemplate(null);
-            } else {
-              const template = quickTemplates.find(t => t.id === templateId);
-              if (template) {
-                applyQuickTemplate(template);
-              }
-            }
-          }}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select a template or create from scratch" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Create from scratch</SelectItem>
-            {quickTemplates.map((template) => (
-              <SelectItem key={template.id} value={template.id}>
-                <div className="flex items-center justify-between w-full">
-                  <div>
-                    <div className="font-medium">{template.name}</div>
-                    <div className="text-xs text-gray-500">{template.description}</div>
+        <h2 className="text-2xl font-semibold">Create Automation</h2>
+        <p className="text-sm text-gray-600 mt-1">Name it, choose a trigger, then pick channels. You’ll set timing and messages next.</p>
                   </div>
-                  <Badge variant="secondary" className="text-xs ml-2">
-                    {template.channels.length} channel{template.channels.length > 1 ? 's' : ''}
-                  </Badge>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-        {selectedQuickTemplate && (
-          <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-            <div className="flex items-center space-x-2 mb-2">
-              <CheckCircle className="w-4 h-4 text-purple-600" />
-              <span className="text-sm font-medium text-purple-800">
-                {selectedQuickTemplate.name} Selected
-              </span>
-            </div>
-                <div className="flex items-center space-x-1 text-xs">
-              {selectedQuickTemplate.steps.slice(0, 4).map((step, index) => (
-                    <React.Fragment key={index}>
-                      {index > 0 && <ArrowRight className="w-3 h-3 text-gray-400" />}
-                      <div className={`px-2 py-1 rounded text-white text-xs ${
-                        step.type === 'send_email' ? 'bg-blue-500' :
-                        step.type === 'send_sms' ? 'bg-green-500' :
-                        'bg-gray-500'
-                      }`}>
-                        {step.type === 'send_email' ? 'Email' :
-                         step.type === 'send_sms' ? 'SMS' :
-                         step.type === 'wait' ? `${step.config.delay}${step.config.delayUnit.charAt(0)}` :
-                         step.type}
-                      </div>
-                    </React.Fragment>
-                  ))}
-              {selectedQuickTemplate.steps.length > 4 && <span className="text-gray-400">...</span>}
-                </div>
-        </div>
-        )}
-      </div>
 
-      {/* Or create from scratch */}
+      {/* Sequence Details */}
       <div className="border-t pt-6">
-        <Label className="text-base font-medium mb-3 block">Or Create From Scratch</Label>
         <div className="space-y-4">
           <div>
             <Label htmlFor="name">Sequence Name *</Label>
@@ -1233,7 +1294,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
               value={formData.name}
               onChange={(e) => updateFormData('name', e.target.value)}
               placeholder="e.g., Job Completed Follow-up"
-              className={errors.name ? 'border-red-500' : ''}
+              className={`${errors.name ? 'border-red-500' : ''} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset focus:border-transparent`}
             />
             {errors.name && (
               <p className="text-sm text-red-500 mt-1">{errors.name}</p>
@@ -1248,15 +1309,15 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
               onChange={(e) => updateFormData('description', e.target.value)}
               placeholder="Brief description of what this sequence does"
               rows={3}
+              className="focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset focus:border-transparent"
             />
           </div>
         </div>
       </div>
 
       {/* CRM Selection */}
-      <div>
+      <div data-crm-section>
         <Label>Choose Your CRM System *</Label>
-        <p className="text-sm text-gray-600 mb-4">Select which system will trigger this automation</p>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {Object.entries(CRM_OPTIONS).map(([key, crm]) => (
@@ -1265,8 +1326,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
               onClick={() => !crm.available ? null : handleCrmChange(key)}
               disabled={!crm.available}
               className={`relative p-4 rounded-lg border-2 transition-all ${
-                selectedCrm === key
-                  ? crm.color === 'blue' ? 'border-blue-500 bg-blue-50' :
+                (key === 'manual' && selectedManualTrigger) || (key !== 'manual' && selectedCrm === key)
+                  ? key === 'manual' ? 'border-orange-500 bg-orange-50' :
+                    crm.color === 'blue' ? 'border-blue-500 bg-blue-50' :
                     crm.color === 'green' ? 'border-green-500 bg-green-50' :
                     crm.color === 'purple' ? 'border-purple-500 bg-purple-50' :
                     crm.color === 'orange' ? 'border-orange-500 bg-orange-50' :
@@ -1276,8 +1338,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                   : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
               }`}
             >
-              {selectedCrm === key && (
+              {((key === 'manual' && selectedManualTrigger) || (key !== 'manual' && selectedCrm === key)) && (
                 <div className={`absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center ${
+                  key === 'manual' ? 'bg-orange-500' :
                   crm.color === 'blue' ? 'bg-blue-500' :
                   crm.color === 'green' ? 'bg-green-500' :
                   crm.color === 'purple' ? 'bg-purple-500' :
@@ -1300,11 +1363,12 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                     )}
                   </div>
                   <p className="text-sm text-gray-600 mt-1">{crm.description}</p>
-                  </div>
                 </div>
+              </div>
               </button>
-          ))}
+            ))}
         </div>
+
 
         {selectedCrm && CRM_OPTIONS[selectedCrm] && (
           <div className={`mt-4 p-3 rounded-md border ${
@@ -1345,7 +1409,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         )}
       </div>
 
-      {/* Trigger Selection moved to bottom */}
+      {/* Trigger Selection moved to bottom - only show for CRM systems */}
       {selectedCrm && selectedCrm !== 'manual' && (
         <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
           <div className="flex items-center justify-between mb-3">
@@ -1368,7 +1432,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           )}
           
           {showTriggerDropdown && (
-            <div className="mt-4 border-2 border-blue-200 rounded-lg p-4 bg-white shadow-sm max-h-96 overflow-y-auto">
+            <div className="mt-4 border-2 border-blue-200 rounded-lg bg-white shadow-sm">
+              <div className="p-4 max-h-96 overflow-y-auto">
               <div className="mb-3">
                 <h4 className="font-medium text-gray-900">Available Triggers for {CRM_OPTIONS[selectedCrm]?.name}</h4>
                 <p className="text-sm text-gray-600">Select one or more events that will trigger this automation</p>
@@ -1413,6 +1478,48 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                   </div>
                 ));
               })()}
+              </div>
+              
+              {/* Footer inside dropdown when open */}
+              <div className="border-t bg-white p-4">
+                <div className="flex justify-between items-center space-x-4">
+                  <div className="flex items-center">
+                    {currentStep > 1 && (
+                      <Button variant="outline" onClick={handlePrevious}>
+                        Previous
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Button variant="outline" onClick={handleClose}>
+                      Cancel
+                    </Button>
+                    {currentStep < 6 ? (
+                      <Button onClick={handleNext}>
+                        Next
+                      </Button>
+                    ) : (
+                      <Button 
+                        onClick={handleCreate}
+                        disabled={isCreating}
+                        className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9]"
+                      >
+                        {isCreating ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Create & Activate
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1446,12 +1553,12 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
         <Card 
-          className={`cursor-pointer transition-all ${
+          className={`cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset ${
             selectedChannels.includes('email') 
-              ? 'border-4 border-blue-600 bg-blue-50 ring-4 ring-blue-300 shadow-lg' 
-              : 'border-4 border-gray-500 hover:border-gray-600 hover:shadow-md'
+              ? 'border-2 border-blue-600 bg-blue-50 ring-2 ring-blue-300 shadow-lg' 
+              : 'border-2 border-gray-500 hover:border-gray-600 hover:shadow-md'
           }`}
           onClick={() => {
             const newChannels = selectedChannels.includes('email')
@@ -1472,10 +1579,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </Card>
 
         <Card 
-          className={`cursor-pointer transition-all ${
+          className={`cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-inset ${
             selectedChannels.includes('sms') 
-              ? 'border-4 border-green-600 bg-green-50 ring-4 ring-green-300 shadow-lg' 
-              : 'border-4 border-gray-500 hover:border-gray-600 hover:shadow-md'
+              ? 'border-2 border-green-600 bg-green-50 ring-2 ring-green-300 shadow-lg' 
+              : 'border-2 border-gray-500 hover:border-gray-600 hover:shadow-md'
           }`}
           onClick={() => {
             const newChannels = selectedChannels.includes('sms')
@@ -1818,33 +1925,346 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
 
   const renderStep4 = () => {
-    console.log('renderStep4 called with:', { selectedChannels, flowSteps });
+    const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
+
+  const toggleAiTiming = (stepId) => {
+    setAiTimingPerStep(prev => ({
+      ...prev,
+      [stepId]: !prev[stepId]
+    }));
+  };
+
+
+
+  const getStepTimingSummary = (step) => {
+    const isAiEnabled = aiTimingPerStep[step.id] || false;
+    const currentTiming = stepTimings[step.id] || step.timing || { value: 1, unit: 'hours' };
+    
+    if (isAiEnabled) {
+      return `AI Optimize • Est. Tomorrow 9:00–10:30 AM`;
+    } else {
+      return `Manual • Send +${currentTiming.value}${currentTiming.unit.charAt(0)} after previous step`;
+    }
+  };
+
+  const toggleStepExpansion = (stepId) => {
+    setExpandedSteps(prev => ({
+      ...prev,
+      [stepId]: !prev[stepId]
+    }));
+  };
+
+  const updateStepTiming = (stepId, timing) => {
+    setStepTimings(prev => ({
+      ...prev,
+      [stepId]: timing
+    }));
+  };
+
+    const getStepIcon = (stepType) => {
+      switch (stepType) {
+        case 'trigger': return Zap;
+        case 'email': return Mail;
+        case 'sms': return MessageSquare;
+        case 'wait': return Clock;
+        default: return Clock;
+      }
+    };
+
+    const getStepColor = (stepType) => {
+      switch (stepType) {
+        case 'trigger': return 'bg-purple-500';
+        case 'email': return 'bg-blue-500';
+        case 'sms': return 'bg-green-500';
+        case 'wait': return 'bg-orange-500';
+        default: return 'bg-gray-500';
+      }
+    };
+
     return (
       <div className="space-y-6">
         <div>
-          <h3 className="text-lg font-medium mb-2">Visual Flow Builder</h3>
-          <p className="text-gray-600 mb-4">
-            Drag and drop to create your automation flow. Click on steps to set timing between them.
+          <h3 className="text-lg font-medium">Customize Messages</h3>
+          <p className="text-sm text-gray-600">
+            Edit the content sent by your Email and SMS steps. Variables like {'{{first_name}}'} and {'{{business_name}}'} are supported.
           </p>
-          <p className="text-sm text-gray-500">
-            Selected channels: {selectedChannels.join(', ') || 'None'}
-          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-600">Tone</span>
+              <Select value={aiTone} onValueChange={setAiTone}>
+                <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="friendly">Friendly</SelectItem>
+                  <SelectItem value="professional">Professional</SelectItem>
+                  <SelectItem value="persuasive">Persuasive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-600">Length</span>
+              <Select value={aiLength} onValueChange={setAiLength}>
+                <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="short">Short</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="long">Long</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
-        <FlowBuilder
-          selectedChannels={selectedChannels}
-          onFlowChange={setFlowSteps}
-          initialFlow={flowSteps}
-        />
+        {/* Email Template */}
+        {selectedChannels.includes('email') && (
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-blue-600" />
+              <h4 className="font-medium">Email Message</h4>
+            </div>
+            {/* AI Assist / Variables */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const prompt = `Improve this email with a ${aiTone} tone and ${aiLength} length. Preserve variables like {{first_name}} and {{business_name}}.\n\nSubject: ${emailTemplate.subject}\n\n${emailTemplate.message}`;
+                    const res = await fetch('/api/ai/generate-message', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt, channel: 'email', tone: aiTone, length: aiLength })
+                    });
+                    const data = await res.json();
+                    if (data?.subject || data?.message) {
+                      setEmailTemplate(prev => ({
+                        subject: data.subject ?? prev.subject,
+                        message: data.message ?? prev.message
+                      }));
+                    }
+                  } catch (e) {}
+                }}
+              >
+                Improve with AI
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const prompt = `Rewrite again (same intent), ${aiTone} tone, ${aiLength} length. Keep variables.\n\nSubject: ${emailTemplate.subject}\n\n${emailTemplate.message}`;
+                    const res = await fetch('/api/ai/generate-message', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt, channel: 'email', tone: aiTone, length: aiLength })
+                    });
+                    const data = await res.json();
+                    if (data?.subject || data?.message) {
+                      setEmailTemplate(prev => ({
+                        subject: data.subject ?? prev.subject,
+                        message: data.message ?? prev.message
+                      }));
+                    }
+                  } catch (e) {}
+                }}
+              >
+                Try again
+              </Button>
+              <div className="flex items-center gap-1 text-xs text-slate-600">
+                <span>Variables:</span>
+                <button className="px-2 py-1 rounded bg-slate-100" onClick={() => setEmailTemplate(prev => ({ ...prev, subject: prev.subject + ' {{first_name}}' }))}>{'{{first_name}}'}</button>
+                <button className="px-2 py-1 rounded bg-slate-100" onClick={() => setEmailTemplate(prev => ({ ...prev, message: prev.message + ' {{business_name}}' }))}>{'{{business_name}}'}</button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+              <div className="md:col-span-2">
+                <Label className="text-sm">Subject</Label>
+                <Input
+                  value={emailTemplate.subject}
+                  onChange={(e) => setEmailTemplate(prev => ({ ...prev, subject: e.target.value }))}
+                  placeholder="e.g., Thanks for your business, {{first_name}}!"
+                />
+              </div>
+              <div className="md:col-span-5">
+                <Label className="text-sm">Body</Label>
+                <Textarea
+                  rows={6}
+                  value={emailTemplate.message}
+                  onChange={(e) => setEmailTemplate(prev => ({ ...prev, message: e.target.value }))}
+                  placeholder="Write your email. Use variables like {{first_name}} and {{business_name}}."
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
-        {flowSteps.length === 0 && (
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              💡 Start by dragging a trigger, then add your communication steps. You can set timing between each step by clicking on them.
-            </p>
+        {/* SMS Template */}
+        {selectedChannels.includes('sms') && (
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-green-600" />
+              <h4 className="font-medium">SMS Message</h4>
+            </div>
+            {/* AI Assist / Variables */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const prompt = `Rewrite this SMS to be concise, friendly, and actionable. Keep variables like {{first_name}}.\n\n${smsTemplate.message}`;
+                    const res = await fetch('/api/ai/generate-message', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt, channel: 'sms' })
+                    });
+                    const data = await res.json();
+                    if (data?.message) {
+                      setSmsTemplate(prev => ({ ...prev, message: data.message }));
+                    }
+                  } catch (e) {}
+                }}
+              >
+                Improve with AI
+              </Button>
+              <div className="flex items-center gap-1 text-xs text-slate-600">
+                <span>Variables:</span>
+                <button className="px-2 py-1 rounded bg-slate-100" onClick={() => setSmsTemplate(prev => ({ ...prev, message: prev.message + ' {{first_name}}' }))}>{'{{first_name}}'}</button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Label className="text-sm">Message</Label>
+              <Textarea
+                rows={5}
+                value={smsTemplate.message}
+                onChange={(e) => setSmsTemplate(prev => ({ ...prev, message: e.target.value }))}
+                placeholder="Write your SMS. Keep it concise. Variables like {{first_name}} work here too."
+                className="w-full"
+              />
+              {/* Preview */}
+              <div>
+                <Label className="text-sm">Preview</Label>
+                <div className="mt-2 p-3 border rounded bg-slate-50 text-sm text-slate-700 whitespace-pre-wrap">
+                  {smsTemplate.message}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
+    );
+  };
+
+
+  const renderLearnMoreModal = () => {
+    return (
+      <Dialog open={learnMoreModalOpen} onOpenChange={setLearnMoreModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-blue-600">🧠</span>
+              AI Smart Timing - How It Works
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+                Our AI analyzes multiple data points to determine the optimal send time for each message, 
+                maximizing engagement and response rates.
+            </p>
+          </div>
+
+            <div>
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">Factors We Consider</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-600 text-xs font-bold">1</span>
+      </div>
+                    <div>
+                      <h5 className="font-medium text-gray-900">Past Engagement Data</h5>
+                      <p className="text-sm text-gray-600">Open times, click rates, and response patterns from your previous campaigns</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-600 text-xs font-bold">2</span>
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-gray-900">Customer Timezone</h5>
+                      <p className="text-sm text-gray-600">Automatically detects and respects each customer's local time zone</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-600 text-xs font-bold">3</span>
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-gray-900">Day of Week Patterns</h5>
+                      <p className="text-sm text-gray-600">Identifies when your audience is most active during the week</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-600 text-xs font-bold">4</span>
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-gray-900">Message Type</h5>
+                      <p className="text-sm text-gray-600">Different optimal times for emails vs SMS based on content and urgency</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-600 text-xs font-bold">5</span>
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-gray-900">Industry Benchmarks</h5>
+                      <p className="text-sm text-gray-600">Best practices and timing patterns from similar businesses in your industry</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-600 text-xs font-bold">6</span>
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-gray-900">Message Fatigue Prevention</h5>
+                      <p className="text-sm text-gray-600">Spaces out messages to avoid overwhelming customers</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-green-600">✅</span>
+                <div>
+                  <h5 className="font-medium text-green-900 mb-1">You Stay in Control</h5>
+                  <p className="text-sm text-green-800">
+                    AI handles the timing automatically, but you can always switch any step to manual timing 
+                    or override the AI's decision. The system learns and improves over time as it gathers more data.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setLearnMoreModalOpen(false)}>
+              Got it, thanks!
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     );
   };
 
@@ -1991,20 +2411,19 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     { number: 1, title: 'Basic Info', description: 'Name and trigger' },
     { number: 2, title: 'Channels', description: 'Select communication methods' },
     { number: 3, title: 'Flow Builder', description: 'Drag & drop to build flow' },
-    { number: 4, title: 'Customize', description: 'Configure steps & timing' },
+    { number: 4, title: 'Timing', description: 'Set delays & AI optimization' },
     { number: 5, title: 'Settings', description: 'Configure behavior' },
     { number: 6, title: 'Review', description: 'Activate sequence' }
   ];
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-[80vw] h-[90vh] max-w-none overflow-y-auto">
+      <DialogContent className="w-[80vw] h-[90vh] max-w-none flex flex-col">
         <DialogHeader>
           <DialogTitle>Create Custom Automation</DialogTitle>
-        </DialogHeader>
 
         {/* Progress Steps */}
-        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mt-4 mb-2 flex-shrink-0">
           {steps.map((step, index) => (
             <div key={step.number} className="flex items-center">
               <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
@@ -2026,9 +2445,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             </div>
           ))}
         </div>
+        </DialogHeader>
 
-        {/* Step Content */}
-        <div className="min-h-[400px]">
+        {/* Step Content - Flexible area */}
+        <div className="flex-1 overflow-y-auto">
           {currentStep === 1 && renderStep1()}
           {currentStep === 2 && renderStep2()}
           {currentStep === 3 && renderFlowBuilder()}
@@ -2037,8 +2457,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           {currentStep === 6 && renderStep6()}
         </div>
 
-        {/* Footer - Fixed positioning with proper spacing */}
-        <div className={`mt-8 pt-4 border-t bg-white ${showTriggerDropdown ? 'relative' : 'sticky bottom-0'} z-10 shadow-lg`}>
+        {/* Footer - Fixed at bottom */}
+        {(!showTriggerDropdown || currentStep !== 1) && (
+          <div className="pt-4 border-t bg-white mt-auto">
           <DialogFooter className="flex justify-between items-center bg-white space-x-4">
             <div className="flex items-center">
               {currentStep > 1 && (
@@ -2077,7 +2498,11 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             </div>
           </DialogFooter>
         </div>
+        )}
       </DialogContent>
+      
+      {/* Learn More Modal */}
+      {renderLearnMoreModal()}
     </Dialog>
   );
 };
