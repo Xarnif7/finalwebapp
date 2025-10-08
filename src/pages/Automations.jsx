@@ -550,13 +550,13 @@ const AutomationsPage = () => {
             </div>
             <Button
               onClick={() => {
-                console.log('🎯 Create Automation button clicked!');
+                console.log('🎯 Create Journey button clicked!');
                 setAutomationWizardOpen(true);
               }}
               className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Create Automation
+              Create Journey
             </Button>
           </div>
 

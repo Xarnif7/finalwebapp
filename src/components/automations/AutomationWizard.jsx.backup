@@ -34,8 +34,7 @@ import {
   Building,
   Check,
   Brain,
-  Info,
-  Settings
+  Info
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useSequencesData } from '@/hooks/useSequencesData';
@@ -70,9 +69,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   const [errors, setErrors] = useState({});
   const [flowSteps, setFlowSteps] = useState([]);
 
-  // Always ensure we have a trigger as the first step when on Step 2 (Flow Builder)
+  // Always ensure we have a trigger as the first step when on Step 3
   useEffect(() => {
-    if (currentStep === 2) {
+    if (currentStep === 3) {
       const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
       if (safeFlowSteps.length === 0 || safeFlowSteps[0].type !== 'trigger') {
         const triggerStep = {
@@ -84,7 +83,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       }
     }
   }, [currentStep, flowSteps]);
-  const [selectedChannels, setSelectedChannels] = useState(['email', 'sms']); // Always include both channels by default
+  const [selectedChannels, setSelectedChannels] = useState(['email']);
   const [aiTimingEnabled, setAiTimingEnabled] = useState(false);
   const [aiTimingData, setAiTimingData] = useState({});
   // Removed premade templates for now
@@ -482,8 +481,15 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       }
     }
 
-    // Step 2: Flow validation (formerly step 3)
+    // Step 2: Channels validation
     if (currentStep === 2) {
+    if (selectedChannels.length === 0) {
+      newErrors.channels = 'Please select at least one communication channel';
+      }
+    }
+
+    // Step 3: Flow validation
+    if (currentStep === 3) {
       const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
       if (safeFlowSteps.length === 0) {
         newErrors.flow = 'Please create at least one step in your flow';
@@ -498,8 +504,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       }
     }
 
-    // Step 3: Messages validation (formerly step 4)
-    if (currentStep === 3) {
+    // Step 4: Steps validation
+    if (currentStep === 4) {
       const safeSteps = Array.isArray(formData.steps) ? formData.steps : [];
       if (safeSteps.length === 0) {
       newErrors.steps = 'At least one step is required';
@@ -721,31 +727,20 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     
     return (
       <div className="space-y-6">
-        {/* Journey Flow Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl border border-blue-200 shadow-sm">
-          <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Building className="h-6 w-6 text-blue-600" />
-            Build Your Journey Flow
-          </h3>
-          <p className="text-sm text-gray-600 mt-2">
-            Drag and drop your steps. Each message will send based on your timing rules.
+        <div>
+          <h3 className="text-lg font-medium mb-2">Build Your Automation Flow</h3>
+          <p className="text-gray-600 mb-4">
+            Drag and drop items to create your automation sequence. You can insert steps between existing ones or add them at the end.
           </p>
           
-          <div className="bg-white border border-blue-200 rounded-lg p-3 mt-4 flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Mail className="h-5 w-5 text-blue-600" />
-                <span className="text-sm font-medium text-blue-800">Email</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <MessageSquare className="h-5 w-5 text-green-600" />
-                <span className="text-sm font-medium text-green-800">SMS</span>
-              </div>
+          
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <p className="text-sm text-green-800">
+                <strong>Selected channels:</strong> {selectedChannels.join(', ') || 'None'}
+              </p>
             </div>
-            <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-300">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Both Channels Active
-            </Badge>
           </div>
         </div>
 
@@ -1283,18 +1278,11 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
   const renderStep1 = () => (
     <div className="space-y-6">
-      {/* Journey Header */}
-      <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-xl border border-purple-200 shadow-sm">
-        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Zap className="h-6 w-6 text-purple-600" />
-          Journey Basics
-        </h2>
-        <p className="text-sm text-gray-600 mt-2">Name your journey, choose a trigger, and set when it starts. Email + SMS included by default.</p>
-        <div className="flex items-center gap-2 mt-3 text-xs text-purple-700 bg-white px-3 py-2 rounded-lg w-fit">
-          <Info className="h-4 w-4" />
-          <span>Triggers determine when your customer journey begins</span>
-        </div>
-      </div>
+      {/* Create Templates CTA (premades removed) */}
+      <div className="mb-6">
+        <h2 className="text-2xl font-semibold">Create Automation</h2>
+        <p className="text-sm text-gray-600 mt-1">Name it, choose a trigger, then pick channels. You’ll set timing and messages next.</p>
+                  </div>
 
       {/* Sequence Details */}
       <div className="border-t pt-6">
@@ -1327,26 +1315,26 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </div>
       </div>
 
-      {/* CRM Selection - Enhanced with glow effects */}
+      {/* CRM Selection */}
       <div data-crm-section>
-        <Label className="text-base font-semibold text-gray-900 mb-3 block">Choose Your CRM System *</Label>
+        <Label>Choose Your CRM System *</Label>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {Object.entries(CRM_OPTIONS).map(([key, crm]) => (
               <button
               key={key}
               onClick={() => !crm.available ? null : handleCrmChange(key)}
               disabled={!crm.available}
-              className={`relative p-5 rounded-xl border-2 transition-all duration-300 shadow-md ${
+              className={`relative p-4 rounded-lg border-2 transition-all ${
                 (key === 'manual' && selectedManualTrigger) || (key !== 'manual' && selectedCrm === key)
-                  ? key === 'manual' ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-orange-100 shadow-orange-200 shadow-lg' :
-                    crm.color === 'blue' ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100 shadow-blue-200 shadow-lg' :
-                    crm.color === 'green' ? 'border-green-500 bg-gradient-to-br from-green-50 to-green-100 shadow-green-200 shadow-lg' :
-                    crm.color === 'purple' ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100 shadow-purple-200 shadow-lg' :
-                    crm.color === 'orange' ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-orange-100 shadow-orange-200 shadow-lg' :
-                    'border-gray-500 bg-gradient-to-br from-gray-50 to-gray-100 shadow-lg'
+                  ? key === 'manual' ? 'border-orange-500 bg-orange-50' :
+                    crm.color === 'blue' ? 'border-blue-500 bg-blue-50' :
+                    crm.color === 'green' ? 'border-green-500 bg-green-50' :
+                    crm.color === 'purple' ? 'border-purple-500 bg-purple-50' :
+                    crm.color === 'orange' ? 'border-orange-500 bg-orange-50' :
+                    'border-gray-500 bg-gray-50'
                   : crm.available
-                  ? 'border-gray-200 hover:border-purple-300 hover:bg-purple-50 hover:shadow-lg hover:scale-105'
+                  ? 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
               }`}
             >
@@ -1995,31 +1983,27 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
     return (
       <div className="space-y-6">
-        {/* Messages Header */}
-        <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-xl border border-green-200 shadow-sm">
-          <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <MessageSquare className="h-6 w-6 text-green-600" />
-            Customize Messages
-          </h3>
-          <p className="text-sm text-gray-600 mt-2">
-            Personalize what your customers will see. Variables like {'{{first_name}}'} and {'{{business_name}}'} are supported.
+        <div>
+          <h3 className="text-lg font-medium">Customize Messages</h3>
+          <p className="text-sm text-gray-600">
+            Edit the content sent by your Email and SMS steps. Variables like {'{{first_name}}'} and {'{{business_name}}'} are supported.
           </p>
-          <div className="mt-4 flex flex-wrap items-center gap-3 bg-white p-3 rounded-lg border border-green-200">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-700">Tone</span>
+              <span className="text-xs text-slate-600">Tone</span>
               <Select value={aiTone} onValueChange={setAiTone}>
-                <SelectTrigger className="h-9 w-36 border-gray-300"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="friendly">😊 Friendly</SelectItem>
-                  <SelectItem value="professional">💼 Professional</SelectItem>
-                  <SelectItem value="persuasive">🎯 Playful</SelectItem>
+                  <SelectItem value="friendly">Friendly</SelectItem>
+                  <SelectItem value="professional">Professional</SelectItem>
+                  <SelectItem value="persuasive">Persuasive</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-700">Length</span>
+              <span className="text-xs text-slate-600">Length</span>
               <Select value={aiLength} onValueChange={setAiLength}>
-                <SelectTrigger className="h-9 w-36 border-gray-300"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="short">Short</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
@@ -2032,12 +2016,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
         {/* Email Template */}
         {selectedChannels.includes('email') && (
-          <div className="rounded-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white shadow-lg p-5 space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Mail className="w-5 h-5 text-blue-600" />
-              </div>
-              <h4 className="font-semibold text-gray-900">📨 Email Message</h4>
+              <Mail className="w-4 h-4 text-blue-600" />
+              <h4 className="font-medium">Email Message</h4>
             </div>
             {/* AI Assist / Variables */}
             <div className="flex items-center gap-2">
@@ -2118,12 +2100,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
         {/* SMS Template */}
         {selectedChannels.includes('sms') && (
-          <div className="rounded-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-white shadow-lg p-5 space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <MessageSquare className="w-5 h-5 text-green-600" />
-              </div>
-              <h4 className="font-semibold text-gray-900">💬 SMS Message</h4>
+              <MessageSquare className="w-4 h-4 text-green-600" />
+              <h4 className="font-medium">SMS Message</h4>
             </div>
             {/* AI Assist / Variables */}
             <div className="flex items-center gap-2">
@@ -2288,164 +2268,59 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     );
   };
 
-  // New Timing Step (Step 4 in the new flow)
-  const renderTimingStep = () => {
-    const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
-
-    return (
-      <div className="space-y-6">
-        {/* Timing Header */}
-        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 p-6 rounded-xl border border-orange-200 shadow-sm">
-          <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Clock className="h-6 w-6 text-orange-600" />
-            Timing & Rules
-          </h3>
-          <p className="text-sm text-gray-600 mt-2">
-            Control when each message is sent. Use AI Smart Timing for optimal delivery.
-          </p>
-        </div>
-
-        {/* AI Smart Timing Toggle */}
-        <Card className="shadow-md border-2 border-purple-200">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Brain className="h-5 w-5 text-purple-600" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900">AI Smart Timing</h4>
-                  <p className="text-sm text-gray-600">Let AI optimize send times for best engagement</p>
-                </div>
-              </div>
-              <Switch 
-                checked={aiTimingEnabled} 
-                onCheckedChange={setAiTimingEnabled}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Per-Step Timing */}
-        <div className="space-y-3">
-          <h4 className="font-medium text-gray-900">Step Delays</h4>
-          {safeFlowSteps.filter(step => step.type !== 'trigger').map((step, index) => {
-            const Icon = step.type === 'email' ? Mail : step.type === 'sms' ? MessageSquare : Clock;
-            const currentTiming = stepTimings[step.id] || step.timing || { value: 1, unit: 'hours' };
-            
-            return (
-              <Card key={step.id} className="shadow-sm">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        step.type === 'email' ? 'bg-blue-100' : 
-                        step.type === 'sms' ? 'bg-green-100' : 'bg-gray-100'
-                      }`}>
-                        <Icon className={`h-4 w-4 ${
-                          step.type === 'email' ? 'text-blue-600' : 
-                          step.type === 'sms' ? 'text-green-600' : 'text-gray-600'
-                        }`} />
-                      </div>
-                      <span className="text-sm font-medium">
-                        {step.type === 'email' ? 'Email' : step.type === 'sms' ? 'SMS' : 'Wait'} Step {index + 1}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600">Send after</span>
-                      <Input 
-                        type="number" 
-                        value={currentTiming.value}
-                        onChange={(e) => updateStepTiming(step.id, { ...currentTiming, value: parseInt(e.target.value) || 0 })}
-                        className="w-20"
-                        min="0"
-                      />
-                      <Select 
-                        value={currentTiming.unit}
-                        onValueChange={(unit) => updateStepTiming(step.id, { ...currentTiming, unit })}
-                      >
-                        <SelectTrigger className="w-28">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="minutes">minutes</SelectItem>
-                          <SelectItem value="hours">hours</SelectItem>
-                          <SelectItem value="days">days</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Quiet Hours */}
-        <Card className="shadow-md border-2 border-blue-200">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Clock className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900">⏰ Quiet Hours</h4>
-                <p className="text-sm text-gray-600">Messages won't send during these hours</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm">Start Time</Label>
-                <Input 
-                  type="time" 
-                  value={formData.settings.quietHoursStart}
-                  onChange={(e) => updateFormData('settings', { ...formData.settings, quietHoursStart: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label className="text-sm">End Time</Label>
-                <Input 
-                  type="time" 
-                  value={formData.settings.quietHoursEnd}
-                  onChange={(e) => updateFormData('settings', { ...formData.settings, quietHoursEnd: e.target.value })}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  };
-
   const renderStep5 = () => (
     <div className="space-y-6">
-      {/* Settings Header */}
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-xl border border-indigo-200 shadow-sm">
-        <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Settings className="h-6 w-6 text-indigo-600" />
-          Behavior Settings
-        </h3>
-        <p className="text-sm text-gray-600 mt-2">
-          Control how your journey responds to customer actions
+      <div>
+        <h3 className="text-lg font-medium mb-4">Settings</h3>
+        <p className="text-gray-600 mb-4">
+          Configure when and how your automation should run.
         </p>
       </div>
 
-      {/* Stop if Review Card */}
-      <Card className="shadow-md border-2 border-green-200">
-        <CardContent className="p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 flex-1">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-green-600" />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Quiet Hours</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Start</Label>
+                <Input
+                  type="time"
+                  value={formData.settings.quietHoursStart}
+                  onChange={(e) => updateFormData('settings', {
+                    ...formData.settings,
+                    quietHoursStart: e.target.value
+                  })}
+                />
               </div>
               <div>
-                <Label className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                  ✅ Stop if Review Received
-                </Label>
-                <p className="text-sm text-gray-600 mt-1">
-                  Automatically pause journey when customer leaves a review
-                </p>
+                <Label>End</Label>
+                <Input
+                  type="time"
+                  value={formData.settings.quietHoursEnd}
+                  onChange={(e) => updateFormData('settings', {
+                    ...formData.settings,
+                    quietHoursEnd: e.target.value
+                  })}
+                />
               </div>
+            </div>
+            <p className="text-xs text-gray-500">
+            Messages won't be sent during these hours to respect customer preferences
+            </p>
+          </CardContent>
+        </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Behavior</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Stop if review received</Label>
+              <p className="text-sm text-gray-500">Automatically pause automation when customer leaves a review in your private inbox</p>
             </div>
             <Switch
               checked={formData.settings.stopIfReview}
@@ -2453,28 +2328,13 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                 ...formData.settings,
                 stopIfReview: checked
               })}
-              className="ml-4"
             />
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Manual Enrollment Card */}
-      <Card className="shadow-md border-2 border-blue-200">
-        <CardContent className="p-5">
+          
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 flex-1">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <User className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <Label className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                  👋 Allow Manual Enrollment
-                </Label>
-                <p className="text-sm text-gray-600 mt-1">
-                  Let you manually add customers from the Customers tab
-                </p>
-              </div>
+            <div>
+              <Label className="text-base">Allow manual enrollment</Label>
+              <p className="text-sm text-gray-500">Let you manually add customers to this automation</p>
             </div>
             <Switch
               checked={formData.settings.allowManualEnroll}
@@ -2482,7 +2342,6 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                 ...formData.settings,
                 allowManualEnroll: checked
               })}
-              className="ml-4"
             />
           </div>
         </CardContent>
@@ -2490,182 +2349,97 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     </div>
   );
 
-  const renderStep6 = () => {
-    const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
-    
-    return (
-      <div className="space-y-6">
-        {/* Review Header */}
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border border-green-200 shadow-sm">
-          <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <CheckCircle className="h-6 w-6 text-green-600" />
-            Review & Activate Journey
-          </h3>
-          <p className="text-sm text-gray-600 mt-2">
-            Everything looks good? Hit "Create & Activate" to launch your customer journey!
-          </p>
-        </div>
-
-        {/* Journey Summary Card */}
-        <Card className="shadow-lg border-2 border-purple-200">
-          <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50">
-            <CardTitle className="flex items-center gap-3 text-xl">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Zap className="h-6 w-6 text-purple-600" />
-              </div>
-              <span>{formData.name || 'Untitled Journey'}</span>
+  const renderStep6 = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-medium mb-4">Review & Activate</h3>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              <span>{formData.name}</span>
             </CardTitle>
-            {formData.description && (
-              <p className="text-sm text-gray-600 mt-2">{formData.description}</p>
-            )}
           </CardHeader>
-          <CardContent className="p-6 space-y-6">
-            {/* Trigger Section */}
-            <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-              <Label className="text-sm font-semibold text-purple-900 flex items-center gap-2">
-                <Webhook className="h-4 w-4" />
-                Trigger
-              </Label>
-              <p className="text-sm mt-2 text-gray-700">
-                {CRM_OPTIONS[selectedCrm]?.name || 'Manual Trigger'}
-                {Object.keys(selectedTriggers).length > 0 && (
-                  <span className="block mt-1 text-xs text-purple-700">
-                    Events: {Object.keys(selectedTriggers).map(triggerId => {
-                      const trigger = getAvailableTriggers()[triggerId];
-                      return trigger?.name;
-                    }).join(', ')}
-                  </span>
-                )}
+          <CardContent className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium text-gray-600">Trigger</Label>
+              <p className="text-sm">
+                {CRM_OPTIONS[selectedCrm]?.name || 'Manual'}
+                {Object.keys(selectedTriggers).length > 0 && ` - ${Object.keys(selectedTriggers).map(triggerId => {
+                  const trigger = getAvailableTriggers()[triggerId];
+                  return trigger?.name;
+                }).join(', ')}`}
               </p>
             </div>
 
-            {/* Journey Flow Timeline */}
             <div>
-              <Label className="text-sm font-semibold text-gray-900 mb-3 block">Journey Flow Preview</Label>
-              <div className="space-y-3">
-                {/* Trigger Node */}
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md">
-                    <Zap className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1 bg-purple-50 p-3 rounded-lg border border-purple-200">
-                    <span className="text-sm font-medium text-purple-900">Journey Starts</span>
-                  </div>
-                </div>
-
-                {/* Flow Steps */}
-                {safeFlowSteps.filter(step => step.type !== 'trigger').map((step, index) => {
-                  const Icon = step.type === 'email' ? Mail : step.type === 'sms' ? MessageSquare : Clock;
-                  const bgColor = step.type === 'email' ? 'bg-blue-50' : step.type === 'sms' ? 'bg-green-50' : 'bg-orange-50';
-                  const borderColor = step.type === 'email' ? 'border-blue-200' : step.type === 'sms' ? 'border-green-200' : 'border-orange-200';
-                  const iconBg = step.type === 'email' ? 'from-blue-500 to-blue-600' : step.type === 'sms' ? 'from-green-500 to-green-600' : 'from-orange-500 to-orange-600';
-                  const textColor = step.type === 'email' ? 'text-blue-900' : step.type === 'sms' ? 'text-green-900' : 'text-orange-900';
-                  
+              <Label className="text-sm font-medium text-gray-600">Steps ({formData.steps.length})</Label>
+              <div className="space-y-2">
+                {formData.steps.map((step, index) => {
+                  const stepType = stepTypes.find(t => t.id === step.type);
+                  const Icon = stepType?.icon || Mail;
                   return (
-                    <div key={step.id}>
-                      <div className="flex items-center justify-center my-2">
-                        <ArrowRight className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className={`flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r ${iconBg} text-white shadow-md`}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <div className={`flex-1 ${bgColor} p-3 rounded-lg border ${borderColor}`}>
-                          <span className={`text-sm font-medium ${textColor}`}>
-                            {step.type === 'email' ? '📨 Email' : step.type === 'sms' ? '💬 SMS' : 'Wait'} Step {index + 1}
-                          </span>
-                        </div>
-                      </div>
+                    <div key={step.id} className="flex items-center space-x-2 text-sm">
+                      <span className="w-6 text-gray-500">{index + 1}.</span>
+                      <Icon className="h-4 w-4" />
+                      <span>{stepType?.label || step.type}</span>
+                      {step.type === 'wait' && (
+                        <span className="text-gray-500">({step.config.delay}{step.config.delayUnit?.charAt(0) || 'h'})</span>
+                      )}
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* Settings Summary */}
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-2">
-              <Label className="text-sm font-semibold text-gray-900">Behavior Settings</Label>
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-gray-700">
-                    Stop if review: <strong>{formData.settings.stopIfReview ? 'Yes' : 'No'}</strong>
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-blue-600" />
-                  <span className="text-gray-700">
-                    Manual add: <strong>{formData.settings.allowManualEnroll ? 'Yes' : 'No'}</strong>
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm col-span-2">
-                  <Clock className="h-4 w-4 text-orange-600" />
-                  <span className="text-gray-700">
-                    Quiet hours: <strong>{formData.settings.quietHoursStart} - {formData.settings.quietHoursEnd}</strong>
-                  </span>
-                </div>
+            <div>
+              <Label className="text-sm font-medium text-gray-600">Settings</Label>
+              <div className="text-sm space-y-1">
+                <p>Quiet hours: {formData.settings.quietHoursStart} - {formData.settings.quietHoursEnd}</p>
+                <p>Stop if review: {formData.settings.stopIfReview ? 'Yes' : 'No'}</p>
+                <p>Manual enrollment: {formData.settings.allowManualEnroll ? 'Yes' : 'No'}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-
-        {/* Success Message */}
-        <div className="bg-gradient-to-r from-green-100 to-emerald-100 p-4 rounded-lg border-2 border-green-300 text-center">
-          <p className="text-green-800 font-medium">
-            🎉 Ready to launch! Your customer journey is configured and ready to go.
-          </p>
-        </div>
       </div>
-    );
-  };
+    </div>
+  );
 
   const steps = [
-    { number: 1, title: 'Journey Basics', description: 'Name your journey and choose triggers' },
-    { number: 2, title: 'Build Flow', description: 'Design your customer journey' },
-    { number: 3, title: 'Messages', description: 'Customize email & SMS content' },
-    { number: 4, title: 'Timing', description: 'Set delays & smart timing' },
-    { number: 5, title: 'Settings', description: 'Configure behavior rules' },
-    { number: 6, title: 'Review', description: 'Review & activate journey' }
+    { number: 1, title: 'Basic Info', description: 'Name and trigger' },
+    { number: 2, title: 'Channels', description: 'Select communication methods' },
+    { number: 3, title: 'Flow Builder', description: 'Drag & drop to build flow' },
+    { number: 4, title: 'Timing', description: 'Set delays & AI optimization' },
+    { number: 5, title: 'Settings', description: 'Configure behavior' },
+    { number: 6, title: 'Review', description: 'Activate sequence' }
   ];
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="w-[80vw] h-[90vh] max-w-none flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-            Create Customer Journey
-          </DialogTitle>
+          <DialogTitle>Create Custom Automation</DialogTitle>
 
-        {/* Progress Steps - Enhanced Journey Builder Style */}
-          <div className="flex items-center justify-between mt-6 mb-4 flex-shrink-0 px-2">
+        {/* Progress Steps */}
+          <div className="flex items-center justify-between mt-4 mb-2 flex-shrink-0">
           {steps.map((step, index) => (
-            <div key={step.number} className="flex items-center flex-1">
-              <div className="flex items-center">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-semibold transition-all duration-300 shadow-md ${
-                  currentStep === step.number
-                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white ring-4 ring-purple-200 scale-110'
-                    : currentStep > step.number
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'
-                    : 'bg-gray-200 text-gray-500'
-                }`}>
-                  {currentStep > step.number ? <Check className="w-5 h-5" /> : step.number}
-                </div>
-                <div className="ml-3 hidden sm:block">
-                  <div className={`text-sm font-semibold transition-colors ${
-                    currentStep === step.number ? 'text-purple-700' : currentStep > step.number ? 'text-green-700' : 'text-gray-500'
-                  }`}>
-                    {step.title}
-                  </div>
-                  <div className="text-xs text-gray-500">{step.description}</div>
-                </div>
+            <div key={step.number} className="flex items-center">
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+                currentStep >= step.number
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-600'
+              }`}>
+                {step.number}
+              </div>
+              <div className="ml-2 hidden sm:block">
+                <div className="text-sm font-medium">{step.title}</div>
+                <div className="text-xs text-gray-500">{step.description}</div>
               </div>
               {index < steps.length - 1 && (
-                <div className={`h-0.5 mx-3 flex-1 transition-all duration-300 ${
-                  currentStep > step.number 
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-600' 
-                    : currentStep === step.number
-                    ? 'bg-gradient-to-r from-purple-400 to-gray-200'
-                    : 'bg-gray-200'
+                <div className={`w-8 h-0.5 mx-4 ${
+                  currentStep > step.number ? 'bg-blue-600' : 'bg-gray-200'
                 }`} />
               )}
             </div>
@@ -2674,11 +2448,11 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         </DialogHeader>
 
         {/* Step Content - Flexible area */}
-        <div className="flex-1 overflow-y-auto px-2">
+        <div className="flex-1 overflow-y-auto">
           {currentStep === 1 && renderStep1()}
-          {currentStep === 2 && renderFlowBuilder()}
-          {currentStep === 3 && renderStep4()}
-          {currentStep === 4 && renderTimingStep()}
+          {currentStep === 2 && renderStep2()}
+          {currentStep === 3 && renderFlowBuilder()}
+          {currentStep === 4 && renderStep4()}
           {currentStep === 5 && renderStep5()}
           {currentStep === 6 && renderStep6()}
         </div>

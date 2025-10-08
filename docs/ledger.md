@@ -1,5 +1,78 @@
 # Blipp Development Ledger
 
+## 2025-10-08: Journey Builder - Complete UI/UX Refactor of Automation Wizard
+
+### What Changed
+- **JOURNEY BUILDER TRANSFORMATION**: Completely refactored the automation wizard from "Automation" to "Journey" branding with modern, delightful UI
+- **Removed Channel Selection Step**: Step 2 (Channels) removed entirely - all journeys now include Email + SMS by default
+- **Renumbered Steps**: Adjusted from 6 steps to 5 steps (removed channels), all validation and navigation updated accordingly
+- **Enhanced Progress Bar**: Added gradient styling, checkmarks for completed steps, active state highlighting with ring effects, and smooth transitions
+- **Step 1 (Journey Basics)**: 
+  - New gradient header with icon and info tooltip
+  - Enhanced CRM cards with hover glow effects, better shadows, gradient backgrounds
+  - Improved trigger selection UI with better color coding
+- **Step 2 (Build Flow)**: 
+  - Renamed from "Flow Builder" to "Build Your Journey Flow"
+  - New gradient header showing both Email + SMS channels active
+  - Badge showing both channels are included
+- **Step 3 (Messages)**:
+  - Renamed from "Timing" to "Customize Messages"
+  - New gradient header with message icon
+  - Stacked Email and SMS message editors with improved card styling
+  - Added emoji icons (📨 Email, 💬 SMS)
+  - Better tone and length selectors with emojis
+  - Gradient borders and shadow effects on message cards
+- **Step 4 (Timing)** - NEW:
+  - Created entirely new timing step with gradient header
+  - AI Smart Timing toggle with Brain icon
+  - Per-step timing controls with icon badges
+  - Inline Quiet Hours configuration
+  - Color-coded step type indicators (Blue=Email, Green=SMS)
+- **Step 5 (Settings)**:
+  - New gradient header with Settings icon
+  - Individual cards for each setting with icon badges
+  - Better spacing and visual hierarchy
+  - Emoji icons for settings (✅ Stop if Review, 👋 Manual Enrollment)
+- **Step 6 (Review)**:
+  - Completely redesigned with journey summary card
+  - Visual timeline showing journey flow with colored pill nodes
+  - Gradient icons for each step type (Purple=Trigger, Blue=Email, Green=SMS)
+  - Settings summary with grid layout
+  - Success message with celebration emoji
+- **Dialog Title**: Changed from "Create Custom Automation" to "Create Customer Journey" with gradient text
+- **Button Updates**: "Create Automation" → "Create Journey" on Automations page
+- **Default Channels**: Set to ['email', 'sms'] by default instead of just ['email']
+
+### Why This Was Needed
+- User requested modern "Journey Builder" experience to match industry-standard automation tools
+- Needed better visual hierarchy, color coding, and delightful microinteractions
+- Removing unnecessary channel selection step streamlined the workflow
+- Enhanced UI makes the complex automation creation process more intuitive and enjoyable
+
+### Files Touched
+- `src/components/automations/AutomationWizard.jsx` - Complete refactor with all visual improvements
+- `src/components/automations/AutomationWizard.jsx.backup` - Backup of original file
+- `src/pages/Automations.jsx` - Updated button text to "Create Journey"
+
+### How Verified
+- No linter errors after refactoring
+- All backend logic, step functionality, and data bindings remain intact
+- Validation logic updated to skip removed channel step
+- Step navigation properly adjusted for new 6-step flow (was 7 with channels)
+- Progress bar correctly shows completed steps with checkmarks
+- All form data and state management preserved
+- Color-coded UI elements (Purple for Triggers, Blue for Email, Green for SMS) applied throughout
+
+### Technical Details
+- Step mapping updated: currentStep 2 now renders Flow Builder (was 3)
+- Step mapping: currentStep 3 now renders Messages (was renderStep4)
+- Step mapping: currentStep 4 now renders new renderTimingStep function
+- Validation checks renumbered to match new step flow
+- useEffect for trigger step updated from step 3 to step 2
+- Enhanced with gradient backgrounds, shadows, rounded corners, and hover effects
+- Added transition animations for smooth step changes
+- Maintained all existing API integrations and backend functionality
+
 ## 2025-10-01: SMS Auth Hardening + STOP/HELP Auto-Replies
 
 ### What Changed
