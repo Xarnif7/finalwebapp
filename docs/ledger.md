@@ -309,3 +309,49 @@
 - Deployed fixes to production
 - New users should now be able to create businesses successfully
 - Email-based ownership maintains data consistency across subscription changes
+
+## 2025-10-08: Analytics Tab - Coming Soon Screen
+
+### What Changed
+- **ANALYTICS COMING SOON**: Replaced Analytics page with a clean "Coming Soon" placeholder screen
+- Commented out `RealTimeAnalytics` component import for easy restoration later
+- Added centered Card component with gradient icons and friendly messaging
+- Used existing Tailwind + lucide-react icons (BarChart3, Clock, TrendingUp) for visual consistency
+
+### Why This Was Needed
+- User requested a temporary "coming soon" screen for the Analytics tab
+- Provides better UX than showing incomplete/work-in-progress analytics features
+- Sets expectations that analytics features are under development
+
+### Files Touched
+- `src/pages/Analytics.jsx` - Replaced full analytics dashboard with coming soon screen
+
+### How Verified
+- No linter errors after changes
+- Component uses existing UI components (Card, CardContent) from shadcn/ui
+- Icons imported from lucide-react maintain consistency with rest of application
+- Screen is responsive with proper mobile padding
+
+## 2025-10-08: Removed Overview and Activity Tabs from Automations
+
+### What Changed
+- **SIMPLIFIED AUTOMATIONS PAGE**: Removed "Overview" and "Activity" sub-tabs from the Automations page
+- Kept only the "Automations" (templates) and "Active Sequences" tabs
+- Cleaned up unused imports (BarChart3, Activity, Eye, TrendingUp, Users)
+- Removed unused KPI state and loadKPIs() function
+- Removed all Overview tab content (KPI cards, revenue attribution cards)
+- Removed all Activity tab content (activity log placeholder)
+
+### Why This Was Needed
+- User requested removal of Overview and Activity sub-tabs to simplify the interface
+- These tabs were showing placeholder/mock data and not adding value yet
+- Reduces complexity and focuses on the core automation management features
+
+### Files Touched
+- `src/pages/Automations.jsx` - Removed Overview and Activity tabs, cleaned up related code
+
+### How Verified
+- No linter errors after changes
+- Automations page now only shows 2 tabs: Automations and Active Sequences
+- All unused state and functions removed
+- Page functionality maintained for remaining tabs

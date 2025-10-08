@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, CheckCircle, Clock, Play, Pause, Settings, Mail, MessageSquare, ArrowRight, Plus, Trash2, GripVertical, Zap, List, BarChart3, Activity, FileText, Eye, TrendingUp, Users, AlertTriangle, RefreshCw, Star } from "lucide-react";
+import { Send, CheckCircle, Clock, Play, Pause, Settings, Mail, MessageSquare, ArrowRight, Plus, Trash2, GripVertical, Zap, List, FileText, AlertTriangle, RefreshCw, Star } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { useBusiness } from "@/hooks/useBusiness";
@@ -57,25 +57,12 @@ const AutomationsPage = () => {
     steps: []
   });
   const [activeTab, setActiveTab] = useState('templates');
-  
-  // KPIs state for Overview tab
-  const [kpis, setKpis] = useState({
-    activeSequences: 0,
-    totalRecipients: 0,
-    sendSuccessRate: 0,
-    failureRate: 0,
-    totalRevenue: 0,
-    avgOrderValue: 0,
-    conversionRate: 0,
-    roi: 0
-  });
 
   // Load data on component mount
   useEffect(() => {
     if (user?.email && business?.id) {
         loadTemplates();
         loadActiveSequences();
-        loadKPIs();
     } else if (user?.email) {
       // User logged in but no business yet - show default templates
       loadDefaultTemplates();
@@ -250,51 +237,6 @@ const AutomationsPage = () => {
     return descriptions[template.key] || descriptions[template.id] || `Custom automation for ${template.name}`;
   };
 
-  const loadKPIs = async () => {
-    try {
-      // Don't load KPIs if no business ID
-      if (!business?.id) {
-        console.log('No business ID available for KPIs');
-        return;
-      }
-
-      const response = await fetch(`/api/automation/kpis/${business.id}`, {
-        headers: {
-          'Authorization': `Bearer ${user?.access_token}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setKpis(data);
-      } else {
-        // Mock data for demonstration
-        setKpis({
-          activeSequences: 3,
-          totalRecipients: 1247,
-          sendSuccessRate: 95.3,
-          failureRate: 4.7,
-          totalRevenue: 45230,
-          avgOrderValue: 125.50,
-          conversionRate: 12.5,
-          roi: 340
-        });
-      }
-    } catch (error) {
-      console.error('Error loading KPIs:', error);
-      // Mock data for demonstration
-      setKpis({
-        activeSequences: 3,
-        totalRecipients: 1247,
-        sendSuccessRate: 95.3,
-        failureRate: 4.7,
-        totalRevenue: 45230,
-        avgOrderValue: 125.50,
-        conversionRate: 12.5,
-        roi: 340
-      });
-    }
-  };
 
   const saveEmailTemplate = async () => {
     try {
@@ -370,9 +312,8 @@ const AutomationsPage = () => {
         }
       }
       
-      // Reload active sequences and KPIs
+      // Reload active sequences
         await loadActiveSequences();
-        await loadKPIs();
         
     } catch (error) {
       console.error('Error updating template:', error);
@@ -418,9 +359,8 @@ const AutomationsPage = () => {
       });
     }
     
-    // Reload active sequences and KPIs
+    // Reload active sequences
     await loadActiveSequences();
-    await loadKPIs();
   };
 
 
@@ -573,9 +513,7 @@ const AutomationsPage = () => {
         <nav className="-mb-px flex space-x-8" role="tablist" aria-label="Main navigation">
           {[
             { id: 'templates', label: 'Automations', icon: FileText },
-            { id: 'active', label: 'Active Sequences', icon: Play },
-            { id: 'overview', label: 'Overview', icon: BarChart3 },
-            { id: 'activity', label: 'Activity', icon: Activity }
+            { id: 'active', label: 'Active Sequences', icon: Play }
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -665,140 +603,6 @@ const AutomationsPage = () => {
             </div>
           </div>
           <ActiveSequences businessId={business?.id} templates={templates} />
-        </div>
-      )}
-
-      {activeTab === 'overview' && (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Automation Overview</h2>
-            <p className="text-sm text-gray-600">Key metrics and performance indicators</p>
-          </div>
-          
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Play className="h-6 w-6 text-blue-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Active Sequences</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.activeSequences || 0}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Users className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Recipients</p>
-                  <p className="text-2xl font-bold text-gray-900">{(kpis.totalRecipients || 0).toLocaleString()}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <TrendingUp className="h-6 w-6 text-purple-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Success Rate</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.sendSuccessRate || 0}%</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <CheckCircle className="h-6 w-6 text-orange-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">ROI</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.roi || 0}%</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Revenue Attribution Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-700">Revenue Generated</p>
-                  <p className="text-3xl font-bold text-green-800">${(kpis.totalRevenue || 0).toLocaleString()}</p>
-                  <p className="text-xs text-green-600 mt-1">From automation sequences</p>
-                </div>
-                <div className="p-3 bg-green-200 rounded-full">
-                  <TrendingUp className="h-8 w-8 text-green-700" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-blue-700">Avg Order Value</p>
-                  <p className="text-3xl font-bold text-blue-800">${kpis.avgOrderValue || 0}</p>
-                  <p className="text-xs text-blue-600 mt-1">Per converted customer</p>
-                </div>
-                <div className="p-3 bg-blue-200 rounded-full">
-                  <Users className="h-8 w-8 text-blue-700" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg border border-purple-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-purple-700">Conversion Rate</p>
-                  <p className="text-3xl font-bold text-purple-800">{kpis.conversionRate || 0}%</p>
-                  <p className="text-xs text-purple-600 mt-1">Email to purchase</p>
-                </div>
-                <div className="p-3 bg-purple-200 rounded-full">
-                  <Eye className="h-8 w-8 text-purple-700" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'activity' && (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Activity Log</h2>
-            <p className="text-sm text-gray-600">Recent automation activity and events</p>
-          </div>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Activity className="h-5 w-5 mr-2" />
-                Recent Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12">
-                <Activity className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No activity yet</h3>
-                <p className="text-gray-600 mb-6">Once you enable templates and they start sending, activity will appear here</p>
-                <Button
-                  onClick={() => setActiveTab('templates')}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Go to Templates
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       )}
 
