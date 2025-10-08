@@ -498,17 +498,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       }
     }
 
-    // Step 3: Messages validation (formerly step 4)
+    // Step 3: Messages validation - optional, allow users to proceed with empty templates
     if (currentStep === 3) {
-      const safeSteps = Array.isArray(formData.steps) ? formData.steps : [];
-      if (safeSteps.length === 0) {
-      newErrors.steps = 'At least one step is required';
-    }
-
-      const invalidSteps = safeSteps.filter(step => !validateStep(step));
-    if (invalidSteps.length > 0) {
-      newErrors.steps = 'All steps must be properly configured';
-      }
+      // Messages are optional - users can customize them or leave them empty
+      // No validation needed here as templates can be empty initially
     }
 
     setErrors(newErrors);
