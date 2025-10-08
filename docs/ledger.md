@@ -1,5 +1,26 @@
 # Blipp Development Ledger
 
+## 2025-10-08: Journey Builder - Fix Step 3 Validation
+
+### What Changed
+- **HOTFIX**: Fixed validation issue preventing users from proceeding past Step 3 (Messages)
+- Removed incorrect validation that was checking old `formData.steps` structure
+- Made message templates optional - users can proceed with empty templates and fill them later
+- Validation now allows users to move forward from the Messages step
+
+### Why This Was Needed
+- Users were blocked at Step 3 because validation was checking the wrong data structure
+- The old validation was looking for `formData.steps` but we're now using `flowSteps` from the flow builder
+- Message templates should be optional anyway - users can customize them at any time
+
+### Files Touched
+- `src/components/automations/AutomationWizard.jsx` - Fixed step 3 validation logic
+
+### How Verified
+- No linter errors
+- Validation no longer blocks progression from Messages step
+- Users can now complete the full journey creation flow
+
 ## 2025-10-08: Journey Builder - Complete UI/UX Refactor of Automation Wizard
 
 ### What Changed
