@@ -4209,7 +4209,72 @@ app.post('/api/sequences', async (req, res) => {
 
     console.log(`[API] Creating custom sequence for business: ${business.id}`);
 
-    // Create the automation sequence
+    // First, check if sequences table exists (new schema)
+    const { data: tablesCheck } = await supabase
+      .from('sequences')
+      .select('id')
+      .limit(1);
+
+    // Use new sequences table if it exists
+    if (tablesCheck !== null) {
+      console.log('[API] Using new sequences/sequence_steps schema');
+
+      // Create the sequence
+      const { data: sequence, error: sequenceError } = await supabase
+        .from('sequences')
+        .insert({
+          business_id: business.id,
+          name,
+          status: status || 'active',
+          trigger_event_type: trigger_event_type || trigger_type,
+          allow_manual_enroll: allow_manual_enroll || false,
+          quiet_hours_start: quiet_hours_start || null,
+          quiet_hours_end: quiet_hours_end || null,
+          rate_per_hour: rate_limit?.per_hour || 100,
+          rate_per_day: rate_limit?.per_day || 1000
+        })
+        .select()
+        .single();
+
+      if (sequenceError) {
+        console.error('[API] Error creating sequence:', sequenceError);
+        return res.status(500).json({ error: 'Failed to create sequence' });
+      }
+
+      // Create sequence steps if provided
+      if (steps && steps.length > 0) {
+        const stepsToInsert = steps.map(step => ({
+          sequence_id: sequence.id,
+          kind: step.kind,
+          step_index: step.step_index,
+          wait_ms: step.wait_ms || null,
+          template_id: step.template_id || null,
+          message_purpose: step.message_purpose || null,
+          message_config: step.message_config || null
+        }));
+
+        const { error: stepsError } = await supabase
+          .from('sequence_steps')
+          .insert(stepsToInsert);
+
+        if (stepsError) {
+          console.error('[API] Error creating sequence steps:', stepsError);
+          // Continue anyway - sequence is created
+        } else {
+          console.log(`[API] Created ${stepsToInsert.length} sequence steps`);
+        }
+      }
+
+      console.log('[API] Successfully created sequence:', sequence.id);
+
+      return res.status(200).json({
+        ok: true,
+        sequence: sequence
+      });
+    }
+
+    // Fallback: use old automation_sequences table
+    console.log('[API] Using legacy automation_sequences schema');
     const { data: sequence, error: sequenceError } = await supabase
       .from('automation_sequences')
       .insert({
@@ -4250,6 +4315,300 @@ app.post('/api/sequences', async (req, res) => {
       ok: false, 
       error: 'Internal server error' 
     });
+  }
+});
+
+// API endpoint to enroll a customer in a sequence
+app.post('/api/sequences/enroll', async (req, res) => {
+  try {
+    const { sequence_id, customer_id, business_id, trigger_source } = req.body;
+
+    // Validate required fields
+    if (!sequence_id || !customer_id || !business_id) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: sequence_id, customer_id, business_id' 
+      });
+    }
+
+    console.log(`[ENROLL] Enrolling customer ${customer_id} in sequence ${sequence_id}`);
+
+    // Check if customer is already enrolled in this sequence
+    const { data: existingEnrollment } = await supabase
+      .from('sequence_enrollments')
+      .select('id, status')
+      .eq('sequence_id', sequence_id)
+      .eq('customer_id', customer_id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (existingEnrollment) {
+      return res.status(400).json({ 
+        error: 'Customer is already enrolled in this sequence',
+        enrollment_id: existingEnrollment.id 
+      });
+    }
+
+    // Get the first step of the sequence
+    const { data: firstStep, error: stepError } = await supabase
+      .from('sequence_steps')
+      .select('step_index, wait_ms')
+      .eq('sequence_id', sequence_id)
+      .order('step_index', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (stepError || !firstStep) {
+      return res.status(404).json({ 
+        error: 'No steps found for this sequence' 
+      });
+    }
+
+    // Calculate next run time based on first step's wait_ms
+    const nextRunAt = new Date(Date.now() + (firstStep.wait_ms || 0));
+
+    // Create enrollment
+    const { data: enrollment, error: enrollError } = await supabase
+      .from('sequence_enrollments')
+      .insert({
+        business_id: business_id,
+        sequence_id: sequence_id,
+        customer_id: customer_id,
+        status: 'active',
+        current_step_index: firstStep.step_index,
+        next_run_at: nextRunAt.toISOString(),
+        last_event_at: new Date().toISOString(),
+        meta: {
+          trigger_source: trigger_source || 'manual',
+          enrolled_at: new Date().toISOString()
+        }
+      })
+      .select()
+      .single();
+
+    if (enrollError) {
+      console.error('[ENROLL] Error creating enrollment:', enrollError);
+      return res.status(500).json({ error: 'Failed to enroll customer' });
+    }
+
+    console.log(`✅ [ENROLL] Customer enrolled successfully:`, enrollment.id);
+
+    return res.status(200).json({
+      success: true,
+      enrollment: enrollment,
+      message: 'Customer enrolled in sequence successfully',
+      next_run_at: nextRunAt.toISOString()
+    });
+
+  } catch (error) {
+    console.error('[ENROLL] Error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+// API endpoint to execute journey steps (process enrollments)
+app.post('/api/_cron/journey-executor', async (req, res) => {
+  try {
+    console.log('🚀 [JOURNEY_EXECUTOR] Starting journey execution cycle...');
+    
+    const currentTime = new Date();
+    const currentTimeISO = currentTime.toISOString();
+    
+    // Query sequence enrollments that are ready to execute
+    const { data: enrollments, error: enrollmentsError } = await supabase
+      .from('sequence_enrollments')
+      .select(`
+        id,
+        sequence_id,
+        customer_id,
+        business_id,
+        current_step_index,
+        next_run_at,
+        meta,
+        sequences!inner(name, status),
+        customers!inner(id, full_name, email, phone),
+        businesses!inner(name, phone, google_review_url)
+      `)
+      .eq('status', 'active')
+      .lte('next_run_at', currentTimeISO)
+      .limit(50);
+
+    if (enrollmentsError) {
+      console.error('[JOURNEY_EXECUTOR] Error fetching enrollments:', enrollmentsError);
+      return res.status(500).json({ error: 'Failed to fetch enrollments' });
+    }
+
+    let processedCount = 0;
+    let sentCount = 0;
+
+    for (const enrollment of enrollments || []) {
+      try {
+        console.log(`[JOURNEY_EXECUTOR] Processing enrollment ${enrollment.id}, step ${enrollment.current_step_index}`);
+
+        // Get the current step to execute
+        const { data: step, error: stepError } = await supabase
+          .from('sequence_steps')
+          .select('*')
+          .eq('sequence_id', enrollment.sequence_id)
+          .eq('step_index', enrollment.current_step_index)
+          .maybeSingle();
+
+        if (stepError || !step) {
+          console.log(`[JOURNEY_EXECUTOR] Journey finished for enrollment ${enrollment.id}`);
+          
+          // Mark enrollment as finished
+          await supabase
+            .from('sequence_enrollments')
+            .update({ status: 'finished', updated_at: currentTimeISO })
+            .eq('id', enrollment.id);
+          
+          processedCount++;
+          continue;
+        }
+
+        // Execute step (send message)
+        if (step.kind === 'send_email' || step.kind === 'send_sms') {
+          const customer = enrollment.customers;
+          const business = enrollment.businesses;
+          const messageConfig = step.message_config || {};
+
+          // Resolve variables
+          const reviewLink = `${process.env.APP_BASE_URL || 'https://myblipp.com'}/feedback-form/${business.id}?customer=${customer.id}`;
+          const bookingLink = business.google_review_url || reviewLink;
+
+          // Resolve message body
+          let messageBody = messageConfig.body || 'Thank you for your business!';
+          messageBody = messageBody.replace(/{{customer\.name}}/g, customer.full_name);
+          messageBody = messageBody.replace(/{{business\.name}}/g, business.name);
+          messageBody = messageBody.replace(/{{business\.phone}}/g, business.phone);
+          messageBody = messageBody.replace(/{{review_link}}/g, reviewLink);
+          messageBody = messageBody.replace(/{{booking_link}}/g, bookingLink);
+
+          // SEND EMAIL
+          if (step.kind === 'send_email' && customer.email) {
+            try {
+              // Resolve subject line
+              let subject = messageConfig.subject || 'Message from {{business.name}}';
+              subject = subject.replace(/{{customer\.name}}/g, customer.full_name);
+              subject = subject.replace(/{{business\.name}}/g, business.name);
+
+              const emailResponse = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  from: `${business.name} <noreply@myblipp.com>`,
+                  to: [customer.email],
+                  subject: subject,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                      <div style="white-space: pre-line; line-height: 1.6; color: #333;">
+                        ${messageBody}
+                      </div>
+                      <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                      <p style="color: #999; font-size: 12px; text-align: center;">
+                        Sent via Blipp
+                      </p>
+                    </div>
+                  `,
+                  text: messageBody
+                })
+              });
+
+              if (emailResponse.ok) {
+                console.log(`✅ [JOURNEY] Sent EMAIL to ${customer.email} - Purpose: ${step.message_purpose}`);
+                sentCount++;
+              } else {
+                const emailError = await emailResponse.json();
+                console.error(`❌ [JOURNEY] Email failed:`, emailError);
+              }
+            } catch (emailError) {
+              console.error(`❌ [JOURNEY] Email error:`, emailError);
+            }
+          }
+
+          // SEND SMS
+          if (step.kind === 'send_sms' && customer.phone) {
+            try {
+              const smsResponse = await fetch(`${process.env.APP_BASE_URL || 'https://myblipp.com'}/api/sms-send`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  to: customer.phone,
+                  body: messageBody + '\n\nReply STOP to opt out.'
+                })
+              });
+
+              if (smsResponse.ok) {
+                console.log(`✅ [JOURNEY] Sent SMS to ${customer.phone} - Purpose: ${step.message_purpose}`);
+                sentCount++;
+              } else {
+                const smsError = await smsResponse.text();
+                console.error(`❌ [JOURNEY] SMS failed:`, smsError);
+              }
+            } catch (smsError) {
+              console.error(`❌ [JOURNEY] SMS error:`, smsError);
+            }
+          }
+        }
+
+        // Move to next step
+        const { data: nextSteps } = await supabase
+          .from('sequence_steps')
+          .select('step_index, wait_ms')
+          .eq('sequence_id', enrollment.sequence_id)
+          .gt('step_index', enrollment.current_step_index)
+          .order('step_index', { ascending: true })
+          .limit(1);
+
+        if (nextSteps && nextSteps.length > 0) {
+          const nextStep = nextSteps[0];
+          const nextRunAt = new Date(currentTime.getTime() + (nextStep.wait_ms || 0));
+
+          await supabase
+            .from('sequence_enrollments')
+            .update({
+              current_step_index: nextStep.step_index,
+              next_run_at: nextRunAt.toISOString(),
+              last_event_at: currentTimeISO,
+              updated_at: currentTimeISO
+            })
+            .eq('id', enrollment.id);
+
+          console.log(`➡️ Advanced to step ${nextStep.step_index}`);
+        } else {
+          await supabase
+            .from('sequence_enrollments')
+            .update({ status: 'finished', last_event_at: currentTimeISO, updated_at: currentTimeISO })
+            .eq('id', enrollment.id);
+
+          console.log(`🏁 Journey completed`);
+        }
+
+        processedCount++;
+
+      } catch (error) {
+        console.error(`❌ Error processing enrollment:`, error);
+      }
+    }
+
+    console.log(`✅ [JOURNEY_EXECUTOR] Complete: processed ${processedCount}, sent ${sentCount}`);
+
+    return res.status(200).json({
+      success: true,
+      processed: processedCount,
+      sent: sentCount
+    });
+
+  } catch (error) {
+    console.error('❌ [JOURNEY_EXECUTOR] Fatal error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -16443,9 +16802,20 @@ app.post('/api/quickbooks/webhook', async (req, res) => {
 // Helper function to get invoice details from QuickBooks
 async function getQuickBooksInvoiceDetails(integrationData, invoiceId) {
   try {
-    // integrationData may be the whole row from integrations_quickbooks
-    const realmId = integrationData.realm_id;
-    let token = integrationData.access_token;
+    // ALWAYS refresh token if needed before API call
+    let integration = integrationData;
+    if (needsTokenRefresh(integration)) {
+      console.log('[QBO] Token needs refresh, refreshing before API call...');
+      try {
+        integration = await refreshQBOtoken(integration);
+      } catch (refreshError) {
+        console.error('[QBO] Failed to refresh token:', refreshError.message);
+        // Continue with old token - might still work
+      }
+    }
+
+    const realmId = integration.realm_id;
+    let token = integration.access_token;
 
     const apiHost = 'https://quickbooks.api.intuit.com'; // default to production host
 
@@ -16798,21 +17168,35 @@ async function refreshQBOtoken(integration) {
   }
 }
 
-// Check if QBO token needs refresh (within 7 days of expiry)
+// Check if QBO token needs refresh (within 1 hour of expiry - AGGRESSIVE!)
 function needsTokenRefresh(integration) {
   if (!integration.token_expires_at) return true;
   
   const now = new Date();
   const expiresAt = new Date(integration.token_expires_at);
-  const daysUntilExpiry = (expiresAt - now) / (1000 * 60 * 60 * 24);
+  const hoursUntilExpiry = (expiresAt - now) / (1000 * 60 * 60);
   
-  return daysUntilExpiry <= 7; // Refresh if 7 days or less remaining
+  // CHANGED: Refresh if 1 hour or less remaining (was 7 days - too lazy!)
+  // This ensures tokens are ALWAYS fresh
+  return hoursUntilExpiry <= 1;
 }
 
 // Helper function to get fresh customer data from QuickBooks
 async function getQuickBooksCustomerData(integrationData, customerId) {
   try {
-    const { access_token, realm_id } = integrationData;
+    // ALWAYS refresh token if needed before API call
+    let integration = integrationData;
+    if (needsTokenRefresh(integration)) {
+      console.log('[QBO] Token needs refresh, refreshing before API call...');
+      try {
+        integration = await refreshQBOtoken(integration);
+      } catch (refreshError) {
+        console.error('[QBO] Failed to refresh token:', refreshError.message);
+        // Continue with old token - might still work
+      }
+    }
+
+    const { access_token, realm_id } = integration;
     
     const response = await fetch(`https://sandbox-quickbooks.api.intuit.com/v3/company/${realm_id}/customers/${customerId}`, {
       headers: {
@@ -19611,60 +19995,106 @@ app.post('/api/google/sheets/sync-settings', async (req, res) => {
 // Daily token refresh cron job
 app.get('/api/cron/refresh-qbo-tokens', async (req, res) => {
   try {
-    console.log('[CRON] Starting QBO token refresh job...');
+    console.log('[CRON] Starting CRM token refresh job (QBO + Jobber)...');
     console.log('[CRON] Current time:', new Date().toISOString());
     
-    // Get all active QBO integrations that need token refresh
-    const { data: integrations, error } = await supabase
+    let qboRefreshed = 0, qboFailed = 0;
+    let jobberRefreshed = 0, jobberFailed = 0;
+
+    // REFRESH QBO TOKENS
+    const { data: qboIntegrations } = await supabase
       .from('integrations_quickbooks')
       .select('*')
-      .eq('status', 'active')
       .eq('connection_status', 'connected');
     
-    if (error) {
-      console.error('[CRON] Error fetching integrations:', error);
-      return res.status(500).json({ error: 'Failed to fetch integrations' });
-    }
-    
-    if (!integrations || integrations.length === 0) {
-      console.log('[CRON] No active QBO integrations found');
-      return res.json({ message: 'No integrations to refresh', refreshed: 0 });
-    }
-    
-    let refreshedCount = 0;
-    let failedCount = 0;
-    
-    for (const integration of integrations) {
-      try {
-        if (needsTokenRefresh(integration)) {
-          await refreshQBOtoken(integration);
-          refreshedCount++;
-          console.log(`[CRON] Refreshed token for business ${integration.business_id}`);
-        } else {
-          console.log(`[CRON] Token for business ${integration.business_id} is still valid`);
+    if (qboIntegrations && qboIntegrations.length > 0) {
+      console.log(`[CRON] Found ${qboIntegrations.length} QBO integrations`);
+      
+      for (const integration of qboIntegrations) {
+        try {
+          if (needsTokenRefresh(integration)) {
+            await refreshQBOtoken(integration);
+            qboRefreshed++;
+            console.log(`✅ [CRON] Refreshed QBO token for business ${integration.business_id}`);
+          }
+        } catch (error) {
+          qboFailed++;
+          console.error(`❌ [CRON] QBO refresh failed for ${integration.business_id}:`, error.message);
+          
+          await supabase
+            .from('integrations_quickbooks')
+            .update({ connection_status: 'token_expired', updated_at: new Date().toISOString() })
+            .eq('id', integration.id);
         }
-      } catch (error) {
-        failedCount++;
-        console.error(`[CRON] Failed to refresh token for business ${integration.business_id}:`, error.message);
-        
-        // Mark integration as needing reconnection
-        await supabase
-          .from('integrations_quickbooks')
-          .update({ 
-            connection_status: 'token_expired',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', integration.id);
+      }
+    }
+
+    // REFRESH JOBBER TOKENS
+    const { data: jobberIntegrations } = await supabase
+      .from('integrations_jobber')
+      .select('*')
+      .eq('connection_status', 'connected');
+    
+    if (jobberIntegrations && jobberIntegrations.length > 0) {
+      console.log(`[CRON] Found ${jobberIntegrations.length} Jobber integrations`);
+      
+      for (const integration of jobberIntegrations) {
+        try {
+          // Check if token needs refresh (< 1 hour remaining)
+          const needsRefresh = !integration.token_expires_at || 
+            new Date(integration.token_expires_at) <= new Date(Date.now() + 3600000);
+
+          if (needsRefresh && integration.refresh_token) {
+            // Refresh Jobber token
+            const tokenResponse = await fetch('https://api.getjobber.com/api/oauth/token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({
+                grant_type: 'refresh_token',
+                client_id: process.env.JOBBER_CLIENT_ID,
+                client_secret: process.env.JOBBER_CLIENT_SECRET,
+                refresh_token: integration.refresh_token
+              })
+            });
+
+            if (tokenResponse.ok) {
+              const tokens = await tokenResponse.json();
+              const expiresAt = new Date(Date.now() + (tokens.expires_in * 1000)).toISOString();
+
+              await supabase
+                .from('integrations_jobber')
+                .update({
+                  access_token: tokens.access_token,
+                  refresh_token: tokens.refresh_token || integration.refresh_token,
+                  token_expires_at: expiresAt,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', integration.id);
+
+              jobberRefreshed++;
+              console.log(`✅ [CRON] Refreshed Jobber token for business ${integration.business_id}`);
+            } else {
+              throw new Error('Token refresh failed');
+            }
+          }
+        } catch (error) {
+          jobberFailed++;
+          console.error(`❌ [CRON] Jobber refresh failed for ${integration.business_id}:`, error.message);
+          
+          await supabase
+            .from('integrations_jobber')
+            .update({ connection_status: 'token_expired', updated_at: new Date().toISOString() })
+            .eq('id', integration.id);
+        }
       }
     }
     
-    console.log(`[CRON] Token refresh job completed: ${refreshedCount} refreshed, ${failedCount} failed`);
+    console.log(`✅ [CRON] Token refresh complete: QBO(${qboRefreshed}/${qboFailed}), Jobber(${jobberRefreshed}/${jobberFailed})`);
     
     res.json({ 
       message: 'Token refresh job completed',
-      refreshed: refreshedCount,
-      failed: failedCount,
-      total: integrations.length
+      qbo: { refreshed: qboRefreshed, failed: qboFailed },
+      jobber: { refreshed: jobberRefreshed, failed: jobberFailed }
     });
     
   } catch (error) {

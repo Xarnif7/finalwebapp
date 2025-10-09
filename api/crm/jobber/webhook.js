@@ -77,70 +77,195 @@ export default async function handler(req, res) {
 
 async function handleJobCompleted(payload) {
   try {
-    const jobData = payload.job;
+    console.log('[JOBBER_WEBHOOK] Processing job completion event');
+    
+    const jobData = payload.data || payload.job || payload;
     
     if (!jobData || !jobData.id) {
-      console.error('Invalid job data in webhook payload');
+      console.error('[JOBBER_WEBHOOK] Invalid job data in webhook payload');
       return;
     }
 
-    // Get the business connection
-    const businessId = await getBusinessIdFromJobberJob(jobData.id);
+    // Extract business info from webhook payload or lookup
+    let businessId = payload.business_id || payload.businessId;
+    
     if (!businessId) {
-      console.error('Could not determine business ID for job:', jobData.id);
+      // Get first connected Jobber business (for single-tenant setups)
+      const { data: integration } = await supabase
+        .from('integrations_jobber')
+        .select('business_id')
+        .eq('connection_status', 'connected')
+        .limit(1)
+        .maybeSingle();
+      
+      businessId = integration?.business_id;
+    }
+
+    if (!businessId) {
+      console.error('[JOBBER_WEBHOOK] Could not determine business_id');
       return;
     }
 
-    // Get the connection details
-    const { data: connection, error: connectionError } = await supabase
-      .from('crm_connections')
+    console.log('[JOBBER_WEBHOOK] Processing for business:', businessId);
+
+    // Get Jobber integration for this business
+    const { data: integration, error: integrationError } = await supabase
+      .from('integrations_jobber')
       .select('*')
       .eq('business_id', businessId)
-      .eq('crm_type', 'jobber')
-      .eq('status', 'connected')
-      .single();
+      .eq('connection_status', 'connected')
+      .maybeSingle();
 
-    if (connectionError || !connection) {
-      console.error('No active Jobber connection found for business:', businessId);
+    if (integrationError || !integration) {
+      console.error('[JOBBER_WEBHOOK] No active Jobber integration found');
       return;
     }
 
+    // Update last webhook time
+    await supabase
+      .from('integrations_jobber')
+      .update({ 
+        last_webhook_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', integration.id);
+
     // Fetch full job details from Jobber API
-    const jobDetails = await fetchJobDetailsFromJobber(connection.access_token, jobData.id);
+    console.log('[JOBBER_WEBHOOK] Fetching job details for job:', jobData.id);
+    const jobDetails = await fetchJobDetailsFromJobber(integration.access_token, jobData.id);
+    
     if (!jobDetails) {
-      console.error('Failed to fetch job details from Jobber');
+      console.error('[JOBBER_WEBHOOK] Failed to fetch job details');
       return;
     }
 
     // Extract customer information
-    const customerInfo = await extractCustomerInfo(connection.access_token, jobDetails);
-    if (!customerInfo) {
-      console.error('Failed to extract customer information');
+    const customerInfo = await extractCustomerInfo(integration.access_token, jobDetails);
+    if (!customerInfo || (!customerInfo.email && !customerInfo.phone)) {
+      console.error('[JOBBER_WEBHOOK] No customer contact info available');
       return;
     }
 
-    // Determine service type and find matching template
-    const serviceType = jobDetails.service_type || jobDetails.category || 'General Service';
-    const template = await findMatchingTemplate(businessId, serviceType);
+    console.log('[JOBBER_WEBHOOK] Customer:', customerInfo.name, customerInfo.email);
+
+    // Upsert customer to our database
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .upsert({
+        business_id: businessId,
+        full_name: customerInfo.name,
+        email: customerInfo.email,
+        phone: customerInfo.phone,
+        address: customerInfo.address,
+        status: 'active',
+        created_by: (await supabase.from('businesses').select('created_by').eq('id', businessId).single()).data.created_by,
+        external_id: jobDetails.client_id || customerInfo.id,
+        source: 'jobber',
+        last_synced_at: new Date().toISOString()
+      }, {
+        onConflict: 'business_id,email'
+      })
+      .select()
+      .single();
+
+    if (customerError) {
+      console.error('[JOBBER_WEBHOOK] Failed to upsert customer:', customerError);
+      return;
+    }
+
+    console.log('✅ [JOBBER_WEBHOOK] Customer synced:', customer.id);
+
+    // TRIGGER JOURNEYS - Match sequences with trigger_event_type = 'job_completed'
+    console.log('[JOBBER_WEBHOOK] Finding matching journeys for job_completed trigger...');
     
-    if (!template) {
-      console.log('No matching template found for service type:', serviceType);
+    const { data: matchingSequences, error: sequencesError } = await supabase
+      .from('sequences')
+      .select('id, name')
+      .eq('business_id', businessId)
+      .eq('trigger_event_type', 'job_completed')
+      .eq('status', 'active');
+
+    if (sequencesError) {
+      console.error('[JOBBER_WEBHOOK] Error fetching sequences:', sequencesError);
       return;
     }
 
-    // Trigger the automation
-    await triggerJobberAutomation({
-      businessId,
-      template,
-      customerInfo,
-      jobDetails,
-      serviceType
-    });
+    if (!matchingSequences || matchingSequences.length === 0) {
+      console.log('[JOBBER_WEBHOOK] No active journeys found for job_completed trigger');
+      return;
+    }
 
-    console.log('Successfully processed Jobber job completion:', jobData.id);
+    console.log(`[JOBBER_WEBHOOK] Found ${matchingSequences.length} matching journeys`);
+
+    // Enroll customer in each matching journey
+    for (const sequence of matchingSequences) {
+      try {
+        // Get first step to determine timing
+        const { data: firstStep } = await supabase
+          .from('sequence_steps')
+          .select('step_index, wait_ms')
+          .eq('sequence_id', sequence.id)
+          .order('step_index', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (!firstStep) {
+          console.log('[JOBBER_WEBHOOK] No steps found for journey:', sequence.name);
+          continue;
+        }
+
+        // Check if already enrolled
+        const { data: existing } = await supabase
+          .from('sequence_enrollments')
+          .select('id')
+          .eq('sequence_id', sequence.id)
+          .eq('customer_id', customer.id)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (existing) {
+          console.log('[JOBBER_WEBHOOK] Customer already enrolled in:', sequence.name);
+          continue;
+        }
+
+        // Enroll customer
+        const nextRunAt = new Date(Date.now() + (firstStep.wait_ms || 0));
+
+        const { data: enrollment, error: enrollError } = await supabase
+          .from('sequence_enrollments')
+          .insert({
+            business_id: businessId,
+            sequence_id: sequence.id,
+            customer_id: customer.id,
+            status: 'active',
+            current_step_index: firstStep.step_index,
+            next_run_at: nextRunAt.toISOString(),
+            last_event_at: new Date().toISOString(),
+            meta: {
+              trigger_source: 'jobber_webhook',
+              trigger_event: 'job_completed',
+              jobber_job_id: jobData.id,
+              enrolled_at: new Date().toISOString()
+            }
+          })
+          .select()
+          .single();
+
+        if (enrollError) {
+          console.error('[JOBBER_WEBHOOK] Failed to enroll in journey:', enrollError);
+        } else {
+          console.log(`✅ [JOBBER_WEBHOOK] Enrolled in journey "${sequence.name}" - ID: ${enrollment.id}`);
+        }
+
+      } catch (error) {
+        console.error(`[JOBBER_WEBHOOK] Error enrolling in sequence ${sequence.name}:`, error);
+      }
+    }
+
+    console.log('✅ [JOBBER_WEBHOOK] Job completion processed successfully');
 
   } catch (error) {
-    console.error('Error handling job completion:', error);
+    console.error('[JOBBER_WEBHOOK] Error handling job completion:', error);
   }
 }
 
@@ -160,54 +285,91 @@ async function getBusinessIdFromJobberJob(jobId) {
 
 async function fetchJobDetailsFromJobber(accessToken, jobId) {
   try {
-    const response = await fetch(`https://api.getjobber.com/api/jobs/${jobId}`, {
+    const response = await fetch('https://api.getjobber.com/api/graphql', {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
-      }
+      },
+      body: JSON.stringify({
+        query: `
+          query GetJob($id: ID!) {
+            job(id: $id) {
+              id
+              title
+              jobNumber
+              client {
+                id
+                name
+                emails {
+                  address
+                  primary
+                }
+                phones {
+                  number
+                  primary
+                }
+                property {
+                  address {
+                    street1
+                    city
+                    province
+                    postalCode
+                  }
+                }
+              }
+              lineItems {
+                nodes {
+                  name
+                  description
+                }
+              }
+            }
+          }
+        `,
+        variables: { id: jobId }
+      })
     });
 
     if (!response.ok) {
-      console.error('Failed to fetch job details:', response.status);
+      console.error('[JOBBER_WEBHOOK] Failed to fetch job details:', response.status);
       return null;
     }
 
-    return await response.json();
+    const data = await response.json();
+    return data?.data?.job;
+    
   } catch (error) {
-    console.error('Error fetching job details:', error);
+    console.error('[JOBBER_WEBHOOK] Error fetching job details:', error);
     return null;
   }
 }
 
 async function extractCustomerInfo(accessToken, jobDetails) {
   try {
-    const customerId = jobDetails.customer_id;
-    if (!customerId) {
+    if (!jobDetails || !jobDetails.client) {
       return null;
     }
 
-    const response = await fetch(`https://api.getjobber.com/api/customers/${customerId}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    const client = jobDetails.client;
+    const primaryEmail = client.emails?.find(e => e.primary)?.address || client.emails?.[0]?.address;
+    const primaryPhone = client.phones?.find(p => p.primary)?.number || client.phones?.[0]?.number;
 
-    if (!response.ok) {
-      console.error('Failed to fetch customer details:', response.status);
-      return null;
-    }
+    const address = client.property?.address;
+    const fullAddress = address 
+      ? [address.street1, address.city, address.province, address.postalCode].filter(Boolean).join(', ')
+      : null;
 
-    const customerData = await response.json();
-    
     return {
-      name: customerData.name,
-      email: customerData.email,
-      phone: customerData.phone,
-      address: customerData.address
+      id: client.id,
+      name: client.name,
+      email: primaryEmail,
+      phone: primaryPhone,
+      address: fullAddress
     };
+    
   } catch (error) {
-    console.error('Error extracting customer info:', error);
+    console.error('[JOBBER_WEBHOOK] Error extracting customer info:', error);
     return null;
   }
 }

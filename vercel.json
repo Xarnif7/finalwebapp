@@ -310,7 +310,7 @@
     },
     {
       "path": "/api/cron/refresh-qbo-tokens",
-      "schedule": "0 2 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }

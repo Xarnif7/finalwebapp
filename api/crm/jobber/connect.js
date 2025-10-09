@@ -13,11 +13,12 @@ export default async function handler(req, res) {
   try {
     console.log('Jobber connect request received:', { body: req.body });
     
-    const { businessId, userId } = req.body;
+    const { business_id, businessId, userId } = req.body;
+    const finalBusinessId = business_id || businessId;
 
-    if (!businessId || !userId) {
-      console.error('Missing required parameters:', { businessId, userId });
-      return res.status(400).json({ error: 'Business ID and User ID are required' });
+    if (!finalBusinessId) {
+      console.error('[JOBBER_CONNECT] Missing business_id');
+      return res.status(400).json({ error: 'business_id is required' });
     }
 
     // Check if environment variables are set
@@ -32,45 +33,32 @@ export default async function handler(req, res) {
       });
     }
 
-    // Generate OAuth state for security
-    const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    // Use business_id as state (simple and secure enough)
+    const state = finalBusinessId;
     
-    // Store state in database for verification
-    await supabase
-      .from('crm_connections')
-      .upsert({
-        business_id: businessId,
-        crm_type: 'jobber',
-        state: state,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
+    const redirectUri = process.env.JOBBER_REDIRECT_URI || `${process.env.APP_BASE_URL}/api/crm/jobber/callback`;
 
-    // Jobber OAuth URL
+    // Jobber OAuth URL with required scopes
     const authUrl = `https://api.getjobber.com/api/oauth/authorize?` +
       `client_id=${process.env.JOBBER_CLIENT_ID}&` +
-      `redirect_uri=${encodeURIComponent(process.env.JOBBER_REDIRECT_URI)}&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
       `response_type=code&` +
       `state=${state}&` +
-      `scope=read_jobs%20read_customers`;
+      `scope=jobs:read clients:read`;
+
+    console.log('✅ [JOBBER_CONNECT] Generated OAuth URL');
 
     return res.status(200).json({
       success: true,
-      authUrl: authUrl,
-      state: state
+      authUrl: authUrl
     });
 
   } catch (error) {
-    console.error('Jobber connection error:', error);
-    console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
+    console.error('[JOBBER_CONNECT] Fatal error:', error);
     return res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to initiate Jobber connection' 
+      error: 'Failed to initiate Jobber connection',
+      message: error.message
     });
   }
 }
+

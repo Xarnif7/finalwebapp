@@ -42,6 +42,7 @@ import { useSequencesData } from '@/hooks/useSequencesData';
 import { useZapierStatus } from '@/hooks/useZapierStatus';
 import FlowBuilder from './FlowBuilder';
 import AITimingOptimizer from './AITimingOptimizer';
+import PerStepMessageEditor, { MESSAGE_TEMPLATES } from './MessageEditor';
 
 const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -107,6 +108,27 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     { id: 'send_sms', label: 'Send SMS', icon: MessageSquare, description: 'Send SMS' }
   ];
 
+  // Helper functions for per-step message configuration
+  const updateFlowStepMessage = (stepId, messageData) => {
+    setFlowSteps(prev => prev.map(step => 
+      step.id === stepId 
+        ? { ...step, message: { ...step.message, ...messageData } }
+        : step
+    ));
+  };
+
+  const loadTemplateForStep = (stepId, stepType, purposeKey) => {
+    const template = MESSAGE_TEMPLATES[purposeKey];
+    if (!template) return;
+    const channelTemplate = stepType === 'email' ? template.email : template.sms;
+    updateFlowStepMessage(stepId, { purpose: purposeKey, ...channelTemplate });
+    toast({
+      title: "Template Loaded",
+      description: `${template.name} template applied successfully`,
+      variant: "default"
+    });
+  };
+
   // CRM Options (matching the old style)
   const CRM_OPTIONS = {
     qbo: {
@@ -121,7 +143,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       description: 'Connect to Jobber for job completion and scheduling events',
       icon: '🔧',
       color: 'green',
-      available: false // Coming soon
+      available: true  // ← NOW AVAILABLE!
     },
     housecall_pro: {
       name: 'Housecall Pro',
@@ -143,6 +165,58 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       icon: '👆',
       color: 'gray',
       available: true
+    }
+  };
+
+  // Jobber Triggers
+  const JOBBER_TRIGGERS = {
+    'job_started': {
+      name: 'Job Started',
+      description: 'When a job is started in Jobber',
+      category: 'Jobs',
+      icon: '🚀'
+    },
+    'job_completed': {
+      name: 'Job Completed',
+      description: 'When a job is marked as completed in Jobber',
+      category: 'Jobs',
+      icon: '✅'
+    },
+    'job_closed': {
+      name: 'Job Closed',
+      description: 'When a job is closed in Jobber',
+      category: 'Jobs',
+      icon: '🏁'
+    },
+    'visit_completed': {
+      name: 'Visit Completed',
+      description: 'When a visit/appointment is completed',
+      category: 'Visits',
+      icon: '📍'
+    },
+    'quote_approved': {
+      name: 'Quote Approved',
+      description: 'When a customer approves a quote',
+      category: 'Quotes',
+      icon: '👍'
+    },
+    'invoice_sent': {
+      name: 'Invoice Sent',
+      description: 'When an invoice is sent to a customer',
+      category: 'Invoicing',
+      icon: '📤'
+    },
+    'invoice_paid': {
+      name: 'Invoice Paid',
+      description: 'When a customer pays an invoice',
+      category: 'Invoicing',
+      icon: '💰'
+    },
+    'client_created': {
+      name: 'Client Created',
+      description: 'When a new client is added to Jobber',
+      category: 'Clients',
+      icon: '👤'
     }
   };
 
@@ -302,6 +376,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
     switch (selectedCrm) {
       case 'qbo':
         return QBO_TRIGGERS;
+      case 'jobber':
+        return JOBBER_TRIGGERS;
       case 'manual':
         return MANUAL_TRIGGERS;
       default:
@@ -578,6 +654,44 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
     setIsCreating(true);
     try {
+      // Convert flowSteps to sequence steps with per-step message config
+      const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
+      const sequenceSteps = safeFlowSteps
+        .filter(step => step.type !== 'trigger') // Remove trigger from steps
+        .map((step, index) => {
+          const stepType = step.type === 'email' ? 'send_email' : 
+                          step.type === 'sms' ? 'send_sms' :
+                          step.type;
+          
+          const baseStep = {
+            kind: stepType,
+            step_index: index + 1,
+            wait_ms: step.type === 'wait' ? (step.timing?.value || 0) * 
+                     (step.timing?.unit === 'hours' ? 3600000 : 
+                      step.timing?.unit === 'minutes' ? 60000 : 
+                      86400000) : null,
+            config: step.config || {}
+          };
+
+          // Add per-step message configuration for email/sms steps
+          if (stepType === 'send_email' || stepType === 'send_sms') {
+            const message = step.message || {};
+            baseStep.message_purpose = message.purpose || 'custom';
+            baseStep.message_config = {
+              purpose: message.purpose || 'custom',
+              ...(stepType === 'send_email' && {
+                subject: message.subject || 'Message from {{business.name}}',
+                body: message.body || 'Thank you for your business!'
+              }),
+              ...(stepType === 'send_sms' && {
+                body: message.body || 'Thank you for your business!'
+              })
+            };
+          }
+
+          return baseStep;
+        });
+
       const sequenceData = {
         name: formData.name,
         description: formData.description,
@@ -587,15 +701,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         quiet_hours_start: formData.settings.quietHoursStart,
         quiet_hours_end: formData.settings.quietHoursEnd,
         status: 'active',
-        steps: formData.steps.map((step, index) => ({
-          kind: step.type === 'send_email' ? 'send_email' : 
-                step.type === 'send_sms' ? 'send_sms' : 
-                step.type === 'wait' ? 'wait' : 'branch',
-          step_index: index + 1,
-          wait_ms: step.type === 'wait' ? (step.config.delay || 1) * (step.config.delayUnit === 'hours' ? 3600000 : 60000) : null,
-          template_id: (step.type === 'send_email' || step.type === 'send_sms') ? step.config.template_id : null,
-          config: step.config
-        }))
+        steps: sequenceSteps
       };
 
       const result = await createSequence(sequenceData);
@@ -1995,175 +2101,17 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
             Customize Messages
           </h3>
           <p className="text-sm text-gray-600 mt-2">
-            Personalize what your customers will see. Variables like {'{{first_name}}'} and {'{{business_name}}'} are supported.
+            Configure each message in your journey. Choose a template or write custom content for each step.
           </p>
-          <div className="mt-4 flex flex-wrap items-center gap-3 bg-white p-3 rounded-lg border border-green-200">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-700">Tone</span>
-              <Select value={aiTone} onValueChange={setAiTone}>
-                <SelectTrigger className="h-9 w-36 border-gray-300"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="friendly">😊 Friendly</SelectItem>
-                  <SelectItem value="professional">💼 Professional</SelectItem>
-                  <SelectItem value="persuasive">🎯 Playful</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-700">Length</span>
-              <Select value={aiLength} onValueChange={setAiLength}>
-                <SelectTrigger className="h-9 w-36 border-gray-300"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="short">Short</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="long">Long</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
         </div>
 
-        {/* Email Template */}
-        {selectedChannels.includes('email') && (
-          <div className="rounded-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white shadow-lg p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Mail className="w-5 h-5 text-blue-600" />
-              </div>
-              <h4 className="font-semibold text-gray-900">📨 Email Message</h4>
-            </div>
-            {/* AI Assist / Variables */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    const prompt = `Improve this email with a ${aiTone} tone and ${aiLength} length. Preserve variables like {{first_name}} and {{business_name}}.\n\nSubject: ${emailTemplate.subject}\n\n${emailTemplate.message}`;
-                    const res = await fetch('/api/ai/generate-message', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ prompt, channel: 'email', tone: aiTone, length: aiLength })
-                    });
-                    const data = await res.json();
-                    if (data?.subject || data?.message) {
-                      setEmailTemplate(prev => ({
-                        subject: data.subject ?? prev.subject,
-                        message: data.message ?? prev.message
-                      }));
-                    }
-                  } catch (e) {}
-                }}
-              >
-                Improve with AI
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    const prompt = `Rewrite again (same intent), ${aiTone} tone, ${aiLength} length. Keep variables.\n\nSubject: ${emailTemplate.subject}\n\n${emailTemplate.message}`;
-                    const res = await fetch('/api/ai/generate-message', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ prompt, channel: 'email', tone: aiTone, length: aiLength })
-                    });
-                    const data = await res.json();
-                    if (data?.subject || data?.message) {
-                      setEmailTemplate(prev => ({
-                        subject: data.subject ?? prev.subject,
-                        message: data.message ?? prev.message
-                      }));
-                    }
-                  } catch (e) {}
-                }}
-              >
-                Try again
-              </Button>
-              <div className="flex items-center gap-1 text-xs text-slate-600">
-                <span>Variables:</span>
-                <button className="px-2 py-1 rounded bg-slate-100" onClick={() => setEmailTemplate(prev => ({ ...prev, subject: prev.subject + ' {{first_name}}' }))}>{'{{first_name}}'}</button>
-                <button className="px-2 py-1 rounded bg-slate-100" onClick={() => setEmailTemplate(prev => ({ ...prev, message: prev.message + ' {{business_name}}' }))}>{'{{business_name}}'}</button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-              <div className="md:col-span-2">
-                <Label className="text-sm">Subject</Label>
-                <Input
-                  value={emailTemplate.subject}
-                  onChange={(e) => setEmailTemplate(prev => ({ ...prev, subject: e.target.value }))}
-                  placeholder="e.g., Thanks for your business, {{first_name}}!"
-                />
-              </div>
-              <div className="md:col-span-5">
-                <Label className="text-sm">Body</Label>
-                <Textarea
-                  rows={6}
-                  value={emailTemplate.message}
-                  onChange={(e) => setEmailTemplate(prev => ({ ...prev, message: e.target.value }))}
-                  placeholder="Write your email. Use variables like {{first_name}} and {{business_name}}."
-                  className="w-full"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* SMS Template */}
-        {selectedChannels.includes('sms') && (
-          <div className="rounded-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-white shadow-lg p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <MessageSquare className="w-5 h-5 text-green-600" />
-              </div>
-              <h4 className="font-semibold text-gray-900">💬 SMS Message</h4>
-            </div>
-            {/* AI Assist / Variables */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    const prompt = `Rewrite this SMS to be concise, friendly, and actionable. Keep variables like {{first_name}}.\n\n${smsTemplate.message}`;
-                    const res = await fetch('/api/ai/generate-message', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ prompt, channel: 'sms' })
-                    });
-                    const data = await res.json();
-                    if (data?.message) {
-                      setSmsTemplate(prev => ({ ...prev, message: data.message }));
-                    }
-                  } catch (e) {}
-                }}
-              >
-                Improve with AI
-              </Button>
-              <div className="flex items-center gap-1 text-xs text-slate-600">
-                <span>Variables:</span>
-                <button className="px-2 py-1 rounded bg-slate-100" onClick={() => setSmsTemplate(prev => ({ ...prev, message: prev.message + ' {{first_name}}' }))}>{'{{first_name}}'}</button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Label className="text-sm">Message</Label>
-              <Textarea
-                rows={5}
-                value={smsTemplate.message}
-                onChange={(e) => setSmsTemplate(prev => ({ ...prev, message: e.target.value }))}
-                placeholder="Write your SMS. Keep it concise. Variables like {{first_name}} work here too."
-                className="w-full"
-              />
-              {/* Preview */}
-              <div>
-                <Label className="text-sm">Preview</Label>
-                <div className="mt-2 p-3 border rounded bg-slate-50 text-sm text-slate-700 whitespace-pre-wrap">
-                  {smsTemplate.message}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Per-Step Message Editors */}
+        <PerStepMessageEditor
+          flowSteps={safeFlowSteps}
+          updateFlowStepMessage={updateFlowStepMessage}
+          loadTemplateForStep={loadTemplateForStep}
+          toast={toast}
+        />
       </div>
     );
   };
