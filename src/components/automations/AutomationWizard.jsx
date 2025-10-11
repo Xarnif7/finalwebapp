@@ -643,7 +643,16 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   };
 
   const handleCreate = async () => {
+    console.log('🚀 handleCreate called - Starting sequence creation...');
+    console.log('📋 Current form data:', formData);
+    console.log('📋 Flow steps:', flowSteps);
+    console.log('📋 Selected CRM:', selectedCrm);
+    console.log('📋 Selected triggers:', selectedTriggers);
+    console.log('📋 Manual trigger:', selectedManualTrigger);
+
     if (!validateForm()) {
+      console.error('❌ Validation failed!');
+      console.error('❌ Current errors:', errors);
       toast({
         title: "Validation Error",
         description: "Please fix the errors before creating the sequence",
@@ -652,10 +661,13 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
       return;
     }
 
+    console.log('✅ Validation passed!');
     setIsCreating(true);
     try {
       // Convert flowSteps to sequence steps with per-step message config
       const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
+      console.log('📊 Safe flow steps count:', safeFlowSteps.length);
+      
       const sequenceSteps = safeFlowSteps
         .filter(step => step.type !== 'trigger') // Remove trigger from steps
         .map((step, index) => {
@@ -692,6 +704,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
           return baseStep;
         });
 
+      console.log('📝 Sequence steps to create:', sequenceSteps);
+
       const sequenceData = {
         name: formData.name,
         description: formData.description,
@@ -704,7 +718,11 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
         steps: sequenceSteps
       };
 
+      console.log('📦 Final sequence data to send:', JSON.stringify(sequenceData, null, 2));
+
       const result = await createSequence(sequenceData);
+      
+      console.log('✅ Sequence created successfully:', result);
       
       toast({
         title: "Success!",
@@ -718,10 +736,15 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
 
       handleClose();
     } catch (error) {
-      console.error('Error creating sequence:', error);
+      console.error('❌ Error creating sequence:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        error: error
+      });
       toast({
         title: "Error",
-        description: "Failed to create sequence. Please try again.",
+        description: error.message || "Failed to create sequence. Please try again.",
         variant: "destructive"
       });
     } finally {

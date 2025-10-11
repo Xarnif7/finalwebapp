@@ -1,5 +1,53 @@
 # Blipp Development Ledger
 
+## 2025-10-11: Enhanced Automation Save Debugging and Logging
+
+### What Changed
+- **ENHANCED DEBUG LOGGING**: Added comprehensive console logging throughout automation save flow
+- Enhanced `handleCreate` function in AutomationWizard with detailed step-by-step logging
+- Added emoji-based console logs to track validation, data transformation, and API calls
+- Enhanced apiClient POST method with detailed request/response logging
+- Logs now show: form data, flow steps, CRM selection, triggers, validation results, sequence data, and API responses
+- Added error stack traces for better debugging
+- Rebuilt frontend with enhanced logging for production diagnosis
+
+### Why This Was Needed
+- User reported automation templates failing to save with no clear error message
+- Console showed "Create Journey button clicked!" but nothing after that
+- Need to identify where in the save flow the failure is occurring
+- Required detailed logging to diagnose silent failures in validation or API calls
+
+### Files Modified
+- `src/components/automations/AutomationWizard.jsx` - Added comprehensive logging to handleCreate function
+- `src/lib/apiClient.js` - Enhanced POST method with detailed request/response logging
+- Built new production bundle with logging enabled
+
+### How to Debug
+1. Open browser console (F12)
+2. Click "Create Journey" button in Automations tab
+3. Fill in journey details and click "Create & Activate"
+4. Look for these log markers:
+   - `🚀 handleCreate called` - Function entry
+   - `❌ Validation failed` - Validation errors (if any)
+   - `✅ Validation passed` - Validation success
+   - `📦 Final sequence data` - Data being sent to API
+   - `[API] 📤 POST` - API request details
+   - `[API] 📥 Response status` - HTTP response status
+   - `[API] ✅ Success response` - Successful save
+   - `[API] ❌ Error response` - API error details
+
+### Expected Behavior After Fix
+- If validation fails: See validation errors in console and error toast
+- If API call fails: See detailed HTTP error with status code
+- If network fails: See network error details
+- If successful: See full sequence data in console and success toast
+
+### Next Steps
+1. User should test automation creation and share new console logs
+2. Review logs to identify exact failure point
+3. Fix root cause based on detailed error information
+4. Remove debug logging once issue is resolved
+
 ## 2025-10-09: Jobber CRM Integration - COMPLETE SYSTEM
 
 ### What Changed

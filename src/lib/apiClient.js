@@ -81,11 +81,14 @@ export const apiClient = {
 
   async post(endpoint, data, options = {}) {
     const url = getBaseUrl() + endpoint;
-    console.log('[API] POST:', url, data);
+    console.log('[API] 📤 POST:', url);
+    console.log('[API] 📦 Request data:', JSON.stringify(data, null, 2));
 
     try {
       // Get fresh access token
       const token = await getAccessToken();
+      console.log('[API] 🔑 Token:', token ? `${token.substring(0, 20)}...` : 'None');
+      
       const headers = {
         'Content-Type': 'application/json',
         ...options.headers,
@@ -107,22 +110,29 @@ export const apiClient = {
       const timeoutPromise = createTimeoutPromise(5000); // 5 second timeout for POST
       const response = await Promise.race([fetchPromise, timeoutPromise]);
 
+      console.log('[API] 📥 Response status:', response.status);
+
       if (!response.ok) {
         // Handle 401 specifically
         if (response.status === 401) {
           const errorData = await response.json().catch(() => ({ error: 'auth_required' }));
+          console.error('[API] ❌ 401 Error:', errorData);
           if (errorData.error === 'auth_required') {
             throw new Error('auth_required');
           }
         }
         
         const errorData = await response.json().catch(() => ({}));
+        console.error('[API] ❌ Error response:', errorData);
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      const result = await response.json();
+      console.log('[API] ✅ Success response:', result);
+      return result;
     } catch (error) {
-      console.error('[API] POST error:', error);
+      console.error('[API] ❌ POST error:', error);
+      console.error('[API] ❌ Error stack:', error.stack);
       // Add network error handling
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
         throw new Error('network_error');
