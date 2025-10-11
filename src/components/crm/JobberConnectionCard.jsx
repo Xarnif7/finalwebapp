@@ -7,7 +7,9 @@ import { Badge } from '@/components/ui/badge';
 const JobberConnectionCard = ({ userId, businessId }) => {
   const [connectionStatus, setConnectionStatus] = useState('disconnected'); // 'disconnected', 'connecting', 'connected', 'error'
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [connectionData, setConnectionData] = useState(null);
+  const [customerCount, setCustomerCount] = useState(0);
 
   // Debug logging
   console.log('🔧 JobberConnectionCard props:', { userId, businessId });
@@ -50,6 +52,11 @@ const JobberConnectionCard = ({ userId, businessId }) => {
         console.log('🔍 Jobber connection status check:', data);
         setConnectionStatus(data.connected ? 'connected' : 'disconnected');
         setConnectionData(data);
+        
+        // Get customer count if connected
+        if (data.connected) {
+          fetchCustomerCount();
+        }
       } else {
         console.error('❌ Status check failed:', response.status);
         setConnectionStatus('error');
@@ -57,6 +64,54 @@ const JobberConnectionCard = ({ userId, businessId }) => {
     } catch (error) {
       console.error('❌ Error checking Jobber connection status:', error);
       setConnectionStatus('error');
+    }
+  };
+
+  const fetchCustomerCount = async () => {
+    try {
+      const response = await fetch(`/api/customers/count?business_id=${businessId}&source=jobber`);
+      if (response.ok) {
+        const data = await response.json();
+        setCustomerCount(data.count || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching customer count:', error);
+    }
+  };
+
+  const handleSyncCustomers = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/crm/jobber/sync-customers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ business_id: businessId })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Customer sync successful:', data);
+        
+        // Update customer count
+        setCustomerCount(data.synced || 0);
+        
+        // Refresh connection status to update last_sync time
+        await checkConnectionStatus();
+        
+        // Show success message (you can add toast notification here)
+        alert(`Successfully synced ${data.synced} customers from Jobber!`);
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Sync failed:', errorData);
+        alert(`Sync failed: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('❌ Error syncing customers:', error);
+      alert('Error syncing customers. Please try again.');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -234,9 +289,15 @@ const JobberConnectionCard = ({ userId, businessId }) => {
               </div>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Connect Jobber CRM</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {connectionStatus === 'connected' && connectionData?.account_name 
+                  ? connectionData.account_name 
+                  : 'Connect Jobber CRM'}
+              </h3>
               <p className="text-sm text-gray-600">
-                Automatically send review requests when jobs are completed
+                {connectionStatus === 'connected' 
+                  ? `${customerCount} customers synced from Jobber`
+                  : 'Automatically send review requests when jobs are completed'}
               </p>
               {connectionData && (
                 <div className="mt-2 flex items-center space-x-2">
@@ -261,6 +322,25 @@ const JobberConnectionCard = ({ userId, businessId }) => {
             
             {connectionStatus === 'connected' && (
               <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSyncCustomers}
+                  disabled={isSyncing}
+                  className="flex items-center space-x-2"
+                >
+                  {isSyncing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Syncing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4" />
+                      <span>Sync Customers</span>
+                    </>
+                  )}
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -305,16 +385,32 @@ const JobberConnectionCard = ({ userId, businessId }) => {
 
         {connectionStatus === 'connected' && (
           <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-start space-x-3">
-              <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-              <div>
-                <h4 className="text-sm font-medium text-green-900">Jobber Connected Successfully!</h4>
-                <p className="text-sm text-green-700 mt-1">
-                  When you mark jobs as completed in Jobber, Blipp will automatically send review requests to your customers.
-                </p>
-                <p className="text-xs text-green-600 mt-2">
-                  Last synced: {connectionData?.lastSync ? new Date(connectionData.lastSync).toLocaleString() : 'Never'}
-                </p>
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-3">
+                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium text-green-900">Connected to Jobber</h4>
+                  {connectionData?.account_name && (
+                    <p className="text-sm text-green-800 font-medium mt-1">
+                      Account: {connectionData.account_name}
+                    </p>
+                  )}
+                  <p className="text-sm text-green-700 mt-1">
+                    When you mark jobs as completed in Jobber, Blipp will automatically send review requests to your customers.
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="text-green-600">Customers Synced:</span>
+                      <span className="font-medium text-green-800 ml-1">{customerCount}</span>
+                    </div>
+                    <div>
+                      <span className="text-green-600">Last Sync:</span>
+                      <span className="font-medium text-green-800 ml-1">
+                        {connectionData?.last_sync ? new Date(connectionData.last_sync).toLocaleDateString() : 'Never'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
