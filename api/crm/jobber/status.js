@@ -39,7 +39,8 @@ export default async function handler(req, res) {
       return res.status(200).json({
         connected: false,
         connectionStatus: 'not_connected',
-        message: 'Jobber not connected'
+        message: 'Jobber not connected',
+        connection: null
       });
     }
 
@@ -114,7 +115,12 @@ export default async function handler(req, res) {
       last_sync: integration.last_customer_sync_at,
       lastSync: integration.last_customer_sync_at,  // Add this for compatibility
       token_expires_at: integration.token_expires_at,
-      needs_reconnection: isExpired && !integration.refresh_token
+      needs_reconnection: isExpired && !integration.refresh_token,
+      connection: isConnected ? {
+        account_name: integration.account_name,
+        last_sync: integration.last_customer_sync_at,
+        connected_at: integration.connected_at
+      } : null
     };
 
     console.log('[JOBBER_STATUS] Returning response:', responseData);

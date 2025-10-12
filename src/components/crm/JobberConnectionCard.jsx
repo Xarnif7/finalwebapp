@@ -51,8 +51,9 @@ const JobberConnectionCard = ({ userId, businessId }) => {
         const data = await response.json();
         console.log('🔍 Jobber connection status check:', data);
         console.log('🔍 Account name from API:', data.account_name);
+        console.log('🔍 Connection data from API:', data.connection);
         setConnectionStatus(data.connected ? 'connected' : 'disconnected');
-        setConnectionData(data);
+        setConnectionData(data.connection || data);
         
         // Get customer count if connected
         if (data.connected) {
