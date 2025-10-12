@@ -146,20 +146,67 @@ const JobberConnectionCard = ({ userId, businessId }) => {
         console.log('🔗 Received OAuth URL from server:', data);
         
         if (data.authUrl) {
-          console.log('🚀 Opening Jobber OAuth URL:', data.authUrl);
-          console.log('🔍 Current window location before redirect:', window.location.href);
+          console.log('🚀 Opening Jobber OAuth popup:', data.authUrl);
           
-          // Always redirect current window to OAuth URL (no popup)
-          console.log('🔄 Redirecting current window to OAuth URL');
-          
-          // Add a small delay to ensure logs are captured
+          // Open OAuth in popup window (like QBO)
+          const authWindow = window.open(
+            data.authUrl,
+            'jobber-auth',
+            'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,toolbar=no,menubar=no'
+          );
+
+          // Check if popup was blocked
+          if (!authWindow || authWindow.closed || typeof authWindow.closed == 'undefined') {
+            console.error('❌ Popup was blocked');
+            setConnectionStatus('error');
+            setIsConnecting(false);
+            return;
+          }
+
+          // Listen for success message from popup
+          const handleMessage = (event) => {
+            if (event.origin !== window.location.origin) return;
+            
+            if (event.data.type === 'JOBBER_CONNECTED') {
+              console.log('🎉 Jobber connection successful!', event.data);
+              authWindow.close();
+              setIsConnecting(false);
+              setConnectionStatus('connected');
+              
+              // Refresh status to get updated data
+              setTimeout(() => {
+                checkConnectionStatus();
+              }, 1000);
+            } else if (event.data.type === 'JOBBER_ERROR') {
+              console.error('❌ Jobber connection failed:', event.data.error);
+              authWindow.close();
+              setConnectionStatus('error');
+              setIsConnecting(false);
+            }
+          };
+
+          window.addEventListener('message', handleMessage);
+
+          // Check if popup is still open every second
+          const checkClosed = setInterval(() => {
+            if (authWindow.closed) {
+              clearInterval(checkClosed);
+              window.removeEventListener('message', handleMessage);
+              setIsConnecting(false);
+              console.log('🔄 OAuth popup closed');
+            }
+          }, 1000);
+
+          // Cleanup listener after 5 minutes
           setTimeout(() => {
-            console.log('🚀 Actually redirecting now...');
-            window.location.assign(data.authUrl);
-          }, 100);
-          
-          // Poll for connection completion
-          pollForConnection();
+            clearInterval(checkClosed);
+            window.removeEventListener('message', handleMessage);
+            if (authWindow && !authWindow.closed) {
+              authWindow.close();
+              setIsConnecting(false);
+            }
+          }, 300000);
+
         } else {
           throw new Error('No OAuth URL received from server');
         }
@@ -180,38 +227,6 @@ const JobberConnectionCard = ({ userId, businessId }) => {
     }
   };
 
-  const pollForConnection = () => {
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/crm/jobber/status?business_id=${businessId}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.connected) {
-            setConnectionStatus('connected');
-            setConnectionData(data);
-            setIsConnecting(false);
-            clearInterval(interval);
-          }
-        }
-      } catch (error) {
-        console.error('Error polling connection status:', error);
-      }
-    }, 2000);
-
-    // Stop polling after 5 minutes
-    setTimeout(() => {
-      clearInterval(interval);
-      if (connectionStatus === 'connecting') {
-        setConnectionStatus('error');
-        setIsConnecting(false);
-      }
-    }, 300000);
-  };
 
   const handleDisconnect = async () => {
     try {
@@ -270,166 +285,177 @@ const JobberConnectionCard = ({ userId, businessId }) => {
   };
 
   return (
-    <Card className="border-slate-200 bg-white shadow-sm">
-      <CardContent className="p-6">
+    <Card className="w-full">
+      <div className="p-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 rounded-lg bg-white border-2 border-gray-100 flex items-center justify-center shadow-sm">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] rounded-lg flex items-center justify-center">
               <img 
                 src="/images/crm/Jobber ICON.jpg" 
                 alt="Jobber logo"
-                className="w-10 h-10 object-contain rounded"
+                className="w-8 h-8 object-contain rounded"
                 onError={(e) => {
                   e.target.style.display = 'none';
                   e.target.nextSibling.style.display = 'flex';
                 }}
               />
-              <div className="p-2 bg-gradient-to-r from-[#FF6B35] to-[#F7931E] rounded" style={{ display: 'none' }}>
-                <Settings className="h-6 w-6 text-white" />
-              </div>
+              <Settings className="w-5 h-5 text-white" style={{ display: 'none' }} />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">
                 {connectionStatus === 'connected' && connectionData?.account_name 
                   ? connectionData.account_name 
-                  : 'Connect Jobber CRM'}
+                  : 'Jobber'}
               </h3>
               <p className="text-sm text-gray-600">
                 {connectionStatus === 'connected' 
-                  ? `${customerCount} customers synced from Jobber`
-                  : 'Automatically send review requests when jobs are completed'}
+                  ? `Sync customers and automate review requests`
+                  : 'Sync customers and automate review requests'}
               </p>
-              {connectionData && (
-                <div className="mt-2 flex items-center space-x-2">
-                  {getStatusIcon()}
-                  {getStatusBadge()}
-                </div>
-              )}
+              <div className="text-xs text-gray-500 mt-1">
+                Business ID: {businessId || 'Not found'}
+              </div>
             </div>
           </div>
-          
-          <div className="flex items-center space-x-3">
-            {/* Refresh button - always visible */}
+          {getStatusBadge()}
+        </div>
+      </div>
+      
+      <div className="px-6 pb-6 space-y-4">
+        {connectionStatus === 'connected' && (
+          <div className="space-y-3">
+            {/* Account Info */}
+            {connectionData && (
+              <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-800">Connected to Jobber</span>
+                  </div>
+                  <button
+                    onClick={checkConnectionStatus}
+                    className="text-green-600 hover:text-green-800 text-xs"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <div className="text-sm text-green-700">
+                  <div><strong>Account:</strong> {connectionData.account_name || 'Jobber Account'}</div>
+                </div>
+              </div>
+            )}
+            
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <Settings className="w-4 h-4 text-gray-500" />
+                <div>
+                  <p className="text-sm font-medium">{customerCount}</p>
+                  <p className="text-xs text-gray-500">Customers Synced</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RefreshCw className="w-4 h-4 text-gray-500" />
+                <div>
+                  <p className="text-sm font-medium">
+                    {connectionData?.last_sync ? new Date(connectionData.last_sync).toLocaleDateString() : 'Never'}
+                  </p>
+                  <p className="text-xs text-gray-500">Last Sync</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Sync Status */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Last synced:</span>
+                <span className="font-medium">
+                  {connectionData?.last_sync ? new Date(connectionData.last_sync).toLocaleDateString() : 'Never'}
+                </span>
+              </div>
+            </div>
+            
+            {/* Webhook Info */}
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-sm font-medium text-blue-800">Webhook Active</span>
+              </div>
+              <div className="text-xs text-blue-700">
+                <div>Job completions will automatically trigger review requests</div>
+                <div className="mt-1 font-mono text-xs">Webhook URL: https://myblipp.com/api/crm/jobber/webhook</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col space-y-2">
+          {/* Manual refresh button */}
+          <div className="flex justify-end">
             <Button
+              onClick={() => checkConnectionStatus()}
               variant="ghost"
               size="sm"
-              onClick={checkConnectionStatus}
-              className="flex items-center space-x-2 text-gray-500 hover:text-gray-700"
-              title="Refresh connection status"
+              className="h-8 px-2"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="w-3 h-3" />
             </Button>
-            
-            {connectionStatus === 'connected' && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSyncCustomers}
+          </div>
+          
+          {connectionStatus === 'disconnected' || connectionStatus === 'error' ? (
+            <Button 
+              onClick={handleConnect} 
+              disabled={isConnecting || connectionStatus === 'connecting'}
+              className="w-full"
+            >
+              {isConnecting || connectionStatus === 'connecting' ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                'Connect Jobber'
+              )}
+            </Button>
+          ) : (
+            <>
+              <div className="flex space-x-2">
+                <Button 
+                  onClick={handleSyncCustomers} 
                   disabled={isSyncing}
-                  className="flex items-center space-x-2"
+                  variant="outline"
+                  className="flex-1"
                 >
                   {isSyncing ? (
                     <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      <span>Syncing...</span>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Syncing...
                     </>
                   ) : (
                     <>
-                      <RefreshCw className="h-4 w-4" />
-                      <span>Sync Customers</span>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Sync Now
                     </>
                   )}
                 </Button>
-                <Button
+                <Button 
+                  onClick={handleDisconnect} 
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open('https://app.getjobber.com', '_blank')}
-                  className="flex items-center space-x-2"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  <span>Open Jobber</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDisconnect}
-                  className="text-red-600 hover:text-red-700"
                 >
                   Disconnect
                 </Button>
-              </>
-            )}
-            
-            {connectionStatus !== 'connected' && (
-              <Button
-                onClick={handleConnect}
-                disabled={isConnecting || connectionStatus === 'connecting'}
-                className="bg-gradient-to-r from-[#FF6B35] to-[#F7931E] hover:from-[#E55A2B] hover:to-[#E8851A] text-white"
-              >
-                {isConnecting || connectionStatus === 'connecting' ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <Settings className="h-4 w-4 mr-2" />
-                    Connect Jobber
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
+              </div>
+            </>
+          )}
         </div>
 
-        {connectionStatus === 'connected' && (
-          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-3">
-                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                <div>
-                  <h4 className="text-sm font-medium text-green-900">Connected to Jobber</h4>
-                  {connectionData?.account_name && (
-                    <p className="text-sm text-green-800 font-medium mt-1">
-                      Account: {connectionData.account_name}
-                    </p>
-                  )}
-                  <p className="text-sm text-green-700 mt-1">
-                    When you mark jobs as completed in Jobber, Blipp will automatically send review requests to your customers.
-                  </p>
-                  <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <span className="text-green-600">Customers Synced:</span>
-                      <span className="font-medium text-green-800 ml-1">{customerCount}</span>
-                    </div>
-                    <div>
-                      <span className="text-green-600">Last Sync:</span>
-                      <span className="font-medium text-green-800 ml-1">
-                        {connectionData?.last_sync ? new Date(connectionData.last_sync).toLocaleDateString() : 'Never'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {connectionStatus === 'error' && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-start space-x-3">
-              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
-              <div>
-                <h4 className="text-sm font-medium text-red-900">Connection Failed</h4>
-                <p className="text-sm text-red-700 mt-1">
-                  There was an error connecting to Jobber. Please try again.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </CardContent>
+        <div className="text-xs text-gray-500 space-y-1">
+          <p>• Automatically sync customers from Jobber</p>
+          <p>• Send review requests when jobs are completed</p>
+          <p>• Keep customer data in sync between platforms</p>
+        </div>
+      </div>
     </Card>
   );
 };

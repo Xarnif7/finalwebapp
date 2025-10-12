@@ -158,11 +158,45 @@ export default async function handler(req, res) {
     }
 
     console.log('✅ [JOBBER_CALLBACK] Jobber connected successfully!');
-    return res.redirect(`${process.env.APP_BASE_URL || 'http://localhost:5173'}/settings?jobber_connected=true`);
+    
+    // Return HTML page that closes popup and notifies parent window
+    return res.status(200).send(`
+      <html>
+        <body>
+          <h1>Jobber Connected Successfully!</h1>
+          <p>Your Jobber account has been connected to Blipp.</p>
+          <p>You can now sync customers and set up automated review requests.</p>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'JOBBER_CONNECTED', accountName: '${accountName || 'Jobber Account'}' }, '${process.env.APP_BASE_URL || window.location.origin}');
+              window.close();
+            } else {
+              window.location.href = '${process.env.APP_BASE_URL || 'http://localhost:5173'}/dashboard?jobber_connected=true';
+            }
+          </script>
+        </body>
+      </html>
+    `);
 
   } catch (error) {
     console.error('[JOBBER_CALLBACK] Fatal error:', error);
-    return res.redirect(`${process.env.APP_BASE_URL || 'http://localhost:5173'}/settings?jobber_error=callback_failed`);
+    
+    return res.status(500).send(`
+      <html>
+        <body>
+          <h1>Jobber Connection Failed</h1>
+          <p>An unexpected error occurred. Please try again.</p>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'JOBBER_ERROR', error: '${error.message || 'Connection failed'}' }, '${process.env.APP_BASE_URL || window.location.origin}');
+              window.close();
+            } else {
+              window.location.href = '${process.env.APP_BASE_URL || 'http://localhost:5173'}/dashboard?jobber_error=callback_failed';
+            }
+          </script>
+        </body>
+      </html>
+    `);
   }
 }
 
