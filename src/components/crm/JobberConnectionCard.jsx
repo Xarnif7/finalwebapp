@@ -160,10 +160,13 @@ const JobberConnectionCard = ({ userId, businessId }) => {
           // Check if popup was blocked
           if (!authWindow || authWindow.closed || typeof authWindow.closed == 'undefined') {
             console.error('❌ Popup was blocked');
+            console.error('❌ Popup blocked - authWindow:', authWindow);
             setConnectionStatus('error');
             setIsConnecting(false);
             return;
           }
+
+          console.log('✅ Popup opened successfully:', authWindow);
 
           // Listen for success message from popup
           const handleMessage = (event) => {
