@@ -50,6 +50,7 @@ const JobberConnectionCard = ({ userId, businessId }) => {
       if (response.ok) {
         const data = await response.json();
         console.log('🔍 Jobber connection status check:', data);
+        console.log('🔍 Account name from API:', data.account_name);
         setConnectionStatus(data.connected ? 'connected' : 'disconnected');
         setConnectionData(data);
         
@@ -173,10 +174,14 @@ const JobberConnectionCard = ({ userId, businessId }) => {
               setIsConnecting(false);
               setConnectionStatus('connected');
               
-              // Refresh status to get updated data
+              // Force refresh status to get updated data
+              console.log('🔄 Forcing status refresh after connection...');
               setTimeout(() => {
                 checkConnectionStatus();
-              }, 1000);
+              }, 500);
+              setTimeout(() => {
+                checkConnectionStatus();
+              }, 2000);
             } else if (event.data.type === 'JOBBER_ERROR') {
               console.error('❌ Jobber connection failed:', event.data.error);
               authWindow.close();
@@ -308,9 +313,7 @@ const JobberConnectionCard = ({ userId, businessId }) => {
                   : 'Jobber'}
               </h3>
               <p className="text-sm text-gray-600">
-                {connectionStatus === 'connected' 
-                  ? `Sync customers and automate review requests`
-                  : 'Sync customers and automate review requests'}
+                Sync customers and automate review requests
               </p>
               <div className="text-xs text-gray-500 mt-1">
                 Business ID: {businessId || 'Not found'}
@@ -345,6 +348,21 @@ const JobberConnectionCard = ({ userId, businessId }) => {
               </div>
             )}
             
+            {/* Manual Status Check Button */}
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-blue-700">
+                  <strong>Status:</strong> {connectionStatus} | <strong>Account:</strong> {connectionData?.account_name || 'Loading...'}
+                </div>
+                <button
+                  onClick={checkConnectionStatus}
+                  className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                >
+                  Check Status
+                </button>
+              </div>
+            </div>
+            
             {/* Stats */}
             <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center space-x-2">
@@ -367,12 +385,7 @@ const JobberConnectionCard = ({ userId, businessId }) => {
             
             {/* Sync Status */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Last synced:</span>
-                <span className="font-medium">
-                  {connectionData?.last_sync ? new Date(connectionData.last_sync).toLocaleDateString() : 'Never'}
-                </span>
-              </div>
+              {/* Removed last synced display to match QBO */}
             </div>
             
             {/* Webhook Info */}

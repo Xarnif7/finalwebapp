@@ -493,10 +493,6 @@ const QuickBooksConnectionCard = () => {
             
             {/* Sync Status */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Last synced:</span>
-                <span className="font-medium">{formatLastSync(lastSync)}</span>
-              </div>
               {lastWebhook && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Last webhook:</span>
@@ -609,15 +605,6 @@ const QuickBooksConnectionCard = () => {
                 </Button>
               </div>
               
-              {customerCount > 0 && (
-                <Button 
-                  onClick={handleTriggerReviewRequests}
-                  className="w-full bg-gradient-to-r from-[#7C3AED] to-[#2563EB] hover:from-[#6D28D9] hover:to-[#1D4ED8] text-white"
-                >
-                  <Send className="w-4 h-4 mr-2" />
-                  Send Review Requests to {customerCount} Customers
-                </Button>
-              )}
               
               {/* Dev Test Button */}
               {process.env.NODE_ENV === 'development' && (

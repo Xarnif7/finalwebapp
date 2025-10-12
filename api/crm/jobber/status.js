@@ -87,7 +87,8 @@ export default async function handler(req, res) {
             connectionStatus: 'connected',
             account_name: integration.account_name,
             last_sync: integration.last_customer_sync_at,
-            token_expires_at: newExpiresAt
+            token_expires_at: newExpiresAt,
+            lastSync: integration.last_customer_sync_at  // Add this for compatibility
           });
         }
       } catch (refreshError) {
@@ -102,6 +103,7 @@ export default async function handler(req, res) {
       connectionStatus: isExpired ? 'token_expired' : integration.connection_status,
       account_name: integration.account_name,
       last_sync: integration.last_customer_sync_at,
+      lastSync: integration.last_customer_sync_at,  // Add this for compatibility
       token_expires_at: integration.token_expires_at,
       needs_reconnection: isExpired && !integration.refresh_token
     });
