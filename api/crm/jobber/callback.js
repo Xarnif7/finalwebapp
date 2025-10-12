@@ -80,6 +80,10 @@ export default async function handler(req, res) {
         accountId = accountData?.data?.account?.id;
         accountName = accountData?.data?.account?.name;
         console.log('[JOBBER_CALLBACK] Account info:', { accountId, accountName });
+        console.log('[JOBBER_CALLBACK] Full account response:', JSON.stringify(accountData, null, 2));
+      } else {
+        const errorText = await accountResponse.text();
+        console.error('[JOBBER_CALLBACK] Failed to fetch account info:', accountResponse.status, errorText);
       }
     } catch (accountError) {
       console.error('[JOBBER_CALLBACK] Failed to fetch account info:', accountError);

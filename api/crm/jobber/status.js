@@ -35,12 +35,21 @@ export default async function handler(req, res) {
     }
 
     if (!integration) {
+      console.log('[JOBBER_STATUS] No integration found for business:', business_id);
       return res.status(200).json({
         connected: false,
         connectionStatus: 'not_connected',
         message: 'Jobber not connected'
       });
     }
+
+    console.log('[JOBBER_STATUS] Found integration:', {
+      id: integration.id,
+      business_id: integration.business_id,
+      account_name: integration.account_name,
+      connection_status: integration.connection_status,
+      has_access_token: !!integration.access_token
+    });
 
     // Check if token is expired
     const now = new Date();
@@ -98,7 +107,7 @@ export default async function handler(req, res) {
 
     const isConnected = integration.connection_status === 'connected' && !isExpired;
 
-    return res.status(200).json({
+    const responseData = {
       connected: isConnected,
       connectionStatus: isExpired ? 'token_expired' : integration.connection_status,
       account_name: integration.account_name,
@@ -106,7 +115,10 @@ export default async function handler(req, res) {
       lastSync: integration.last_customer_sync_at,  // Add this for compatibility
       token_expires_at: integration.token_expires_at,
       needs_reconnection: isExpired && !integration.refresh_token
-    });
+    };
+
+    console.log('[JOBBER_STATUS] Returning response:', responseData);
+    return res.status(200).json(responseData);
 
   } catch (error) {
     console.error('[JOBBER_STATUS] Fatal error:', error);
