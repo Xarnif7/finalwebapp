@@ -64,6 +64,7 @@ export default async function handler(req, res) {
         headers: {
           'Authorization': `Bearer ${tokens.access_token}`,
           'Content-Type': 'application/json',
+          'X-JOBBER-GRAPHQL-VERSION': '2024-01-01'  // Add explicit API version
         },
         body: JSON.stringify({
           query: `{
@@ -195,55 +196,146 @@ export default async function handler(req, res) {
 }
 
 async function setupJobberWebhook(accessToken, businessId, integrationId) {
-  // Set up webhook to receive job completion events
-  const webhookUrl = `${process.env.APP_BASE_URL || 'https://myblipp.com'}/api/crm/jobber/webhook`;
-  
-  console.log('[JOBBER_CALLBACK] Setting up webhook:', webhookUrl);
-  const webhookResponse = await fetch('https://api.getjobber.com/api/graphql', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      query: `
-        mutation CreateWebhook($input: CreateWebhookInput!) {
-          createWebhook(input: $input) {
-            webhook {
+  try {
+    // Set up webhook to receive job completion events
+    const webhookUrl = `${process.env.APP_BASE_URL || 'https://myblipp.com'}/api/crm/jobber/webhook`;
+    
+    console.log('[JOBBER_WEBHOOK] Setting up webhook:', webhookUrl);
+    console.log('[JOBBER_WEBHOOK] Using access token:', accessToken ? 'present' : 'missing');
+    
+    // First, try to list existing webhooks to see if one already exists
+    const listResponse = await fetch('https://api.getjobber.com/api/graphql', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-JOBBER-GRAPHQL-VERSION': '2024-01-01'  // Add explicit API version
+      },
+      body: JSON.stringify({
+        query: `{
+          webhooks {
+            nodes {
               id
               url
-              events
+              active
             }
           }
-        }
-      `,
-      variables: {
-        input: {
-          url: webhookUrl,
-          events: ['job:complete', 'job:close']  // Listen for job completion events
-        }
-      }
-    })
-  });
-
-  if (webhookResponse.ok) {
-    const webhookData = await webhookResponse.json();
-    const webhookId = webhookData?.data?.createWebhook?.webhook?.id;
-    console.log('[JOBBER_CALLBACK] Webhook created:', webhookId);
-    
-    // Store webhook ID in integrations_jobber table
-    await supabase
-      .from('integrations_jobber')
-      .update({
-        webhook_id: webhookId,
-        webhook_url: webhookUrl,
-        updated_at: new Date().toISOString()
+        }`
       })
-      .eq('id', integrationId);
-    
-    console.log('✅ [JOBBER_CALLBACK] Webhook configured successfully');
-  } else {
-    const errorText = await webhookResponse.text();
-    console.error('[JOBBER_CALLBACK] Failed to create webhook:', errorText);
+    });
+
+    console.log('[JOBBER_WEBHOOK] List webhooks response status:', listResponse.status);
+    const listText = await listResponse.text();
+    console.log('[JOBBER_WEBHOOK] List webhooks response:', listText);
+
+    let existingWebhookId = null;
+    try {
+      const listData = JSON.parse(listText);
+      const existingWebhook = listData?.data?.webhooks?.nodes?.find(w => w.url === webhookUrl);
+      if (existingWebhook) {
+        existingWebhookId = existingWebhook.id;
+        console.log('[JOBBER_WEBHOOK] Found existing webhook:', existingWebhookId);
+      }
+    } catch (parseError) {
+      console.log('[JOBBER_WEBHOOK] Could not parse webhook list response');
+    }
+
+    // If webhook already exists, just update the database
+    if (existingWebhookId) {
+      await supabase
+        .from('integrations_jobber')
+        .update({
+          webhook_id: existingWebhookId,
+          webhook_url: webhookUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', integrationId);
+      
+      console.log('✅ [JOBBER_WEBHOOK] Using existing webhook');
+      return;
+    }
+
+    // Create new webhook
+    console.log('[JOBBER_WEBHOOK] Creating new webhook...');
+    const webhookResponse = await fetch('https://api.getjobber.com/api/graphql', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-JOBBER-GRAPHQL-VERSION': '2024-01-01'  // Add explicit API version
+      },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            webhookCreate(input: {
+              url: "${webhookUrl}",
+              eventTypes: ["JOB_COMPLETED"]
+            }) {
+              webhook {
+                id
+                url
+                eventTypes
+                active
+              }
+              userErrors {
+                message
+                path
+              }
+            }
+          }
+        `
+      })
+    });
+
+    console.log('[JOBBER_WEBHOOK] Create webhook response status:', webhookResponse.status);
+    const responseText = await webhookResponse.text();
+    console.log('[JOBBER_WEBHOOK] Create webhook response:', responseText);
+
+    // Try to parse as JSON
+    try {
+      const webhookData = JSON.parse(responseText);
+      
+      // Check for GraphQL errors
+      if (webhookData.errors) {
+        console.error('[JOBBER_WEBHOOK] GraphQL errors:', JSON.stringify(webhookData.errors));
+        throw new Error(`GraphQL errors: ${JSON.stringify(webhookData.errors)}`);
+      }
+
+      // Check for user errors
+      if (webhookData?.data?.webhookCreate?.userErrors?.length > 0) {
+        const errors = webhookData.data.webhookCreate.userErrors;
+        console.error('[JOBBER_WEBHOOK] User errors:', JSON.stringify(errors));
+        throw new Error(`Webhook creation errors: ${JSON.stringify(errors)}`);
+      }
+
+      const webhookId = webhookData?.data?.webhookCreate?.webhook?.id;
+      
+      if (webhookId) {
+        console.log('[JOBBER_WEBHOOK] Webhook created successfully:', webhookId);
+        
+        // Store webhook ID in integrations_jobber table
+        await supabase
+          .from('integrations_jobber')
+          .update({
+            webhook_id: webhookId,
+            webhook_url: webhookUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', integrationId);
+        
+        console.log('✅ [JOBBER_WEBHOOK] Webhook configured successfully');
+      } else {
+        throw new Error('No webhook ID returned from Jobber');
+      }
+    } catch (parseError) {
+      // Response is not JSON (probably HTML error page)
+      console.error('[JOBBER_WEBHOOK] Failed to parse webhook response as JSON');
+      console.error('[JOBBER_WEBHOOK] Response body:', responseText.substring(0, 500));
+      throw new Error(`Webhook API returned non-JSON response: ${responseText.substring(0, 100)}`);
+    }
+  } catch (error) {
+    console.error('[JOBBER_WEBHOOK] Webhook setup failed:', error.message);
+    // Don't throw - let connection succeed even if webhook fails
+    // Webhooks can be set up manually later if needed
   }
 }

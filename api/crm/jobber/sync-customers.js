@@ -54,59 +54,108 @@ export default async function handler(req, res) {
       }
     }
 
-    // Fetch customers from Jobber using GraphQL
+    // Fetch customers from Jobber using GraphQL with pagination
     console.log('[JOBBER_SYNC] Fetching customers from Jobber...');
     
-    const customersResponse = await fetch('https://api.getjobber.com/api/graphql', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: `{
-          clients(first: 100) {
-            nodes {
-              id
-              name
-              emails {
-                address
-                primary
-              }
-              phones {
-                number
-                primary
-              }
-              property {
-                address {
-                  street1
-                  street2
-                  city
-                  province
-                  postalCode
-                  country
+    let allCustomers = [];
+    let hasNextPage = true;
+    let endCursor = null;
+    let pageCount = 0;
+    const maxPages = 10; // Safety limit: fetch up to 1000 customers (10 pages * 100)
+
+    while (hasNextPage && pageCount < maxPages) {
+      pageCount++;
+      console.log(`[JOBBER_SYNC] Fetching page ${pageCount}...`);
+
+      const customersResponse = await fetch('https://api.getjobber.com/api/graphql', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'X-JOBBER-GRAPHQL-VERSION': '2024-01-01'  // Add explicit API version
+        },
+        body: JSON.stringify({
+          query: `
+            query GetClients($after: String) {
+              clients(first: 100, after: $after) {
+                nodes {
+                  id
+                  name
+                  emails {
+                    address
+                    primary
+                  }
+                  phones {
+                    number
+                    primary
+                  }
+                  property {
+                    address {
+                      street1
+                      street2
+                      city
+                      province
+                      postalCode
+                      country
+                    }
+                  }
+                }
+                pageInfo {
+                  hasNextPage
+                  endCursor
                 }
               }
             }
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
+          `,
+          variables: {
+            after: endCursor
           }
-        }`
-      })
-    });
+        })
+      });
 
-    if (!customersResponse.ok) {
-      const errorText = await customersResponse.text();
-      console.error('[JOBBER_SYNC] Failed to fetch customers:', errorText);
-      return res.status(500).json({ error: 'Failed to fetch customers from Jobber' });
+      if (!customersResponse.ok) {
+        const errorText = await customersResponse.text();
+        console.error('[JOBBER_SYNC] Failed to fetch customers:', errorText);
+        
+        // If we already have some customers, continue with what we have
+        if (allCustomers.length > 0) {
+          console.log('[JOBBER_SYNC] Continuing with partial data...');
+          break;
+        }
+        
+        return res.status(500).json({ error: 'Failed to fetch customers from Jobber' });
+      }
+
+      const customersData = await customersResponse.json();
+      
+      // Check for GraphQL errors
+      if (customersData.errors) {
+        console.error('[JOBBER_SYNC] GraphQL errors:', customersData.errors);
+        
+        // If we already have some customers, continue with what we have
+        if (allCustomers.length > 0) {
+          console.log('[JOBBER_SYNC] Continuing with partial data...');
+          break;
+        }
+        
+        return res.status(500).json({ 
+          error: 'GraphQL errors from Jobber',
+          details: customersData.errors
+        });
+      }
+
+      const customers = customersData?.data?.clients?.nodes || [];
+      const pageInfo = customersData?.data?.clients?.pageInfo || {};
+
+      allCustomers = allCustomers.concat(customers);
+      hasNextPage = pageInfo.hasNextPage;
+      endCursor = pageInfo.endCursor;
+
+      console.log(`[JOBBER_SYNC] Page ${pageCount}: fetched ${customers.length} customers (total: ${allCustomers.length})`);
     }
 
-    const customersData = await customersResponse.json();
-    const customers = customersData?.data?.clients?.nodes || [];
-
-    console.log(`[JOBBER_SYNC] Fetched ${customers.length} customers from Jobber`);
+    console.log(`[JOBBER_SYNC] Fetched ${allCustomers.length} customers from Jobber across ${pageCount} pages`);
+    const customers = allCustomers;
 
     // Sync each customer to our database
     let syncedCount = 0;
