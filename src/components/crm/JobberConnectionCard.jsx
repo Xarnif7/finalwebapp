@@ -130,6 +130,12 @@ const JobberConnectionCard = ({ userId, businessId }) => {
     setIsConnecting(true);
     setConnectionStatus('connecting');
 
+    // Check if user prefers redirect method (for mobile or popup-blocked browsers)
+    const useRedirect = window.innerWidth < 768 || window.location.search.includes('redirect=1');
+    if (useRedirect) {
+      console.log('📱 Using redirect method (mobile or redirect flag detected)');
+    }
+
     try {
       // Start OAuth flow
       const response = await fetch('/api/crm/jobber/connect', {
@@ -148,6 +154,13 @@ const JobberConnectionCard = ({ userId, businessId }) => {
         console.log('🔗 Received OAuth URL from server:', data);
         
         if (data.authUrl) {
+          if (useRedirect) {
+            // Use redirect method for mobile or when popup is blocked
+            console.log('🚀 Redirecting to Jobber OAuth:', data.authUrl);
+            window.location.href = data.authUrl;
+            return;
+          }
+
           console.log('🚀 Opening Jobber OAuth popup:', data.authUrl);
           
           // Open OAuth in popup window (like QBO)
@@ -159,14 +172,27 @@ const JobberConnectionCard = ({ userId, businessId }) => {
 
           // Check if popup was blocked
           if (!authWindow || authWindow.closed || typeof authWindow.closed == 'undefined') {
-            console.error('❌ Popup was blocked');
-            console.error('❌ Popup blocked - authWindow:', authWindow);
-            setConnectionStatus('error');
-            setIsConnecting(false);
+            console.error('❌ Popup was blocked, falling back to redirect');
+            // Fallback: redirect main window
+            window.location.href = data.authUrl;
             return;
           }
 
           console.log('✅ Popup opened successfully:', authWindow);
+
+          // Check if popup loaded the URL properly
+          setTimeout(() => {
+            try {
+              if (authWindow.location.href === 'about:blank' || authWindow.location.href.includes('about:')) {
+                console.error('❌ Popup failed to load URL, falling back to redirect');
+                authWindow.close();
+                window.location.href = data.authUrl;
+              }
+            } catch (e) {
+              // Cross-origin error is expected - popup is loading external site
+              console.log('✅ Popup is loading external site (cross-origin)');
+            }
+          }, 1000);
 
           // Listen for success message from popup
           const handleMessage = (event) => {
