@@ -92,23 +92,13 @@ export default async function handler(req, res) {
     // Determine business_id from state or from query
     let businessId = state; // State should contain business_id
     
-    if (!businessId || businessId.length < 30) {
-      // State might be a random string, try to find from existing connection
-      const { data: existingConnection } = await supabase
-        .from('crm_connections')
-        .select('business_id')
-        .eq('state', state)
-        .eq('crm_type', 'jobber')
-        .maybeSingle();
-      
-      if (existingConnection) {
-        businessId = existingConnection.business_id;
-      }
-    }
-
-    if (!businessId) {
-      console.error('[JOBBER_CALLBACK] Could not determine business_id');
-      return res.redirect(`${process.env.APP_BASE_URL || 'http://localhost:5173'}/settings?jobber_error=no_business`);
+    console.log('[JOBBER_CALLBACK] State value:', state);
+    console.log('[JOBBER_CALLBACK] Business ID from state:', businessId);
+    
+    // Validate business_id format (should be a UUID)
+    if (!businessId || businessId.length < 30 || !businessId.includes('-')) {
+      console.error('[JOBBER_CALLBACK] Invalid business_id format:', businessId);
+      return res.redirect(`${process.env.APP_BASE_URL || 'http://localhost:5173'}/settings?jobber_error=invalid_state`);
     }
 
     console.log('[JOBBER_CALLBACK] Saving integration for business:', businessId);
