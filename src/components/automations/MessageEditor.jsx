@@ -152,7 +152,7 @@ const PerStepMessageEditor = ({ flowSteps, updateFlowStepMessage, loadTemplateFo
                   updateFlowStepMessage(step.id, { purpose: value });
                 }}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full border border-gray-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

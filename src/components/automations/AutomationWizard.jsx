@@ -2267,8 +2267,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
             
             return (
               <Card key={step.id} className={`shadow-sm ${isAiEnabled ? 'ring-2 ring-purple-200 bg-gradient-to-r from-purple-50/50 to-blue-50/50' : ''}`}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
+                <CardContent className="p-6 flex items-center justify-center min-h-[80px]">
+                  <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-4">
                       <div className={`p-3 rounded-lg ${
                         step.type === 'email' ? 'bg-blue-100' : 
@@ -2294,16 +2294,20 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
                       <Input 
                         type="number" 
                         value={currentTiming.value}
-                        onChange={(e) => updateStepTiming(step.id, { ...currentTiming, value: parseInt(e.target.value) || 0 })}
+                        onChange={(e) => {
+                          console.log('🔧 Timing input changed:', e.target.value, 'for step:', step.id);
+                          updateStepTiming(step.id, { ...currentTiming, value: parseInt(e.target.value) || 0 });
+                        }}
                         className="w-24"
                         min="0"
-                        disabled={isAiEnabled}
                         placeholder="0"
                       />
                       <Select 
                         value={currentTiming.unit}
-                        onValueChange={(unit) => updateStepTiming(step.id, { ...currentTiming, unit })}
-                        disabled={isAiEnabled}
+                        onValueChange={(unit) => {
+                          console.log('🔧 Timing unit changed:', unit, 'for step:', step.id);
+                          updateStepTiming(step.id, { ...currentTiming, unit });
+                        }}
                       >
                         <SelectTrigger className="w-32">
                           <SelectValue />
@@ -2324,32 +2328,36 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
 
         {/* Quiet Hours */}
         <Card className="shadow-sm border border-gray-200">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-gray-100 rounded-lg">
-                <span className="text-lg">🌙</span>
+          <CardContent className="p-6 flex flex-col items-center justify-center min-h-[120px]">
+            <div className="w-full">
+              <div className="flex items-center gap-3 mb-6 justify-center">
+                <div className="p-2 bg-gray-100 rounded-lg">
+                  <span className="text-lg">🌙</span>
+                </div>
+                <div className="text-center">
+                  <h4 className="text-sm font-medium text-gray-700">Quiet Hours</h4>
+                  <p className="text-xs text-gray-500">Messages won't send during these hours</p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Quiet Hours</h4>
-                <p className="text-xs text-gray-500">Messages won't send during these hours</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm">Start Time</Label>
-                <Input 
-                  type="time" 
-                  value={formData.settings.quietHoursStart}
-                  onChange={(e) => updateFormData('settings', { ...formData.settings, quietHoursStart: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label className="text-sm">End Time</Label>
-                <Input 
-                  type="time" 
-                  value={formData.settings.quietHoursEnd}
-                  onChange={(e) => updateFormData('settings', { ...formData.settings, quietHoursEnd: e.target.value })}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm">Start Time</Label>
+                  <Input 
+                    type="time" 
+                    value={formData.settings.quietHoursStart}
+                    onChange={(e) => updateFormData('settings', { ...formData.settings, quietHoursStart: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm">End Time</Label>
+                  <Input 
+                    type="time" 
+                    value={formData.settings.quietHoursEnd}
+                    onChange={(e) => updateFormData('settings', { ...formData.settings, quietHoursEnd: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
               </div>
             </div>
           </CardContent>
