@@ -746,13 +746,17 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
                           step.type === 'sms' ? 'send_sms' :
                           step.type;
           
+          // Get timing from stepTimings state (user's input) or fallback to step.timing
+          const currentTiming = stepTimings[step.id] || step.timing || { value: 0, unit: 'hours' };
+          const waitMs = currentTiming.value * 
+            (currentTiming.unit === 'hours' ? 3600000 : 
+             currentTiming.unit === 'minutes' ? 60000 : 
+             86400000);
+          
           const baseStep = {
             kind: stepType,
             step_index: index + 1,
-            wait_ms: step.type === 'wait' ? (step.timing?.value || 0) * 
-                     (step.timing?.unit === 'hours' ? 3600000 : 
-                      step.timing?.unit === 'minutes' ? 60000 : 
-                      86400000) : null,
+            wait_ms: waitMs, // Use the timing from user input
             config: step.config || {}
           };
 
@@ -2347,12 +2351,12 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
   const renderStep5 = () => (
     <div className="space-y-6">
       {/* Settings Header */}
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-xl border border-indigo-200 shadow-sm">
-        <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Settings className="h-6 w-6 text-indigo-600" />
+      <div className="pb-4 border-b">
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <Settings className="h-5 w-5 text-gray-600" />
           Behavior Settings
         </h3>
-        <p className="text-sm text-gray-600 mt-2">
+        <p className="text-sm text-gray-600 mt-1">
           Control how your journey responds to customer actions
         </p>
       </div>
@@ -2423,22 +2427,22 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
     return (
       <div className="space-y-6">
         {/* Review Header */}
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border border-green-200 shadow-sm">
-          <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <CheckCircle className="h-6 w-6 text-green-600" />
+        <div className="pb-4 border-b">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-gray-600" />
             Review & Activate Journey
           </h3>
-          <p className="text-sm text-gray-600 mt-2">
-            Everything looks good? Hit "Create & Activate" to launch your customer journey!
+          <p className="text-sm text-gray-600 mt-1">
+            Review your journey settings before activation
           </p>
         </div>
 
         {/* Journey Summary Card */}
-        <Card className="shadow-lg border-2 border-purple-200">
-          <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50">
-            <CardTitle className="flex items-center gap-3 text-xl">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Zap className="h-6 w-6 text-purple-600" />
+        <Card className="shadow-sm border">
+          <CardHeader className="bg-white">
+            <CardTitle className="flex items-center gap-3 text-lg">
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <Zap className="h-5 w-5 text-gray-600" />
               </div>
               <span>{formData.name || 'Untitled Journey'}</span>
             </CardTitle>
@@ -2448,15 +2452,15 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             {/* Trigger Section */}
-            <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-              <Label className="text-sm font-semibold text-purple-900 flex items-center gap-2">
+            <div className="bg-gray-50 p-4 rounded-lg border">
+              <Label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                 <Webhook className="h-4 w-4" />
                 Trigger
               </Label>
               <p className="text-sm mt-2 text-gray-700">
                 {CRM_OPTIONS[selectedCrm]?.name || 'Manual Trigger'}
                 {Object.keys(selectedTriggers).length > 0 && (
-                  <span className="block mt-1 text-xs text-purple-700">
+                  <span className="block mt-1 text-xs text-gray-600">
                     Events: {Object.keys(selectedTriggers).map(triggerId => {
                       const trigger = getAvailableTriggers()[triggerId];
                       return trigger?.name;
@@ -2534,9 +2538,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
         </Card>
 
         {/* Success Message */}
-        <div className="bg-gradient-to-r from-green-100 to-emerald-100 p-4 rounded-lg border-2 border-green-300 text-center">
+        <div className="bg-green-50 p-4 rounded-lg border border-green-200 text-center">
           <p className="text-green-800 font-medium">
-            🎉 Ready to launch! Your customer journey is configured and ready to go.
+            ✅ Ready to launch! Your customer journey is configured and ready to go.
           </p>
         </div>
       </div>
