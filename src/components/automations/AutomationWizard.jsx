@@ -44,7 +44,7 @@ import FlowBuilder from './FlowBuilder';
 import AITimingOptimizer from './AITimingOptimizer';
 import PerStepMessageEditor, { MESSAGE_TEMPLATES } from './MessageEditor';
 
-const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
+const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate = null }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isCreating, setIsCreating] = useState(false);
   const { toast } = useToast();
@@ -101,6 +101,71 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   const [aiLength, setAiLength] = useState('medium'); // short | medium | long
   const [learnMoreModalOpen, setLearnMoreModalOpen] = useState(false);
   const [expandedSteps, setExpandedSteps] = useState({});
+
+  // Pre-fill form when customizing an existing template
+  useEffect(() => {
+    if (initialTemplate && isOpen) {
+      console.log('📝 Pre-filling wizard with template:', initialTemplate);
+      
+      // Set form name and description
+      setFormData(prev => ({
+        ...prev,
+        name: initialTemplate.name || '',
+        description: initialTemplate.description || initialTemplate.config_json?.description || ''
+      }));
+
+      // Set trigger information
+      if (initialTemplate.trigger_event_type) {
+        // Parse trigger type (e.g., "quickbooks:invoice_paid" or "manual")
+        const triggerParts = initialTemplate.trigger_event_type.split(':');
+        if (triggerParts.length > 1) {
+          const [crm, event] = triggerParts;
+          setSelectedCrm(crm);
+          setSelectedTriggers({ [event]: true });
+        } else if (initialTemplate.trigger_event_type === 'manual') {
+          setSelectedManualTrigger(true);
+        }
+      }
+
+      // Convert config_json steps to flow steps
+      if (initialTemplate.config_json?.steps && Array.isArray(initialTemplate.config_json.steps)) {
+        const convertedSteps = initialTemplate.config_json.steps.map((step, index) => ({
+          id: Date.now() + index,
+          type: step.type || step.kind || 'email',
+          config: step.config || {},
+          message: step.message || {},
+          timing: step.timing || { value: step.delay_hours || 24, unit: 'hours' }
+        }));
+        
+        // Add trigger step at the beginning
+        const triggerStep = {
+          id: Date.now() - 1,
+          type: 'trigger',
+          config: {}
+        };
+        
+        setFlowSteps([triggerStep, ...convertedSteps]);
+      }
+
+      // Set settings
+      if (initialTemplate.config_json) {
+        setFormData(prev => ({
+          ...prev,
+          settings: {
+            quietHoursStart: initialTemplate.config_json.quiet_hours_start || '22:00',
+            quietHoursEnd: initialTemplate.config_json.quiet_hours_end || '08:00',
+            stopIfReview: initialTemplate.config_json.stop_if_review !== false,
+            allowManualEnroll: initialTemplate.config_json.allow_manual_enroll !== false
+          }
+        }));
+      }
+
+      toast({
+        title: "Template Loaded",
+        description: `Customizing "${initialTemplate.name}"`,
+      });
+    }
+  }, [initialTemplate, isOpen]);
 
   const stepTypes = [
     { id: 'send_email', label: 'Send Email', icon: Mail, description: 'Send email' },

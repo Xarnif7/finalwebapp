@@ -30,7 +30,6 @@ import FlowCard from "@/components/automation/FlowCard";
 import SequenceCreator from "@/components/automation/SequenceCreator";
 import AutomationWizard from "@/components/automations/AutomationWizard";
 import ActiveSequences from "@/components/automation/ActiveSequences";
-import TemplateCustomizer from "@/components/automation/TemplateCustomizer";
 import TestSendModal from "@/components/automation/TestSendModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,16 +45,9 @@ const AutomationsPage = () => {
   const [showEmailSaved, setShowEmailSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState({});
-  const [customizeModalOpen, setCustomizeModalOpen] = useState(false);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [testSendModalOpen, setTestSendModalOpen] = useState(false);
   const [automationWizardOpen, setAutomationWizardOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [customizationData, setCustomizationData] = useState({
-    name: '',
-    description: '',
-    steps: []
-  });
   const [activeTab, setActiveTab] = useState('templates');
 
   // Load data on component mount
@@ -333,14 +325,11 @@ const AutomationsPage = () => {
       return;
     }
     
-    console.log('🔧 Customizing template:', template.name, 'with ID:', template.id);
+    console.log('🔧 Customizing template in wizard:', template.name, 'with ID:', template.id);
+    // Set selected template so AutomationWizard can pre-fill the form
     setSelectedTemplate(template);
-    setCustomizationData({
-      name: template.name,
-      description: template.description,
-      steps: template.config_json?.steps || []
-    });
-    setCustomizeModalOpen(true);
+    // Open AutomationWizard with this template
+    setAutomationWizardOpen(true);
   };
 
   const handleTemplateSaved = async (updatedTemplate) => {
@@ -606,38 +595,6 @@ const AutomationsPage = () => {
         </div>
       )}
 
-      {/* Customize Modal */}
-      {console.log('🧪 Rendering TemplateCustomizer with onTestSend:', typeof handleTestSend)}
-      <TemplateCustomizer
-        isOpen={customizeModalOpen}
-        onClose={() => setCustomizeModalOpen(false)}
-        template={selectedTemplate}
-        onSave={handleTemplateSaved}
-        businessId={business?.id}
-        user={user}
-      />
-
-      {/* Create Sequence Modal - Using TemplateCustomizer UI */}
-      <TemplateCustomizer
-        isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        onSave={handleCreateTemplate}
-        template={{
-          id: null, // New template
-          name: '',
-          description: '',
-          status: 'paused',
-          channels: ['email'],
-          trigger_type: 'event',
-          config_json: {
-            message: 'Thank you for your business! We would appreciate a review.',
-            delay_hours: 24
-          }
-        }}
-        user={user}
-        isCreating={true}
-      />
-
       {/* Test Send Modal */}
       <TestSendModal
         isOpen={testSendModalOpen}
@@ -646,15 +603,20 @@ const AutomationsPage = () => {
         business={business}
       />
 
-      {/* Automation Wizard Modal */}
+      {/* Automation Wizard Modal - Used for both creating and customizing journeys */}
       <AutomationWizard
         isOpen={automationWizardOpen}
-        onClose={() => setAutomationWizardOpen(false)}
+        onClose={() => {
+          setAutomationWizardOpen(false);
+          setSelectedTemplate(null); // Clear selected template when closing
+        }}
         onSequenceCreated={() => {
           setAutomationWizardOpen(false);
+          setSelectedTemplate(null);
           // Refresh the sequences
           loadActiveSequences();
         }}
+        initialTemplate={selectedTemplate} // Pass template for customization
       />
     </div>
   );
