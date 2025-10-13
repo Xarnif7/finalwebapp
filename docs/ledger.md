@@ -1,5 +1,92 @@
 # Blipp Development Ledger
 
+## 2025-10-13: Template Customization via AutomationWizard + Journey Display Fix
+
+### What Changed
+- **PREMIUM JOURNEY BUILDER UX**: Premade templates now open the full AutomationWizard when customizing
+- **REMOVED OLD MODAL**: Deleted the old `TemplateCustomizer` modal - now everything uses the beautiful Journey Builder
+- **PRE-FILLED CUSTOMIZATION**: When users click "Customize" on a template, AutomationWizard opens with all template data pre-filled
+- **FIXED SEQUENCE DISPLAY**: Changed GET endpoint from `!inner` to LEFT join so sequences show even without steps
+- **ENHANCED LOGGING**: Added comprehensive step creation logging to diagnose journey creation issues
+
+### Why This Was Needed
+- User wanted premade templates to help users get started
+- When customizing templates, users should see the same nice wizard with all features
+- Old modal was basic and lacked the drag-and-drop flow builder
+- Journeys weren't appearing in UI because of strict inner join requirement
+- Needed better diagnostics to troubleshoot journey creation
+
+### Files Modified
+- `src/pages/Automations.jsx` - Removed `TemplateCustomizer` modal, updated `handleCustomize()` to open AutomationWizard
+- `src/components/automations/AutomationWizard.jsx` - Added `initialTemplate` prop and pre-fill logic via useEffect
+- `server.js` - Fixed GET `/api/sequences` to use LEFT join instead of INNER join, added step creation logging
+
+### Technical Details
+
+**Template Pre-fill Logic:**
+- Accepts `initialTemplate` prop in AutomationWizard
+- useEffect detects when template is provided and isOpen = true
+- Converts template data format to wizard format:
+  - `name` and `description` → formData
+  - `trigger_event_type` → selectedCrm + selectedTriggers
+  - `config_json.steps` → flowSteps array with proper structure
+  - `config_json` settings → quiet hours, stop conditions, etc.
+- Shows toast: "Template Loaded - Customizing [template name]"
+
+**Sequence Display Fix:**
+```sql
+-- OLD (broken):
+sequence_steps!inner(...) -- Only shows sequences WITH steps
+
+-- NEW (working):
+sequence_steps(...) -- LEFT join, shows ALL sequences
+```
+
+**Step Creation Logging:**
+```javascript
+// Now logs:
+[API] Creating X sequence steps...
+[API] Steps to insert: [detailed JSON]
+✅ Successfully created X sequence steps
+// OR
+⚠️ No steps provided for sequence - sequence will be empty!
+```
+
+### How Verified
+- ✅ Clicked "Customize" on premade template
+- ✅ AutomationWizard opened with name pre-filled
+- ✅ Trigger information pre-selected (e.g., QuickBooks → Invoice Paid)
+- ✅ Flow steps displayed in builder
+- ✅ Settings pre-filled (quiet hours, etc.)
+- ✅ Old TemplateCustomizer modal removed (no longer imports or renders)
+- ✅ Build succeeds without errors
+- ✅ Changes deployed to Vercel
+
+### User Experience Flow
+1. User sees 3 premade templates in Automations tab
+2. Clicks "Customize" on any template
+3. AutomationWizard opens with:
+   - ✅ Template name in "Journey Name" field
+   - ✅ Description filled in
+   - ✅ CRM and triggers pre-selected (Step 1)
+   - ✅ Flow steps visible in drag-and-drop builder (Step 2)
+   - ✅ Message templates pre-loaded (Step 3)
+   - ✅ Timing settings configured (Step 4)
+   - ✅ Settings filled (Step 5)
+4. User can modify anything and click "Create & Activate"
+5. Journey saves and appears in Active Sequences tab
+
+### Result
+- ✅ Premade templates provide great starting point for users
+- ✅ Customization uses the full-featured Journey Builder (drag-and-drop, message editor, AI timing, etc.)
+- ✅ No more ugly old modal - consistent UX everywhere
+- ✅ Journeys now display correctly in UI
+- ✅ Better logging for troubleshooting
+
+**Status: PRODUCTION READY** 🚀
+
+---
+
 ## 2025-10-13: MVP Launch Preparation - Complete Documentation & Checklists
 
 ### What Changed
