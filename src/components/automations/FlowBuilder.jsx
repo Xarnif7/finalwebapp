@@ -1,28 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Mail, 
   MessageSquare, 
-  Clock, 
   Zap, 
-  Plus, 
   Trash2, 
-  ArrowRight,
-  GripVertical
+  ArrowRight
 } from 'lucide-react';
 
 const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], aiTimingEnabled = false }) => {
   const [flowSteps, setFlowSteps] = useState(initialFlow);
   const [draggedItem, setDraggedItem] = useState(null);
-  const [showTimingModal, setShowTimingModal] = useState(false);
-  const [timingStepIndex, setTimingStepIndex] = useState(null);
-  const [tempTiming, setTempTiming] = useState({ value: 1, unit: 'hours' });
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const flowAreaRef = useRef(null);
@@ -143,24 +130,6 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
     setDragOverIndex(null);
   };
 
-  const handleStepClick = (stepIndex) => {
-    // Timing is now handled in Step 4, so this is just for visual feedback
-    console.log('Step clicked:', stepIndex);
-  };
-
-  const handleTimingSave = () => {
-    if (timingStepIndex !== null) {
-      setFlowSteps(prev => prev.map((step, index) => 
-        index === timingStepIndex 
-          ? { ...step, timing: tempTiming }
-          : step
-      ));
-    }
-    setShowTimingModal(false);
-    setTimingStepIndex(null);
-    setTempTiming({ value: 1, unit: 'hours' });
-  };
-
   const removeStep = (stepId) => {
     setFlowSteps(prev => prev.filter(step => step.id !== stepId && step.type !== 'trigger'));
   };
@@ -176,11 +145,6 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
       [newSteps[currentIndex], newSteps[targetIndex]] = [newSteps[targetIndex], newSteps[currentIndex]];
       setFlowSteps(newSteps);
     }
-  };
-
-  const formatTiming = (timing) => {
-    if (!timing) return '';
-    return `${timing.value}${timing.unit === 'hours' ? 'h' : timing.unit === 'minutes' ? 'm' : 'd'}`;
   };
 
   return (
@@ -300,13 +264,6 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
                           </div>
                         )}
                       </div>
-                      
-                      {/* Timing Display */}
-                      {step.timing && (
-                        <div className="mt-2 text-xs text-gray-600 bg-white px-2 py-1 rounded border shadow-sm">
-                          {formatTiming(step.timing)}
-                        </div>
-                      )}
                     </div>
 
                     {/* Connecting Arrow - Show between steps */}
