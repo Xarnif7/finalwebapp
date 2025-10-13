@@ -198,6 +198,34 @@ const PerStepMessageEditor = ({ flowSteps, updateFlowStepMessage, loadTemplateFo
                     className="mt-1"
                   />
                 </div>
+                
+                {/* Clickable Variables */}
+                <div className="mt-3">
+                  <Label className="text-xs text-gray-600 mb-2 block">Quick Insert Variables:</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: 'Customer Name', value: '{{customer.name}}' },
+                      { label: 'Business Name', value: '{{business.name}}' },
+                      { label: 'Service Date', value: '{{service.date}}' },
+                      { label: 'Review Link', value: '{{review_link}}' },
+                      { label: 'Booking Link', value: '{{booking_link}}' },
+                      { label: 'Business Phone', value: '{{business.phone}}' }
+                    ].map((variable) => (
+                      <Button
+                        key={variable.value}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const currentBody = currentMessage.body || '';
+                          updateFlowStepMessage(step.id, { body: currentBody + variable.value });
+                        }}
+                        className="text-xs px-2 py-1 h-7"
+                      >
+                        {variable.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -217,6 +245,34 @@ const PerStepMessageEditor = ({ flowSteps, updateFlowStepMessage, loadTemplateFo
                   <p className="text-xs text-gray-500 mt-1">
                     {(currentMessage.body || '').length} / 320 characters
                   </p>
+                </div>
+                
+                {/* Clickable Variables for SMS */}
+                <div className="mt-3">
+                  <Label className="text-xs text-gray-600 mb-2 block">Quick Insert Variables:</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: 'Customer Name', value: '{{customer.name}}' },
+                      { label: 'Business Name', value: '{{business.name}}' },
+                      { label: 'Service Date', value: '{{service.date}}' },
+                      { label: 'Review Link', value: '{{review_link}}' },
+                      { label: 'Booking Link', value: '{{booking_link}}' },
+                      { label: 'Business Phone', value: '{{business.phone}}' }
+                    ].map((variable) => (
+                      <Button
+                        key={variable.value}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const currentBody = currentMessage.body || '';
+                          updateFlowStepMessage(step.id, { body: currentBody + variable.value });
+                        }}
+                        className="text-xs px-2 py-1 h-7"
+                      >
+                        {variable.label}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

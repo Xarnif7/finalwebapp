@@ -2311,13 +2311,13 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
     return (
       <div className="space-y-6">
         {/* Timing Header */}
-        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 p-6 rounded-xl border border-orange-200 shadow-sm">
-          <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Clock className="h-6 w-6 text-orange-600" />
+        <div className="pb-4 border-b">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Clock className="h-5 w-5 text-gray-600" />
             Timing & Rules
           </h3>
-          <p className="text-sm text-gray-600 mt-2">
-            Control when each message is sent. Use AI Smart Timing for optimal delivery.
+          <p className="text-sm text-gray-600 mt-1">
+            Control when each message is sent
           </p>
         </div>
 
