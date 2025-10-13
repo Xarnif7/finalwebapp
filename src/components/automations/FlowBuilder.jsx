@@ -131,7 +131,8 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
   };
 
   const removeStep = (stepId) => {
-    setFlowSteps(prev => prev.filter(step => step.id !== stepId && step.type !== 'trigger'));
+    // Prevent deleting trigger steps, but allow deleting other steps
+    setFlowSteps(prev => prev.filter(step => step.id !== stepId || step.type === 'trigger'));
   };
 
   const moveStep = (stepId, direction) => {

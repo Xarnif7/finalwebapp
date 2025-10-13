@@ -2258,44 +2258,54 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
         </div>
 
         {/* Per-Step Timing */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <h4 className="font-medium text-gray-900">Step Delays</h4>
           {safeFlowSteps.filter(step => step.type !== 'trigger').map((step, index) => {
             const Icon = step.type === 'email' ? Mail : step.type === 'sms' ? MessageSquare : Clock;
             const currentTiming = stepTimings[step.id] || step.timing || { value: 1, unit: 'hours' };
+            const isAiEnabled = aiTimingEnabled;
             
             return (
-              <Card key={step.id} className="shadow-sm">
-                <CardContent className="p-4">
+              <Card key={step.id} className={`shadow-sm ${isAiEnabled ? 'ring-2 ring-purple-200 bg-gradient-to-r from-purple-50/50 to-blue-50/50' : ''}`}>
+                <CardContent className="p-6">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${
+                    <div className="flex items-center gap-4">
+                      <div className={`p-3 rounded-lg ${
                         step.type === 'email' ? 'bg-blue-100' : 
                         step.type === 'sms' ? 'bg-green-100' : 'bg-gray-100'
                       }`}>
-                        <Icon className={`h-4 w-4 ${
+                        <Icon className={`h-5 w-5 ${
                           step.type === 'email' ? 'text-blue-600' : 
                           step.type === 'sms' ? 'text-green-600' : 'text-gray-600'
                         }`} />
                       </div>
-                      <span className="text-sm font-medium">
+                      <span className="text-base font-medium">
                         {step.type === 'email' ? 'Email' : step.type === 'sms' ? 'SMS' : 'Wait'} Step {index + 1}
                       </span>
+                      {isAiEnabled && (
+                        <div className="flex items-center gap-1 px-2 py-1 bg-purple-100 rounded-full">
+                          <Brain className="w-3 h-3 text-purple-600" />
+                          <span className="text-xs font-medium text-purple-700">AI Optimized</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <span className="text-sm text-gray-600">Send after</span>
                       <Input 
                         type="number" 
                         value={currentTiming.value}
                         onChange={(e) => updateStepTiming(step.id, { ...currentTiming, value: parseInt(e.target.value) || 0 })}
-                        className="w-20"
+                        className="w-24"
                         min="0"
+                        disabled={isAiEnabled}
+                        placeholder="0"
                       />
                       <Select 
                         value={currentTiming.unit}
                         onValueChange={(unit) => updateStepTiming(step.id, { ...currentTiming, unit })}
+                        disabled={isAiEnabled}
                       >
-                        <SelectTrigger className="w-28">
+                        <SelectTrigger className="w-32">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -2313,15 +2323,15 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
         </div>
 
         {/* Quiet Hours */}
-        <Card className="shadow-md border-2 border-blue-200">
-          <CardContent className="p-5">
+        <Card className="shadow-sm border border-gray-200">
+          <CardContent className="p-4">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <span className="text-xl">🌙</span>
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <span className="text-lg">🌙</span>
               </div>
               <div>
-                <h4 className="font-semibold text-gray-900">Quiet Hours</h4>
-                <p className="text-sm text-gray-600">Messages won't send during these hours</p>
+                <h4 className="text-sm font-medium text-gray-700">Quiet Hours</h4>
+                <p className="text-xs text-gray-500">Messages won't send during these hours</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
