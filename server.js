@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
+import { Buffer } from 'buffer';
 
 // Load environment variables from .env files
 dotenv.config({ path: '.env.local' });
@@ -10539,18 +10540,52 @@ app.post('/api/sequences/trigger', async (req, res) => {
 
     console.log('✅ [TRIGGER] Customer enrolled successfully:', enrollment.id);
 
-    // Trigger the first step immediately if it has 0 delay
+    // Schedule the first step
     const firstStep = steps[0];
-    if (firstStep && firstStep.wait_ms === 0) {
-      console.log('🚀 [TRIGGER] Triggering first step immediately');
+    if (firstStep) {
+      const runAt = firstStep.wait_ms === 0 ? 
+        new Date().toISOString() : 
+        new Date(Date.now() + firstStep.wait_ms).toISOString();
       
-      // Here you would normally call the automation executor
-      // For now, just log that it would be triggered
-      console.log('📧 [TRIGGER] Would send message:', {
-        step: firstStep,
-        customer: customer,
-        sequence: sequence.name
+      console.log('🚀 [TRIGGER] Scheduling first step:', {
+        step: firstStep.kind,
+        wait_ms: firstStep.wait_ms,
+        run_at: runAt
       });
+      
+      // Create scheduled job for the first step
+      const jobPayload = {
+        enrollment_id: enrollment.id,
+        sequence_id: sequence_id,
+        step_index: firstStep.step_index,
+        customer: customer,
+        business_id: profile.business_id,
+        step_config: firstStep
+      };
+      
+      const { data: scheduledJob, error: jobError } = await supabase
+        .from('scheduled_jobs')
+        .insert({
+          job_type: 'automation_email',
+          payload: jobPayload,
+          run_at: runAt,
+          status: 'queued',
+          business_id: profile.business_id
+        })
+        .select()
+        .single();
+      
+      if (jobError) {
+        console.error('[TRIGGER] Error creating scheduled job:', jobError);
+      } else {
+        console.log('✅ [TRIGGER] Scheduled job created:', scheduledJob.id);
+        
+        // If it's immediate (0 delay), process it right away
+        if (firstStep.wait_ms === 0) {
+          console.log('🚀 [TRIGGER] Processing immediate step...');
+          await processAutomationStep(scheduledJob, supabase);
+        }
+      }
     }
 
     res.json({ 
@@ -10565,6 +10600,214 @@ app.post('/api/sequences/trigger', async (req, res) => {
     res.status(500).json({ ok: false, error: 'Internal server error' });
   }
 });
+
+// Process a single automation step (send message)
+async function processAutomationStep(job, supabase) {
+  try {
+    console.log('🔄 [AUTOMATION] Processing step:', job.id);
+    
+    const { enrollment_id, sequence_id, step_index, customer, business_id, step_config } = job.payload;
+    
+    // Get business info
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('id', business_id)
+      .single();
+    
+    if (businessError || !business) {
+      console.error('[AUTOMATION] Business not found:', businessError);
+      return;
+    }
+    
+    // Get sequence info
+    const { data: sequence, error: seqError } = await supabase
+      .from('sequences')
+      .select('*')
+      .eq('id', sequence_id)
+      .single();
+    
+    if (seqError || !sequence) {
+      console.error('[AUTOMATION] Sequence not found:', seqError);
+      return;
+    }
+    
+    console.log('📧 [AUTOMATION] Sending message:', {
+      step: step_config.kind,
+      customer: customer.email || customer.phone,
+      business: business.name
+    });
+    
+    // Send email
+    if (step_config.kind === 'send_email' && customer.email) {
+      const messageConfig = step_config.message_config || {};
+      
+      // Resolve variables in subject and body
+      let subject = messageConfig.subject || 'Message from {{business.name}}';
+      let body = messageConfig.body || 'Hello {{customer.name}}!';
+      
+      subject = subject.replace(/\{\{customer\.name\}\}/g, customer.name || 'Customer');
+      subject = subject.replace(/\{\{business\.name\}\}/g, business.name);
+      subject = subject.replace(/\{\{business\.phone\}\}/g, business.phone || '');
+      
+      body = body.replace(/\{\{customer\.name\}\}/g, customer.name || 'Customer');
+      body = body.replace(/\{\{business\.name\}\}/g, business.name);
+      body = body.replace(/\{\{business\.phone\}\}/g, business.phone || '');
+      body = body.replace(/\{\{review_link\}\}/g, `https://www.google.com/search?q=${encodeURIComponent(business.name)}`);
+      body = body.replace(/\{\{booking_link\}\}/g, business.website || `https://www.google.com/search?q=${encodeURIComponent(business.name)}`);
+      
+      // Send via Resend
+      const emailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: `${business.name} <noreply@myblipp.com>`,
+          to: [customer.email],
+          subject: subject,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                <h2 style="color: #333; margin-bottom: 20px;">${subject}</h2>
+                <div style="color: #555; line-height: 1.6;">
+                  ${body.replace(/\n/g, '<br>')}
+                </div>
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888;">
+                  <p>This message was sent by ${business.name} via Blipp automation.</p>
+                </div>
+              </div>
+            </div>
+          `
+        })
+      });
+      
+      if (emailResponse.ok) {
+        const emailData = await emailResponse.json();
+        console.log('✅ [AUTOMATION] Email sent successfully:', emailData.id);
+      } else {
+        const errorData = await emailResponse.json();
+        console.error('❌ [AUTOMATION] Email failed:', errorData);
+      }
+    }
+    
+    // Send SMS
+    if (step_config.kind === 'send_sms' && customer.phone) {
+      const messageConfig = step_config.message_config || {};
+      let message = messageConfig.body || 'Hello {{customer.name}}!';
+      
+      // Resolve variables
+      message = message.replace(/\{\{customer\.name\}\}/g, customer.name || 'Customer');
+      message = message.replace(/\{\{business\.name\}\}/g, business.name);
+      message = message.replace(/\{\{business\.phone\}\}/g, business.phone || '');
+      message = message.replace(/\{\{review_link\}\}/g, `https://www.google.com/search?q=${encodeURIComponent(business.name)}`);
+      message = message.replace(/\{\{booking_link\}\}/g, business.website || `https://www.google.com/search?q=${encodeURIComponent(business.name)}`);
+      
+      // Send via Twilio (if configured)
+      if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+        const twilioResponse = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64')}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            From: process.env.TWILIO_PHONE_NUMBER || '+1234567890',
+            To: customer.phone,
+            Body: message
+          })
+        });
+        
+        if (twilioResponse.ok) {
+          const smsData = await twilioResponse.json();
+          console.log('✅ [AUTOMATION] SMS sent successfully:', smsData.sid);
+        } else {
+          const errorData = await twilioResponse.json();
+          console.error('❌ [AUTOMATION] SMS failed:', errorData);
+        }
+      } else {
+        console.log('📱 [AUTOMATION] SMS would be sent to:', customer.phone, 'Message:', message);
+      }
+    }
+    
+    // Update enrollment to next step
+    const nextStepIndex = step_index + 1;
+    const nextSteps = await supabase
+      .from('sequence_steps')
+      .select('*')
+      .eq('sequence_id', sequence_id)
+      .eq('step_index', nextStepIndex)
+      .single();
+    
+    if (nextSteps.data) {
+      const nextRunAt = new Date(Date.now() + nextSteps.data.wait_ms).toISOString();
+      
+      await supabase
+        .from('sequence_enrollments')
+        .update({
+          current_step_index: nextStepIndex,
+          next_step_at: nextRunAt
+        })
+        .eq('id', enrollment_id);
+      
+      // Schedule next step
+      const nextJobPayload = {
+        enrollment_id,
+        sequence_id,
+        step_index: nextStepIndex,
+        customer,
+        business_id,
+        step_config: nextSteps.data
+      };
+      
+      await supabase
+        .from('scheduled_jobs')
+        .insert({
+          job_type: 'automation_email',
+          payload: nextJobPayload,
+          run_at: nextRunAt,
+          status: 'queued',
+          business_id
+        });
+      
+      console.log('📅 [AUTOMATION] Next step scheduled for:', nextRunAt);
+    } else {
+      // Sequence completed
+      await supabase
+        .from('sequence_enrollments')
+        .update({
+          status: 'finished',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', enrollment_id);
+      
+      console.log('🎉 [AUTOMATION] Sequence completed for customer:', customer.email || customer.phone);
+    }
+    
+    // Mark job as completed
+    await supabase
+      .from('scheduled_jobs')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', job.id);
+    
+  } catch (error) {
+    console.error('[AUTOMATION] Error processing step:', error);
+    
+    // Mark job as failed
+    await supabase
+      .from('scheduled_jobs')
+      .update({
+        status: 'failed',
+        error_message: error.message,
+        completed_at: new Date().toISOString()
+      })
+      .eq('id', job.id);
+  }
+}
 
 // Get customers for a business
 app.get('/api/customers', async (req, res) => {
@@ -10856,6 +11099,14 @@ app.get('/api/automation-executor', async (req, res) => {
           
           if (!updateResult || updateResult.length === 0) {
             console.log(`Job ${job.id} already being processed by another instance, skipping`);
+            continue;
+          }
+          
+          // Check if this is a new automation job or old review request job
+          if (job.payload.enrollment_id) {
+            // New automation sequence job
+            console.log(`🔄 Processing automation sequence job ${job.id}`);
+            await processAutomationStep(job, supabase);
             continue;
           }
           
