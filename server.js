@@ -4171,17 +4171,25 @@ app.get('/api/automation-logs', async (req, res) => {
 // API endpoint to create custom automation sequences
 app.post('/api/sequences', async (req, res) => {
   try {
+    console.log('🔥🔥🔥 [API] POST /api/sequences - Request received!');
+    console.log('🔥 Request body keys:', Object.keys(req.body));
+    console.log('🔥 Request body:', JSON.stringify(req.body, null, 2));
+    
     // Get authorization header
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('❌ [API] No authorization header');
       return res.status(401).json({ error: 'Authorization header required' });
     }
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
+      console.error('❌ [API] Invalid token:', authError);
       return res.status(401).json({ error: 'Invalid token' });
     }
+
+    console.log('✅ [API] User authenticated:', user.email);
 
     // Find business by user email
     const { data: business, error: businessError } = await supabase
@@ -4191,8 +4199,11 @@ app.post('/api/sequences', async (req, res) => {
       .single();
 
     if (businessError || !business) {
+      console.error('❌ [API] Business not found for user:', user.email, businessError);
       return res.status(404).json({ error: 'Business not found' });
     }
+
+    console.log('✅ [API] Business found:', business.id);
 
     const {
       name,
@@ -4208,6 +4219,7 @@ app.post('/api/sequences', async (req, res) => {
     } = req.body;
 
     console.log(`[API] Creating custom sequence for business: ${business.id}`);
+    console.log(`[API] Sequence name: ${name}, steps count: ${steps?.length || 0}`);
 
     // First, check if sequences table exists (new schema)
     const { data: tablesCheck } = await supabase
@@ -4243,6 +4255,7 @@ app.post('/api/sequences', async (req, res) => {
 
       // Create sequence steps if provided
       if (steps && steps.length > 0) {
+        console.log(`[API] Creating ${steps.length} sequence steps...`);
         const stepsToInsert = steps.map(step => ({
           sequence_id: sequence.id,
           kind: step.kind,
@@ -4253,16 +4266,20 @@ app.post('/api/sequences', async (req, res) => {
           message_config: step.message_config || null
         }));
 
+        console.log('[API] Steps to insert:', JSON.stringify(stepsToInsert, null, 2));
+
         const { error: stepsError } = await supabase
           .from('sequence_steps')
           .insert(stepsToInsert);
 
         if (stepsError) {
-          console.error('[API] Error creating sequence steps:', stepsError);
+          console.error('[API] ❌ Error creating sequence steps:', stepsError);
           // Continue anyway - sequence is created
         } else {
-          console.log(`[API] Created ${stepsToInsert.length} sequence steps`);
+          console.log(`[API] ✅ Successfully created ${stepsToInsert.length} sequence steps`);
         }
+      } else {
+        console.warn('[API] ⚠️ No steps provided for sequence - sequence will be empty!');
       }
 
       console.log('[API] Successfully created sequence:', sequence.id);
@@ -8132,6 +8149,7 @@ app.get('/api/sequences', async (req, res) => {
     }
 
     // Get sequences with step counts and enrollment stats
+    // NOTE: Using LEFT join (!left) instead of INNER (!inner) to show sequences even without steps
     const { data: sequences, error: sequencesError } = await supabase
       .from('sequences')
       .select(`
@@ -8146,16 +8164,20 @@ app.get('/api/sequences', async (req, res) => {
         rate_per_day,
         created_at,
         updated_at,
-        sequence_steps!inner(
+        sequence_steps(
           id,
           kind,
           step_index,
           wait_ms,
-          template_id
+          template_id,
+          message_purpose,
+          message_config
         )
       `)
       .eq('business_id', profile.business_id)
       .order('created_at', { ascending: false });
+    
+    console.log(`[API] Found ${sequences?.length || 0} sequences for business ${profile.business_id}`);
 
     if (sequencesError) {
       console.error('[SEQUENCES] Error fetching sequences:', sequencesError);

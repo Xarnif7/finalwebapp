@@ -643,19 +643,25 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
   };
 
   const handleCreate = async () => {
-    console.log('🚀 handleCreate called - Starting sequence creation...');
+    console.log('🚀🚀🚀 handleCreate called - Starting sequence creation...');
+    console.log('📋 Current step:', currentStep);
     console.log('📋 Current form data:', formData);
     console.log('📋 Flow steps:', flowSteps);
     console.log('📋 Selected CRM:', selectedCrm);
     console.log('📋 Selected triggers:', selectedTriggers);
     console.log('📋 Manual trigger:', selectedManualTrigger);
 
-    if (!validateForm()) {
-      console.error('❌ Validation failed!');
-      console.error('❌ Current errors:', errors);
+    // Run validation and show detailed errors
+    const validationResult = validateForm();
+    console.log('🔍 Validation result:', validationResult);
+    console.log('🔍 Current errors:', errors);
+    
+    if (!validationResult) {
+      console.error('❌❌❌ Validation failed!');
+      console.error('❌ Errors object:', JSON.stringify(errors, null, 2));
       toast({
         title: "Validation Error",
-        description: "Please fix the errors before creating the sequence",
+        description: Object.values(errors)[0] || "Please fix the errors before creating the sequence",
         variant: "destructive"
       });
       return;
@@ -2668,7 +2674,12 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated }) => {
                 </Button>
               ) : (
                 <Button 
-                  onClick={handleCreate}
+                  onClick={() => {
+                    console.log('🔘🔘🔘 CREATE JOURNEY BUTTON CLICKED! Current step:', currentStep);
+                    console.log('🔘 isCreating:', isCreating);
+                    console.log('🔘 About to call handleCreate...');
+                    handleCreate();
+                  }}
                   disabled={isCreating}
                   className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9]"
                 >
