@@ -1477,16 +1477,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
   const renderStep1 = () => (
     <div className="space-y-6">
       {/* Journey Header */}
-      <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-xl border border-purple-200 shadow-sm">
-        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Zap className="h-6 w-6 text-purple-600" />
-          Journey Basics
-        </h2>
-        <p className="text-sm text-gray-600 mt-2">Name your journey, choose a trigger, and set when it starts. Email + SMS included by default.</p>
-        <div className="flex items-center gap-2 mt-3 text-xs text-purple-700 bg-white px-3 py-2 rounded-lg w-fit">
-          <Info className="h-4 w-4" />
-          <span>Triggers determine when your customer journey begins</span>
-        </div>
+      <div className="mb-6 pb-4 border-b">
+        <h2 className="text-lg font-semibold text-gray-900">Journey Basics</h2>
+        <p className="text-sm text-gray-600 mt-1">Name your journey and choose when it should start</p>
       </div>
 
       {/* Sequence Details */}
@@ -1520,38 +1513,26 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
         </div>
       </div>
 
-      {/* CRM Selection - Enhanced with glow effects */}
+      {/* CRM Selection */}
       <div data-crm-section>
-        <Label className="text-base font-semibold text-gray-900 mb-3 block">Choose Your CRM System *</Label>
+        <Label className="text-sm font-medium text-gray-900 mb-3 block">Choose Trigger Source *</Label>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {Object.entries(CRM_OPTIONS).map(([key, crm]) => (
               <button
               key={key}
               onClick={() => !crm.available ? null : handleCrmChange(key)}
               disabled={!crm.available}
-              className={`relative p-5 rounded-xl border-2 transition-all duration-300 shadow-md ${
+              className={`relative p-4 rounded-lg border-2 transition-colors ${
                 (key === 'manual' && selectedManualTrigger) || (key !== 'manual' && selectedCrm === key)
-                  ? key === 'manual' ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-orange-100 shadow-orange-200 shadow-lg' :
-                    crm.color === 'blue' ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100 shadow-blue-200 shadow-lg' :
-                    crm.color === 'green' ? 'border-green-500 bg-gradient-to-br from-green-50 to-green-100 shadow-green-200 shadow-lg' :
-                    crm.color === 'purple' ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100 shadow-purple-200 shadow-lg' :
-                    crm.color === 'orange' ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-orange-100 shadow-orange-200 shadow-lg' :
-                    'border-gray-500 bg-gradient-to-br from-gray-50 to-gray-100 shadow-lg'
+                  ? 'border-blue-600 bg-blue-50'
                   : crm.available
-                  ? 'border-gray-200 hover:border-purple-300 hover:bg-purple-50 hover:shadow-lg hover:scale-105'
+                  ? 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
                   : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
               }`}
             >
               {((key === 'manual' && selectedManualTrigger) || (key !== 'manual' && selectedCrm === key)) && (
-                <div className={`absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center ${
-                  key === 'manual' ? 'bg-orange-500' :
-                  crm.color === 'blue' ? 'bg-blue-500' :
-                  crm.color === 'green' ? 'bg-green-500' :
-                  crm.color === 'purple' ? 'bg-purple-500' :
-                  crm.color === 'orange' ? 'bg-orange-500' :
-                  'bg-gray-500'
-                }`}>
+                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
                   <Check className="w-3 h-3 text-white" />
                 </div>
               )}
@@ -2580,21 +2561,18 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
               <div className="space-y-3">
                 {/* Trigger Node */}
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-purple-600 text-white">
                     <Zap className="h-5 w-5" />
                   </div>
-                  <div className="flex-1 bg-purple-50 p-3 rounded-lg border border-purple-200">
-                    <span className="text-sm font-medium text-purple-900">Journey Starts</span>
+                  <div className="flex-1 bg-white p-3 rounded-lg border">
+                    <span className="text-sm font-medium text-gray-900">Journey Starts</span>
                   </div>
                 </div>
 
                 {/* Flow Steps */}
                 {safeFlowSteps.filter(step => step.type !== 'trigger').map((step, index) => {
                   const Icon = step.type === 'email' ? Mail : step.type === 'sms' ? MessageSquare : Clock;
-                  const bgColor = step.type === 'email' ? 'bg-blue-50' : step.type === 'sms' ? 'bg-green-50' : 'bg-orange-50';
-                  const borderColor = step.type === 'email' ? 'border-blue-200' : step.type === 'sms' ? 'border-green-200' : 'border-orange-200';
-                  const iconBg = step.type === 'email' ? 'from-blue-500 to-blue-600' : step.type === 'sms' ? 'from-green-500 to-green-600' : 'from-orange-500 to-orange-600';
-                  const textColor = step.type === 'email' ? 'text-blue-900' : step.type === 'sms' ? 'text-green-900' : 'text-orange-900';
+                  const iconColor = step.type === 'email' ? 'bg-blue-600' : step.type === 'sms' ? 'bg-green-600' : 'bg-orange-600';
                   
                   return (
                     <div key={step.id}>
@@ -2602,12 +2580,12 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
                         <ArrowRight className="h-5 w-5 text-gray-400" />
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className={`flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r ${iconBg} text-white shadow-md`}>
+                        <div className={`flex items-center justify-center w-10 h-10 rounded-full ${iconColor} text-white`}>
                           <Icon className="h-5 w-5" />
                         </div>
-                        <div className={`flex-1 ${bgColor} p-3 rounded-lg border ${borderColor}`}>
-                          <span className={`text-sm font-medium ${textColor}`}>
-                            {step.type === 'email' ? '📨 Email' : step.type === 'sms' ? '💬 SMS' : 'Wait'} Step {index + 1}
+                        <div className="flex-1 bg-white p-3 rounded-lg border">
+                          <span className="text-sm font-medium text-gray-900">
+                            {step.type === 'email' ? 'Email' : step.type === 'sms' ? 'SMS' : 'Wait'} Step {index + 1}
                           </span>
                         </div>
                       </div>
@@ -2667,40 +2645,35 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="w-[80vw] h-[90vh] max-w-none flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-            Create Customer Journey
+          <DialogTitle className="text-xl font-semibold text-gray-900">
+            Create Journey
           </DialogTitle>
 
-        {/* Progress Steps - Enhanced Journey Builder Style */}
+        {/* Progress Steps */}
           <div className="flex items-center justify-between mt-6 mb-4 flex-shrink-0 px-2">
           {steps.map((step, index) => (
             <div key={step.number} className="flex items-center flex-1">
               <div className="flex items-center">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-semibold transition-all duration-300 shadow-md ${
+                <div className={`flex items-center justify-center w-9 h-9 rounded-full text-sm font-medium transition-colors ${
                   currentStep === step.number
-                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white ring-4 ring-purple-200 scale-110'
+                    ? 'bg-blue-600 text-white ring-2 ring-blue-200'
                     : currentStep > step.number
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'
+                    ? 'bg-green-600 text-white'
                     : 'bg-gray-200 text-gray-500'
                 }`}>
-                  {currentStep > step.number ? <Check className="w-5 h-5" /> : step.number}
+                  {currentStep > step.number ? <Check className="w-4 h-4" /> : step.number}
                 </div>
-                <div className="ml-3 hidden sm:block">
-                  <div className={`text-sm font-semibold transition-colors ${
-                    currentStep === step.number ? 'text-purple-700' : currentStep > step.number ? 'text-green-700' : 'text-gray-500'
+                <div className="ml-2 hidden sm:block">
+                  <div className={`text-sm font-medium ${
+                    currentStep === step.number ? 'text-gray-900' : currentStep > step.number ? 'text-gray-700' : 'text-gray-500'
                   }`}>
                     {step.title}
                   </div>
-                  <div className="text-xs text-gray-500">{step.description}</div>
                 </div>
               </div>
               {index < steps.length - 1 && (
-                <div className={`h-0.5 mx-3 flex-1 transition-all duration-300 ${
-                  currentStep > step.number 
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-600' 
-                    : currentStep === step.number
-                    ? 'bg-gradient-to-r from-purple-400 to-gray-200'
-                    : 'bg-gray-200'
+                <div className={`h-px mx-3 flex-1 ${
+                  currentStep > step.number ? 'bg-green-600' : 'bg-gray-200'
                 }`} />
               )}
             </div>
@@ -2746,7 +2719,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
                     handleCreate();
                   }}
                   disabled={isCreating}
-                  className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9]"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   {isCreating ? (
                     <>
@@ -2754,10 +2727,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
                       Creating...
                     </>
                   ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Create & Activate
-                    </>
+                    'Create & Activate'
                   )}
                 </Button>
               )}

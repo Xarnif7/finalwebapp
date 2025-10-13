@@ -272,28 +272,65 @@ const AutomationsPage = () => {
     
     try {
       // Update local state immediately for better UX
-        setTemplates(prev => prev.map(t => 
-          t.id === templateId ? { ...t, status: newStatus } : t
-        ));
-        
-      // For default templates, just update local state
-      if (templateId.startsWith('default-')) {
-        console.log(`Default template ${templateId} ${newStatus} successfully`);
+      setTemplates(prev => prev.map(t => 
+        t.id === templateId ? { ...t, status: newStatus } : t
+      ));
+
+      // When activating, create an actual sequence
+      if (newStatus === 'active') {
+        const template = templates.find(t => t.id === templateId);
+        if (template && business?.id) {
+          console.log('🚀 Creating sequence from template:', template.name);
+          
+          // Create sequence from template configuration
+          const sequenceData = {
+            name: template.name,
+            description: template.description || '',
+            trigger_type: template.trigger_event_type || 'manual',
+            trigger_event_type: template.trigger_event_type || 'manual',
+            allow_manual_enroll: template.config_json?.allow_manual_enroll !== false,
+            quiet_hours_start: template.config_json?.quiet_hours_start || '22:00',
+            quiet_hours_end: template.config_json?.quiet_hours_end || '08:00',
+            status: 'active',
+            steps: template.config_json?.steps || []
+          };
+
+          const response = await fetch('/api/sequences', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${user?.access_token}`
+            },
+            body: JSON.stringify(sequenceData)
+          });
+
+          if (response.ok) {
+            console.log('✅ Sequence created from template');
+            toast({
+              title: "Journey Activated",
+              description: `${template.name} is now active and ready to enroll customers`,
+            });
+            // Reload active sequences to show the new one
+            await loadActiveSequences();
+          } else {
+            throw new Error('Failed to create sequence');
+          }
+        }
         return;
       }
 
-      // For real templates, call the API
-      if (business?.id) {
+      // For pausing, update template status via API
+      if (business?.id && !templateId.startsWith('default-')) {
         const response = await fetch(`/api/templates/${business.id}/${templateId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.access_token}`
-        },
-        body: JSON.stringify({
-          status: newStatus
-        })
-      });
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user?.access_token}`
+          },
+          body: JSON.stringify({
+            status: newStatus
+          })
+        });
 
         if (!response.ok) {
           // Revert local state if API call failed
