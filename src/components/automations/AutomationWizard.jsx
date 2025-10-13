@@ -948,89 +948,6 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
           initialFlow={flowSteps}
         />
 
-        {/* Inline timing controls under the flow */}
-        {Array.isArray(flowSteps) && flowSteps.length > 1 && (
-          <div className="space-y-4">
-            {flowSteps.map((step, index) => {
-              if (index === flowSteps.length - 1) return null; // no timing after last
-              const nextStep = flowSteps[index + 1];
-              const timingKey = nextStep?.id ?? `idx-${index + 1}`;
-              const isAiEnabled = aiTimingPerStep[timingKey] || false;
-              const currentTiming = stepTimings[timingKey] || nextStep.timing || { value: 0, unit: 'hours' };
-              return (
-                <div key={`timing-${step.id}-${nextStep.id}`} className="flex items-center justify-center">
-                  <div className="flex items-center gap-3 text-slate-500">
-                    <span className="text-[10px] text-gray-500 mr-1">Timing before Step {index + 2}</span>
-                    <ChevronDown className="w-4 h-4" />
-                    <div className={`${isAiEnabled ? 'p-[2px] rounded-lg bg-gradient-to-r from-[#1A73E8] to-[#7C3AED]' : ''}`}>
-                      <div className={`flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm min-h-[42px] min-w-[520px]`}>
-                        {isAiEnabled ? (
-                          <span className="text-xs font-medium flex items-center gap-1">
-                            <Brain className="w-3 h-3 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-transparent bg-clip-text" />
-                            AI Optimized
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-3">
-                          <label className="text-xs">Delay</label>
-                           <Input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={Number.isFinite(currentTiming.value) ? currentTiming.value : 0}
-                            onChange={(e) => {
-                              const n = Number.isNaN(e.target.valueAsNumber) ? 0 : e.target.valueAsNumber;
-                              updateStepTiming(timingKey, { ...currentTiming, value: Math.max(0, n) });
-                            }}
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            className="w-28"
-                           />
-                          <Select
-                            value={currentTiming.unit}
-                            onValueChange={(unit) => updateStepTiming(timingKey, {
-                              ...currentTiming,
-                              unit
-                            })}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="minutes">Minutes</SelectItem>
-                              <SelectItem value="hours">Hours</SelectItem>
-                              <SelectItem value="days">Days</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <span className="text-xs">after previous</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                      <div className="flex items-center gap-2 pl-3 ml-3 border-l border-slate-200">
-                        <span className="text-xs flex items-center gap-1 text-slate-600">
-                          <Brain className="w-3 h-3 bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] text-transparent bg-clip-text" /> AI Optimization
-                        </span>
-                        <button
-                          onClick={() => setAiTimingPerStep(prev => ({ ...prev, [timingKey]: !prev[timingKey] }))}
-                          className={`relative inline-flex h-6 w-12 items-center rounded-full transition-all duration-200 ${
-                            isAiEnabled ? 'bg-gradient-to-r from-[#1A73E8] to-[#7C3AED]' : 'bg-gray-200'
-                          }`}
-                        >
-                          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-all duration-200 ${isAiEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
-                        <button
-                          onClick={() => setLearnMoreModalOpen(true)}
-                          className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          What’s this?
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-              );
-            })}
-          </div>
-        )}
 
         {errors.flow && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -2170,13 +2087,13 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
     return (
       <div className="space-y-6">
         {/* Messages Header */}
-        <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-xl border border-green-200 shadow-sm">
-          <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <MessageSquare className="h-6 w-6 text-green-600" />
+        <div className="pb-4 border-b">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-gray-600" />
             Customize Messages
           </h3>
-          <p className="text-sm text-gray-600 mt-2">
-            Configure each message in your journey. Choose a template or write custom content for each step.
+          <p className="text-sm text-gray-600 mt-1">
+            Configure each message in your journey
           </p>
         </div>
 
@@ -2322,25 +2239,19 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
         </div>
 
         {/* AI Smart Timing Toggle */}
-        <Card className="shadow-md border-2 border-purple-200">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Brain className="h-5 w-5 text-purple-600" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900">AI Smart Timing</h4>
-                  <p className="text-sm text-gray-600">Let AI optimize send times for best engagement</p>
-                </div>
-              </div>
-              <Switch 
-                checked={aiTimingEnabled} 
-                onCheckedChange={setAiTimingEnabled}
-              />
+        <div className="flex items-center justify-between p-4 bg-white border rounded-lg">
+          <div className="flex items-center gap-3">
+            <Brain className="h-5 w-5 text-gray-600" />
+            <div>
+              <h4 className="font-medium text-gray-900">AI Smart Timing</h4>
+              <p className="text-sm text-gray-600">Let AI optimize send times for best engagement</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <Switch 
+            checked={aiTimingEnabled} 
+            onCheckedChange={setAiTimingEnabled}
+          />
+        </div>
 
         {/* Per-Step Timing */}
         <div className="space-y-3">
@@ -2402,10 +2313,10 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
           <CardContent className="p-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-blue-100 rounded-lg">
-                <Clock className="h-5 w-5 text-blue-600" />
+                <span className="text-xl">🌙</span>
               </div>
               <div>
-                <h4 className="font-semibold text-gray-900">⏰ Quiet Hours</h4>
+                <h4 className="font-semibold text-gray-900">Quiet Hours</h4>
                 <p className="text-sm text-gray-600">Messages won't send during these hours</p>
               </div>
             </div>

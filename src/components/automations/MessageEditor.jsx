@@ -277,21 +277,6 @@ const PerStepMessageEditor = ({ flowSteps, updateFlowStepMessage, loadTemplateFo
               </div>
             )}
 
-            {/* Available Variables */}
-            <div className="bg-white/50 rounded-lg p-3 border border-gray-200">
-              <p className="text-xs font-medium text-gray-700 mb-2">Available Variables:</p>
-              <div className="flex flex-wrap gap-2">
-                <code className="px-2 py-1 bg-white rounded text-xs border">{'{{customer.name}}'}</code>
-                <code className="px-2 py-1 bg-white rounded text-xs border">{'{{business.name}}'}</code>
-                <code className="px-2 py-1 bg-white rounded text-xs border">{'{{business.phone}}'}</code>
-                {['review_request', 'rebooking', 'retention'].includes(currentPurpose) && (
-                  <>
-                    <code className="px-2 py-1 bg-white rounded text-xs border">{'{{review_link}}'}</code>
-                    <code className="px-2 py-1 bg-white rounded text-xs border">{'{{booking_link}}'}</code>
-                  </>
-                )}
-              </div>
-            </div>
           </div>
         );
       })}
