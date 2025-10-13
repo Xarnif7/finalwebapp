@@ -2062,10 +2062,15 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
   };
 
   const updateStepTiming = (stepId, timing) => {
-    setStepTimings(prev => ({
-      ...prev,
-      [stepId]: timing
-    }));
+    console.log('🔧 updateStepTiming called:', { stepId, timing });
+    setStepTimings(prev => {
+      const newTimings = {
+        ...prev,
+        [stepId]: timing
+      };
+      console.log('🔧 New stepTimings:', newTimings);
+      return newTimings;
+    });
   };
 
     const getStepIcon = (stepType) => {
@@ -2295,12 +2300,14 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
                         type="number" 
                         value={currentTiming.value}
                         onChange={(e) => {
-                          console.log('🔧 Timing input changed:', e.target.value, 'for step:', step.id);
-                          updateStepTiming(step.id, { ...currentTiming, value: parseInt(e.target.value) || 0 });
+                          const newValue = parseInt(e.target.value) || 0;
+                          console.log('🔧 Timing input changed:', newValue, 'for step:', step.id, 'current timing:', currentTiming);
+                          updateStepTiming(step.id, { ...currentTiming, value: newValue });
                         }}
                         className="w-24"
                         min="0"
                         placeholder="0"
+                        step="1"
                       />
                       <Select 
                         value={currentTiming.unit}

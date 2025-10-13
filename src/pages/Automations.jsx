@@ -191,27 +191,34 @@ const AutomationsPage = () => {
 
   const loadActiveSequences = async () => {
     try {
-      // Get active sequences from local templates (including mock templates)
-      const activeTemplates = templates.filter(t => t.status === 'active');
+      console.log('🔄 Loading active sequences from API...');
       
-      // Transform templates to sequences format
-      const sequences = activeTemplates.map(template => ({
-        id: template.id,
-        name: template.name,
-        description: getTemplateDescription(template),
-        channels: template.channels || ['email'],
-        status: template.status,
-        trigger_type: template.trigger_type,
-        config_json: template.config_json,
-        created_at: template.created_at,
-        updated_at: template.updated_at
-      }));
-      
-      setActiveSequences(sequences);
-      console.log('Active sequences loaded:', sequences.length);
+      if (!business?.id) {
+        console.log('No business ID available, cannot load sequences');
+        setActiveSequences([]);
+        return;
+      }
+
+      const response = await fetch('/api/sequences', {
+        headers: {
+          'Authorization': `Bearer ${user?.access_token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📋 API sequences response:', data);
+        
+        // Filter for active sequences only
+        const activeSequences = data.filter(seq => seq.status === 'active');
+        setActiveSequences(activeSequences);
+        console.log('✅ Active sequences loaded:', activeSequences.length);
+      } else {
+        console.error('Failed to load sequences:', response.statusText);
+        setActiveSequences([]);
+      }
     } catch (error) {
       console.error('Error loading active sequences:', error);
-      // Set empty array if there's an error
       setActiveSequences([]);
     }
   };
@@ -429,6 +436,48 @@ const AutomationsPage = () => {
     setSelectedTemplate(template);
     setTestSendModalOpen(true);
     console.log('🧪 Modal should be opening now...');
+  };
+
+  const handleManualTrigger = async (sequence) => {
+    try {
+      console.log('🎯 Manual trigger for sequence:', sequence.id);
+      
+      // Create a test customer enrollment
+      const testCustomer = {
+        email: user?.email || 'test@example.com',
+        name: user?.user_metadata?.full_name || 'Test Customer',
+        phone: '+1234567890'
+      };
+
+      const response = await fetch('/api/sequences/trigger', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user?.access_token}`
+        },
+        body: JSON.stringify({
+          sequence_id: sequence.id,
+          customer: testCustomer,
+          trigger_type: 'manual'
+        })
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Sequence Triggered",
+          description: `Test sequence started - check your ${testCustomer.email.includes('@') ? 'email' : 'phone'} for messages`,
+        });
+      } else {
+        throw new Error('Failed to trigger sequence');
+      }
+    } catch (error) {
+      console.error('Error triggering sequence:', error);
+      toast({
+        title: "Error",
+        description: "Failed to trigger sequence",
+        variant: "destructive"
+      });
+    }
   };
 
   // Debug: Log the function to make sure it exists

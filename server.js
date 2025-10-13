@@ -10451,6 +10451,121 @@ app.get('/api/sequences/:id/analytics', async (req, res) => {
   }
 });
 
+// Manual trigger endpoint for testing sequences
+app.post('/api/sequences/trigger', async (req, res) => {
+  try {
+    console.log('🎯 [TRIGGER] Manual sequence trigger requested');
+    const { sequence_id, customer, trigger_type = 'manual' } = req.body;
+
+    if (!sequence_id || !customer) {
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'sequence_id and customer are required' 
+      });
+    }
+
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+
+    // Get user from token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({ ok: false, error: 'Invalid token' });
+    }
+
+    // Get user's business
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(400).json({ ok: false, error: 'User not found' });
+    }
+
+    // Get the sequence
+    const { data: sequence, error: seqError } = await supabase
+      .from('sequences')
+      .select('*')
+      .eq('id', sequence_id)
+      .eq('business_id', profile.business_id)
+      .single();
+
+    if (seqError || !sequence) {
+      return res.status(404).json({ ok: false, error: 'Sequence not found' });
+    }
+
+    // Get sequence steps
+    const { data: steps, error: stepsError } = await supabase
+      .from('sequence_steps')
+      .select('*')
+      .eq('sequence_id', sequence_id)
+      .order('step_index');
+
+    if (stepsError) {
+      console.error('[TRIGGER] Error fetching steps:', stepsError);
+      return res.status(500).json({ ok: false, error: 'Failed to fetch sequence steps' });
+    }
+
+    if (!steps || steps.length === 0) {
+      return res.status(400).json({ ok: false, error: 'Sequence has no steps' });
+    }
+
+    // Create customer enrollment
+    const enrollmentData = {
+      sequence_id,
+      customer_id: customer.email || customer.phone || 'test-customer',
+      business_id: profile.business_id,
+      status: 'active',
+      trigger_source: trigger_type,
+      customer_data: customer,
+      next_step_index: 1,
+      next_step_at: new Date().toISOString()
+    };
+
+    const { data: enrollment, error: enrollError } = await supabase
+      .from('sequence_enrollments')
+      .insert(enrollmentData)
+      .select()
+      .single();
+
+    if (enrollError) {
+      console.error('[TRIGGER] Error creating enrollment:', enrollError);
+      return res.status(500).json({ ok: false, error: 'Failed to enroll customer' });
+    }
+
+    console.log('✅ [TRIGGER] Customer enrolled successfully:', enrollment.id);
+
+    // Trigger the first step immediately if it has 0 delay
+    const firstStep = steps[0];
+    if (firstStep && firstStep.wait_ms === 0) {
+      console.log('🚀 [TRIGGER] Triggering first step immediately');
+      
+      // Here you would normally call the automation executor
+      // For now, just log that it would be triggered
+      console.log('📧 [TRIGGER] Would send message:', {
+        step: firstStep,
+        customer: customer,
+        sequence: sequence.name
+      });
+    }
+
+    res.json({ 
+      ok: true, 
+      enrollment_id: enrollment.id,
+      message: 'Sequence triggered successfully',
+      next_step_at: enrollment.next_step_at
+    });
+
+  } catch (error) {
+    console.error('[TRIGGER] Error:', error);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
 // Get customers for a business
 app.get('/api/customers', async (req, res) => {
   try {
