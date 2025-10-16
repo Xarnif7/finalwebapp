@@ -225,8 +225,7 @@ const FlowBuilder = ({ selectedChannels = [], onFlowChange, initialFlow = [], ai
                       <div className="text-[10px] text-gray-500 mb-1">Step {index + 1}</div>
                       <div className="relative group">
                         <div
-                          onClick={() => handleStepClick(index)}
-                          className={`flex items-center gap-2 px-4 py-3 rounded-lg cursor-pointer hover:opacity-80 transition-all duration-200 ${step.color} text-white text-sm font-medium min-w-[100px] justify-center shadow-sm hover:shadow-md`}
+                          className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-all duration-200 ${step.color} text-white text-sm font-medium min-w-[100px] justify-center shadow-sm`}
                         >
                           <Icon className="w-4 h-4" />
                           <span>{step.label}</span>

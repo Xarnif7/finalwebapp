@@ -209,8 +209,11 @@ const AutomationsPage = () => {
         const data = await response.json();
         console.log('📋 API sequences response:', data);
         
+        // Extract sequences from API response
+        const allSequences = data.sequences || [];
+        
         // Filter for active sequences only
-        const activeSequences = data.filter(seq => seq.status === 'active');
+        const activeSequences = allSequences.filter(seq => seq.status === 'active');
         setActiveSequences(activeSequences);
         console.log('✅ Active sequences loaded:', activeSequences.length);
       } else {
