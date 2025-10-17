@@ -8149,31 +8149,19 @@ app.get('/api/sequences', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'User not found' });
     }
 
-    // Get sequences with step counts and enrollment stats
-    // NOTE: Using LEFT join (!left) instead of INNER (!inner) to show sequences even without steps
+    // Get sequences from automation_templates table (this is where the data actually lives)
     const { data: sequences, error: sequencesError } = await supabase
-      .from('sequences')
+      .from('automation_templates')
       .select(`
         id,
         name,
         status,
         trigger_event_type,
-        allow_manual_enroll,
-        quiet_hours_start,
-        quiet_hours_end,
-        rate_per_hour,
-        rate_per_day,
+        trigger_type,
+        channels,
+        config_json,
         created_at,
-        updated_at,
-        sequence_steps(
-          id,
-          kind,
-          step_index,
-          wait_ms,
-          template_id,
-          message_purpose,
-          message_config
-        )
+        updated_at
       `)
       .eq('business_id', profile.business_id)
       .order('created_at', { ascending: false });
@@ -8185,54 +8173,38 @@ app.get('/api/sequences', async (req, res) => {
       return res.status(500).json({ ok: false, error: 'Failed to fetch sequences' });
     }
 
-    // Get enrollment counts for each sequence
-    const sequenceIds = sequences.map(s => s.id);
-    const { data: enrollments, error: enrollmentsError } = await supabase
-      .from('sequence_enrollments')
-      .select('sequence_id, status')
-      .in('sequence_id', sequenceIds);
-
-    if (enrollmentsError) {
-      console.error('[SEQUENCES] Error fetching enrollments:', enrollmentsError);
-    }
-
-    // Process sequences with stats
+    // Process sequences from automation_templates
     const sequencesWithStats = sequences.map(sequence => {
-      const sequenceEnrollments = enrollments?.filter(e => e.sequence_id === sequence.id) || [];
-      const activeEnrollments = sequenceEnrollments.filter(e => e.status === 'active').length;
-      const finishedEnrollments = sequenceEnrollments.filter(e => e.status === 'finished').length;
-      const stoppedEnrollments = sequenceEnrollments.filter(e => e.status === 'stopped').length;
-
-      // Get step summary
-      const steps = sequence.sequence_steps || [];
-      const stepSummary = steps.map(step => ({
-        kind: step.kind,
-        step_index: step.step_index,
-        wait_ms: step.wait_ms
-      })).sort((a, b) => a.step_index - b.step_index);
-
-      // Get last sent date from messages
-      const lastSentDate = null; // TODO: Implement last sent tracking
+      // Get step summary from config_json
+      const steps = sequence.config_json?.steps || [];
+      const stepSummary = steps.map((step, index) => ({
+        kind: step.type || step.kind || 'email',
+        step_index: index,
+        wait_ms: step.delay_hours ? step.delay_hours * 60 * 60 * 1000 : 0
+      }));
 
       return {
         id: sequence.id,
         name: sequence.name,
         status: sequence.status,
         trigger_event_type: sequence.trigger_event_type,
-        allow_manual_enroll: sequence.allow_manual_enroll,
-        quiet_hours_start: sequence.quiet_hours_start,
-        quiet_hours_end: sequence.quiet_hours_end,
-        rate_per_hour: sequence.rate_per_hour,
-        rate_per_day: sequence.rate_per_day,
+        trigger_type: sequence.trigger_type,
+        channels: sequence.channels || ['email'],
+        config_json: sequence.config_json,
+        allow_manual_enroll: sequence.config_json?.allow_manual_enroll !== false,
+        quiet_hours_start: sequence.config_json?.quiet_hours_start || '22:00',
+        quiet_hours_end: sequence.config_json?.quiet_hours_end || '08:00',
+        rate_per_hour: sequence.config_json?.rate_per_hour || 0,
+        rate_per_day: sequence.config_json?.rate_per_day || 0,
         created_at: sequence.created_at,
         updated_at: sequence.updated_at,
         step_count: steps.length,
         step_summary: stepSummary,
-        active_enrollments: activeEnrollments,
-        finished_enrollments: finishedEnrollments,
-        stopped_enrollments: stoppedEnrollments,
-        total_enrollments: sequenceEnrollments.length,
-        last_sent: lastSentDate
+        active_enrollments: 0, // TODO: Implement enrollment tracking
+        finished_enrollments: 0,
+        stopped_enrollments: 0,
+        total_enrollments: 0,
+        last_sent: null
       };
     });
 
