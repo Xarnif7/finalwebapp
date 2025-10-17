@@ -8149,17 +8149,19 @@ app.get('/api/sequences', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'User not found' });
     }
 
-    // Get sequences from automation_templates table (this is where the data actually lives)
+    // Get sequences from sequences table (this is where the data actually lives)
     const { data: sequences, error: sequencesError } = await supabase
-      .from('automation_templates')
+      .from('sequences')
       .select(`
         id,
         name,
         status,
         trigger_event_type,
-        trigger_type,
-        channels,
-        config_json,
+        allow_manual_enroll,
+        quiet_hours_start,
+        quiet_hours_end,
+        rate_per_hour,
+        rate_per_day,
         created_at,
         updated_at
       `)
@@ -8173,33 +8175,25 @@ app.get('/api/sequences', async (req, res) => {
       return res.status(500).json({ ok: false, error: 'Failed to fetch sequences' });
     }
 
-    // Process sequences from automation_templates
+    // Process sequences from sequences table
     const sequencesWithStats = sequences.map(sequence => {
-      // Get step summary from config_json
-      const steps = sequence.config_json?.steps || [];
-      const stepSummary = steps.map((step, index) => ({
-        kind: step.type || step.kind || 'email',
-        step_index: index,
-        wait_ms: step.delay_hours ? step.delay_hours * 60 * 60 * 1000 : 0
-      }));
-
       return {
         id: sequence.id,
         name: sequence.name,
         status: sequence.status,
         trigger_event_type: sequence.trigger_event_type,
-        trigger_type: sequence.trigger_type,
-        channels: sequence.channels || ['email'],
-        config_json: sequence.config_json,
-        allow_manual_enroll: sequence.config_json?.allow_manual_enroll !== false,
-        quiet_hours_start: sequence.config_json?.quiet_hours_start || '22:00',
-        quiet_hours_end: sequence.config_json?.quiet_hours_end || '08:00',
-        rate_per_hour: sequence.config_json?.rate_per_hour || 0,
-        rate_per_day: sequence.config_json?.rate_per_day || 0,
+        trigger_type: 'event', // Default for now
+        channels: ['email', 'sms'], // Default channels
+        config_json: {}, // Empty for now
+        allow_manual_enroll: sequence.allow_manual_enroll || false,
+        quiet_hours_start: sequence.quiet_hours_start || '22:00',
+        quiet_hours_end: sequence.quiet_hours_end || '08:00',
+        rate_per_hour: sequence.rate_per_hour || 100,
+        rate_per_day: sequence.rate_per_day || 1000,
         created_at: sequence.created_at,
         updated_at: sequence.updated_at,
-        step_count: steps.length,
-        step_summary: stepSummary,
+        step_count: 0, // TODO: Get from sequence_steps table
+        step_summary: [], // TODO: Get from sequence_steps table
         active_enrollments: 0, // TODO: Implement enrollment tracking
         finished_enrollments: 0,
         stopped_enrollments: 0,
@@ -8418,6 +8412,56 @@ app.post('/api/sequences/:id/duplicate', async (req, res) => {
 
   } catch (error) {
     console.error('[SEQUENCES] Error duplicating sequence:', error);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+// Toggle sequence status (active/paused)
+app.post('/api/sequences/:id/toggle', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+
+    // Get user from token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({ ok: false, error: 'Invalid token' });
+    }
+
+    // Get user's business
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(400).json({ ok: false, error: 'User not found' });
+    }
+
+    const { status } = req.body;
+    if (!status || !['active', 'paused'].includes(status)) {
+      return res.status(400).json({ ok: false, error: 'Invalid status. Must be active or paused' });
+    }
+
+    // Update sequence status
+    const { error: updateError } = await supabase
+      .from('sequences')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .eq('business_id', profile.business_id);
+
+    if (updateError) {
+      console.error('[SEQUENCES] Error toggling sequence:', updateError);
+      return res.status(500).json({ ok: false, error: 'Failed to toggle sequence' });
+    }
+
+    res.json({ ok: true, message: `Sequence ${status} successfully` });
+
+  } catch (error) {
+    console.error('[SEQUENCES] Error toggling sequence:', error);
     res.status(500).json({ ok: false, error: 'Internal server error' });
   }
 });

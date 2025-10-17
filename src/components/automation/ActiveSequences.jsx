@@ -232,6 +232,15 @@ export default function ActiveSequences({ businessId, templates = [], sequences 
                       checked={sequence.status === 'active'} 
                       onCheckedChange={() => handleToggleSequence(sequence)}
                       disabled={updating[sequence.id]}
+                      className={`transition-all duration-200 ${
+                        sequence.status === 'active' 
+                          ? 'data-[state=checked]:bg-green-500 hover:data-[state=checked]:bg-green-600 data-[state=checked]:border-green-500' 
+                          : 'data-[state=unchecked]:bg-yellow-500 hover:data-[state=unchecked]:bg-yellow-600 data-[state=unchecked]:border-yellow-500'
+                      }`}
+                      style={{
+                        '--switch-bg': sequence.status === 'active' ? '#10b981' : '#eab308',
+                        '--switch-bg-hover': sequence.status === 'active' ? '#059669' : '#ca8a04'
+                      }}
                     />
                   </div>
                 </div>

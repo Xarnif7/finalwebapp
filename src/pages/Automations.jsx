@@ -285,74 +285,46 @@ const AutomationsPage = () => {
       setTemplates(prev => prev.map(t => 
         t.id === templateId ? { ...t, status: newStatus } : t
       ));
+      
+      // Update active sequences state as well
+      setActiveSequences(prev => prev.map(s => 
+        s.id === templateId ? { ...s, status: newStatus } : s
+      ));
 
-      // When activating, create an actual sequence
-      if (newStatus === 'active') {
-        const template = templates.find(t => t.id === templateId);
-        if (template && business?.id) {
-          console.log('🚀 Creating sequence from template:', template.name);
-          
-          // Create sequence from template configuration
-          const sequenceData = {
-            name: template.name,
-            description: template.description || '',
-            trigger_type: template.trigger_event_type || 'manual',
-            trigger_event_type: template.trigger_event_type || 'manual',
-            allow_manual_enroll: template.config_json?.allow_manual_enroll !== false,
-            quiet_hours_start: template.config_json?.quiet_hours_start || '22:00',
-            quiet_hours_end: template.config_json?.quiet_hours_end || '08:00',
-            status: 'active',
-            steps: template.config_json?.steps || []
-          };
+      // Use the new toggle endpoint for all sequences
+      const response = await fetch(`/api/sequences/${templateId}/toggle`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
 
-          const response = await fetch('/api/sequences', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${user?.access_token}`
-            },
-            body: JSON.stringify(sequenceData)
-          });
-
-          if (response.ok) {
-            console.log('✅ Sequence created from template');
-            toast({
-              title: "Journey Activated",
-              description: `${template.name} is now active and ready to enroll customers`,
-            });
-            // Reload active sequences to show the new one
-            await loadActiveSequences();
-          } else {
-            throw new Error('Failed to create sequence');
-          }
-        }
-        return;
-      }
-
-      // For pausing, update template status via API
-      if (business?.id && !templateId.startsWith('default-')) {
-        const response = await fetch(`/api/templates/${business.id}/${templateId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${user?.access_token}`
-          },
-          body: JSON.stringify({
-            status: newStatus
-          })
+      if (!response.ok) {
+        // Revert local state if API call failed
+        setTemplates(prev => prev.map(t => 
+          t.id === templateId ? { ...t, status: t.status === 'active' ? 'paused' : 'active' } : t
+        ));
+        setActiveSequences(prev => prev.map(s => 
+          s.id === templateId ? { ...s, status: s.status === 'active' ? 'paused' : 'active' } : s
+        ));
+        console.error('Failed to update sequence status');
+        toast({
+          title: "Error",
+          description: "Failed to update sequence status",
+          variant: "destructive"
         });
-
-        if (!response.ok) {
-          // Revert local state if API call failed
-          setTemplates(prev => prev.map(t => 
-            t.id === templateId ? { ...t, status: t.status === 'active' ? 'paused' : 'active' } : t
-          ));
-          console.error('Failed to update template status');
-        }
+      } else {
+        toast({
+          title: "Success",
+          description: `Sequence ${newStatus === 'active' ? 'activated' : 'paused'} successfully`,
+          variant: "default"
+        });
       }
       
       // Reload active sequences
-        await loadActiveSequences();
+      await loadActiveSequences();
         
     } catch (error) {
       console.error('Error updating template:', error);
@@ -360,6 +332,14 @@ const AutomationsPage = () => {
       setTemplates(prev => prev.map(t => 
         t.id === templateId ? { ...t, status: t.status === 'active' ? 'paused' : 'active' } : t
       ));
+      setActiveSequences(prev => prev.map(s => 
+        s.id === templateId ? { ...s, status: s.status === 'active' ? 'paused' : 'active' } : s
+      ));
+      toast({
+        title: "Error",
+        description: "Failed to update sequence status",
+        variant: "destructive"
+      });
     } finally {
       setUpdating(prev => ({ ...prev, [templateId]: false }));
     }

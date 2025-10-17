@@ -2270,9 +2270,17 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
             const currentTiming = stepTimings[step.id] || step.timing || { value: 1, unit: 'hours' };
             const isAiEnabled = aiTimingEnabled;
             
+            console.log('🔧 Rendering step timing:', { 
+              stepId: step.id, 
+              stepType: step.type, 
+              currentTiming, 
+              stepTimings, 
+              stepTiming: stepTimings[step.id] 
+            });
+            
             return (
-              <Card key={step.id} className={`shadow-sm ${isAiEnabled ? 'ring-2 ring-purple-200 bg-gradient-to-r from-purple-50/50 to-blue-50/50' : ''}`}>
-                <CardContent className="p-6 flex items-center justify-center min-h-[80px]">
+              <Card key={step.id} className={`shadow-sm ${isAiEnabled ? 'ring-2 ring-purple-200 bg-gradient-to-r from-purple-50/50 to-blue-50/50' : ''}`} style={{ pointerEvents: 'auto' }}>
+                <CardContent className="p-6 flex items-center justify-center min-h-[80px]" style={{ pointerEvents: 'auto' }}>
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-4">
                       <div className={`p-3 rounded-lg ${
@@ -2308,6 +2316,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
                         min="0"
                         placeholder="0"
                         step="1"
+                        style={{ pointerEvents: 'auto', cursor: 'text' }}
                       />
                       <Select 
                         value={currentTiming.unit}
@@ -2316,7 +2325,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
                           updateStepTiming(step.id, { ...currentTiming, unit });
                         }}
                       >
-                        <SelectTrigger className="w-32">
+                        <SelectTrigger className="w-32" style={{ pointerEvents: 'auto', cursor: 'pointer' }}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

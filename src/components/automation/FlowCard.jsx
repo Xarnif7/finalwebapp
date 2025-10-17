@@ -120,10 +120,15 @@ export default function FlowCard({
               checked={data.status === 'active'} 
               onCheckedChange={(checked) => onToggle(checked ? 'active' : 'paused')}
               disabled={updating}
-              className={`${data.status === 'active' 
-                ? 'data-[state=checked]:bg-green-500 hover:data-[state=checked]:bg-green-600' 
-                : 'data-[state=unchecked]:bg-yellow-500 hover:data-[state=unchecked]:bg-yellow-600'
-              } transition-all duration-200`}
+              className={`transition-all duration-200 ${
+                data.status === 'active' 
+                  ? 'data-[state=checked]:bg-green-500 hover:data-[state=checked]:bg-green-600 data-[state=checked]:border-green-500' 
+                  : 'data-[state=unchecked]:bg-yellow-500 hover:data-[state=unchecked]:bg-yellow-600 data-[state=unchecked]:border-yellow-500'
+              }`}
+              style={{
+                '--switch-bg': data.status === 'active' ? '#10b981' : '#eab308',
+                '--switch-bg-hover': data.status === 'active' ? '#059669' : '#ca8a04'
+              }}
             />
           </div>
         </div>
