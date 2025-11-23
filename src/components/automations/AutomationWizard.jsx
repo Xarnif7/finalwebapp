@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -82,6 +82,29 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
           config: {}
         };
         setFlowSteps([triggerStep, ...safeFlowSteps.filter(step => step.type !== 'trigger')]);
+      }
+      
+      // Auto-add first email step if no steps exist (smart default)
+      const hasCommunicationStep = safeFlowSteps.some(step => 
+        step.type === 'email' || step.type === 'sms' || step.type === 'send_email' || step.type === 'send_sms'
+      );
+      
+      if (!hasCommunicationStep && safeFlowSteps.length <= 1) {
+        // Auto-add a thank you email step with default message
+        const defaultEmailStep = {
+          id: Date.now() + 1,
+          type: 'email',
+          message: {
+            purpose: 'thank_you',
+            subject: MESSAGE_TEMPLATES.thank_you.email.subject,
+            body: MESSAGE_TEMPLATES.thank_you.email.body
+          },
+          timing: { value: 0, unit: 'hours' } // Immediate
+        };
+        setFlowSteps(prev => {
+          const trigger = prev.find(s => s.type === 'trigger') || triggerStep;
+          return [trigger, defaultEmailStep, ...prev.filter(s => s.type !== 'trigger')];
+        });
       }
     }
   }, [currentStep, flowSteps]);
@@ -600,14 +623,16 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
     }
   };
 
-  const validateForm = () => {
+  const validateForm = (validateAll = false) => {
     const newErrors = {};
+    const shouldValidateStep1 = validateAll || currentStep === 1;
+    const shouldValidateStep2 = validateAll || currentStep === 2;
 
     // Step 1: Basic Info validation
-    if (currentStep === 1) {
-    if (!formData.name.trim()) {
-      newErrors.name = 'Sequence name is required';
-    }
+    if (shouldValidateStep1) {
+      if (!formData.name.trim()) {
+        newErrors.name = 'Sequence name is required';
+      }
 
       // Validate that we have either a CRM selected OR manual trigger selected (or both)
       const hasCrmSelected = selectedCrm && selectedCrm !== 'manual';
@@ -624,7 +649,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
     }
 
     // Step 2: Flow validation (formerly step 3)
-    if (currentStep === 2) {
+    if (shouldValidateStep2) {
       const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
       if (safeFlowSteps.length === 0) {
         newErrors.flow = 'Please create at least one step in your flow';
@@ -640,15 +665,13 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
     }
 
     // Step 3: Messages validation - optional, allow users to proceed with empty templates
-    if (currentStep === 3) {
-      // Messages are optional - users can customize them or leave them empty
-      // No validation needed here as templates can be empty initially
-    }
+    // Messages are optional - users can customize them or leave them empty
+    // No validation needed here as templates can be empty initially
 
     setErrors(newErrors);
     
     // If there are errors and we're on Step 1, scroll to the first error
-    if (Object.keys(newErrors).length > 0 && currentStep === 1) {
+    if (Object.keys(newErrors).length > 0 && (shouldValidateStep1 || currentStep === 1)) {
       scrollToFirstError(newErrors);
     }
     
@@ -661,8 +684,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
       return;
     }
     
-    // Sync flowSteps to formData.steps when moving from Step 3 to Step 4
-    if (currentStep === 3) {
+    // Sync flowSteps to formData.steps when moving from Step 2 to Step 3
+    if (currentStep === 2) {
       const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
       if (safeFlowSteps.length > 0) {
         const convertedSteps = safeFlowSteps.map((step, index) => ({
@@ -696,7 +719,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
       }
     }
     
-    if (currentStep < 6) {
+    if (currentStep < 4) {
       setCurrentStep(prev => prev + 1);
     }
   };
@@ -716,8 +739,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
     console.log('📋 Selected triggers:', selectedTriggers);
     console.log('📋 Manual trigger:', selectedManualTrigger);
 
-    // Run validation and show detailed errors
-    const validationResult = validateForm();
+    // Run validation for ALL steps and show detailed errors
+    const validationResult = validateForm(true); // Validate all steps when creating
     console.log('🔍 Validation result:', validationResult);
     console.log('🔍 Current errors:', errors);
     
@@ -781,11 +804,18 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
 
       console.log('📝 Sequence steps to create:', sequenceSteps);
 
+      // trigger_event_type should be just the event name (e.g., "invoice_paid")
+      // The CRM is stored separately in trigger_type (e.g., "qbo")
+      // This allows the same event type to work across different CRMs
+      const triggerEventType = Object.keys(selectedTriggers).length > 0 
+        ? Object.keys(selectedTriggers)[0] 
+        : (selectedManualTrigger ? 'manual' : null);
+
       const sequenceData = {
         name: formData.name,
         description: formData.description,
         trigger_type: selectedCrm || (selectedManualTrigger ? 'manual' : null),
-        trigger_event_type: Object.keys(selectedTriggers).length > 0 ? Object.keys(selectedTriggers)[0] : null,
+        trigger_event_type: triggerEventType,
         allow_manual_enroll: selectedManualTrigger || formData.settings.allowManualEnroll,
         quiet_hours_start: formData.settings.quietHoursStart,
         quiet_hours_end: formData.settings.quietHoursEnd,
@@ -918,32 +948,15 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
     
     return (
       <div className="space-y-6">
-        {/* Journey Flow Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl border border-blue-200 shadow-sm">
-          <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Building className="h-6 w-6 text-blue-600" />
-            Build Your Journey Flow
-          </h3>
-          <p className="text-sm text-gray-600 mt-2">
-            Drag and drop your steps. Each message will send based on your timing rules.
+        {/* Journey Flow Header - Simplified */}
+        <div className="pb-4 border-b">
+          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+            <Zap className="h-6 w-6 text-purple-600" />
+            Build Journey Flow
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Add steps to your journey. Drag items below to build your flow.
           </p>
-          
-          <div className="bg-white border border-blue-200 rounded-lg p-3 mt-4 flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Mail className="h-5 w-5 text-blue-600" />
-                <span className="text-sm font-medium text-blue-800">Email</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <MessageSquare className="h-5 w-5 text-green-600" />
-                <span className="text-sm font-medium text-green-800">SMS</span>
-              </div>
-            </div>
-            <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-300">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Both Channels Active
-            </Badge>
-          </div>
         </div>
 
         <FlowBuilder
@@ -1399,77 +1412,89 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
     <div className="space-y-6">
       {/* Journey Header */}
       <div className="mb-6 pb-4 border-b">
-        <h2 className="text-lg font-semibold text-gray-900">Journey Basics</h2>
+        <h2 className="text-xl font-semibold text-gray-900">Journey Basics</h2>
         <p className="text-sm text-gray-600 mt-1">Name your journey and choose when it should start</p>
       </div>
 
-      {/* Sequence Details */}
-      <div className="border-t pt-6">
-        <div className="space-y-4">
+      {/* Sequence Details - Cleaner Design */}
+      <Card className="border-2 border-gray-200 shadow-sm">
+        <CardContent className="p-6 space-y-4">
           <div>
-            <Label htmlFor="name">Sequence Name *</Label>
+            <Label htmlFor="name" className="text-sm font-semibold text-gray-900">
+              Journey Name <span className="text-red-500">*</span>
+            </Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => updateFormData('name', e.target.value)}
               placeholder="e.g., Job Completed Follow-up"
-              className={`${errors.name ? 'border-red-500' : ''} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset focus:border-transparent`}
+              className={`mt-2 h-11 ${errors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'focus:border-blue-500 focus:ring-blue-500'}`}
             />
             {errors.name && (
-              <p className="text-sm text-red-500 mt-1">{errors.name}</p>
+              <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" />
+                {errors.name}
+              </p>
             )}
           </div>
 
           <div>
-            <Label htmlFor="description">Description (Optional)</Label>
+            <Label htmlFor="description" className="text-sm font-semibold text-gray-900">
+              Description <span className="text-gray-400 text-xs font-normal">(optional)</span>
+            </Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => updateFormData('description', e.target.value)}
-              placeholder="Brief description of what this sequence does"
+              placeholder="Brief description of what this journey does..."
               rows={3}
-              className="focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset focus:border-transparent"
+              className="mt-2 focus:border-blue-500 focus:ring-blue-500"
             />
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* CRM Selection */}
-      <div data-crm-section>
-        <Label className="text-sm font-medium text-gray-900 mb-3 block">Choose Trigger Source *</Label>
+      {/* CRM Selection - Simplified */}
+      <div data-crm-section className="mt-6">
+        <div className="mb-4">
+          <Label className="text-sm font-semibold text-gray-900 block mb-1">
+            When should this journey start? <span className="text-red-500">*</span>
+          </Label>
+          <p className="text-xs text-gray-500">Choose what triggers this journey to begin</p>
+        </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Object.entries(CRM_OPTIONS).map(([key, crm]) => (
               <button
               key={key}
               onClick={() => !crm.available ? null : handleCrmChange(key)}
               disabled={!crm.available}
-              className={`relative p-4 rounded-lg border-2 transition-colors ${
+              className={`relative p-5 rounded-xl border-2 transition-all duration-200 ${
                 (key === 'manual' && selectedManualTrigger) || (key !== 'manual' && selectedCrm === key)
-                  ? 'border-blue-600 bg-blue-50'
+                  ? 'border-blue-600 bg-blue-50 shadow-md ring-2 ring-blue-200'
                   : crm.available
-                  ? 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                  ? 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md hover:bg-blue-50/30'
                   : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
               }`}
             >
               {((key === 'manual' && selectedManualTrigger) || (key !== 'manual' && selectedCrm === key)) && (
-                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
-                  <Check className="w-3 h-3 text-white" />
+                <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center shadow-md">
+                  <Check className="w-4 h-4 text-white" />
                 </div>
               )}
               
-              <div className="flex items-start space-x-3">
-                <div className="text-2xl">{crm.icon}</div>
-                <div className="flex-1 text-left">
-                  <div className="flex items-center space-x-2">
-                    <h4 className="font-medium text-gray-900">{crm.name}</h4>
+              <div className="flex items-start gap-4">
+                <div className="text-3xl flex-shrink-0">{crm.icon}</div>
+                <div className="flex-1 text-left min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-semibold text-gray-900">{crm.name}</h4>
                     {!crm.available && (
-                      <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                      <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
                         Coming Soon
-                      </span>
+                      </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">{crm.description}</p>
+                  <p className="text-sm text-gray-600 mt-1.5 leading-relaxed">{crm.description}</p>
                 </div>
               </div>
               </button>
@@ -1516,21 +1541,27 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
         )}
       </div>
 
-      {/* Trigger Selection moved to bottom - only show for CRM systems */}
+      {/* Trigger Selection - Simplified, only show for CRM systems */}
       {selectedCrm && selectedCrm !== 'manual' && (
-        <div className="mt-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
-          <div className="flex items-center justify-between mb-3">
-            <Label className="text-base font-medium">Select Trigger Events *</Label>
-            <button
-              onClick={() => {
-                setShowTriggerDropdown(!showTriggerDropdown);
-              }}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
-            >
-              <span>Choose Events</span>
-              {showTriggerDropdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-          </div>
+        <Card className="mt-6 border-2 border-blue-100 bg-blue-50/30">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <Label className="text-sm font-semibold text-gray-900 block mb-1">
+                  Which events trigger this journey? <span className="text-red-500">*</span>
+                </Label>
+                <p className="text-xs text-gray-600">Select one or more events that start this journey</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowTriggerDropdown(!showTriggerDropdown);
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+              >
+                <span>Choose Events</span>
+                {showTriggerDropdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            </div>
           
           {!showTriggerDropdown && (
             <div className="text-sm text-gray-600 mb-2 p-2 bg-white rounded border">
@@ -2031,88 +2062,140 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
   );
 
 
-  const renderStep4 = () => {
+  // Combined Step 3: Messages + Timing
+  const renderStep3Combined = () => {
     const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
 
-  const toggleAiTiming = (stepId) => {
-    setAiTimingPerStep(prev => ({
-      ...prev,
-      [stepId]: !prev[stepId]
-    }));
-  };
-
-
-
-  const getStepTimingSummary = (step) => {
-    const isAiEnabled = aiTimingPerStep[step.id] || false;
-    const currentTiming = stepTimings[step.id] || step.timing || { value: 1, unit: 'hours' };
-    
-    if (isAiEnabled) {
-      return `AI Optimize • Est. Tomorrow 9:00–10:30 AM`;
-    } else {
-      return `Manual • Send +${currentTiming.value}${currentTiming.unit.charAt(0)} after previous step`;
-    }
-  };
-
-  const toggleStepExpansion = (stepId) => {
-    setExpandedSteps(prev => ({
-      ...prev,
-      [stepId]: !prev[stepId]
-    }));
-  };
-
-  const updateStepTiming = (stepId, timing) => {
-    console.log('🔧 updateStepTiming called:', { stepId, timing });
-    setStepTimings(prev => {
-      const newTimings = {
+    const updateStepTiming = (stepId, timing) => {
+      setStepTimings(prev => ({
         ...prev,
         [stepId]: timing
-      };
-      console.log('🔧 New stepTimings:', newTimings);
-      return newTimings;
-    });
-  };
-
-    const getStepIcon = (stepType) => {
-      switch (stepType) {
-        case 'trigger': return Zap;
-        case 'email': return Mail;
-        case 'sms': return MessageSquare;
-        case 'wait': return Clock;
-        default: return Clock;
-      }
-    };
-
-    const getStepColor = (stepType) => {
-      switch (stepType) {
-        case 'trigger': return 'bg-purple-500';
-        case 'email': return 'bg-blue-500';
-        case 'sms': return 'bg-green-500';
-        case 'wait': return 'bg-orange-500';
-        default: return 'bg-gray-500';
-      }
+      }));
     };
 
     return (
-      <div className="space-y-6">
-        {/* Messages Header */}
+      <div className="space-y-8">
+        {/* Header */}
         <div className="pb-4 border-b">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-gray-600" />
-            Customize Messages
-          </h3>
+          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+            <MessageSquare className="h-6 w-6 text-blue-600" />
+            Messages & Timing
+          </h2>
           <p className="text-sm text-gray-600 mt-1">
-            Configure each message in your journey
+            Customize message content and set when each step should send
           </p>
         </div>
 
-        {/* Per-Step Message Editors */}
-        <PerStepMessageEditor
-          flowSteps={safeFlowSteps}
-          updateFlowStepMessage={updateFlowStepMessage}
-          loadTemplateForStep={loadTemplateForStep}
-          toast={toast}
-        />
+        {/* Messages Section - Simplified */}
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900 mb-1">Message Content</h3>
+            <p className="text-xs text-gray-500">Select a template type and it will auto-fill. You can customize it below.</p>
+          </div>
+          <Card className="border-2 border-gray-200 bg-white shadow-sm">
+            <CardContent className="p-6">
+              <PerStepMessageEditor
+                flowSteps={safeFlowSteps}
+                updateFlowStepMessage={updateFlowStepMessage}
+                loadTemplateForStep={loadTemplateForStep}
+                toast={toast}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Timing Section */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-gray-900">Step Timing</h3>
+            <Badge variant="outline" className="text-xs">Control delays</Badge>
+          </div>
+          
+          {/* Per-Step Timing */}
+          {safeFlowSteps.filter(step => step.type !== 'trigger').map((step, index) => {
+            const Icon = step.type === 'email' ? Mail : step.type === 'sms' ? MessageSquare : Clock;
+            const currentTiming = stepTimings[step.id] || step.timing || { value: 1, unit: 'hours' };
+            
+            return (
+              <Card key={step.id} className="shadow-sm border border-gray-200 hover:border-blue-300 transition-colors">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${
+                        step.type === 'email' ? 'bg-blue-100' : 
+                        step.type === 'sms' ? 'bg-green-100' : 'bg-gray-100'
+                      }`}>
+                        <Icon className={`h-4 w-4 ${
+                          step.type === 'email' ? 'text-blue-600' : 
+                          step.type === 'sms' ? 'text-green-600' : 'text-gray-600'
+                        }`} />
+                      </div>
+                      <span className="text-sm font-medium text-gray-900">
+                        {step.type === 'email' ? 'Email' : step.type === 'sms' ? 'SMS' : 'Wait'} Step {index + 1}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">Wait</span>
+                      <Input 
+                        type="number" 
+                        value={currentTiming.value}
+                        onChange={(e) => {
+                          const newValue = parseInt(e.target.value) || 0;
+                          updateStepTiming(step.id, { ...currentTiming, value: newValue });
+                        }}
+                        className="w-20 h-9"
+                        min="0"
+                        placeholder="0"
+                      />
+                      <Select 
+                        value={currentTiming.unit}
+                        onValueChange={(unit) => updateStepTiming(step.id, { ...currentTiming, unit })}
+                      >
+                        <SelectTrigger className="w-28 h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="minutes">min</SelectItem>
+                          <SelectItem value="hours">hours</SelectItem>
+                          <SelectItem value="days">days</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Quiet Hours */}
+        <div className="pt-4 border-t">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="h-5 w-5 text-gray-600" />
+            <h3 className="text-base font-semibold text-gray-900">Quiet Hours</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm text-gray-700">Start</Label>
+              <Input 
+                type="time" 
+                value={formData.settings.quietHoursStart}
+                onChange={(e) => updateFormData('settings', { ...formData.settings, quietHoursStart: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-sm text-gray-700">End</Label>
+              <Input 
+                type="time" 
+                value={formData.settings.quietHoursEnd}
+                onChange={(e) => updateFormData('settings', { ...formData.settings, quietHoursEnd: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">Messages won't send during these hours</p>
+        </div>
       </div>
     );
   };
@@ -2382,78 +2465,186 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
     );
   };
 
-  const renderStep5 = () => (
-    <div className="space-y-6">
-      {/* Settings Header */}
-      <div className="pb-4 border-b">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <Settings className="h-5 w-5 text-gray-600" />
-          Behavior Settings
-        </h3>
-        <p className="text-sm text-gray-600 mt-1">
-          Control how your journey responds to customer actions
-        </p>
+  // Combined Step 4: Settings + Review
+  const renderStep4Combined = () => {
+    const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
+    
+    return (
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="pb-4 border-b">
+          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+            <CheckCircle className="h-6 w-6 text-green-600" />
+            Settings & Review
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Configure behavior rules and review your journey before activating
+          </p>
+        </div>
+
+        {/* Settings Section */}
+        <div className="space-y-4">
+          <h3 className="text-base font-semibold text-gray-900">Behavior Settings</h3>
+          
+          {/* Stop if Review */}
+          <Card className="border-2 border-green-200 hover:border-green-300 transition-colors">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <Label className="text-base font-semibold text-gray-900">
+                      Stop if Review Received
+                    </Label>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Automatically pause journey when customer leaves a review
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={formData.settings.stopIfReview}
+                  onCheckedChange={(checked) => updateFormData('settings', {
+                    ...formData.settings,
+                    stopIfReview: checked
+                  })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Manual Enrollment */}
+          <Card className="border-2 border-blue-200 hover:border-blue-300 transition-colors">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <User className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <Label className="text-base font-semibold text-gray-900">
+                      Allow Manual Enrollment
+                    </Label>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Manually add customers from the Customers tab
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={formData.settings.allowManualEnroll}
+                  onCheckedChange={(checked) => updateFormData('settings', {
+                    ...formData.settings,
+                    allowManualEnroll: checked
+                  })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Review Section */}
+        <div className="pt-6 border-t space-y-4">
+          <h3 className="text-base font-semibold text-gray-900">Journey Summary</h3>
+          
+          {/* Journey Overview Card */}
+          <Card className="shadow-sm border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3 text-lg">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Zap className="h-5 w-5 text-purple-600" />
+                </div>
+                <span>{formData.name || 'Untitled Journey'}</span>
+              </CardTitle>
+              {formData.description && (
+                <p className="text-sm text-gray-600 mt-2">{formData.description}</p>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Trigger */}
+              <div className="bg-gray-50 p-3 rounded-lg border">
+                <div className="flex items-center gap-2 mb-2">
+                  <Webhook className="h-4 w-4 text-gray-600" />
+                  <span className="text-sm font-semibold text-gray-900">Trigger</span>
+                </div>
+                <p className="text-sm text-gray-700">
+                  {CRM_OPTIONS[selectedCrm]?.name || 'Manual Trigger'}
+                  {Object.keys(selectedTriggers).length > 0 && (
+                    <span className="block mt-1 text-xs text-gray-600">
+                      {Object.keys(selectedTriggers).map(triggerId => {
+                        const trigger = getAvailableTriggers()[triggerId];
+                        return trigger?.name;
+                      }).join(', ')}
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {/* Flow Preview */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <ArrowRight className="h-4 w-4 text-gray-600" />
+                  <span className="text-sm font-semibold text-gray-900">Journey Flow</span>
+                </div>
+                <div className="space-y-2">
+                  {safeFlowSteps.filter(step => step.type !== 'trigger').map((step, index) => {
+                    const Icon = step.type === 'email' ? Mail : step.type === 'sms' ? MessageSquare : Clock;
+                    const iconColor = step.type === 'email' ? 'bg-blue-600' : step.type === 'sms' ? 'bg-green-600' : 'bg-orange-600';
+                    const currentTiming = stepTimings[step.id] || step.timing || { value: 1, unit: 'hours' };
+                    
+                    return (
+                      <div key={step.id} className="flex items-center gap-2">
+                        <div className={`flex items-center justify-center w-8 h-8 rounded-full ${iconColor} text-white text-xs`}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1 bg-white p-2 rounded border text-sm">
+                          <span className="font-medium text-gray-900">
+                            {step.type === 'email' ? 'Email' : step.type === 'sms' ? 'SMS' : 'Wait'}
+                          </span>
+                          <span className="text-xs text-gray-500 ml-2">
+                            (+{currentTiming.value} {currentTiming.unit.charAt(0)})
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Settings Summary */}
+              <div className="bg-gray-50 p-3 rounded-lg border grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-3 w-3 text-green-600" />
+                  <span className="text-gray-700">
+                    Stop on review: <strong>{formData.settings.stopIfReview ? 'Yes' : 'No'}</strong>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <User className="h-3 w-3 text-blue-600" />
+                  <span className="text-gray-700">
+                    Manual add: <strong>{formData.settings.allowManualEnroll ? 'Yes' : 'No'}</strong>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 col-span-2">
+                  <Clock className="h-3 w-3 text-orange-600" />
+                  <span className="text-gray-700">
+                    Quiet hours: <strong>{formData.settings.quietHoursStart} - {formData.settings.quietHoursEnd}</strong>
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Ready Message */}
+          <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 text-center">
+            <p className="text-green-800 font-medium text-sm">
+              ✅ Ready to activate! Your journey is configured and ready to go.
+            </p>
+          </div>
+        </div>
       </div>
-
-      {/* Stop if Review Card */}
-      <Card className="shadow-md border-2 border-green-200">
-        <CardContent className="p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 flex-1">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <Label className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                  ✅ Stop if Review Received
-                </Label>
-                <p className="text-sm text-gray-600 mt-1">
-                  Automatically pause journey when customer leaves a review
-                </p>
-              </div>
-            </div>
-            <Switch
-              checked={formData.settings.stopIfReview}
-              onCheckedChange={(checked) => updateFormData('settings', {
-                ...formData.settings,
-                stopIfReview: checked
-              })}
-              className="ml-4"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Manual Enrollment Card */}
-      <Card className="shadow-md border-2 border-blue-200">
-        <CardContent className="p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 flex-1">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <User className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <Label className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                  👋 Allow Manual Enrollment
-                </Label>
-                <p className="text-sm text-gray-600 mt-1">
-                  Let you manually add customers from the Customers tab
-                </p>
-              </div>
-            </div>
-            <Switch
-              checked={formData.settings.allowManualEnroll}
-              onCheckedChange={(checked) => updateFormData('settings', {
-                ...formData.settings,
-                allowManualEnroll: checked
-              })}
-              className="ml-4"
-            />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+    );
+  };
 
   const renderStep6 = () => {
     const safeFlowSteps = Array.isArray(flowSteps) ? flowSteps : [];
@@ -2582,50 +2773,52 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
   };
 
   const steps = [
-    { number: 1, title: 'Journey Basics', description: 'Name your journey and choose triggers' },
-    { number: 2, title: 'Build Flow', description: 'Design your customer journey' },
-    { number: 3, title: 'Messages', description: 'Customize email & SMS content' },
-    { number: 4, title: 'Timing', description: 'Set delays & smart timing' },
-    { number: 5, title: 'Settings', description: 'Configure behavior rules' },
-    { number: 6, title: 'Review', description: 'Review & activate journey' }
+    { number: 1, title: 'Basics', description: 'Name & trigger' },
+    { number: 2, title: 'Flow', description: 'Build journey' },
+    { number: 3, title: 'Messages & Timing', description: 'Content & schedule' },
+    { number: 4, title: 'Settings & Review', description: 'Finalize & activate' }
   ];
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-[80vw] h-[90vh] max-w-none flex flex-col">
+      <DialogContent className="w-[85vw] max-w-5xl h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-gray-900">
+          <DialogTitle className="text-2xl font-bold text-gray-900">
             Create Journey
           </DialogTitle>
+          <DialogDescription className="text-sm text-gray-600 mt-1">
+            Build automated customer journeys in just a few steps
+          </DialogDescription>
 
-        {/* Progress Steps */}
-          <div className="flex items-center justify-between mt-6 mb-4 flex-shrink-0 px-2">
+        {/* Progress Steps - Simplified */}
+          <div className="flex items-center justify-center gap-3 mt-6 mb-6 flex-shrink-0">
           {steps.map((step, index) => (
-            <div key={step.number} className="flex items-center flex-1">
-              <div className="flex items-center">
-                <div className={`flex items-center justify-center w-9 h-9 rounded-full text-sm font-medium transition-colors ${
+            <Fragment key={step.number}>
+              <div className="flex items-center gap-2">
+                <div className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-semibold transition-all duration-200 ${
                   currentStep === step.number
-                    ? 'bg-blue-600 text-white ring-2 ring-blue-200'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white ring-4 ring-blue-100 scale-110'
                     : currentStep > step.number
-                    ? 'bg-green-600 text-white'
+                    ? 'bg-green-500 text-white'
                     : 'bg-gray-200 text-gray-500'
                 }`}>
-                  {currentStep > step.number ? <Check className="w-4 h-4" /> : step.number}
+                  {currentStep > step.number ? <Check className="w-5 h-5" /> : step.number}
                 </div>
-                <div className="ml-2 hidden sm:block">
-                  <div className={`text-sm font-medium ${
+                <div className="hidden md:block">
+                  <div className={`text-sm font-semibold ${
                     currentStep === step.number ? 'text-gray-900' : currentStep > step.number ? 'text-gray-700' : 'text-gray-500'
                   }`}>
                     {step.title}
                   </div>
+                  <div className="text-xs text-gray-500 mt-0.5">{step.description}</div>
                 </div>
               </div>
               {index < steps.length - 1 && (
-                <div className={`h-px mx-3 flex-1 ${
-                  currentStep > step.number ? 'bg-green-600' : 'bg-gray-200'
+                <div className={`hidden md:block w-12 h-0.5 ${
+                  currentStep > step.number ? 'bg-green-500' : 'bg-gray-200'
                 }`} />
               )}
-            </div>
+            </Fragment>
           ))}
         </div>
         </DialogHeader>
@@ -2634,10 +2827,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
         <div className="flex-1 overflow-y-auto px-2">
           {currentStep === 1 && renderStep1()}
           {currentStep === 2 && renderFlowBuilder()}
-          {currentStep === 3 && renderStep4()}
-          {currentStep === 4 && renderTimingStep()}
-          {currentStep === 5 && renderStep5()}
-          {currentStep === 6 && renderStep6()}
+          {currentStep === 3 && renderStep3Combined()}
+          {currentStep === 4 && renderStep4Combined()}
         </div>
 
         {/* Footer - Fixed at bottom */}
@@ -2655,8 +2846,8 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
               <Button variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              {currentStep < 6 ? (
-                <Button onClick={handleNext}>
+              {currentStep < 4 ? (
+                <Button onClick={handleNext} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
                   Next
                 </Button>
               ) : (
@@ -2668,7 +2859,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
                     handleCreate();
                   }}
                   disabled={isCreating}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                 >
                   {isCreating ? (
                     <>

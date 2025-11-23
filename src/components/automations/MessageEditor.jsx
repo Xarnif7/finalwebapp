@@ -142,38 +142,44 @@ const PerStepMessageEditor = ({ flowSteps, updateFlowStepMessage, loadTemplateFo
               </div>
             </div>
 
-            {/* Message Purpose Selector */}
+            {/* Message Purpose Selector - Auto-loads template */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">What is this message for?</Label>
+              <Label className="text-sm font-semibold text-gray-900">
+                What is this message for?
+              </Label>
               <Select
                 value={currentPurpose}
                 onValueChange={(value) => {
-                  // Update the step with new purpose (don't load template yet)
+                  // Auto-load template when purpose changes
                   updateFlowStepMessage(step.id, { purpose: value });
+                  // Auto-load the template immediately
+                  setTimeout(() => {
+                    loadTemplateForStep(step.id, stepType, value);
+                  }, 100);
                 }}
               >
-                <SelectTrigger className="w-full border border-gray-200">
+                <SelectTrigger className="w-full border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(MESSAGE_TEMPLATES).map(([key, template]) => (
                     <SelectItem key={key} value={key}>
-                      <span>{template.icon} {template.name}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-lg">{template.icon}</span>
+                        <span>{template.name}</span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              
-              {/* Load Template Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => loadTemplateForStep(step.id, stepType, currentPurpose)}
-                className="w-full"
-              >
-                <Star className="w-4 h-4 mr-2" />
-                Load {MESSAGE_TEMPLATES[currentPurpose]?.name} Template
-              </Button>
+              {currentPurpose !== 'custom' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 flex items-center gap-2">
+                  <Star className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                  <p className="text-xs text-blue-700">
+                    <strong>Template loaded!</strong> The message below is pre-filled. Customize it as needed.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Email Fields */}

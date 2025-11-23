@@ -29,6 +29,7 @@ import { useBusiness } from "@/hooks/useBusiness";
 import FlowCard from "@/components/automation/FlowCard";
 import SequenceCreator from "@/components/automation/SequenceCreator";
 import AutomationWizard from "@/components/automations/AutomationWizard";
+import JourneyTemplatesModal from "@/components/automations/JourneyTemplatesModal";
 import ActiveSequences from "@/components/automation/ActiveSequences";
 import TestSendModal from "@/components/automation/TestSendModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -47,6 +48,7 @@ const AutomationsPage = () => {
   const [updating, setUpdating] = useState({});
   const [testSendModalOpen, setTestSendModalOpen] = useState(false);
   const [automationWizardOpen, setAutomationWizardOpen] = useState(false);
+  const [templatesModalOpen, setTemplatesModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [activeTab, setActiveTab] = useState('templates');
 
@@ -79,7 +81,8 @@ const AutomationsPage = () => {
         return;
       }
       
-      const response = await fetch(`/api/templates/${business.id}`, {
+      // Load ALL sequences (journeys) from the sequences API
+      const response = await fetch('/api/sequences', {
         headers: {
           'Authorization': `Bearer ${user?.access_token}`
         }
@@ -87,21 +90,38 @@ const AutomationsPage = () => {
       
       if (response.ok) {
         const data = await response.json();
-        const templates = data.templates || [];
+        const sequences = data.sequences || [];
         
-        // If no templates exist, auto-provision defaults
-        if (templates.length === 0) {
-          console.log('No templates found, provisioning defaults...');
-          await provisionDefaultTemplates();
-        } else {
-          setTemplates(templates);
-        }
+        console.log('📋 Loaded sequences for Automations tab:', sequences.length);
+        
+        // Convert sequences to template format for compatibility
+        const templates = sequences.map(sequence => ({
+          id: sequence.id,
+          name: sequence.name,
+          description: sequence.description || `Journey triggered by ${sequence.trigger_event_type}`,
+          status: sequence.status,
+          channels: sequence.channels || ['email', 'sms'],
+          trigger_type: sequence.trigger_type || 'event',
+          key: sequence.trigger_event_type,
+          config_json: {
+            trigger_event_type: sequence.trigger_event_type,
+            allow_manual_enroll: sequence.allow_manual_enroll,
+            quiet_hours_start: sequence.quiet_hours_start,
+            quiet_hours_end: sequence.quiet_hours_end,
+            steps: sequence.step_summary || []
+          },
+          created_at: sequence.created_at,
+          updated_at: sequence.updated_at,
+          business_id: sequence.business_id
+        }));
+        
+        setTemplates(templates);
       } else {
-        console.error('Failed to load templates:', response.statusText);
+        console.error('Failed to load sequences:', response.statusText);
         loadDefaultTemplates();
       }
     } catch (error) {
-      console.error('Error loading templates:', error);
+      console.error('Error loading sequences:', error);
       loadDefaultTemplates();
     } finally {
       setLoading(false);
@@ -362,20 +382,8 @@ const AutomationsPage = () => {
   const handleTemplateSaved = async (updatedTemplate) => {
     console.log('Template saved:', updatedTemplate);
     
-    // Update existing template in local state
-    if (updatedTemplate) {
-      setTemplates(prev => {
-        const updated = prev.map(t => {
-          if (t.id === updatedTemplate.id) {
-            return updatedTemplate;
-          }
-          return t;
-        });
-        return updated;
-      });
-    }
-    
-    // Reload active sequences
+    // Reload both templates and active sequences to get fresh data
+    await loadTemplates();
     await loadActiveSequences();
   };
 
@@ -609,9 +617,9 @@ const AutomationsPage = () => {
             <Button
               onClick={() => {
                 console.log('🎯 Create Journey button clicked!');
-                setAutomationWizardOpen(true);
+                setTemplatesModalOpen(true);
               }}
-              className="bg-gradient-to-r from-[#1A73E8] to-[#7C3AED] hover:from-[#1557B0] hover:to-[#6D28D9] text-white shadow-lg hover:shadow-xl transition-all duration-200"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <Plus className="h-4 w-4 mr-2" />
               Create Journey
@@ -672,6 +680,59 @@ const AutomationsPage = () => {
         business={business}
       />
 
+      {/* Template Selection Modal */}
+      <JourneyTemplatesModal
+        isOpen={templatesModalOpen}
+        onClose={() => setTemplatesModalOpen(false)}
+        onSelectTemplate={(template) => {
+          console.log('📋 Selected template:', template);
+          setTemplatesModalOpen(false);
+          
+          // Convert template format to wizard format
+          const wizardTemplate = {
+            id: template.id,
+            name: template.name,
+            description: template.description,
+            trigger_event_type: template.trigger === 'manual' ? 'manual' : template.trigger,
+            status: 'paused',
+            config_json: {
+              trigger_event_type: template.trigger === 'manual' ? 'manual' : template.trigger,
+              steps: template.preview.map((step, idx) => {
+                const stepKind = step.type === 'email' ? 'send_email' : step.type === 'sms' ? 'send_sms' : 'wait';
+                const delay = step.delay === 'Immediately' ? 0 : 
+                             step.delay.includes('day') || step.delay.includes('Day') ? 24 * 60 * 60 * 1000 :
+                             step.delay.includes('h') || step.delay.includes('hour') ? parseFloat(step.delay) * 60 * 60 * 1000 :
+                             step.delay.includes('m') || step.delay.includes('min') ? parseFloat(step.delay) * 60 * 1000 :
+                             0;
+                
+                return {
+                  kind: stepKind,
+                  step_index: idx + 1,
+                  wait_ms: stepKind === 'wait' ? delay : (idx === 0 ? 0 : delay),
+                  message_purpose: 'custom',
+                  message_config: stepKind === 'wait' ? {} : {
+                    purpose: 'custom',
+                    subject: step.type === 'email' ? step.text : undefined,
+                    body: step.text
+                  }
+                };
+              })
+            },
+            allow_manual_enroll: template.trigger === 'manual',
+            quiet_hours_start: '22:00',
+            quiet_hours_end: '08:00'
+          };
+          
+          setSelectedTemplate(wizardTemplate);
+          setAutomationWizardOpen(true);
+        }}
+        onCreateBlank={() => {
+          setTemplatesModalOpen(false);
+          setSelectedTemplate(null);
+          setAutomationWizardOpen(true);
+        }}
+      />
+
       {/* Automation Wizard Modal - Used for both creating and customizing journeys */}
       <AutomationWizard
         isOpen={automationWizardOpen}
@@ -679,11 +740,12 @@ const AutomationsPage = () => {
           setAutomationWizardOpen(false);
           setSelectedTemplate(null); // Clear selected template when closing
         }}
-        onSequenceCreated={() => {
+        onSequenceCreated={async () => {
           setAutomationWizardOpen(false);
           setSelectedTemplate(null);
-          // Refresh the sequences
-          loadActiveSequences();
+          // Refresh both templates and active sequences
+          await loadTemplates();
+          await loadActiveSequences();
         }}
         initialTemplate={selectedTemplate} // Pass template for customization
       />
