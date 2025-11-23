@@ -1674,10 +1674,11 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
             </div>
           )}
 
-          {errors.triggers && (
-            <p className="text-sm text-red-500 mt-1">{errors.triggers}</p>
-          )}
-        </div>
+            {errors.triggers && (
+              <p className="text-sm text-red-500 mt-1">{errors.triggers}</p>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
