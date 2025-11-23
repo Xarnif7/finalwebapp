@@ -2783,7 +2783,7 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-[90vw] max-w-4xl h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="w-[90vw] max-w-4xl h-[85vh] !flex !flex-col !p-0 !gap-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle className="text-2xl font-bold text-gray-900">
             Create Journey
