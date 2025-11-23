@@ -2783,17 +2783,18 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-[85vw] max-w-5xl h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="w-[90vw] max-w-4xl h-[85vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle className="text-2xl font-bold text-gray-900">
             Create Journey
           </DialogTitle>
           <DialogDescription className="text-sm text-gray-600 mt-1">
             Build automated customer journeys in just a few steps
           </DialogDescription>
+        </DialogHeader>
 
         {/* Progress Steps - Simplified */}
-          <div className="flex items-center justify-center gap-3 mt-6 mb-6 flex-shrink-0">
+        <div className="flex items-center justify-center gap-3 px-6 py-4 border-b bg-gray-50 flex-shrink-0">
           {steps.map((step, index) => (
             <Fragment key={step.number}>
               <div className="flex items-center gap-2">
@@ -2823,10 +2824,9 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
             </Fragment>
           ))}
         </div>
-        </DialogHeader>
 
         {/* Step Content - Flexible area */}
-        <div className="flex-1 overflow-y-auto px-2">
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           {currentStep === 1 && renderStep1()}
           {currentStep === 2 && renderFlowBuilder()}
           {currentStep === 3 && renderStep3Combined()}
@@ -2835,47 +2835,47 @@ const AutomationWizard = ({ isOpen, onClose, onSequenceCreated, initialTemplate 
 
         {/* Footer - Fixed at bottom */}
         {(!showTriggerDropdown || currentStep !== 1) && (
-          <div className="pt-4 border-t bg-white mt-auto">
-          <DialogFooter className="flex justify-between items-center bg-white space-x-4">
-            <div className="flex items-center">
-              {currentStep > 1 && (
-                <Button variant="outline" onClick={handlePrevious}>
-                  Previous
+          <DialogFooter className="px-6 py-4 border-t bg-white flex-shrink-0">
+            <div className="flex justify-between items-center w-full space-x-4">
+              <div className="flex items-center">
+                {currentStep > 1 && (
+                  <Button variant="outline" onClick={handlePrevious}>
+                    Previous
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center space-x-3">
+                <Button variant="outline" onClick={handleClose}>
+                  Cancel
                 </Button>
-              )}
-            </div>
-            <div className="flex items-center space-x-3">
-              <Button variant="outline" onClick={handleClose}>
-                Cancel
-              </Button>
-              {currentStep < 4 ? (
-                <Button onClick={handleNext} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
-                  Next
-                </Button>
-              ) : (
-                <Button 
-                  onClick={() => {
-                    console.log('🔘🔘🔘 CREATE JOURNEY BUTTON CLICKED! Current step:', currentStep);
-                    console.log('🔘 isCreating:', isCreating);
-                    console.log('🔘 About to call handleCreate...');
-                    handleCreate();
-                  }}
-                  disabled={isCreating}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                >
-                  {isCreating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create & Activate'
-                  )}
-                </Button>
-              )}
+                {currentStep < 4 ? (
+                  <Button onClick={handleNext} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+                    Next
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={() => {
+                      console.log('🔘🔘🔘 CREATE JOURNEY BUTTON CLICKED! Current step:', currentStep);
+                      console.log('🔘 isCreating:', isCreating);
+                      console.log('🔘 About to call handleCreate...');
+                      handleCreate();
+                    }}
+                    disabled={isCreating}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                  >
+                    {isCreating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Create & Activate'
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
           </DialogFooter>
-        </div>
         )}
       </DialogContent>
       
